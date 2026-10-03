@@ -33,9 +33,24 @@ import { ConfirmModal, Panel, TabHeader, bytesLabel, errorMessage, timeAgo, useT
 
 /** Real-time collaboration (spec §70 Phase 5): shared projects, live rooms, presence, comments, chat. */
 
-export function Avatar({ name, color, size = 26, title }: { name: string; color: string; size?: number; title?: string }) {
+export function Avatar({
+  name,
+  color,
+  size = 26,
+  title,
+}: {
+  name: string;
+  color: string;
+  size?: number;
+  title?: string;
+}) {
   return (
-    <span className="st-avatar" style={{ background: color, width: size, height: size, fontSize: size * 0.4 }} title={title ?? name} aria-label={name}>
+    <span
+      className="st-avatar"
+      style={{ background: color, width: size, height: size, fontSize: size * 0.4 }}
+      title={title ?? name}
+      aria-label={name}
+    >
       {initials(name)}
     </span>
   );
@@ -57,7 +72,8 @@ export default function CollabTab() {
       />
       {server !== 'online' && (
         <div className="callout warning">
-          Collaboration runs through a Song Deck server. Start one (<code>npx tsx apps/server/src/cli.ts</code>) — or point General → Local server at a shared one.
+          Collaboration runs through a Song Deck server. Start one (
+          <code>npx tsx apps/server/src/cli.ts</code>) — or point General → Local server at a shared one.
         </div>
       )}
       <div className="st-two">
@@ -84,11 +100,19 @@ function IdentityPanel() {
   const update = useSettings((s) => s.update);
   const color = useCollab((s) => s.color);
   return (
-    <Panel title="You" icon="users" sub="How collaborators see you. The name is also the author of your revisions.">
+    <Panel
+      title="You"
+      icon="users"
+      sub="How collaborators see you. The name is also the author of your revisions."
+    >
       <div className="row" style={{ gap: 12 }}>
         <Avatar name={userName || 'Me'} color={color} size={40} />
         <Field label="Display name" className="grow">
-          <CommitText value={userName} onCommit={(v) => update({ userName: v.trim() || 'Me' })} aria-label="Display name" />
+          <CommitText
+            value={userName}
+            onCommit={(v) => update({ userName: v.trim() || 'Me' })}
+            aria-label="Display name"
+          />
         </Field>
       </div>
       <div className="field-label" style={{ marginTop: 10 }}>
@@ -96,7 +120,16 @@ function IdentityPanel() {
       </div>
       <div className="row wrap" role="radiogroup" aria-label="Colour">
         {PEER_COLORS.map((c) => (
-          <button key={c} type="button" role="radio" aria-checked={c === color} className={`st-swatch ${c === color ? 'on' : ''}`} style={{ background: c }} onClick={() => setCollabPrefs({ color: c })} aria-label={`Colour ${c}`} />
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={c === color}
+            className={`st-swatch ${c === color ? 'on' : ''}`}
+            style={{ background: c }}
+            onClick={() => setCollabPrefs({ color: c })}
+            aria-label={`Colour ${c}`}
+          />
         ))}
       </div>
     </Panel>
@@ -114,11 +147,17 @@ function ConnectionPanel() {
       title="Live room"
       icon="server"
       testId="collab-connection"
-      sub={project ? `Room for “${project.meta.name}” (${project.meta.id})` : 'Open a project to collaborate on it.'}
+      sub={
+        project
+          ? `Room for “${project.meta.name}” (${project.meta.id})`
+          : 'Open a project to collaborate on it.'
+      }
       actions={<CollabPresence />}
     >
       <div className="row" style={{ gap: 10 }}>
-        <span className={`status-dot ${s.status === 'connected' ? 'ok' : s.status === 'disconnected' ? '' : 'busy'}`} />
+        <span
+          className={`status-dot ${s.status === 'connected' ? 'ok' : s.status === 'disconnected' ? '' : 'busy'}`}
+        />
         <strong data-testid="collab-status">
           {s.status === 'connected'
             ? 'Connected'
@@ -131,7 +170,12 @@ function ConnectionPanel() {
         {s.status === 'connected' && <Badge tone="success">{s.peers.length + 1} in the room</Badge>}
         <span className="grow" />
         {s.status === 'disconnected' || !connectedHere ? (
-          <Button variant="primary" icon="users" onClick={() => connectCollab()} disabled={!project || server === 'unknown'}>
+          <Button
+            variant="primary"
+            icon="users"
+            onClick={() => connectCollab()}
+            disabled={!project || server === 'unknown'}
+          >
             Connect
           </Button>
         ) : (
@@ -164,14 +208,28 @@ function ConnectionPanel() {
           </span>
         </div>
       )}
-      <Toggle on={s.autoConnect} onChange={(autoConnect) => setCollabPrefs({ autoConnect })} label="Join automatically when I open a project" />
+      <Toggle
+        on={s.autoConnect}
+        onChange={(autoConnect) => setCollabPrefs({ autoConnect })}
+        label="Join automatically when I open a project"
+      />
       <details className="st-adv">
         <summary>Server access</summary>
         <div className="small dim">
           Room URL: <span className="mono">{collabUrl('').replace(/\?.*$/, '')}</span>
         </div>
-        <Field label="Access token" hint="Only for servers started with --token. Kept for this browser session only.">
-          <input className="input mono" type="password" autoComplete="off" value={s.token} onChange={(e) => setCollabPrefs({ token: e.target.value })} aria-label="Server access token" />
+        <Field
+          label="Access token"
+          hint="Only for servers started with --token. Kept for this browser session only."
+        >
+          <input
+            className="input mono"
+            type="password"
+            autoComplete="off"
+            value={s.token}
+            onChange={(e) => setCollabPrefs({ token: e.target.value })}
+            aria-label="Server access token"
+          />
         </Field>
       </details>
     </Panel>
@@ -188,13 +246,20 @@ function SharePanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [replace, setReplace] = useState<{ info: SharedProjectInfo; bytes: Uint8Array; localName: string } | null>(null);
+  const [replace, setReplace] = useState<{
+    info: SharedProjectInfo;
+    bytes: Uint8Array;
+    localName: string;
+  } | null>(null);
   const [overwrite, setOverwrite] = useState<string | null>(null);
 
   const refresh = async () => {
     setError(null);
     try {
-      const [list, r] = await Promise.all([listSharedProjects(), listRooms().catch(() => [] as RoomSummary[])]);
+      const [list, r] = await Promise.all([
+        listSharedProjects(),
+        listRooms().catch(() => [] as RoomSummary[]),
+      ]);
       setShared(list);
       setRooms(r);
     } catch (err) {
@@ -217,7 +282,10 @@ function SharePanel() {
     setBusy('share');
     try {
       const info = await shareProject(name || undefined);
-      toast('success', `Shared as “${info.name}” — collaborators can open it from their Collaboration settings.`);
+      toast(
+        'success',
+        `Shared as “${info.name}” — collaborators can open it from their Collaboration settings.`,
+      );
       await refresh();
     } catch (err) {
       toast('error', `Could not share: ${errorMessage(err)}`);
@@ -260,8 +328,18 @@ function SharePanel() {
     >
       {project ? (
         <div className="row st-share-row">
-          <TextInput value={name} onChange={setName} aria-label="Shared project name" placeholder="Project name on the server" />
-          <Button variant="primary" icon="upload" onClick={() => void share()} disabled={server !== 'online' || busy === 'share'}>
+          <TextInput
+            value={name}
+            onChange={setName}
+            aria-label="Shared project name"
+            placeholder="Project name on the server"
+          />
+          <Button
+            variant="primary"
+            icon="upload"
+            onClick={() => void share()}
+            disabled={server !== 'online' || busy === 'share'}
+          >
             {busy === 'share' ? 'Sharing…' : 'Share project'}
           </Button>
         </div>
@@ -273,7 +351,8 @@ function SharePanel() {
         <span className="field-label">Open a shared project</span>
         {liveRooms.length > 0 && (
           <span className="small dim">
-            {liveRooms.length} live room{liveRooms.length === 1 ? '' : 's'} · {liveRooms.reduce((n, r) => n + r.peers, 0)} people online
+            {liveRooms.length} live room{liveRooms.length === 1 ? '' : 's'} ·{' '}
+            {liveRooms.reduce((n, r) => n + r.peers, 0)} people online
           </span>
         )}
       </div>
@@ -297,7 +376,12 @@ function SharePanel() {
                     {bytesLabel(s.size)} · updated {timeAgo(s.mtime)}
                   </div>
                 </div>
-                <Button size="sm" onClick={() => void open(s)} disabled={!!busy} aria-label={`Open ${s.name}`}>
+                <Button
+                  size="sm"
+                  onClick={() => void open(s)}
+                  disabled={!!busy}
+                  aria-label={`Open ${s.name}`}
+                >
                   {busy === s.name ? 'Opening…' : 'Open'}
                 </Button>
               </div>
@@ -315,8 +399,8 @@ function SharePanel() {
             await share(true);
           }}
         >
-          A project with this name is already shared on the server. Sharing replaces it — collaborators who open it afterwards get your version. Pick another name to
-          keep both.
+          A project with this name is already shared on the server. Sharing replaces it — collaborators who
+          open it afterwards get your version. Pick another name to keep both.
         </ConfirmModal>
       )}
       {replace && (
@@ -335,8 +419,8 @@ function SharePanel() {
             }
           }}
         >
-          “{replace.localName}” is the same project (same id). Opening the shared package replaces your local copy with the shared one — export your local version first
-          if it has work you have not shared.
+          “{replace.localName}” is the same project (same id). Opening the shared package replaces your local
+          copy with the shared one — export your local version first if it has work you have not shared.
         </ConfirmModal>
       )}
     </Panel>
@@ -368,7 +452,11 @@ function PeersPanel() {
           </li>
         ))}
       </ul>
-      {peers.length === 0 && <div className="small dim">Nobody else is here yet. Share the project and ask a collaborator to open it.</div>}
+      {peers.length === 0 && (
+        <div className="small dim">
+          Nobody else is here yet. Share the project and ask a collaborator to open it.
+        </div>
+      )}
     </Panel>
   );
 }
@@ -397,7 +485,9 @@ function CommentsPanel() {
   const [bar, setBar] = useState('');
   const [showResolved, setShowResolved] = useState(false);
   const sections = useMemo(() => (song ? sectionLayout(song) : []), [song]);
-  const visible = comments.filter((c) => showResolved || !c.resolved).sort((a, b) => a.at.localeCompare(b.at));
+  const visible = comments
+    .filter((c) => showResolved || !c.resolved)
+    .sort((a, b) => a.at.localeCompare(b.at));
   const submit = async () => {
     if (!text.trim() || !song) return;
     let tick: number | undefined;
@@ -405,7 +495,11 @@ function CommentsPanel() {
     if (bar.trim() && Number.isInteger(barNum) && barNum >= 1) tick = barToTick(song, barNum - 1);
     else if (sectionId) tick = sections.find((s) => s.section.id === sectionId)?.startTick;
     try {
-      await addCollabComment(text.trim(), { sectionId: sectionId || undefined, trackId: trackId || undefined, tick });
+      await addCollabComment(text.trim(), {
+        sectionId: sectionId || undefined,
+        trackId: trackId || undefined,
+        tick,
+      });
       setText('');
     } catch (err) {
       toast('error', `Comment not sent: ${errorMessage(err)}`);
@@ -417,7 +511,13 @@ function CommentsPanel() {
       icon="chat"
       testId="collab-comments"
       sub="Anchored to a section, a track and/or a bar — they stay with the room."
-      actions={<Toggle on={showResolved} onChange={setShowResolved} label={`Show resolved (${comments.filter((c) => c.resolved).length})`} />}
+      actions={
+        <Toggle
+          on={showResolved}
+          onChange={setShowResolved}
+          label={`Show resolved (${comments.filter((c) => c.resolved).length})`}
+        />
+      }
     >
       <form
         className="st-comment-form"
@@ -431,11 +531,33 @@ function CommentsPanel() {
           size="sm"
           value={sectionId}
           onChange={setSectionId}
-          options={[{ value: '', label: 'Any section' }, ...sections.map((s) => ({ value: s.section.id, label: `${s.section.name} (bar ${s.startBar + 1})` }))]}
+          options={[
+            { value: '', label: 'Any section' },
+            ...sections.map((s) => ({
+              value: s.section.id,
+              label: `${s.section.name} (bar ${s.startBar + 1})`,
+            })),
+          ]}
           aria-label="Section"
         />
-        <Select size="sm" value={trackId} onChange={setTrackId} options={[{ value: '', label: 'Any track' }, ...(song?.tracks ?? []).map((t) => ({ value: t.id, label: t.name }))]} aria-label="Track" />
-        <input className="input sm mono" value={bar} onChange={(e) => setBar(e.target.value.replace(/[^\d]/g, ''))} placeholder="bar" aria-label="Bar" style={{ width: 64 }} />
+        <Select
+          size="sm"
+          value={trackId}
+          onChange={setTrackId}
+          options={[
+            { value: '', label: 'Any track' },
+            ...(song?.tracks ?? []).map((t) => ({ value: t.id, label: t.name })),
+          ]}
+          aria-label="Track"
+        />
+        <input
+          className="input sm mono"
+          value={bar}
+          onChange={(e) => setBar(e.target.value.replace(/[^\d]/g, ''))}
+          placeholder="bar"
+          aria-label="Bar"
+          style={{ width: 64 }}
+        />
         <Button type="submit" variant="primary" size="sm" disabled={!text.trim()}>
           Comment
         </Button>
@@ -454,7 +576,16 @@ function CommentsPanel() {
                 </span>
                 <span className="row" style={{ gap: 6 }}>
                   <span className="small dim">{timeAgo(c.at)}</span>
-                  <Button size="sm" variant={c.resolved ? 'ghost' : 'success'} icon={c.resolved ? 'undo' : 'check'} onClick={() => void resolveCollabComment(c.id, !c.resolved).catch((err) => toast('error', errorMessage(err)))}>
+                  <Button
+                    size="sm"
+                    variant={c.resolved ? 'ghost' : 'success'}
+                    icon={c.resolved ? 'undo' : 'check'}
+                    onClick={() =>
+                      void resolveCollabComment(c.id, !c.resolved).catch((err) =>
+                        toast('error', errorMessage(err)),
+                      )
+                    }
+                  >
                     {c.resolved ? 'Reopen' : 'Resolve'}
                   </Button>
                 </span>
@@ -505,7 +636,12 @@ function ChatPanel() {
           }
         }}
       >
-        <TextInput value={text} onChange={setText} placeholder="Message the room…" aria-label="Chat message" />
+        <TextInput
+          value={text}
+          onChange={setText}
+          placeholder="Message the room…"
+          aria-label="Chat message"
+        />
         <Button type="submit" disabled={!text.trim()}>
           Send
         </Button>
@@ -522,7 +658,18 @@ function ActivityPanel() {
       <ul className="st-activity">
         {activity.slice(0, 20).map((a) => (
           <li key={a.id} className={a.tone}>
-            <Icon name={a.tone === 'error' ? 'alert' : a.tone === 'success' ? 'check' : a.tone === 'warning' ? 'alert' : 'info'} size={13} />
+            <Icon
+              name={
+                a.tone === 'error'
+                  ? 'alert'
+                  : a.tone === 'success'
+                    ? 'check'
+                    : a.tone === 'warning'
+                      ? 'alert'
+                      : 'info'
+              }
+              size={13}
+            />
             <span className="grow">{a.text}</span>
             <span className="small dim nowrap">{timeAgo(a.at)}</span>
           </li>
@@ -531,4 +678,3 @@ function ActivityPanel() {
     </Panel>
   );
 }
-

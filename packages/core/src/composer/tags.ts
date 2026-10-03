@@ -35,7 +35,15 @@ import { TAG_CATALOG } from './tag-catalog';
 
 export type TagKind = 'style' | 'mood' | 'era' | 'production' | 'vocal' | 'region' | 'rhythm';
 
-export const TAG_KINDS: readonly TagKind[] = ['style', 'mood', 'era', 'production', 'vocal', 'region', 'rhythm'];
+export const TAG_KINDS: readonly TagKind[] = [
+  'style',
+  'mood',
+  'era',
+  'production',
+  'vocal',
+  'region',
+  'rhythm',
+];
 
 /** How a tag changes the blended genre profile and macros. All fields optional. */
 export interface TagEffect {
@@ -64,7 +72,13 @@ export interface TagEffect {
     progressions?: { roman: string[]; weight: number }[];
   };
   instruments?: {
-    add?: { instrumentId: string; role: TrackRole; function?: MusicalFunction; weight: number; essential?: boolean }[];
+    add?: {
+      instrumentId: string;
+      role: TrackRole;
+      function?: MusicalFunction;
+      weight: number;
+      essential?: boolean;
+    }[];
     /** Instrument ids to drop from the pool. */
     remove?: string[];
   };
@@ -93,7 +107,12 @@ export const BUILTIN_TAGS: StyleTag[] = TAG_CATALOG;
 
 const BY_ID = new Map(BUILTIN_TAGS.map((t) => [t.id, t]));
 
-const norm = (s: string) => s.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 
 let byName: Map<string, StyleTag> | undefined;
 let namesLongestFirst: { t: StyleTag; n: string }[] | undefined;
@@ -102,7 +121,9 @@ let namesLongestFirst: { t: StyleTag; n: string }[] | undefined;
 function nameIndex(): Map<string, StyleTag> {
   if (!byName) {
     byName = new Map();
-    for (const t of BUILTIN_TAGS) for (const n of [t.id, t.name, ...(t.aliases ?? [])]) if (norm(n) && !byName.has(norm(n))) byName.set(norm(n), t);
+    for (const t of BUILTIN_TAGS)
+      for (const n of [t.id, t.name, ...(t.aliases ?? [])])
+        if (norm(n) && !byName.has(norm(n))) byName.set(norm(n), t);
   }
   return byName;
 }
@@ -123,7 +144,9 @@ export function findTags(text: string): StyleTag[] {
   const hay = ` ${norm(text ?? '')} `;
   const found: StyleTag[] = [];
   if (!namesLongestFirst) {
-    namesLongestFirst = BUILTIN_TAGS.flatMap((t) => [t.name, ...(t.aliases ?? [])].map((n) => ({ t, n: norm(n) })))
+    namesLongestFirst = BUILTIN_TAGS.flatMap((t) =>
+      [t.name, ...(t.aliases ?? [])].map((n) => ({ t, n: norm(n) })),
+    )
       .filter((e) => e.n)
       .sort((a, b) => b.n.length - a.n.length);
   }
@@ -173,7 +196,8 @@ export function applyTagsToGenre(genre: GenreProfile, ids: readonly string[] | u
       if (min !== undefined) g.tempo.min = min;
       if (max !== undefined) g.tempo.max = max;
       if (typical !== undefined) g.tempo.typical = typical;
-      else if (min !== undefined || max !== undefined) g.tempo.typical = Math.round((g.tempo.min + g.tempo.max) / 2);
+      else if (min !== undefined || max !== undefined)
+        g.tempo.typical = Math.round((g.tempo.min + g.tempo.max) / 2);
       if (shift) {
         g.tempo.min += shift;
         g.tempo.max += shift;
@@ -205,27 +229,36 @@ export function applyTagsToGenre(genre: GenreProfile, ids: readonly string[] | u
     if (e.harmony) {
       const { progressions, ...rest } = e.harmony;
       Object.assign(g.harmony, rest);
-      if (progressions) g.harmony.progressions.push(...progressions.map((p) => ({ roman: [...p.roman], weight: p.weight })));
+      if (progressions)
+        g.harmony.progressions.push(...progressions.map((p) => ({ roman: [...p.roman], weight: p.weight })));
     }
     if (e.instruments) {
       const drop = new Set(e.instruments.remove ?? []);
       g.instruments = g.instruments.filter((i) => !drop.has(i.instrumentId));
       for (const add of e.instruments.add ?? []) {
-        if (!g.instruments.some((i) => i.instrumentId === add.instrumentId && i.role === add.role)) g.instruments.push({ ...add });
+        if (!g.instruments.some((i) => i.instrumentId === add.instrumentId && i.role === add.role))
+          g.instruments.push({ ...add });
       }
     }
     if (e.energyShift) {
-      for (const k of Object.keys(g.dynamics.energyBySection) as (keyof typeof g.dynamics.energyBySection)[]) {
-        g.dynamics.energyBySection[k] = Math.max(0, Math.min(100, (g.dynamics.energyBySection[k] ?? 50) + e.energyShift));
+      for (const k of Object.keys(
+        g.dynamics.energyBySection,
+      ) as (keyof typeof g.dynamics.energyBySection)[]) {
+        g.dynamics.energyBySection[k] = Math.max(
+          0,
+          Math.min(100, (g.dynamics.energyBySection[k] ?? 50) + e.energyShift),
+        );
       }
     }
     if (e.macros) {
       const m: Partial<MacroSettings> = { ...(g.macros ?? {}) };
-      for (const [k, v] of Object.entries(e.macros) as [keyof MacroSettings, number][]) m[k] = shiftMacro(m[k] ?? 0.5, v);
+      for (const [k, v] of Object.entries(e.macros) as [keyof MacroSettings, number][])
+        m[k] = shiftMacro(m[k] ?? 0.5, v);
       g.macros = m;
     }
     if (e.production) {
-      if (e.production.keywords) g.production.keywords = [...new Set([...g.production.keywords, ...e.production.keywords])];
+      if (e.production.keywords)
+        g.production.keywords = [...new Set([...g.production.keywords, ...e.production.keywords])];
       if (e.production.reverb !== undefined) g.production.reverb = e.production.reverb;
       if (e.production.masteringTarget) g.production.masteringTarget = e.production.masteringTarget;
     }
@@ -249,7 +282,9 @@ export function applyTagsToMacros(macros: MacroSettings, ids: readonly string[] 
  * The time signature explicitly requested by meter tags ("waltz", "7/8 time"…), if any: the last tag
  * whose effect weights one meter at 2 or more. The planner uses it over the blueprint's meter.
  */
-export function tagMeter(ids: readonly string[] | undefined): { numerator: number; denominator: number } | undefined {
+export function tagMeter(
+  ids: readonly string[] | undefined,
+): { numerator: number; denominator: number } | undefined {
   let out: { numerator: number; denominator: number } | undefined;
   for (const id of normalizeTagIds(ids)) {
     const m = BY_ID.get(id)!.effect.meters?.find((x) => x.weight >= 2);
@@ -266,7 +301,10 @@ export function blendForBlueprint(bp: Pick<Blueprint, 'genreBlend' | 'tags'>): G
 }
 
 /** The genre profile a blueprint composes with: its blend (or its style tags' parents), then its tags. */
-export function genreForBlueprint(bp: Pick<Blueprint, 'genreBlend' | 'tags'>, custom?: GenreProfile[]): GenreProfile {
+export function genreForBlueprint(
+  bp: Pick<Blueprint, 'genreBlend' | 'tags'>,
+  custom?: GenreProfile[],
+): GenreProfile {
   const blend = bp.genreBlend?.length ? bp.genreBlend : tagParents(bp.tags);
   return applyTagsToGenre(genreForBlend(blend, custom), bp.tags);
 }
@@ -277,7 +315,10 @@ export function songTags(song: Pick<Song, 'tags' | 'blueprint'>): string[] {
 }
 
 /** The genre profile a song generates with: its blend plus its tags. */
-export function genreForSong(song: Pick<Song, 'genreBlend' | 'tags' | 'blueprint'>, custom?: GenreProfile[]): GenreProfile {
+export function genreForSong(
+  song: Pick<Song, 'genreBlend' | 'tags' | 'blueprint'>,
+  custom?: GenreProfile[],
+): GenreProfile {
   return applyTagsToGenre(genreForBlend(song.genreBlend, custom), songTags(song));
 }
 
@@ -303,7 +344,8 @@ export function tagCatalogSummary(opts: { kinds?: TagKind[]; maxPerGroup?: numbe
     lines.push(`${kind.toUpperCase()} TAGS:`);
     for (const { group, tags } of groups) {
       const ids = tags.map((t) => t.id);
-      const shown = opts.maxPerGroup && ids.length > opts.maxPerGroup ? [...ids.slice(0, opts.maxPerGroup), '…'] : ids;
+      const shown =
+        opts.maxPerGroup && ids.length > opts.maxPerGroup ? [...ids.slice(0, opts.maxPerGroup), '…'] : ids;
       lines.push(`  ${group}: ${shown.join(', ')}`);
     }
   }

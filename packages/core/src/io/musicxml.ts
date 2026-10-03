@@ -26,7 +26,10 @@ export interface MusicXmlOptions extends InstrumentLookupOptions {
 }
 
 /** MusicXML <kind> values (and degree alterations) for each chord quality. */
-const HARMONY_KIND: Record<ChordQuality, { kind: string; degrees?: [number, number, 'add' | 'alter' | 'subtract'][] }> = {
+const HARMONY_KIND: Record<
+  ChordQuality,
+  { kind: string; degrees?: [number, number, 'add' | 'alter' | 'subtract'][] }
+> = {
   maj: { kind: 'major' },
   min: { kind: 'minor' },
   dim: { kind: 'diminished' },
@@ -78,8 +81,13 @@ interface PartPlan {
   staffNotes: Note[][];
 }
 
-function planClefs(track: Track, profile: InstrumentProfile, drums: boolean): { clefs: ClefSpec[]; staffNotes: Note[][] } {
-  if (drums || profile.clef === 'percussion') return { clefs: [{ sign: 'percussion', line: 2 }], staffNotes: [track.notes] };
+function planClefs(
+  track: Track,
+  profile: InstrumentProfile,
+  drums: boolean,
+): { clefs: ClefSpec[]; staffNotes: Note[][] } {
+  if (drums || profile.clef === 'percussion')
+    return { clefs: [{ sign: 'percussion', line: 2 }], staffNotes: [track.notes] };
   const avg = track.notes.length ? track.notes.reduce((s, n) => s + n.pitch, 0) / track.notes.length : 60;
   if (profile.clef === 'grand') {
     const hasLow = track.notes.some((n) => n.pitch < 60);
@@ -96,9 +104,12 @@ function planClefs(track: Track, profile: InstrumentProfile, drums: boolean): { 
     return { clefs: [avg < 60 ? { sign: 'F', line: 4 } : { sign: 'G', line: 2 }], staffNotes: [track.notes] };
   }
   const octave = (profile.notationTranspose ?? 0) >= 12 ? -1 : undefined;
-  if (profile.clef === 'treble-8vb') return { clefs: [{ sign: 'G', line: 2, octaveChange: -1 }], staffNotes: [track.notes] };
-  if (profile.clef === 'bass') return { clefs: [{ sign: 'F', line: 4, octaveChange: octave }], staffNotes: [track.notes] };
-  if (profile.clef === 'treble') return { clefs: [{ sign: 'G', line: 2, octaveChange: octave }], staffNotes: [track.notes] };
+  if (profile.clef === 'treble-8vb')
+    return { clefs: [{ sign: 'G', line: 2, octaveChange: -1 }], staffNotes: [track.notes] };
+  if (profile.clef === 'bass')
+    return { clefs: [{ sign: 'F', line: 4, octaveChange: octave }], staffNotes: [track.notes] };
+  if (profile.clef === 'treble')
+    return { clefs: [{ sign: 'G', line: 2, octaveChange: octave }], staffNotes: [track.notes] };
   return { clefs: [avg < 55 ? { sign: 'F', line: 4 } : { sign: 'G', line: 2 }], staffNotes: [track.notes] };
 }
 
@@ -131,15 +142,21 @@ function harmonyXml(chord: ChordEvent, measure: MeasureInfo, offset: number): st
   const root = stepAlter(spellPitchClass(chord.root, measure.key));
   const kind = HARMONY_KIND[chord.quality] ?? { kind: 'major' };
   const parts = [`<harmony print-frame="no">`];
-  parts.push(`<root><root-step>${root.step}</root-step>${root.alter ? `<root-alter>${root.alter}</root-alter>` : ''}</root>`);
+  parts.push(
+    `<root><root-step>${root.step}</root-step>${root.alter ? `<root-alter>${root.alter}</root-alter>` : ''}</root>`,
+  );
   const text = chord.symbol.replace(/^[A-G](#|b)?/, '').replace(/\/.*$/, '');
   parts.push(`<kind text="${xmlEscape(text)}">${kind.kind}</kind>`);
   if (chord.bass !== undefined && chord.bass !== chord.root) {
     const b = stepAlter(spellPitchClass(chord.bass, measure.key));
-    parts.push(`<bass><bass-step>${b.step}</bass-step>${b.alter ? `<bass-alter>${b.alter}</bass-alter>` : ''}</bass>`);
+    parts.push(
+      `<bass><bass-step>${b.step}</bass-step>${b.alter ? `<bass-alter>${b.alter}</bass-alter>` : ''}</bass>`,
+    );
   }
   for (const [value, alter, type] of kind.degrees ?? []) {
-    parts.push(`<degree><degree-value>${value}</degree-value><degree-alter>${alter}</degree-alter><degree-type>${type}</degree-type></degree>`);
+    parts.push(
+      `<degree><degree-value>${value}</degree-value><degree-alter>${alter}</degree-alter><degree-type>${type}</degree-type></degree>`,
+    );
   }
   if (offset > 0) parts.push(`<offset>${offset}</offset>`);
   parts.push('</harmony>');
@@ -171,7 +188,8 @@ function noteXml(
   const staffXml = staff !== undefined ? `<staff>${staff}</staff>` : '';
   if (ev.rest) {
     if (ev.hidden) return `<forward><duration>${dur}</duration><voice>${voice}</voice>${staffXml}</forward>`;
-    if (ev.measureRest) return `<note><rest measure="yes"/><duration>${dur}</duration><voice>${voice}</voice>${staffXml}</note>`;
+    if (ev.measureRest)
+      return `<note><rest measure="yes"/><duration>${dur}</duration><voice>${voice}</voice>${staffXml}</note>`;
     return `<note><rest/><duration>${dur}</duration><voice>${voice}</voice><type>${ev.type}</type>${'<dot/>'.repeat(ev.dots)}${staffXml}</note>`;
   }
   const out: string[] = [];
@@ -183,10 +201,14 @@ function noteXml(
     if (plan.drums) {
       const d = drumDisplay(pitch);
       notehead = d.notehead;
-      parts.push(`<unpitched><display-step>${d.step}</display-step><display-octave>${d.octave}</display-octave></unpitched>`);
+      parts.push(
+        `<unpitched><display-step>${d.step}</display-step><display-octave>${d.octave}</display-octave></unpitched>`,
+      );
     } else {
       const sp = spellPitch(pitch, measure.key);
-      parts.push(`<pitch><step>${sp.step}</step>${sp.alter ? `<alter>${sp.alter}</alter>` : ''}<octave>${sp.octave}</octave></pitch>`);
+      parts.push(
+        `<pitch><step>${sp.step}</step>${sp.alter ? `<alter>${sp.alter}</alter>` : ''}<octave>${sp.octave}</octave></pitch>`,
+      );
     }
     parts.push(`<duration>${dur}</duration>`);
     if (ev.tieStop) parts.push('<tie type="stop"/>');
@@ -224,8 +246,13 @@ function noteXml(
  * chord symbols (<harmony>), tempo, rehearsal marks and lyrics on the first part / vocal parts.
  */
 export function songToMusicXML(song: Song, opts: MusicXmlOptions = {}): string {
-  const lookup: InstrumentLookupOptions = { customInstruments: opts.customInstruments, resolveInstrument: opts.resolveInstrument };
-  const tracks = song.tracks.filter((t) => t.kind === 'midi' && (!opts.trackIds || opts.trackIds.includes(t.id)));
+  const lookup: InstrumentLookupOptions = {
+    customInstruments: opts.customInstruments,
+    resolveInstrument: opts.resolveInstrument,
+  };
+  const tracks = song.tracks.filter(
+    (t) => t.kind === 'midi' && (!opts.trackIds || opts.trackIds.includes(t.id)),
+  );
   const grid = notationGrid(song);
   const ctx: Ctx = { divisionsPerTick: 1 / grid };
   const divisions = Math.round(song.ppq / grid);
@@ -238,17 +265,29 @@ export function songToMusicXML(song: Song, opts: MusicXmlOptions = {}): string {
     const profile = lookupInstrument(track.instrumentId, lookup);
     const drums = isDrumTrack(track, lookup);
     const { clefs, staffNotes } = planClefs(track, profile, drums);
-    return { id: `P${i + 1}`, track, profile, channel: channels.get(track.id) ?? 0, drums, clefs, staffNotes };
+    return {
+      id: `P${i + 1}`,
+      track,
+      profile,
+      channel: channels.get(track.id) ?? 0,
+      drums,
+      clefs,
+      staffNotes,
+    };
   });
 
   const xml: string[] = [];
   xml.push('<?xml version="1.0" encoding="UTF-8" standalone="no"?>');
-  xml.push('<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">');
+  xml.push(
+    '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">',
+  );
   xml.push('<score-partwise version="4.0">');
   xml.push(`<work><work-title>${xmlEscape(song.title || 'Untitled')}</work-title></work>`);
   xml.push('<identification>');
   if (opts.composer) xml.push(`<creator type="composer">${xmlEscape(opts.composer)}</creator>`);
-  xml.push('<encoding><software>Song Deck</software><supports element="accidental" type="yes"/><supports element="beam" type="no"/><supports element="stem" type="no"/></encoding>');
+  xml.push(
+    '<encoding><software>Song Deck</software><supports element="accidental" type="yes"/><supports element="beam" type="no"/><supports element="stem" type="no"/></encoding>',
+  );
   xml.push('</identification>');
   xml.push('<part-list>');
   for (const p of plans) {
@@ -256,14 +295,22 @@ export function songToMusicXML(song: Song, opts: MusicXmlOptions = {}): string {
     if (p.drums) {
       const used = [...new Set(p.track.notes.map((n) => n.pitch))].sort((a, b) => a - b);
       for (const pitch of used) {
-        xml.push(`<score-instrument id="${p.id}-I${pitch + 1}"><instrument-name>${xmlEscape(GM_DRUM_NAMES[pitch] ?? `Drum ${pitch}`)}</instrument-name></score-instrument>`);
+        xml.push(
+          `<score-instrument id="${p.id}-I${pitch + 1}"><instrument-name>${xmlEscape(GM_DRUM_NAMES[pitch] ?? `Drum ${pitch}`)}</instrument-name></score-instrument>`,
+        );
       }
       for (const pitch of used) {
-        xml.push(`<midi-instrument id="${p.id}-I${pitch + 1}"><midi-channel>10</midi-channel><midi-unpitched>${pitch + 1}</midi-unpitched></midi-instrument>`);
+        xml.push(
+          `<midi-instrument id="${p.id}-I${pitch + 1}"><midi-channel>10</midi-channel><midi-unpitched>${pitch + 1}</midi-unpitched></midi-instrument>`,
+        );
       }
     } else {
-      xml.push(`<score-instrument id="${p.id}-I1"><instrument-name>${xmlEscape(p.profile.name)}</instrument-name></score-instrument>`);
-      xml.push(`<midi-instrument id="${p.id}-I1"><midi-channel>${p.channel + 1}</midi-channel><midi-program>${Math.max(0, Math.min(127, p.profile.gmProgram)) + 1}</midi-program></midi-instrument>`);
+      xml.push(
+        `<score-instrument id="${p.id}-I1"><instrument-name>${xmlEscape(p.profile.name)}</instrument-name></score-instrument>`,
+      );
+      xml.push(
+        `<midi-instrument id="${p.id}-I1"><midi-channel>${p.channel + 1}</midi-channel><midi-program>${Math.max(0, Math.min(127, p.profile.gmProgram)) + 1}</midi-program></midi-instrument>`,
+      );
     }
     xml.push('</score-part>');
   }
@@ -275,10 +322,16 @@ export function songToMusicXML(song: Song, opts: MusicXmlOptions = {}): string {
     // Layout per staff; drums split hands (voice 1, stems up) and feet (voice 2, stems down).
     let staffLayouts: ReturnType<typeof layoutVoices>[];
     if (plan.drums) {
-      const groups = [plan.track.notes.filter((n) => !drumDisplay(n.pitch).feet), plan.track.notes.filter((n) => drumDisplay(n.pitch).feet)].filter((g) => g.length);
+      const groups = [
+        plan.track.notes.filter((n) => !drumDisplay(n.pitch).feet),
+        plan.track.notes.filter((n) => drumDisplay(n.pitch).feet),
+      ].filter((g) => g.length);
       if (!groups.length) groups.push([]);
       staffLayouts = [groups.map((g) => layoutVoices(g, measures, { ppq: song.ppq, grid, maxVoices: 1 })[0])];
-    } else staffLayouts = plan.staffNotes.map((notes) => layoutVoices(notes, measures, { ppq: song.ppq, grid, maxVoices: 4 }));
+    } else
+      staffLayouts = plan.staffNotes.map((notes) =>
+        layoutVoices(notes, measures, { ppq: song.ppq, grid, maxVoices: 4 }),
+      );
     const multiStaff = plan.clefs.length > 1;
     measures.forEach((m, mi) => {
       xml.push(`<measure number="${mi + 1}">`);
@@ -286,8 +339,10 @@ export function songToMusicXML(song: Song, opts: MusicXmlOptions = {}): string {
       if (needAttrs) {
         const a: string[] = ['<attributes>'];
         if (mi === 0) a.push(`<divisions>${divisions}</divisions>`);
-        if (mi === 0 || m.keyChange) a.push(`<key><fifths>${m.fifths}</fifths><mode>${MODE_XML[m.key.mode] ?? 'none'}</mode></key>`);
-        if (mi === 0 || m.meterChange) a.push(`<time><beats>${m.numerator}</beats><beat-type>${m.denominator}</beat-type></time>`);
+        if (mi === 0 || m.keyChange)
+          a.push(`<key><fifths>${m.fifths}</fifths><mode>${MODE_XML[m.key.mode] ?? 'none'}</mode></key>`);
+        if (mi === 0 || m.meterChange)
+          a.push(`<time><beats>${m.numerator}</beats><beat-type>${m.denominator}</beat-type></time>`);
         if (mi === 0) {
           if (multiStaff) a.push(`<staves>${plan.clefs.length}</staves>`);
           plan.clefs.forEach((c, ci) => a.push(clefXml(c, multiStaff ? ci + 1 : undefined)));
@@ -296,7 +351,9 @@ export function songToMusicXML(song: Song, opts: MusicXmlOptions = {}): string {
         xml.push(a.join(''));
       }
       if (first && m.section) {
-        xml.push(`<direction placement="above"><direction-type><rehearsal>${xmlEscape(m.section.name)}</rehearsal></direction-type></direction>`);
+        xml.push(
+          `<direction placement="above"><direction-type><rehearsal>${xmlEscape(m.section.name)}</rehearsal></direction-type></direction>`,
+        );
       }
       const measureLen = Math.round((m.endTick - m.startTick) * ctx.divisionsPerTick);
       let voiceNumber = 0;
@@ -310,7 +367,9 @@ export function songToMusicXML(song: Song, opts: MusicXmlOptions = {}): string {
           // Directions & harmonies ride on the first voice of the first part.
           const carrier = first && voiceNumber === 1;
           const pendingHarm = carrier ? harmonies[mi].slice() : [];
-          const pendingTempo = carrier ? m.tempos.map((t) => ({ offset: t.tick - m.startTick, bpm: t.bpm })) : [];
+          const pendingTempo = carrier
+            ? m.tempos.map((t) => ({ offset: t.tick - m.startTick, bpm: t.bpm }))
+            : [];
           for (const ev of events) {
             const evEnd = ev.start + ev.duration;
             while (pendingTempo.length && pendingTempo[0].offset < evEnd) {
@@ -319,7 +378,9 @@ export function songToMusicXML(song: Song, opts: MusicXmlOptions = {}): string {
             }
             while (pendingHarm.length && pendingHarm[0].offset < evEnd) {
               const h = pendingHarm.shift()!;
-              xml.push(harmonyXml(h.chord, m, Math.round(Math.max(0, h.offset - ev.start) * ctx.divisionsPerTick)));
+              xml.push(
+                harmonyXml(h.chord, m, Math.round(Math.max(0, h.offset - ev.start) * ctx.divisionsPerTick)),
+              );
             }
             const voiceId = plan.drums ? vi + 1 : multiStaff ? si * 4 + vi + 1 : vi + 1;
             xml.push(noteXml(ev, plan, voiceId, staff, m, acc, ctx));
@@ -328,7 +389,8 @@ export function songToMusicXML(song: Song, opts: MusicXmlOptions = {}): string {
       });
       const last = mi === measures.length - 1;
       if (last) xml.push('<barline location="right"><bar-style>light-heavy</bar-style></barline>');
-      else if (m.sectionEnd) xml.push('<barline location="right"><bar-style>light-light</bar-style></barline>');
+      else if (m.sectionEnd)
+        xml.push('<barline location="right"><bar-style>light-light</bar-style></barline>');
       xml.push('</measure>');
     });
     xml.push('</part>');

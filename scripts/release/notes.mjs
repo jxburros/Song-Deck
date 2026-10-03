@@ -12,7 +12,10 @@ if (!section?.body) fail(`CHANGELOG.md has no notes for ${version}`);
 // the tagged files instead.
 const repo = githubRepo();
 const body = repo
-  ? section.body.replace(/\]\((?!https?:|mailto:|#)([^)\s]+)\)/g, (_, target) => `](${repo}/blob/${tagFor(version)}/${target.replace(/^\.\//, '')})`)
+  ? section.body.replace(
+      /\]\((?!https?:|mailto:|#)([^)\s]+)\)/g,
+      (_, target) => `](${repo}/blob/${tagFor(version)}/${target.replace(/^\.\//, '')})`,
+    )
   : section.body;
 
 process.stdout.write(`${body}

@@ -1,5 +1,15 @@
 import type { ChordEvent, KeySignature, Note, Song } from '../ir/types';
-import { barLengthTicks, barToTick, bpmAtTick, keyAtBar, meterAtBar, sectionLayout, songLengthBars, ticksPerBeat, tickToBar } from '../timing';
+import {
+  barLengthTicks,
+  barToTick,
+  bpmAtTick,
+  keyAtBar,
+  meterAtBar,
+  sectionLayout,
+  songLengthBars,
+  ticksPerBeat,
+  tickToBar,
+} from '../timing';
 import { keyPrefersFlats, mod12, spellPitchClass } from '../theory/pitch';
 import { scalePitchClasses } from '../theory/scales';
 import { keyFifths } from './util';
@@ -45,10 +55,13 @@ const MAX_MEASURES = 4000;
 export function buildMeasures(song: Song, minEndTick = 0): MeasureInfo[] {
   const structural = songLengthBars(song);
   let total = structural;
-  if (minEndTick > 0) total = Math.max(total, Math.min(tickToBar(song, minEndTick - 1).bar + 1, structural + MAX_EXTRA_BARS));
+  if (minEndTick > 0)
+    total = Math.max(total, Math.min(tickToBar(song, minEndTick - 1).bar + 1, structural + MAX_EXTRA_BARS));
   total = Math.max(1, Math.min(total, Math.max(structural, MAX_MEASURES)));
   const spans = sectionLayout(song);
-  const sectionStarts = new Map(spans.filter((s) => s.endBar > s.startBar).map((s) => [s.startBar, s.section] as const));
+  const sectionStarts = new Map(
+    spans.filter((s) => s.endBar > s.startBar).map((s) => [s.startBar, s.section] as const),
+  );
   const sectionEnds = new Set(spans.filter((s) => s.endBar > s.startBar).map((s) => s.endBar - 1));
   const tempos = [...song.tempoMap].sort((a, b) => a.tick - b.tick);
   const out: MeasureInfo[] = [];
@@ -60,7 +73,8 @@ export function buildMeasures(song: Song, minEndTick = 0): MeasureInfo[] {
     const prev = out[i - 1];
     const s = sectionStarts.get(i);
     const inMeasure = tempos.filter((t) => t.tick >= startTick && t.tick < endTick);
-    if (i === 0 && !inMeasure.some((t) => t.tick === 0)) inMeasure.unshift({ tick: 0, bpm: bpmAtTick(song, 0) });
+    if (i === 0 && !inMeasure.some((t) => t.tick === 0))
+      inMeasure.unshift({ tick: 0, bpm: bpmAtTick(song, 0) });
     out.push({
       index: i,
       startTick,
@@ -123,7 +137,13 @@ export function splitNoteDuration(ticks: number, ppq: number, grid: number): Dur
 }
 
 /** Split a rest aligned to the beat grid (rests do not straddle beats unless they start on a larger value). */
-export function splitRest(pos: number, ticks: number, ppq: number, grid: number, meter: { numerator: number; denominator: number }): DurationPiece[] {
+export function splitRest(
+  pos: number,
+  ticks: number,
+  ppq: number,
+  grid: number,
+  meter: { numerator: number; denominator: number },
+): DurationPiece[] {
   const values = noteValues(ppq, grid).filter((v) => v.dots === 0);
   const compound = meter.denominator === 8 && meter.numerator % 3 === 0 && meter.numerator > 3;
   const dottedQuarter = ppq * 1.5;
@@ -201,7 +221,13 @@ export function computeSyllabics(notes: readonly Note[]): Map<string, LyricMark>
     const continuesNext = raw.endsWith('-');
     const startsMid = prevContinues || raw.startsWith('-');
     const text = raw.replace(/^-+|-+$/g, '') || raw;
-    const syllabic: Syllabic = startsMid ? (continuesNext ? 'middle' : 'end') : continuesNext ? 'begin' : 'single';
+    const syllabic: Syllabic = startsMid
+      ? continuesNext
+        ? 'middle'
+        : 'end'
+      : continuesNext
+        ? 'begin'
+        : 'single';
     const mark: LyricMark = { text, syllabic, extend: false };
     out.set(n.id, mark);
     prev = mark;
@@ -248,8 +274,17 @@ function assignVoices(cands: Candidate[], maxVoices: number, monophonic: boolean
     for (const c of cands) {
       const top = c.pitches[c.pitches.length - 1];
       const cur = byStart.get(c.start);
-      if (!cur || top > cur.pitches[cur.pitches.length - 1] || (top === cur.pitches[cur.pitches.length - 1] && c.end > cur.end)) {
-        byStart.set(c.start, { start: c.start, end: c.end, pitches: [top], notes: c.notes.filter((n) => n.pitch === top).concat(c.notes.filter((n) => n.pitch !== top)) });
+      if (
+        !cur ||
+        top > cur.pitches[cur.pitches.length - 1] ||
+        (top === cur.pitches[cur.pitches.length - 1] && c.end > cur.end)
+      ) {
+        byStart.set(c.start, {
+          start: c.start,
+          end: c.end,
+          pitches: [top],
+          notes: c.notes.filter((n) => n.pitch === top).concat(c.notes.filter((n) => n.pitch !== top)),
+        });
       }
     }
     const line = [...byStart.values()].sort((a, b) => a.start - b.start);
@@ -266,7 +301,8 @@ function assignVoices(cands: Candidate[], maxVoices: number, monophonic: boolean
     if (v < 0) {
       // Too many voices: cut the voice that frees up first.
       let best = 0;
-      for (let i = 1; i < voices.length; i++) if (voices[i][voices[i].length - 1].end < voices[best][voices[best].length - 1].end) best = i;
+      for (let i = 1; i < voices.length; i++)
+        if (voices[i][voices[i].length - 1].end < voices[best][voices[best].length - 1].end) best = i;
       const last = voices[best][voices[best].length - 1];
       if (last.start >= c.start) continue;
       last.end = c.start;
@@ -281,7 +317,11 @@ function assignVoices(cands: Candidate[], maxVoices: number, monophonic: boolean
  * Lay out notes as notated events: result[voice][measure] = events in time order, each measure
  * fully covered (rests or hidden spacers fill gaps). Voice 0 always exists.
  */
-export function layoutVoices(notes: readonly Note[], measures: MeasureInfo[], opts: VoiceLayoutOptions): NotatedEvent[][][] {
+export function layoutVoices(
+  notes: readonly Note[],
+  measures: MeasureInfo[],
+  opts: VoiceLayoutOptions,
+): NotatedEvent[][][] {
   const { ppq, grid } = opts;
   const syllabics = computeSyllabics(notes);
   const voices = assignVoices(quantize(notes, grid), opts.maxVoices ?? 4, !!opts.monophonic);
@@ -297,12 +337,34 @@ export function layoutVoices(notes: readonly Note[], measures: MeasureInfo[], op
       const pushRest = (from: number, to: number) => {
         if (to <= from) return;
         if (from === 0 && to === len && primary) {
-          events.push({ start: 0, duration: len, type: 'whole', dots: 0, rest: true, measureRest: true, pitches: [], tieStart: false, tieStop: false, notes: [] });
+          events.push({
+            start: 0,
+            duration: len,
+            type: 'whole',
+            dots: 0,
+            rest: true,
+            measureRest: true,
+            pitches: [],
+            tieStart: false,
+            tieStop: false,
+            notes: [],
+          });
           return;
         }
         let p = from;
         for (const piece of splitRest(from, to - from, ppq, grid, m)) {
-          events.push({ start: p, duration: piece.ticks, type: piece.type, dots: piece.dots, rest: true, hidden: !primary, pitches: [], tieStart: false, tieStop: false, notes: [] });
+          events.push({
+            start: p,
+            duration: piece.ticks,
+            type: piece.type,
+            dots: piece.dots,
+            rest: true,
+            hidden: !primary,
+            pitches: [],
+            tieStart: false,
+            tieStop: false,
+            notes: [],
+          });
           p += piece.ticks;
         }
       };
@@ -476,7 +538,10 @@ export function notesEnd(notes: readonly Note[]): number {
 // ---------------------------------------------------------------------------
 
 /** Standard drum-set display positions (step/octave on a 5-line percussion staff) and noteheads. */
-export const DRUM_DISPLAY: Record<number, { step: string; octave: number; notehead?: string; feet?: boolean }> = {
+export const DRUM_DISPLAY: Record<
+  number,
+  { step: string; octave: number; notehead?: string; feet?: boolean }
+> = {
   35: { step: 'E', octave: 4, feet: true },
   36: { step: 'F', octave: 4, feet: true },
   37: { step: 'C', octave: 5, notehead: 'x' },
@@ -506,4 +571,3 @@ export const DRUM_DISPLAY: Record<number, { step: string; octave: number; notehe
 export function drumDisplay(pitch: number) {
   return DRUM_DISPLAY[pitch] ?? { step: 'C', octave: 5, notehead: 'x' };
 }
-

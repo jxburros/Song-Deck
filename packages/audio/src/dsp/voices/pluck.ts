@@ -87,7 +87,11 @@ export class PluckVoice extends Voice {
   private readonly pg = new Float64Array(2);
   private readonly sr: number;
 
-  constructor(host: VoiceHost, private readonly p: PluckParams, private readonly stereo: boolean) {
+  constructor(
+    host: VoiceHost,
+    private readonly p: PluckParams,
+    private readonly stereo: boolean,
+  ) {
     super(host);
     this.sr = host.sampleRate;
     let n = 1;
@@ -141,8 +145,10 @@ export class PluckVoice extends Voice {
 
   private excite(f0: number, amount: number, add: boolean): void {
     const p = this.p;
-    const buf = this.buf, mask = this.mask;
-    const e = this.exc, c = this.exc2;
+    const buf = this.buf,
+      mask = this.mask;
+    const e = this.exc,
+      c = this.exc2;
     const N = Math.max(4, Math.min(buf.length - 8, Math.round(this.sr / f0)));
     const harmonic = (this.art & ART_HARMONIC) !== 0;
     const smooth = clampNum(p.smooth, 0, 1);
@@ -218,7 +224,7 @@ export class PluckVoice extends Voice {
     this.delay = Math.max(3, this.sr / startF - this.tau);
     this.clickLen = Math.max(1, Math.round(0.002 * this.sr));
     this.clickLeft = p.pickNoise ? this.clickLen : 0;
-    this.tremPeriod = ev.art & ART_TREMOLO ? (60 / Math.max(30, ev.bpm)) / 8 : 0;
+    this.tremPeriod = ev.art & ART_TREMOLO ? 60 / Math.max(30, ev.bpm) / 8 : 0;
     this.tremT = 0;
     panGains(this.stereo ? ev.pan : 0, this.pg);
   }
@@ -253,14 +259,16 @@ export class PluckVoice extends Voice {
   }
 
   render(L: Float64Array, R: Float64Array, start: number, end: number): void {
-    const buf = this.buf, mask = this.mask;
+    const buf = this.buf,
+      mask = this.mask;
     const size = mask + 1;
     const sr = this.sr;
     const p = this.p;
     let w = this.w;
     let xPrev = this.xPrev;
     let dz = this.dz;
-    const s1 = 1 - this.s, s2 = this.s;
+    const s1 = 1 - this.s,
+      s2 = this.s;
     const da = this.dampA;
     const g = this.g;
     const vg = this.velGain;
@@ -269,10 +277,11 @@ export class PluckVoice extends Voice {
     let peak = 0;
     let og = this.outGain;
     const ks = this.killStep;
-    for (let i = start; i < end; ) {
+    for (let i = start; i < end;) {
       const segEnd = Math.min(end, i + CR);
       // control: pitch
-      if (this.glideRate > 0) this.curPitch = this.targetPitch + (this.curPitch - this.targetPitch) * this.glideRate;
+      if (this.glideRate > 0)
+        this.curPitch = this.targetPitch + (this.curPitch - this.targetPitch) * this.glideRate;
       else this.curPitch = this.targetPitch;
       let pitch = this.curPitch;
       if (this.bendTime > 0 && this.t < this.bendTime) {

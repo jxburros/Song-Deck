@@ -78,7 +78,24 @@ export * from './adapters/voice-conversion-http';
 export * from './adapters/mastering-http';
 export * from './adapters/managed';
 export * from './adapters/acoustid';
-export { audioFromJson, audioToJson, audioFromBase64, buildDescriptor, createHttpClient, mergeManualModels, type EncodedAudioJson } from './adapters/common';
+export {
+  audioFromJson,
+  audioToJson,
+  audioFromBase64,
+  buildDescriptor,
+  createHttpClient,
+  mergeManualModels,
+  type EncodedAudioJson,
+} from './adapters/common';
 
 // Utilities useful to apps
-export { base64ToBytes, bytesToBase64, estimateTokens, getPath, utf8Decode, utf8Encode, audioMimeType, audioExtension } from './util';
+export {
+  base64ToBytes,
+  bytesToBase64,
+  estimateTokens,
+  getPath,
+  utf8Decode,
+  utf8Encode,
+  audioMimeType,
+  audioExtension,
+} from './util';

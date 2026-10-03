@@ -90,7 +90,11 @@ export function Fader({
     <div className={`mx-fader ${disabled ? 'disabled' : ''}`} style={{ height }}>
       <div className="mx-fader-scale" aria-hidden>
         {FADER_TICKS.map((t) => (
-          <span key={t} className={t === 0 ? 'unity' : ''} style={{ bottom: THUMB / 2 + dbToPos(t) * usable - 6 }}>
+          <span
+            key={t}
+            className={t === 0 ? 'unity' : ''}
+            style={{ bottom: THUMB / 2 + dbToPos(t) * usable - 6 }}
+          >
             {t > 0 ? `+${t}` : t === 0 ? '0' : `${t}`.replace('-', '−')}
           </span>
         ))}
@@ -189,12 +193,14 @@ export function Knob({
 }) {
   const [active, setActive] = useState(false);
   const drag = useRef<{ x: number; y: number; n: number } | null>(null);
-  const norm = (v: number) => (log ? Math.log(Math.max(min, v) / min) / Math.log(max / min) : (v - min) / (max - min));
+  const norm = (v: number) =>
+    log ? Math.log(Math.max(min, v) / min) / Math.log(max / min) : (v - min) / (max - min);
   const denorm = (n: number) => {
     const t = clamp01(n);
     let v = log ? min * Math.pow(max / min, t) : min + t * (max - min);
     if (step) v = Math.round(v / step) * step;
-    else if (log) v = v >= 100 ? Math.round(v) : v >= 10 ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100;
+    else if (log)
+      v = v >= 100 ? Math.round(v) : v >= 10 ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100;
     else v = Math.round(v * 1000) / 1000;
     return Math.min(max, Math.max(min, v));
   };
@@ -274,7 +280,14 @@ export function Knob({
       >
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
           <path d={arc(c, c, r, START, START + SWEEP)} className="mx-knob-track" />
-          <path d={bipolar ? arc(c, c, r, Math.min(zeroAngle, angle), Math.max(zeroAngle, angle)) : arc(c, c, r, START, angle)} className={`mx-knob-value ${tone}`} />
+          <path
+            d={
+              bipolar
+                ? arc(c, c, r, Math.min(zeroAngle, angle), Math.max(zeroAngle, angle))
+                : arc(c, c, r, START, angle)
+            }
+            className={`mx-knob-value ${tone}`}
+          />
           <circle cx={c} cy={c} r={r - 4} className="mx-knob-cap" />
           {(() => {
             const [x0, y0] = polar(c, c, r * 0.18, angle);

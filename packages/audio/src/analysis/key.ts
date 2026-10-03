@@ -85,7 +85,12 @@ export function chromaHistogram(frames: Float32Array[], weights?: ArrayLike<numb
 }
 
 /** Score all 24 major/minor keys for a pitch-class histogram (+ optional bass histogram). */
-export function keyFromHistogram(hist: ArrayLike<number>, bassHist?: ArrayLike<number>, bassWeight = 0.45, symbolic = false): KeyResult {
+export function keyFromHistogram(
+  hist: ArrayLike<number>,
+  bassHist?: ArrayLike<number>,
+  bassWeight = 0.45,
+  symbolic = false,
+): KeyResult {
   const h = Array.from(hist);
   const total = h.reduce((a, b) => a + b, 0);
   const scores: { key: KeySignature; score: number }[] = [];
@@ -93,9 +98,16 @@ export function keyFromHistogram(hist: ArrayLike<number>, bassHist?: ArrayLike<n
   const bassTotal = bass ? bass.reduce((a, b) => a + b, 0) : 0;
   for (let tonic = 0; tonic < 12; tonic++) {
     for (const mode of ['major', 'minor'] as const) {
-      const prof = symbolic ? (mode === 'major' ? NOTE_PROFILE_MAJOR : NOTE_PROFILE_MINOR) : mode === 'major' ? PROFILE_MAJOR : PROFILE_MINOR;
+      const prof = symbolic
+        ? mode === 'major'
+          ? NOTE_PROFILE_MAJOR
+          : NOTE_PROFILE_MINOR
+        : mode === 'major'
+          ? PROFILE_MAJOR
+          : PROFILE_MINOR;
       let s = total > 0 ? pearson(h, rotate(prof, tonic)) : 0;
-      if (bass && bassTotal > 0) s += bassWeight * pearson(bass, rotate(mode === 'major' ? BASS_MAJOR : BASS_MINOR, tonic));
+      if (bass && bassTotal > 0)
+        s += bassWeight * pearson(bass, rotate(mode === 'major' ? BASS_MAJOR : BASS_MINOR, tonic));
       scores.push({ key: { tonic, mode }, score: s });
     }
   }
@@ -109,7 +121,9 @@ export function keyFromHistogram(hist: ArrayLike<number>, bassHist?: ArrayLike<n
   return {
     key: best.key,
     confidence: Math.round(confidence * 1000) / 1000,
-    alternatives: scores.slice(1, 6).map((s) => ({ key: s.key, score: Math.round((s.score / norm) * 1000) / 1000 })),
+    alternatives: scores
+      .slice(1, 6)
+      .map((s) => ({ key: s.key, score: Math.round((s.score / norm) * 1000) / 1000 })),
   };
 }
 

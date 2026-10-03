@@ -15,7 +15,11 @@ const E2E = !!process.env.E2E;
 const quietWhenServerIsDown: ProxyOptions['configure'] = (proxy) => {
   const emit = proxy.emit.bind(proxy);
   proxy.emit = ((event: string, ...args: unknown[]) => {
-    const [err, , res] = args as [NodeJS.ErrnoException | undefined, unknown, ServerResponse | { destroy(): void } | undefined];
+    const [err, , res] = args as [
+      NodeJS.ErrnoException | undefined,
+      unknown,
+      ServerResponse | { destroy(): void } | undefined,
+    ];
     if (event === 'error' && (err?.code === 'ECONNREFUSED' || err?.code === 'ECONNRESET')) {
       if (res && 'writeHead' in res) {
         if (!res.headersSent) res.writeHead(503, { 'content-type': 'application/json' });
@@ -41,7 +45,16 @@ export default defineConfig({
   // pre-bundled once — otherwise Vite discovers them on first navigation and force-reloads the page.
   optimizeDeps: {
     entries: ['index.html', 'src/**/*.{ts,tsx}'],
-    include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'zustand', 'fflate', '@anthropic-ai/sdk', '@breezystack/lamejs'],
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'zustand',
+      'fflate',
+      '@anthropic-ai/sdk',
+      '@breezystack/lamejs',
+    ],
   },
   worker: {
     format: 'es',

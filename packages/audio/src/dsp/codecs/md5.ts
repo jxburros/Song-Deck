@@ -3,8 +3,9 @@
  */
 
 const S = [
-  7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4,
-  11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+  7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9,
+  14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15,
+  21, 6, 10, 15, 21,
 ];
 const K = new Int32Array(64);
 for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
@@ -40,7 +41,7 @@ export class Md5 {
   digest(): Uint8Array {
     const bitLenLo = (this.total * 8) >>> 0;
     const bitLenHi = Math.floor((this.total * 8) / 4294967296) >>> 0;
-    const pad = new Uint8Array(((this.bufLen < 56 ? 56 : 120) - this.bufLen) + 8);
+    const pad = new Uint8Array((this.bufLen < 56 ? 56 : 120) - this.bufLen + 8);
     pad[0] = 0x80;
     const p = pad.length - 8;
     pad[p] = bitLenLo & 255;
@@ -71,7 +72,10 @@ export class Md5 {
       const b = o + j * 4;
       w[j] = d[b] | (d[b + 1] << 8) | (d[b + 2] << 16) | (d[b + 3] << 24);
     }
-    let a = this.h0, b = this.h1, c = this.h2, dd = this.h3;
+    let a = this.h0,
+      b = this.h1,
+      c = this.h2,
+      dd = this.h3;
     for (let i = 0; i < 64; i++) {
       let f: number, g: number;
       if (i < 16) {

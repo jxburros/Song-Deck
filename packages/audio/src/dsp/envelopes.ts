@@ -159,7 +159,10 @@ export class Adsr {
   process(out: Float64Array, start: number, end: number): boolean {
     let v = this.value;
     let stage = this.stage;
-    const ai = this.attackInc, dc = this.decayCoef, s = this.sustain, rc = this.releaseCoef;
+    const ai = this.attackInc,
+      dc = this.decayCoef,
+      s = this.sustain,
+      rc = this.releaseCoef;
     for (let i = start; i < end; i++) {
       if (stage === ENV_ATTACK) {
         v += ai;

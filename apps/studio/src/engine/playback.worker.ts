@@ -30,7 +30,10 @@ export type PlaybackOutMessage =
       frames: number;
       left: Float32Array;
       right: Float32Array;
-      meters?: { tracks: Record<string, { peakDb: number; rmsDb: number }>; master: { peakDb: number; rmsDb: number } };
+      meters?: {
+        tracks: Record<string, { peakDb: number; rmsDb: number }>;
+        master: { peakDb: number; rmsDb: number };
+      };
       ended: boolean;
     }
   | { type: 'error'; message: string };
@@ -106,7 +109,15 @@ self.onmessage = (ev: MessageEvent<PlaybackInMessage>) => {
         break;
       case 'pull': {
         if (!renderer) {
-          post({ type: 'chunk', gen: msg.gen, frame: 0, frames: 0, left: new Float32Array(0), right: new Float32Array(0), ended: true });
+          post({
+            type: 'chunk',
+            gen: msg.gen,
+            frame: 0,
+            frames: 0,
+            left: new Float32Array(0),
+            right: new Float32Array(0),
+            ended: true,
+          });
           break;
         }
         for (let i = 0; i < msg.count; i++) {
@@ -119,7 +130,10 @@ self.onmessage = (ev: MessageEvent<PlaybackInMessage>) => {
           const meters = chunkCounter % 2 === 0 ? renderer.getMeters() : undefined;
           const outL = n === CHUNK_FRAMES ? left : left.slice(0, n);
           const outR = n === CHUNK_FRAMES ? right : right.slice(0, n);
-          post({ type: 'chunk', gen: msg.gen, frame, frames: n, left: outL, right: outR, meters, ended }, [outL.buffer, outR.buffer]);
+          post({ type: 'chunk', gen: msg.gen, frame, frames: n, left: outL, right: outR, meters, ended }, [
+            outL.buffer,
+            outR.buffer,
+          ]);
           if (ended) break;
         }
         break;

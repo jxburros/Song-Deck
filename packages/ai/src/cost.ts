@@ -84,7 +84,11 @@ export function modelPricing(pricing: PricingInfo | undefined, modelId?: string)
 }
 
 /** Actual LLM cost from token usage (undefined when pricing is unknown). */
-export function llmCostUsd(pricing: PricingInfo | undefined, modelId: string | undefined, usage: TokenUsage | undefined): number | undefined {
+export function llmCostUsd(
+  pricing: PricingInfo | undefined,
+  modelId: string | undefined,
+  usage: TokenUsage | undefined,
+): number | undefined {
   if (!usage) return undefined;
   const p = modelPricing(pricing, modelId);
   if (!p || p.inputPerMTok === undefined || p.outputPerMTok === undefined) return undefined;
@@ -92,11 +96,17 @@ export function llmCostUsd(pricing: PricingInfo | undefined, modelId: string | u
 }
 
 /** Actual audio cost for a generated duration (undefined when pricing is unknown). */
-export function audioCostUsd(pricing: PricingInfo | undefined, modelId: string | undefined, durationSeconds: number, generations = 1): number | undefined {
+export function audioCostUsd(
+  pricing: PricingInfo | undefined,
+  modelId: string | undefined,
+  durationSeconds: number,
+  generations = 1,
+): number | undefined {
   const p = modelPricing(pricing, modelId);
   if (!p) return undefined;
   if (p.perGenerationUsd !== undefined) return p.perGenerationUsd * generations;
-  if (p.perClipUsd !== undefined) return p.perClipUsd * Math.max(1, Math.ceil(durationSeconds / (p.clipSeconds ?? 30))) * generations;
+  if (p.perClipUsd !== undefined)
+    return p.perClipUsd * Math.max(1, Math.ceil(durationSeconds / (p.clipSeconds ?? 30))) * generations;
   if (p.perSecondUsd !== undefined) return p.perSecondUsd * durationSeconds * generations;
   if (p.perMinuteUsd !== undefined) return p.perMinuteUsd * (durationSeconds / 60) * generations;
   return undefined;
@@ -105,20 +115,40 @@ export function audioCostUsd(pricing: PricingInfo | undefined, modelId: string |
 const fmtInt = (n: number) => Math.round(n).toLocaleString('en-US');
 
 export function estimateCost(target: CostTarget, input?: CostEstimateInput, modelId?: string): CostEstimate {
-  const unknown = (basis = 'unknown cost'): CostEstimate => ({ minUsd: 0, maxUsd: 0, basis, known: false, currency: 'USD' });
+  const unknown = (basis = 'unknown cost'): CostEstimate => ({
+    minUsd: 0,
+    maxUsd: 0,
+    basis,
+    known: false,
+    currency: 'USD',
+  });
   if (target.location === 'local' || target.location === 'internal') {
-    return { minUsd: 0, maxUsd: 0, basis: 'Runs on this device — no usage cost', known: true, currency: 'USD' };
+    return {
+      minUsd: 0,
+      maxUsd: 0,
+      basis: 'Runs on this device — no usage cost',
+      known: true,
+      currency: 'USD',
+    };
   }
   const model = modelId ?? target.defaultModel;
   const p = modelPricing(target.pricing, model);
   if (!p) return unknown();
   if (!input) {
-    if (p.perGenerationUsd !== undefined) return { minUsd: p.perGenerationUsd, maxUsd: p.perGenerationUsd, basis: `$${p.perGenerationUsd} per generation`, known: true, currency: 'USD' };
+    if (p.perGenerationUsd !== undefined)
+      return {
+        minUsd: p.perGenerationUsd,
+        maxUsd: p.perGenerationUsd,
+        basis: `$${p.perGenerationUsd} per generation`,
+        known: true,
+        currency: 'USD',
+      };
     return unknown('cost depends on request size');
   }
   if (input.kind === 'llm') {
     if (p.inputPerMTok === undefined || p.outputPerMTok === undefined) return unknown();
-    const inTok = input.inputTokens ?? (input.inputChars !== undefined ? Math.ceil(input.inputChars / 4) : 2000);
+    const inTok =
+      input.inputTokens ?? (input.inputChars !== undefined ? Math.ceil(input.inputChars / 4) : 2000);
     const out = input.outputTokens ?? (input.role ? ROLE_OUTPUT_TOKENS[input.role] : [500, 2000]);
     const [outMin, outMax] = Array.isArray(out) ? out : [out, out];
     const minUsd = (inTok * p.inputPerMTok + outMin * p.outputPerMTok) / 1_000_000;
@@ -135,18 +165,36 @@ export function estimateCost(target: CostTarget, input?: CostEstimateInput, mode
   const dur = Math.max(0, input.durationSeconds);
   if (p.perGenerationUsd !== undefined) {
     const c = p.perGenerationUsd * gens;
-    return { minUsd: c, maxUsd: c, basis: `${gens} generation(s) × $${p.perGenerationUsd}`, known: true, currency: 'USD' };
+    return {
+      minUsd: c,
+      maxUsd: c,
+      basis: `${gens} generation(s) × $${p.perGenerationUsd}`,
+      known: true,
+      currency: 'USD',
+    };
   }
   if (p.perClipUsd !== undefined) {
     const clipLen = p.clipSeconds ?? 30;
     const clips = Math.max(1, Math.ceil(dur / clipLen));
     const c = clips * p.perClipUsd * gens;
-    return { minUsd: c, maxUsd: c, basis: `${clips} × ${clipLen}s clip(s) × ${gens} @ $${p.perClipUsd}`, known: true, currency: 'USD' };
+    return {
+      minUsd: c,
+      maxUsd: c,
+      basis: `${clips} × ${clipLen}s clip(s) × ${gens} @ $${p.perClipUsd}`,
+      known: true,
+      currency: 'USD',
+    };
   }
   if (p.perSecondUsd !== undefined || p.perMinuteUsd !== undefined) {
     const perSec = p.perSecondUsd ?? (p.perMinuteUsd ?? 0) / 60;
     const c = perSec * dur * gens;
-    return { minUsd: c, maxUsd: c * 1.15, basis: `${round(dur, 1)} s × ${gens} @ $${round(perSec * 60, 4)}/min`, known: true, currency: 'USD' };
+    return {
+      minUsd: c,
+      maxUsd: c * 1.15,
+      basis: `${round(dur, 1)} s × ${gens} @ $${round(perSec * 60, 4)}/min`,
+      known: true,
+      currency: 'USD',
+    };
   }
   return unknown();
 }

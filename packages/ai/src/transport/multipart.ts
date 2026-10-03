@@ -17,7 +17,8 @@ export interface EncodedMultipart {
 
 function randomBoundary(): string {
   const bytes = new Uint8Array(12);
-  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') crypto.getRandomValues(bytes);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function')
+    crypto.getRandomValues(bytes);
   else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
   return `----SongDeckFormBoundary${[...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
 }
@@ -26,7 +27,10 @@ function escapeQuoted(s: string): string {
   return s.replace(/\r/g, '%0D').replace(/\n/g, '%0A').replace(/"/g, '%22');
 }
 
-export function encodeMultipart(parts: readonly MultipartPart[], boundary: string = randomBoundary()): EncodedMultipart {
+export function encodeMultipart(
+  parts: readonly MultipartPart[],
+  boundary: string = randomBoundary(),
+): EncodedMultipart {
   const chunks: Uint8Array[] = [];
   for (const part of parts) {
     if ('data' in part) {
@@ -39,7 +43,11 @@ export function encodeMultipart(parts: readonly MultipartPart[], boundary: strin
       chunks.push(part.data);
       chunks.push(utf8Encode('\r\n'));
     } else {
-      chunks.push(utf8Encode(`--${boundary}\r\nContent-Disposition: form-data; name="${escapeQuoted(part.name)}"\r\n\r\n${String(part.value)}\r\n`));
+      chunks.push(
+        utf8Encode(
+          `--${boundary}\r\nContent-Disposition: form-data; name="${escapeQuoted(part.name)}"\r\n\r\n${String(part.value)}\r\n`,
+        ),
+      );
     }
   }
   chunks.push(utf8Encode(`--${boundary}--\r\n`));
@@ -79,7 +87,8 @@ export function decodeMultipart(body: Uint8Array, contentType: string): DecodedP
     if (body[end - 2] === 13 && body[end - 1] === 10) end -= 2;
     const chunk = body.subarray(start, end);
     const sep = (() => {
-      for (let i = 0; i < chunk.length - 3; i++) if (chunk[i] === 13 && chunk[i + 1] === 10 && chunk[i + 2] === 13 && chunk[i + 3] === 10) return i;
+      for (let i = 0; i < chunk.length - 3; i++)
+        if (chunk[i] === 13 && chunk[i + 1] === 10 && chunk[i + 2] === 13 && chunk[i + 3] === 10) return i;
       return -1;
     })();
     if (sep >= 0) {

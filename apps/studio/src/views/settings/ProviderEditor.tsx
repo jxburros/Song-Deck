@@ -25,8 +25,25 @@ import { deleteCredential, getBudget, getRegistry, saveCredential, useAiRuntime 
 import { Badge, Button, Field, Select, TextInput, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { ADAPTER_LABELS, STRUCTURED_MODES } from './constants';
-import { checkProvider, credentialLocations, describeVaultBackend, refreshVault, syncProvidersNow, type CredentialWhere } from './api';
-import { CapBadges, ChipSet, ConfirmModal, LocationBadge, OptNumber, Panel, Segmented, StatusPill, errorMessage } from './ui';
+import {
+  checkProvider,
+  credentialLocations,
+  describeVaultBackend,
+  refreshVault,
+  syncProvidersNow,
+  type CredentialWhere,
+} from './api';
+import {
+  CapBadges,
+  ChipSet,
+  ConfirmModal,
+  LocationBadge,
+  OptNumber,
+  Panel,
+  Segmented,
+  StatusPill,
+  errorMessage,
+} from './ui';
 
 /**
  * Provider configuration editor (spec §4.1 custom endpoint fields, §7 BYOK, §60 budgets/pricing).
@@ -34,7 +51,14 @@ import { CapBadges, ChipSet, ConfirmModal, LocationBadge, OptNumber, Panel, Segm
  * vault (OS keychain) or, without a server, this browser session. They never enter the config.
  */
 
-const LLM_ADAPTERS = new Set<AdapterKind>(['openai-compatible', 'anthropic', 'gemini', 'ollama', 'custom-http', 'managed']);
+const LLM_ADAPTERS = new Set<AdapterKind>([
+  'openai-compatible',
+  'anthropic',
+  'gemini',
+  'ollama',
+  'custom-http',
+  'managed',
+]);
 /** Adapters a preset-less custom LLM endpoint may use. */
 const CUSTOM_LLM_ADAPTERS: AdapterKind[] = ['openai-compatible', 'ollama', 'custom-http'];
 
@@ -95,7 +119,14 @@ export function cleanConfig(c: ProviderConfig): ProviderConfig {
   }
   if (out.models && !out.models.length) delete out.models;
   if (!out.enabledModels?.length) delete out.enabledModels;
-  if (out.models) out.models = out.models.filter((m) => m.id.trim()).map((m) => ({ ...m, id: m.id.trim(), ...(m.capabilities?.length ? {} : { capabilities: undefined }) }));
+  if (out.models)
+    out.models = out.models
+      .filter((m) => m.id.trim())
+      .map((m) => ({
+        ...m,
+        id: m.id.trim(),
+        ...(m.capabilities?.length ? {} : { capabilities: undefined }),
+      }));
   if (out.capabilities && !out.capabilities.length) delete out.capabilities;
   const auth = { ...out.auth };
   if (auth.type === 'none') {
@@ -123,7 +154,15 @@ function usePrevious<T>(v: T): T | undefined {
   return ref.current;
 }
 
-export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderConfig; isNew: boolean; onClose: () => void }) {
+export function ProviderEditor({
+  initial,
+  isNew,
+  onClose,
+}: {
+  initial: ProviderConfig;
+  isNew: boolean;
+  onClose: () => void;
+}) {
   const providers = useSettings((s) => s.providers);
   const upsertProvider = useSettings((s) => s.upsertProvider);
   const removeProvider = useSettings((s) => s.removeProvider);
@@ -139,7 +178,9 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
   const [savedId, setSavedId] = useState<string | null>(isNew ? null : initial.id);
   const [keyInput, setKeyInput] = useState('');
   const [keyWhere, setKeyWhere] = useState<CredentialWhere | 'unknown'>('unknown');
-  const [keyNote, setKeyNote] = useState<{ tone: 'success' | 'warning' | 'danger'; text: string } | null>(null);
+  const [keyNote, setKeyNote] = useState<{ tone: 'success' | 'warning' | 'danger'; text: string } | null>(
+    null,
+  );
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<{ tone: 'success' | 'warning' | 'danger'; text: string } | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -150,28 +191,38 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
   const cleaned = useMemo(() => cleanConfig(draft), [draft]);
   const problems = useMemo(() => {
     const p = validateProviderConfig(cleaned);
-    if (!savedId && providers.some((x) => x.id === cleaned.id)) p.unshift(`id “${cleaned.id}” is already used by another provider`);
+    if (!savedId && providers.some((x) => x.id === cleaned.id))
+      p.unshift(`id “${cleaned.id}” is already used by another provider`);
     const t = cleaned.extra?.customTemplate;
-    if (cleaned.adapter === 'custom-http' && (!t?.body?.trim() || !t.responseTextPath?.trim())) p.push('the request template needs a body and a response text path');
+    if (cleaned.adapter === 'custom-http' && (!t?.body?.trim() || !t.responseTextPath?.trim()))
+      p.push('the request template needs a body and a response text path');
     return p;
   }, [cleaned, providers, savedId]);
   const saved = savedId ? providers.find((p) => p.id === savedId) : undefined;
   const dirty = !saved || JSON.stringify(cleanConfig(saved)) !== JSON.stringify(cleaned);
   const summary = savedId ? summaries.find((s) => s.id === savedId) : undefined;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const models: ModelInfo[] = useMemo(() => (savedId ? getRegistry().models(savedId) : []), [savedId, version]);
+  const models: ModelInfo[] = useMemo(
+    () => (savedId ? getRegistry().models(savedId) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [savedId, version],
+  );
   const credentialRef = draft.credentialRef || defaultCredentialRef(draft.id);
   const needsKey = draft.auth.type !== 'none';
   const cloudBlocked = offline && draft.location === 'cloud';
 
   const set = (patch: Partial<ProviderConfig>) => setDraft((d) => ({ ...d, ...patch }));
-  const setExtra = (patch: Partial<ProviderExtra>) => setDraft((d) => ({ ...d, extra: { ...(d.extra ?? {}), ...patch } }));
+  const setExtra = (patch: Partial<ProviderExtra>) =>
+    setDraft((d) => ({ ...d, extra: { ...(d.extra ?? {}), ...patch } }));
 
   // Keep the default credential reference in step with the id while the provider is new.
   const prevId = usePrevious(draft.id);
   useEffect(() => {
     if (savedId || prevId === undefined || prevId === draft.id) return;
-    setDraft((d) => (d.credentialRef === defaultCredentialRef(prevId) ? { ...d, credentialRef: defaultCredentialRef(d.id) } : d));
+    setDraft((d) =>
+      d.credentialRef === defaultCredentialRef(prevId)
+        ? { ...d, credentialRef: defaultCredentialRef(d.id) }
+        : d,
+    );
   }, [draft.id, prevId, savedId]);
 
   const refreshKey = async () => {
@@ -187,7 +238,10 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
   /** Persist the draft (and wait for the server to know it, so proxied calls are allowed). */
   const save = async (quiet = false, config: ProviderConfig = cleaned): Promise<boolean> => {
     if (problems.length) {
-      setResult({ tone: 'danger', text: `Fix ${problems.length} problem${problems.length > 1 ? 's' : ''} first.` });
+      setResult({
+        tone: 'danger',
+        text: `Fix ${problems.length} problem${problems.length > 1 ? 's' : ''} first.`,
+      });
       return false;
     }
     const hadModels = models.length > 0;
@@ -195,7 +249,10 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
     setSavedId(config.id);
     await syncProvidersNow();
     // Re-creating the provider drops its model cache: refresh it quietly when it had models.
-    if (hadModels && config.enabled && !(offline && config.location === 'cloud')) void getRegistry().discoverModels(config.id).catch(() => undefined);
+    if (hadModels && config.enabled && !(offline && config.location === 'cloud'))
+      void getRegistry()
+        .discoverModels(config.id)
+        .catch(() => undefined);
     if (!quiet) toast('success', `Saved ${config.name}`);
     return true;
   };
@@ -210,7 +267,11 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
       if (!draft.credentialRef) set({ credentialRef });
       const ok = await save(true, withRef);
       if (!ok) return;
-      const where = await saveCredential(credentialRef, secret, `${draft.name} ${preset?.credentialLabel ?? 'API key'}`);
+      const where = await saveCredential(
+        credentialRef,
+        secret,
+        `${draft.name} ${preset?.credentialLabel ?? 'API key'}`,
+      );
       setKeyInput('');
       if (where === 'vault') {
         const backend = (await refreshVault()) ?? vaultBackend;
@@ -257,7 +318,10 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
       return;
     }
     if (cloudBlocked) {
-      setResult({ tone: 'warning', text: 'Offline mode is on: cloud providers are not contacted. Turn it off under Privacy to test this provider.' });
+      setResult({
+        tone: 'warning',
+        text: 'Offline mode is on: cloud providers are not contacted. Turn it off under Privacy to test this provider.',
+      });
       return;
     }
     setBusy(mode);
@@ -283,10 +347,22 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
     try {
       const inst = getRegistry().get(cleaned.id);
       if (!inst?.llm) throw new Error('This provider has no language-model interface');
-      const res = await inst.llm.complete({ model: cleaned.defaultModel, messages: [{ role: 'user', content: 'Reply with the single word OK.' }], maxTokens: 16 });
+      const res = await inst.llm.complete({
+        model: cleaned.defaultModel,
+        messages: [{ role: 'user', content: 'Reply with the single word OK.' }],
+        maxTokens: 16,
+      });
       const ms = Math.round(performance.now() - t0);
       // Even a test prompt is spend (spec §60).
-      if (res.costUsd) getBudget().record({ providerId: cleaned.id, providerName: cleaned.name, modelId: res.model, role: 'chat', costUsd: res.costUsd, note: 'test prompt' });
+      if (res.costUsd)
+        getBudget().record({
+          providerId: cleaned.id,
+          providerName: cleaned.name,
+          modelId: res.model,
+          role: 'chat',
+          costUsd: res.costUsd,
+          note: 'test prompt',
+        });
       setResult({
         tone: 'success',
         text: `${res.model} answered “${res.text.trim().slice(0, 80)}” in ${ms} ms${res.usage ? ` · ${res.usage.inputTokens}+${res.usage.outputTokens} tokens` : ''}${res.costUsd !== undefined ? ` · $${res.costUsd.toFixed(5)}` : ''}.`,
@@ -304,14 +380,20 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
       await syncProvidersNow();
     }
     // Keep a key that another provider still references.
-    const shared = providers.some((p) => p.id !== savedId && (p.credentialRef || defaultCredentialRef(p.id)) === credentialRef);
+    const shared = providers.some(
+      (p) => p.id !== savedId && (p.credentialRef || defaultCredentialRef(p.id)) === credentialRef,
+    );
     if (needsKey && !shared) await deleteCredential(credentialRef).catch(() => undefined);
     toast('success', `Removed ${draft.name}`);
     onClose();
   };
 
   const suggested = useMemo(() => {
-    const ids = new Set<string>([...models.map((m) => m.id), ...(preset?.suggestedModels ?? []), ...(draft.models ?? []).map((m) => m.id)]);
+    const ids = new Set<string>([
+      ...models.map((m) => m.id),
+      ...(preset?.suggestedModels ?? []),
+      ...(draft.models ?? []).map((m) => m.id),
+    ]);
     return [...ids].filter(Boolean);
   }, [models, preset, draft.models]);
 
@@ -320,7 +402,13 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
   return (
     <div className="st-editor" data-testid="provider-editor">
       <div className="st-editor-bar">
-        <Button variant="ghost" icon="chevronRight" onClick={onClose} className="st-back" aria-label="Back to providers">
+        <Button
+          variant="ghost"
+          icon="chevronRight"
+          onClick={onClose}
+          className="st-back"
+          aria-label="Back to providers"
+        >
           Providers
         </Button>
         <div className="grow" style={{ minWidth: 0 }}>
@@ -339,7 +427,8 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
             {dirty && <Badge tone="accent">{savedId ? 'Unsaved changes' : 'Not saved yet'}</Badge>}
           </div>
           <div className="small dim">
-            {preset ? `${preset.name} preset` : 'Custom endpoint'} · {ADAPTER_LABELS[draft.adapter]} adapter · id <span className="mono">{draft.id}</span>
+            {preset ? `${preset.name} preset` : 'Custom endpoint'} · {ADAPTER_LABELS[draft.adapter]} adapter ·
+            id <span className="mono">{draft.id}</span>
           </div>
         </div>
         <div className="row wrap" style={{ justifyContent: 'flex-end' }}>
@@ -349,7 +438,12 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
           <Button icon="check" onClick={() => void discover('test')} disabled={!!busy}>
             {busy === 'test' ? 'Testing…' : 'Test connection'}
           </Button>
-          <Button variant="primary" icon="check" onClick={() => void save()} disabled={!!busy || !dirty || problems.length > 0}>
+          <Button
+            variant="primary"
+            icon="check"
+            onClick={() => void save()}
+            disabled={!!busy || !dirty || problems.length > 0}
+          >
             Save
           </Button>
         </div>
@@ -372,7 +466,8 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
       )}
       {cloudBlocked && (
         <div className="callout warning">
-          <Icon name="shield" size={14} /> Offline mode is on — this cloud provider is unavailable until you turn it off under Privacy.
+          <Icon name="shield" size={14} /> Offline mode is on — this cloud provider is unavailable until you
+          turn it off under Privacy.
         </div>
       )}
       {preset && (preset.setupNotes.length > 0 || preset.docsUrl) && (
@@ -399,8 +494,21 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
             <Field label="Name">
               <TextInput value={draft.name} onChange={(name) => set({ name })} aria-label="Provider name" />
             </Field>
-            <Field label="Id" hint={savedId ? 'Fixed after the first save (profiles and rules refer to it).' : 'Letters, digits and . _ : -'}>
-              <TextInput mono value={draft.id} onChange={(id) => set({ id: id.replace(/[^A-Za-z0-9._:-]/g, '-') })} disabled={!!savedId} aria-label="Provider id" />
+            <Field
+              label="Id"
+              hint={
+                savedId
+                  ? 'Fixed after the first save (profiles and rules refer to it).'
+                  : 'Letters, digits and . _ : -'
+              }
+            >
+              <TextInput
+                mono
+                value={draft.id}
+                onChange={(id) => set({ id: id.replace(/[^A-Za-z0-9._:-]/g, '-') })}
+                disabled={!!savedId}
+                aria-label="Provider id"
+              />
             </Field>
           </div>
           <Field
@@ -415,7 +523,13 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
                     : undefined
             }
           >
-            <TextInput mono value={draft.baseUrl} onChange={(baseUrl) => set({ baseUrl })} placeholder="http://localhost:8000/v1" aria-label="Endpoint URL" />
+            <TextInput
+              mono
+              value={draft.baseUrl}
+              onChange={(baseUrl) => set({ baseUrl })}
+              placeholder="http://localhost:8000/v1"
+              aria-label="Endpoint URL"
+            />
           </Field>
           <div className="grid-2">
             <Field label="Location" hint="Cloud = data leaves this device (privacy indicator, offline mode).">
@@ -437,7 +551,12 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
                     setDraft((d) => ({
                       ...d,
                       adapter,
-                      ...(adapter === 'custom-http' && !d.extra?.customTemplate ? { extra: { ...(d.extra ?? {}), customTemplate: structuredClone(DEFAULT_TEMPLATE) }, structuredOutput: 'prompt' as const } : {}),
+                      ...(adapter === 'custom-http' && !d.extra?.customTemplate
+                        ? {
+                            extra: { ...(d.extra ?? {}), customTemplate: structuredClone(DEFAULT_TEMPLATE) },
+                            structuredOutput: 'prompt' as const,
+                          }
+                        : {}),
                     }))
                   }
                   options={CUSTOM_LLM_ADAPTERS.map((a) => ({ value: a, label: ADAPTER_LABELS[a] }))}
@@ -453,22 +572,42 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
               <Select
                 value={String(draft.qualityTier ?? preset?.qualityTier ?? 3)}
                 onChange={(v) => set({ qualityTier: Number(v) })}
-                options={['1', '2', '3', '4', '5'].map((v) => ({ value: v, label: `${v} — ${['draft', 'basic', 'good', 'great', 'best'][Number(v) - 1]}` }))}
+                options={['1', '2', '3', '4', '5'].map((v) => ({
+                  value: v,
+                  label: `${v} — ${['draft', 'basic', 'good', 'great', 'best'][Number(v) - 1]}`,
+                }))}
                 aria-label="Quality tier"
               />
             </Field>
             <Field label="Status">
-              <Toggle on={draft.enabled} onChange={(enabled) => set({ enabled })} label={draft.enabled ? 'Enabled' : 'Disabled'} />
+              <Toggle
+                on={draft.enabled}
+                onChange={(enabled) => set({ enabled })}
+                label={draft.enabled ? 'Enabled' : 'Disabled'}
+              />
             </Field>
           </div>
         </Panel>
 
-        <Panel title="Authentication" icon="key" sub="Spec §7: keys live in the OS keychain via the local server — never in settings or project files.">
+        <Panel
+          title="Authentication"
+          icon="key"
+          sub="Spec §7: keys live in the OS keychain via the local server — never in settings or project files."
+        >
           <div className="grid-2">
             <Field label="Authentication">
               <Select<AuthType>
                 value={draft.auth.type}
-                onChange={(type) => set({ auth: { ...draft.auth, type, ...(type === 'header' && !draft.auth.name ? { name: 'x-api-key' } : {}), ...(type === 'query' && !draft.auth.name ? { name: 'key' } : {}) } })}
+                onChange={(type) =>
+                  set({
+                    auth: {
+                      ...draft.auth,
+                      type,
+                      ...(type === 'header' && !draft.auth.name ? { name: 'x-api-key' } : {}),
+                      ...(type === 'query' && !draft.auth.name ? { name: 'key' } : {}),
+                    },
+                  })
+                }
                 options={[
                   { value: 'none', label: 'None' },
                   { value: 'bearer', label: 'Bearer token' },
@@ -480,12 +619,21 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
             </Field>
             {(draft.auth.type === 'header' || draft.auth.type === 'query') && (
               <Field label={draft.auth.type === 'header' ? 'Header name' : 'Parameter name'}>
-                <TextInput mono value={draft.auth.name ?? ''} onChange={(name) => set({ auth: { ...draft.auth, name } })} />
+                <TextInput
+                  mono
+                  value={draft.auth.name ?? ''}
+                  onChange={(name) => set({ auth: { ...draft.auth, name } })}
+                />
               </Field>
             )}
             {draft.auth.type === 'bearer' && (
               <Field label="Prefix" hint="Default “Bearer ”.">
-                <TextInput mono value={draft.auth.prefix ?? ''} placeholder="Bearer " onChange={(prefix) => set({ auth: { ...draft.auth, prefix } })} />
+                <TextInput
+                  mono
+                  value={draft.auth.prefix ?? ''}
+                  placeholder="Bearer "
+                  onChange={(prefix) => set({ auth: { ...draft.auth, prefix } })}
+                />
               </Field>
             )}
           </div>
@@ -495,7 +643,8 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
                 <Icon name="key" size={14} />
                 {keyWhere === 'vault' ? (
                   <span>
-                    Key stored in the server vault <span className="dim">({describeVaultBackend(vaultBackend)})</span>
+                    Key stored in the server vault{' '}
+                    <span className="dim">({describeVaultBackend(vaultBackend)})</span>
                   </span>
                 ) : keyWhere === 'browser' ? (
                   <span>Key stored encrypted in this browser</span>
@@ -523,7 +672,11 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
                   type="password"
                   autoComplete="off"
                   spellCheck={false}
-                  placeholder={keyWhere === 'vault' || keyWhere === 'browser' || keyWhere === 'session' ? 'Enter a new key to replace it' : `Paste your ${preset?.credentialLabel ?? 'API key'}`}
+                  placeholder={
+                    keyWhere === 'vault' || keyWhere === 'browser' || keyWhere === 'session'
+                      ? 'Enter a new key to replace it'
+                      : `Paste your ${preset?.credentialLabel ?? 'API key'}`
+                  }
                   value={keyInput}
                   onChange={(e) => setKeyInput(e.target.value)}
                   aria-label={preset?.credentialLabel ?? 'API key'}
@@ -532,7 +685,13 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
                   {busy === 'key' ? 'Saving…' : 'Save key'}
                 </Button>
                 {(keyWhere === 'vault' || keyWhere === 'browser' || keyWhere === 'session') && (
-                  <Button variant="ghost" icon="trash" onClick={() => void removeKey()} disabled={!!busy} title="Delete the stored key">
+                  <Button
+                    variant="ghost"
+                    icon="trash"
+                    onClick={() => void removeKey()}
+                    disabled={!!busy}
+                    title="Delete the stored key"
+                  >
                     Delete
                   </Button>
                 )}
@@ -549,21 +708,39 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
               </div>
               <details className="st-adv">
                 <summary>Vault reference</summary>
-                <Field label="Credential reference" hint="Several providers may share one key by using the same reference.">
-                  <TextInput mono value={draft.credentialRef ?? ''} placeholder={defaultCredentialRef(draft.id)} onChange={(v) => set({ credentialRef: v })} />
+                <Field
+                  label="Credential reference"
+                  hint="Several providers may share one key by using the same reference."
+                >
+                  <TextInput
+                    mono
+                    value={draft.credentialRef ?? ''}
+                    placeholder={defaultCredentialRef(draft.id)}
+                    onChange={(v) => set({ credentialRef: v })}
+                  />
                 </Field>
               </details>
             </>
           ) : (
-            <div className="small muted">This endpoint is called without credentials. Switch to Bearer, a header or a query parameter if the server needs a key.</div>
+            <div className="small muted">
+              This endpoint is called without credentials. Switch to Bearer, a header or a query parameter if
+              the server needs a key.
+            </div>
           )}
         </Panel>
 
-        {(draft.location === 'cloud' || draft.adapter === 'google-lyria' || draft.organization || draft.project || draft.region) && (
+        {(draft.location === 'cloud' ||
+          draft.adapter === 'google-lyria' ||
+          draft.organization ||
+          draft.project ||
+          draft.region) && (
           <Panel title="Account & region" icon="users" sub="Spec §7: organization / project ids and region.">
             <div className="grid-3">
               <Field label="Organization">
-                <TextInput value={draft.organization ?? ''} onChange={(organization) => set({ organization })} />
+                <TextInput
+                  value={draft.organization ?? ''}
+                  onChange={(organization) => set({ organization })}
+                />
               </Field>
               <Field label="Project">
                 <TextInput value={draft.project ?? ''} onChange={(project) => set({ project })} />
@@ -588,7 +765,14 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
         >
           <div className="grid-3">
             <Field label="Default model / model id">
-              <TextInput mono value={draft.defaultModel ?? ''} onChange={(defaultModel) => set({ defaultModel })} list={`models-${draft.id}`} placeholder={preset?.suggestedModels?.[0] ?? 'model id'} aria-label="Default model" />
+              <TextInput
+                mono
+                value={draft.defaultModel ?? ''}
+                onChange={(defaultModel) => set({ defaultModel })}
+                list={`models-${draft.id}`}
+                placeholder={preset?.suggestedModels?.[0] ?? 'model id'}
+                aria-label="Default model"
+              />
               <datalist id={`models-${draft.id}`}>
                 {suggested.map((m) => (
                   <option key={m} value={m} />
@@ -596,11 +780,24 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
               </datalist>
             </Field>
             <Field label="Context length" hint="Tokens (num_ctx for Ollama).">
-              <OptNumber value={draft.contextLength} onChange={(contextLength) => set({ contextLength })} min={256} step={1024} placeholder="auto" aria-label="Context length" />
+              <OptNumber
+                value={draft.contextLength}
+                onChange={(contextLength) => set({ contextLength })}
+                min={256}
+                step={1024}
+                placeholder="auto"
+                aria-label="Context length"
+              />
             </Field>
             {isLlm && (
               <Field label="Max output tokens">
-                <OptNumber value={draft.extra?.maxOutputTokens} onChange={(maxOutputTokens) => setExtra({ maxOutputTokens })} min={16} step={256} placeholder="default" />
+                <OptNumber
+                  value={draft.extra?.maxOutputTokens}
+                  onChange={(maxOutputTokens) => setExtra({ maxOutputTokens })}
+                  min={16}
+                  step={256}
+                  placeholder="default"
+                />
               </Field>
             )}
           </div>
@@ -608,7 +805,8 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
             <div className="callout row" data-testid="enabled-models">
               <Icon name="check" size={14} />
               <span className="grow">
-                Song Deck uses only the {draft.enabledModels.length} model{draft.enabledModels.length === 1 ? '' : 's'} chosen when this service was connected:{' '}
+                Song Deck uses only the {draft.enabledModels.length} model
+                {draft.enabledModels.length === 1 ? '' : 's'} chosen when this service was connected:{' '}
                 <span className="mono small">{draft.enabledModels.join(', ')}</span>
               </span>
               <Button size="sm" variant="ghost" onClick={() => set({ enabledModels: undefined })}>
@@ -616,11 +814,19 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
               </Button>
             </div>
           )}
-          <ModelTable models={models} defaultModel={draft.defaultModel} onUse={(id) => set({ defaultModel: id })} />
+          <ModelTable
+            models={models}
+            defaultModel={draft.defaultModel}
+            onUse={(id) => set({ defaultModel: id })}
+          />
           <ManualModels value={draft.models ?? []} onChange={(m) => set({ models: m })} />
         </Panel>
 
-        <Panel title="Capabilities" icon="sparkles" sub="What this provider advertises to the router (spec §5). Leave empty to use the preset and discovered capabilities.">
+        <Panel
+          title="Capabilities"
+          icon="sparkles"
+          sub="What this provider advertises to the router (spec §5). Leave empty to use the preset and discovered capabilities."
+        >
           <CapabilityPicker
             value={draft.capabilities ?? []}
             effective={summary?.capabilities ?? preset?.capabilities ?? []}
@@ -628,9 +834,20 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
           />
         </Panel>
 
-        <Panel title="Requests" icon="tasks" sub="Structured output support, timeout, concurrency and rate limits.">
+        <Panel
+          title="Requests"
+          icon="tasks"
+          sub="Structured output support, timeout, concurrency and rate limits."
+        >
           {isLlm && (
-            <Field label="Structured output support" hint={STRUCTURED_MODES.find((m) => m.value === (draft.structuredOutput ?? preset?.structuredOutput ?? 'json_schema'))?.hint}>
+            <Field
+              label="Structured output support"
+              hint={
+                STRUCTURED_MODES.find(
+                  (m) => m.value === (draft.structuredOutput ?? preset?.structuredOutput ?? 'json_schema'),
+                )?.hint
+              }
+            >
               <Select
                 value={draft.structuredOutput ?? preset?.structuredOutput ?? 'json_schema'}
                 onChange={(structuredOutput) => set({ structuredOutput })}
@@ -641,40 +858,85 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
           )}
           <div className="grid-3">
             <Field label="Timeout (s)">
-              <OptNumber value={draft.timeoutMs} onChange={(v) => set({ timeoutMs: v ?? 120_000 })} min={1} max={3600} scale={1000} aria-label="Timeout seconds" />
+              <OptNumber
+                value={draft.timeoutMs}
+                onChange={(v) => set({ timeoutMs: v ?? 120_000 })}
+                min={1}
+                max={3600}
+                scale={1000}
+                aria-label="Timeout seconds"
+              />
             </Field>
             <Field label="Concurrency">
-              <OptNumber value={draft.concurrency} onChange={(v) => set({ concurrency: Math.max(1, Math.round(v ?? 1)) })} min={1} max={64} aria-label="Concurrency" />
+              <OptNumber
+                value={draft.concurrency}
+                onChange={(v) => set({ concurrency: Math.max(1, Math.round(v ?? 1)) })}
+                min={1}
+                max={64}
+                aria-label="Concurrency"
+              />
             </Field>
             <Field label="Requests / min">
-              <OptNumber value={draft.requestsPerMinute} onChange={(requestsPerMinute) => set({ requestsPerMinute })} min={1} max={100000} placeholder="no limit" aria-label="Requests per minute" />
+              <OptNumber
+                value={draft.requestsPerMinute}
+                onChange={(requestsPerMinute) => set({ requestsPerMinute })}
+                min={1}
+                max={100000}
+                placeholder="no limit"
+                aria-label="Requests per minute"
+              />
             </Field>
           </div>
         </Panel>
 
-        <Panel title="Cost & budget" icon="info" sub="Per-provider limits on top of the global budget (spec §60). Pricing drives cost estimates; unknown pricing shows “unknown cost”.">
+        <Panel
+          title="Cost & budget"
+          icon="info"
+          sub="Per-provider limits on top of the global budget (spec §60). Pricing drives cost estimates; unknown pricing shows “unknown cost”."
+        >
           <div className="grid-3">
             <Field label="Per generation ($)">
-              <OptNumber value={draft.budget?.perGenerationUsd} onChange={(perGenerationUsd) => set({ budget: { ...draft.budget, perGenerationUsd } })} min={0} step={0.1} placeholder="—" />
+              <OptNumber
+                value={draft.budget?.perGenerationUsd}
+                onChange={(perGenerationUsd) => set({ budget: { ...draft.budget, perGenerationUsd } })}
+                min={0}
+                step={0.1}
+                placeholder="—"
+              />
             </Field>
             <Field label="Daily ($)">
-              <OptNumber value={draft.budget?.dailyUsd} onChange={(dailyUsd) => set({ budget: { ...draft.budget, dailyUsd } })} min={0} step={1} placeholder="—" />
+              <OptNumber
+                value={draft.budget?.dailyUsd}
+                onChange={(dailyUsd) => set({ budget: { ...draft.budget, dailyUsd } })}
+                min={0}
+                step={1}
+                placeholder="—"
+              />
             </Field>
             <Field label="Monthly ($)">
-              <OptNumber value={draft.budget?.monthlyUsd} onChange={(monthlyUsd) => set({ budget: { ...draft.budget, monthlyUsd } })} min={0} step={5} placeholder="—" />
+              <OptNumber
+                value={draft.budget?.monthlyUsd}
+                onChange={(monthlyUsd) => set({ budget: { ...draft.budget, monthlyUsd } })}
+                min={0}
+                step={5}
+                placeholder="—"
+              />
             </Field>
           </div>
           <Toggle
             on={showPricing}
             onChange={(on) => {
               setShowPricing(on);
-              if (on && !draft.pricing) set({ pricing: structuredClone(preset?.pricing ?? { currency: 'USD' }) });
+              if (on && !draft.pricing)
+                set({ pricing: structuredClone(preset?.pricing ?? { currency: 'USD' }) });
               if (!on) set({ pricing: undefined });
             }}
             label={preset?.pricing ? 'Override the preset’s pricing' : 'Set pricing'}
           />
           {!showPricing && <PricingSummary pricing={preset?.pricing} />}
-          {showPricing && draft.pricing && <PricingEditor value={draft.pricing} onChange={(pricing) => set({ pricing })} />}
+          {showPricing && draft.pricing && (
+            <PricingEditor value={draft.pricing} onChange={(pricing) => set({ pricing })} />
+          )}
         </Panel>
 
         <AdapterOptions draft={draft} setExtra={setExtra} />
@@ -682,7 +944,13 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
 
       <div className="st-editor-foot">
         {isLlm && savedId && (
-          <Button variant="ai" icon="chat" onClick={() => void testPrompt()} disabled={!!busy} title={`Sends “Reply with the single word OK.” (about 10 tokens) to ${draft.name}${draft.location === 'cloud' ? ' — leaves this device' : ''}`}>
+          <Button
+            variant="ai"
+            icon="chat"
+            onClick={() => void testPrompt()}
+            disabled={!!busy}
+            title={`Sends “Reply with the single word OK.” (about 10 tokens) to ${draft.name}${draft.location === 'cloud' ? ' — leaves this device' : ''}`}
+          >
             {busy === 'prompt' ? 'Waiting for the model…' : 'Send a test prompt'}
           </Button>
         )}
@@ -693,23 +961,48 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
           </Button>
         )}
         <Button onClick={onClose}>Close</Button>
-        <Button variant="primary" onClick={() => void save()} disabled={!dirty || problems.length > 0 || !!busy}>
+        <Button
+          variant="primary"
+          onClick={() => void save()}
+          disabled={!dirty || problems.length > 0 || !!busy}
+        >
           Save
         </Button>
       </div>
 
       {confirmRemove && (
-        <ConfirmModal title={`Remove ${draft.name}?`} confirmLabel="Remove provider and key" danger onClose={() => setConfirmRemove(false)} onConfirm={remove}>
-          The provider configuration is deleted{needsKey ? ', and its stored key is deleted from the vault' : ''}. Projects keep their provenance records — they never depend on a provider (spec §2.2).
+        <ConfirmModal
+          title={`Remove ${draft.name}?`}
+          confirmLabel="Remove provider and key"
+          danger
+          onClose={() => setConfirmRemove(false)}
+          onConfirm={remove}
+        >
+          The provider configuration is deleted
+          {needsKey ? ', and its stored key is deleted from the vault' : ''}. Projects keep their provenance
+          records — they never depend on a provider (spec §2.2).
         </ConfirmModal>
       )}
     </div>
   );
 }
 
-function ModelTable({ models, defaultModel, onUse }: { models: ModelInfo[]; defaultModel?: string; onUse: (id: string) => void }) {
+function ModelTable({
+  models,
+  defaultModel,
+  onUse,
+}: {
+  models: ModelInfo[];
+  defaultModel?: string;
+  onUse: (id: string) => void;
+}) {
   const [all, setAll] = useState(false);
-  if (!models.length) return <div className="small muted st-models-empty">No models discovered yet. Save the provider and click Discover — or enter models manually below.</div>;
+  if (!models.length)
+    return (
+      <div className="small muted st-models-empty">
+        No models discovered yet. Save the provider and click Discover — or enter models manually below.
+      </div>
+    );
   const shown = all ? models : models.slice(0, 12);
   return (
     <div className="st-table-wrap">
@@ -736,7 +1029,10 @@ function ModelTable({ models, defaultModel, onUse }: { models: ModelInfo[]; defa
                 <CapBadges caps={m.capabilities} max={5} inferred={m.capabilitiesInferred} />
                 <div className="row" style={{ gap: 4, marginTop: 3 }}>
                   {m.capabilitiesInferred && (
-                    <Badge tone="warning" title="Capabilities inferred from the model id — correct them with a manual entry or a capability override">
+                    <Badge
+                      tone="warning"
+                      title="Capabilities inferred from the model id — correct them with a manual entry or a capability override"
+                    >
                       inferred
                     </Badge>
                   )}
@@ -765,11 +1061,16 @@ function ModelTable({ models, defaultModel, onUse }: { models: ModelInfo[]; defa
   );
 }
 
-const CAP_OPTIONS = CAPABILITIES.map((c) => ({ value: c, label: CAPABILITY_INFO[c].label, title: CAPABILITY_INFO[c].description }));
+const CAP_OPTIONS = CAPABILITIES.map((c) => ({
+  value: c,
+  label: CAPABILITY_INFO[c].label,
+  title: CAPABILITY_INFO[c].description,
+}));
 
 function ManualModels({ value, onChange }: { value: ManualModel[]; onChange: (v: ManualModel[]) => void }) {
   const [open, setOpen] = useState<number | null>(null);
-  const setAt = (i: number, patch: Partial<ManualModel>) => onChange(value.map((m, j) => (j === i ? { ...m, ...patch } : m)));
+  const setAt = (i: number, patch: Partial<ManualModel>) =>
+    onChange(value.map((m, j) => (j === i ? { ...m, ...patch } : m)));
   return (
     <div className="st-manual">
       <div className="row between">
@@ -785,33 +1086,87 @@ function ManualModels({ value, onChange }: { value: ManualModel[]; onChange: (v:
           Add model
         </Button>
       </div>
-      {value.length === 0 && <div className="small dim">For servers that cannot list models, or to correct a model’s capabilities.</div>}
+      {value.length === 0 && (
+        <div className="small dim">
+          For servers that cannot list models, or to correct a model’s capabilities.
+        </div>
+      )}
       {value.map((m, i) => (
         <div key={i} className="st-manual-row">
           <div className="row">
-            <TextInput size="sm" mono value={m.id} placeholder="model id" onChange={(id) => setAt(i, { id })} aria-label="Manual model id" />
-            <TextInput size="sm" value={m.name ?? ''} placeholder="display name" onChange={(name) => setAt(i, { name: name || undefined })} />
-            <OptNumber size="sm" value={m.contextLength} placeholder="context" min={256} onChange={(contextLength) => setAt(i, { contextLength })} />
-            <OptNumber size="sm" value={m.qualityTier} placeholder="tier" min={1} max={5} onChange={(qualityTier) => setAt(i, { qualityTier })} />
+            <TextInput
+              size="sm"
+              mono
+              value={m.id}
+              placeholder="model id"
+              onChange={(id) => setAt(i, { id })}
+              aria-label="Manual model id"
+            />
+            <TextInput
+              size="sm"
+              value={m.name ?? ''}
+              placeholder="display name"
+              onChange={(name) => setAt(i, { name: name || undefined })}
+            />
+            <OptNumber
+              size="sm"
+              value={m.contextLength}
+              placeholder="context"
+              min={256}
+              onChange={(contextLength) => setAt(i, { contextLength })}
+            />
+            <OptNumber
+              size="sm"
+              value={m.qualityTier}
+              placeholder="tier"
+              min={1}
+              max={5}
+              onChange={(qualityTier) => setAt(i, { qualityTier })}
+            />
             <Button size="sm" variant="ghost" onClick={() => setOpen(open === i ? null : i)}>
               {m.capabilities?.length ? `${m.capabilities.length} caps` : 'Capabilities'}
             </Button>
-            <Button size="sm" variant="ghost" icon="trash" onClick={() => onChange(value.filter((_, j) => j !== i))} aria-label="Remove model" />
+            <Button
+              size="sm"
+              variant="ghost"
+              icon="trash"
+              onClick={() => onChange(value.filter((_, j) => j !== i))}
+              aria-label="Remove model"
+            />
           </div>
-          {open === i && <ChipSet label="Model capabilities" options={CAP_OPTIONS} value={m.capabilities ?? []} onChange={(capabilities) => setAt(i, { capabilities })} />}
+          {open === i && (
+            <ChipSet
+              label="Model capabilities"
+              options={CAP_OPTIONS}
+              value={m.capabilities ?? []}
+              onChange={(capabilities) => setAt(i, { capabilities })}
+            />
+          )}
         </div>
       ))}
     </div>
   );
 }
 
-function CapabilityPicker({ value, effective, onChange }: { value: Capability[]; effective: readonly Capability[]; onChange: (v: Capability[]) => void }) {
+function CapabilityPicker({
+  value,
+  effective,
+  onChange,
+}: {
+  value: Capability[];
+  effective: readonly Capability[];
+  onChange: (v: Capability[]) => void;
+}) {
   const override = value.length > 0;
   const groups = Object.keys(CAPABILITY_GROUPS) as CapabilityGroup[];
   return (
     <div className="col">
       <div className="row between">
-        <Toggle on={override} onChange={(on) => onChange(on ? [...effective] : [])} label="Override capabilities" />
+        <Toggle
+          on={override}
+          onChange={(on) => onChange(on ? [...effective] : [])}
+          label="Override capabilities"
+        />
         {!override && <span className="small dim">{effective.length} advertised</span>}
       </div>
       {override ? (
@@ -820,7 +1175,16 @@ function CapabilityPicker({ value, effective, onChange }: { value: Capability[];
           return (
             <div key={g} className="st-capgroup">
               <div className="field-label">{CAPABILITY_GROUPS[g].label}</div>
-              <ChipSet label={CAPABILITY_GROUPS[g].label} options={caps.map((c) => ({ value: c, label: CAPABILITY_INFO[c].label, title: CAPABILITY_INFO[c].description }))} value={value} onChange={(v) => onChange(v)} />
+              <ChipSet
+                label={CAPABILITY_GROUPS[g].label}
+                options={caps.map((c) => ({
+                  value: c,
+                  label: CAPABILITY_INFO[c].label,
+                  title: CAPABILITY_INFO[c].description,
+                }))}
+                value={value}
+                onChange={(v) => onChange(v)}
+              />
             </div>
           );
         })
@@ -832,7 +1196,12 @@ function CapabilityPicker({ value, effective, onChange }: { value: Capability[];
 }
 
 function PricingSummary({ pricing }: { pricing?: PricingInfo }) {
-  if (!pricing) return <div className="small dim">No pricing published for this provider — costs show as “unknown cost” and budgets cannot be verified.</div>;
+  if (!pricing)
+    return (
+      <div className="small dim">
+        No pricing published for this provider — costs show as “unknown cost” and budgets cannot be verified.
+      </div>
+    );
   const rows = Object.entries(pricing.models ?? {}).slice(0, 8);
   return (
     <div className="small muted">
@@ -881,57 +1250,123 @@ function PricingEditor({ value, onChange }: { value: PricingInfo; onChange: (v: 
       <div className="grid-4">
         {PRICE_FIELDS.map((f) => (
           <Field key={f.key} label={f.label}>
-            <OptNumber size="sm" value={value[f.key]} min={0} step={0.01} onChange={(v) => onChange({ ...value, [f.key]: v })} />
+            <OptNumber
+              size="sm"
+              value={value[f.key]}
+              min={0}
+              step={0.01}
+              onChange={(v) => onChange({ ...value, [f.key]: v })}
+            />
           </Field>
         ))}
       </div>
       <div className="field-label">Per-model token prices</div>
       {models.map(([id, p]) => (
         <div key={id} className="row">
-          <TextInput size="sm" mono value={id} onChange={(nid) => setModel(id, {}, nid)} aria-label="Priced model id" />
-          <OptNumber size="sm" value={p.inputPerMTok} min={0} step={0.01} placeholder="in" onChange={(inputPerMTok) => setModel(id, { inputPerMTok })} />
-          <OptNumber size="sm" value={p.outputPerMTok} min={0} step={0.01} placeholder="out" onChange={(outputPerMTok) => setModel(id, { outputPerMTok })} />
-          <Button size="sm" variant="ghost" icon="trash" onClick={() => setModel(id, null)} aria-label="Remove price" />
+          <TextInput
+            size="sm"
+            mono
+            value={id}
+            onChange={(nid) => setModel(id, {}, nid)}
+            aria-label="Priced model id"
+          />
+          <OptNumber
+            size="sm"
+            value={p.inputPerMTok}
+            min={0}
+            step={0.01}
+            placeholder="in"
+            onChange={(inputPerMTok) => setModel(id, { inputPerMTok })}
+          />
+          <OptNumber
+            size="sm"
+            value={p.outputPerMTok}
+            min={0}
+            step={0.01}
+            placeholder="out"
+            onChange={(outputPerMTok) => setModel(id, { outputPerMTok })}
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="trash"
+            onClick={() => setModel(id, null)}
+            aria-label="Remove price"
+          />
         </div>
       ))}
       <div className="row">
-        <Button size="sm" icon="plus" onClick={() => onChange({ ...value, models: { ...(value.models ?? {}), [`model-${models.length + 1}`]: {} } })}>
+        <Button
+          size="sm"
+          icon="plus"
+          onClick={() =>
+            onChange({ ...value, models: { ...(value.models ?? {}), [`model-${models.length + 1}`]: {} } })
+          }
+        >
           Add model price
         </Button>
-        <TextInput size="sm" value={value.note ?? ''} placeholder="Note (source, date)" onChange={(note) => onChange({ ...value, note: note || undefined })} />
+        <TextInput
+          size="sm"
+          value={value.note ?? ''}
+          placeholder="Note (source, date)"
+          onChange={(note) => onChange({ ...value, note: note || undefined })}
+        />
       </div>
     </div>
   );
 }
 
-function AdapterOptions({ draft, setExtra }: { draft: ProviderConfig; setExtra: (p: Partial<ProviderExtra>) => void }) {
+function AdapterOptions({
+  draft,
+  setExtra,
+}: {
+  draft: ProviderConfig;
+  setExtra: (p: Partial<ProviderExtra>) => void;
+}) {
   const x = draft.extra ?? {};
   switch (draft.adapter) {
     case 'anthropic':
       return (
-        <Panel title="Anthropic options" icon="sliders" sub="Effort trades depth for speed and cost; refusal fallbacks retry declined requests on a fallback model server-side.">
+        <Panel
+          title="Anthropic options"
+          icon="sliders"
+          sub="Effort trades depth for speed and cost; refusal fallbacks retry declined requests on a fallback model server-side."
+        >
           <div className="grid-2">
             <Field label="Effort">
               <Select
                 value={x.effort ?? 'medium'}
                 onChange={(effort) => setExtra({ effort })}
-                options={(['low', 'medium', 'high', 'xhigh', 'max'] as const).map((v) => ({ value: v, label: v }))}
+                options={(['low', 'medium', 'high', 'xhigh', 'max'] as const).map((v) => ({
+                  value: v,
+                  label: v,
+                }))}
                 aria-label="Effort"
               />
             </Field>
             <Field label="Refusal fallback">
-              <Toggle on={x.refusalFallback !== false} onChange={(refusalFallback) => setExtra({ refusalFallback })} label={x.refusalFallback !== false ? 'On' : 'Off'} />
+              <Toggle
+                on={x.refusalFallback !== false}
+                onChange={(refusalFallback) => setExtra({ refusalFallback })}
+                label={x.refusalFallback !== false ? 'On' : 'Off'}
+              />
             </Field>
           </div>
         </Panel>
       );
     case 'openai-compatible':
       return (
-        <Panel title="OpenAI-compatible options" icon="sliders" sub="Which max-token field the server expects and which JSON-schema dialect it accepts.">
+        <Panel
+          title="OpenAI-compatible options"
+          icon="sliders"
+          sub="Which max-token field the server expects and which JSON-schema dialect it accepts."
+        >
           <div className="grid-2">
             <Field label="Max-tokens parameter">
               <Select
-                value={x.maxTokensParam ?? (draft.location === 'cloud' ? 'max_completion_tokens' : 'max_tokens')}
+                value={
+                  x.maxTokensParam ?? (draft.location === 'cloud' ? 'max_completion_tokens' : 'max_tokens')
+                }
                 onChange={(maxTokensParam) => setExtra({ maxTokensParam })}
                 options={[
                   { value: 'max_tokens', label: 'max_tokens' },
@@ -955,34 +1390,71 @@ function AdapterOptions({ draft, setExtra }: { draft: ProviderConfig; setExtra: 
       );
     case 'google-lyria':
       return (
-        <Panel title="Vertex AI (Lyria)" icon="cloud" sub="Lyria runs in your Google Cloud project; the access token is stored as the key.">
+        <Panel
+          title="Vertex AI (Lyria)"
+          icon="cloud"
+          sub="Lyria runs in your Google Cloud project; the access token is stored as the key."
+        >
           <div className="grid-2">
             <Field label="GCP project id">
-              <TextInput mono value={x.vertexProject ?? ''} onChange={(vertexProject) => setExtra({ vertexProject })} aria-label="GCP project id" />
+              <TextInput
+                mono
+                value={x.vertexProject ?? ''}
+                onChange={(vertexProject) => setExtra({ vertexProject })}
+                aria-label="GCP project id"
+              />
             </Field>
             <Field label="Location">
-              <TextInput mono value={x.vertexLocation ?? 'us-central1'} onChange={(vertexLocation) => setExtra({ vertexLocation })} />
+              <TextInput
+                mono
+                value={x.vertexLocation ?? 'us-central1'}
+                onChange={(vertexLocation) => setExtra({ vertexLocation })}
+              />
             </Field>
           </div>
         </Panel>
       );
     case 'custom-http':
-      return <TemplateEditor value={x.customTemplate} model={draft.defaultModel ?? ''} onChange={(customTemplate) => setExtra({ customTemplate })} />;
+      return (
+        <TemplateEditor
+          value={x.customTemplate}
+          model={draft.defaultModel ?? ''}
+          onChange={(customTemplate) => setExtra({ customTemplate })}
+        />
+      );
     case 'elevenlabs-music':
     case 'stability-audio':
       return (
         <Panel title="Audio output" icon="wave">
           <div className="grid-3">
             <Field label="Output format">
-              <TextInput mono value={x.outputFormat ?? ''} placeholder={draft.adapter === 'elevenlabs-music' ? 'mp3_44100_128' : 'wav'} onChange={(outputFormat) => setExtra({ outputFormat })} />
+              <TextInput
+                mono
+                value={x.outputFormat ?? ''}
+                placeholder={draft.adapter === 'elevenlabs-music' ? 'mp3_44100_128' : 'wav'}
+                onChange={(outputFormat) => setExtra({ outputFormat })}
+              />
             </Field>
             {draft.adapter === 'stability-audio' && (
               <>
                 <Field label="Steps">
-                  <OptNumber value={x.steps} min={1} max={200} onChange={(steps) => setExtra({ steps })} placeholder="default" />
+                  <OptNumber
+                    value={x.steps}
+                    min={1}
+                    max={200}
+                    onChange={(steps) => setExtra({ steps })}
+                    placeholder="default"
+                  />
                 </Field>
                 <Field label="CFG scale">
-                  <OptNumber value={x.cfgScale} min={0} max={30} step={0.5} onChange={(cfgScale) => setExtra({ cfgScale })} placeholder="default" />
+                  <OptNumber
+                    value={x.cfgScale}
+                    min={0}
+                    max={30}
+                    step={0.5}
+                    onChange={(cfgScale) => setExtra({ cfgScale })}
+                    placeholder="default"
+                  />
                 </Field>
               </>
             )}
@@ -994,7 +1466,15 @@ function AdapterOptions({ draft, setExtra }: { draft: ProviderConfig; setExtra: 
   }
 }
 
-function TemplateEditor({ value, model, onChange }: { value?: CustomHttpTemplate; model: string; onChange: (t: CustomHttpTemplate) => void }) {
+function TemplateEditor({
+  value,
+  model,
+  onChange,
+}: {
+  value?: CustomHttpTemplate;
+  model: string;
+  onChange: (t: CustomHttpTemplate) => void;
+}) {
   const t: CustomHttpTemplate = value ?? DEFAULT_TEMPLATE;
   const set = (patch: Partial<CustomHttpTemplate>) => onChange({ ...t, ...patch });
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -1014,18 +1494,39 @@ function TemplateEditor({ value, model, onChange }: { value?: CustomHttpTemplate
     const next = headers.map(([hk, hv], j) => (j === i ? [k, v] : [hk, hv]) as [string, string]);
     set({ headers: Object.fromEntries(next.filter(([hk]) => hk.trim())) });
   };
-  const secretHeader = headers.some(([k]) => /^(authorization|x-api-key|api-key|x-goog-api-key|xi-api-key)$/i.test(k));
+  const secretHeader = headers.some(([k]) =>
+    /^(authorization|x-api-key|api-key|x-goog-api-key|xi-api-key)$/i.test(k),
+  );
   return (
-    <Panel title="Request template" icon="pencil" className="st-span-2" sub="Custom HTTP endpoint (spec §4.1): describe the request and where the answer is. Authentication is added from the settings above — never put keys in headers here.">
+    <Panel
+      title="Request template"
+      icon="pencil"
+      className="st-span-2"
+      sub="Custom HTTP endpoint (spec §4.1): describe the request and where the answer is. Authentication is added from the settings above — never put keys in headers here."
+    >
       <div className="grid-3">
         <Field label="Method">
-          <Select value={t.method ?? 'POST'} onChange={(method) => set({ method })} options={['POST', 'PUT', 'GET'] as const} />
+          <Select
+            value={t.method ?? 'POST'}
+            onChange={(method) => set({ method })}
+            options={['POST', 'PUT', 'GET'] as const}
+          />
         </Field>
         <Field label="URL" hint="Optional; defaults to the endpoint URL. May contain {{model}}.">
-          <TextInput mono value={t.url ?? ''} onChange={(url) => set({ url: url || undefined })} placeholder="(endpoint URL)" />
+          <TextInput
+            mono
+            value={t.url ?? ''}
+            onChange={(url) => set({ url: url || undefined })}
+            placeholder="(endpoint URL)"
+          />
         </Field>
         <Field label="Response text path" hint="Dots and [index], e.g. choices[0].message.content">
-          <TextInput mono value={t.responseTextPath} onChange={(responseTextPath) => set({ responseTextPath })} aria-label="Response text path" />
+          <TextInput
+            mono
+            value={t.responseTextPath}
+            onChange={(responseTextPath) => set({ responseTextPath })}
+            aria-label="Response text path"
+          />
         </Field>
       </div>
       <div className="field-label">Headers</div>
@@ -1033,24 +1534,52 @@ function TemplateEditor({ value, model, onChange }: { value?: CustomHttpTemplate
         <div key={i} className="row">
           <TextInput size="sm" mono value={k} onChange={(nk) => setHeader(i, nk, v)} />
           <TextInput size="sm" mono value={v} onChange={(nv) => setHeader(i, k, nv)} />
-          <Button size="sm" variant="ghost" icon="trash" onClick={() => set({ headers: Object.fromEntries(headers.filter((_, j) => j !== i)) })} aria-label="Remove header" />
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="trash"
+            onClick={() => set({ headers: Object.fromEntries(headers.filter((_, j) => j !== i)) })}
+            aria-label="Remove header"
+          />
         </div>
       ))}
-      <Button size="sm" icon="plus" onClick={() => set({ headers: { ...(t.headers ?? {}), [`x-header-${headers.length + 1}`]: '' } })}>
+      <Button
+        size="sm"
+        icon="plus"
+        onClick={() => set({ headers: { ...(t.headers ?? {}), [`x-header-${headers.length + 1}`]: '' } })}
+      >
         Add header
       </Button>
-      {secretHeader && <div className="callout warning small">Credentials belong in Authentication above (stored in the vault), not in template headers.</div>}
+      {secretHeader && (
+        <div className="callout warning small">
+          Credentials belong in Authentication above (stored in the vault), not in template headers.
+        </div>
+      )}
       <div className="row between" style={{ marginTop: 6 }}>
         <span className="field-label">Body</span>
         <div className="row wrap" style={{ gap: 4 }}>
           {TEMPLATE_PLACEHOLDERS.map((p) => (
-            <button key={p.token} type="button" className="chip st-token" title={p.hint} onClick={() => insert(p.token)}>
+            <button
+              key={p.token}
+              type="button"
+              className="chip st-token"
+              title={p.hint}
+              onClick={() => insert(p.token)}
+            >
               {p.token}
             </button>
           ))}
         </div>
       </div>
-      <textarea className="textarea mono" value={t.body} onChange={(e) => set({ body: e.target.value })} rows={6} ref={bodyRef} aria-label="Body template" spellCheck={false} />
+      <textarea
+        className="textarea mono"
+        value={t.body}
+        onChange={(e) => set({ body: e.target.value })}
+        rows={6}
+        ref={bodyRef}
+        aria-label="Body template"
+        spellCheck={false}
+      />
       <div className={`st-preview ${preview.json ? 'ok' : 'bad'}`}>
         <div className="row between small">
           <span>Preview with sample values</span>
@@ -1060,16 +1589,36 @@ function TemplateEditor({ value, model, onChange }: { value?: CustomHttpTemplate
       </div>
       <div className="grid-2">
         <Field label="Input tokens path">
-          <TextInput mono value={t.inputTokensPath ?? ''} placeholder="usage.prompt_tokens" onChange={(v) => set({ inputTokensPath: v || undefined })} />
+          <TextInput
+            mono
+            value={t.inputTokensPath ?? ''}
+            placeholder="usage.prompt_tokens"
+            onChange={(v) => set({ inputTokensPath: v || undefined })}
+          />
         </Field>
         <Field label="Output tokens path">
-          <TextInput mono value={t.outputTokensPath ?? ''} placeholder="usage.completion_tokens" onChange={(v) => set({ outputTokensPath: v || undefined })} />
+          <TextInput
+            mono
+            value={t.outputTokensPath ?? ''}
+            placeholder="usage.completion_tokens"
+            onChange={(v) => set({ outputTokensPath: v || undefined })}
+          />
         </Field>
         <Field label="Models URL (GET)">
-          <TextInput mono value={t.modelsUrl ?? ''} placeholder="optional" onChange={(v) => set({ modelsUrl: v || undefined })} />
+          <TextInput
+            mono
+            value={t.modelsUrl ?? ''}
+            placeholder="optional"
+            onChange={(v) => set({ modelsUrl: v || undefined })}
+          />
         </Field>
         <Field label="Models path">
-          <TextInput mono value={t.modelsPath ?? ''} placeholder="data" onChange={(v) => set({ modelsPath: v || undefined })} />
+          <TextInput
+            mono
+            value={t.modelsPath ?? ''}
+            placeholder="data"
+            onChange={(v) => set({ modelsPath: v || undefined })}
+          />
         </Field>
       </div>
     </Panel>

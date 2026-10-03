@@ -22,7 +22,13 @@ import { ConfidenceLegend, NoteStrip } from '../shared/NoteStrip';
 import { NotationPreview } from '../shared/NotationPreview';
 import { InsertDialog } from '../generate/InsertDialog';
 import { Waveform, confidenceTone, pct } from './widgets';
-import { lowConfidenceRegions, SOURCES, type Capture, type TranscribeOptions, type TranscriptionView } from './model';
+import {
+  lowConfidenceRegions,
+  SOURCES,
+  type Capture,
+  type TranscribeOptions,
+  type TranscriptionView,
+} from './model';
 import { recordTranscriptionInProject, storeCaptureAsset } from './persist';
 
 const ORIGINAL_ID = 'transcribe-original';
@@ -44,7 +50,10 @@ export function ResultPanel({
   const project = useStudio((s) => s.project);
   const st = useStudio.getState();
   const customInstruments = useSettings((s) => s.customInstruments);
-  const instruments: InstrumentProfile[] = useMemo(() => [...BUILTIN_INSTRUMENTS, ...customInstruments], [customInstruments]);
+  const instruments: InstrumentProfile[] = useMemo(
+    () => [...BUILTIN_INSTRUMENTS, ...customInstruments],
+    [customInstruments],
+  );
   const [display, setDisplay] = useState<'roll' | 'notation'>('roll');
   const [instrumentChoice, setInstrumentChoice] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'new-track' | 'replace' | null>(null);
@@ -58,7 +67,12 @@ export function ResultPanel({
   const barTicks = view ? (view.meter.numerator * 4 * view.ppq) / view.meter.denominator : 1920;
   const regions = useMemo(() => (view ? lowConfidenceRegions(view.notes, barTicks) : []), [view, barTicks]);
   const sourceLabel = SOURCES.find((s) => s.value === options.source)?.label ?? options.source;
-  const ideaTitle = capture?.origin === 'taps' ? 'Tapped rhythm' : capture?.origin === 'clap' ? 'Clapped pattern' : `${sourceLabel} idea`;
+  const ideaTitle =
+    capture?.origin === 'taps'
+      ? 'Tapped rhythm'
+      : capture?.origin === 'clap'
+        ? 'Clapped pattern'
+        : `${sourceLabel} idea`;
 
   const playheadTick = (() => {
     if (!view) return null;
@@ -75,7 +89,13 @@ export function ResultPanel({
       key: view!.key ?? { tonic: 0, mode: 'major' },
       notes: view!.notes,
       instrumentId: inst.id,
-      role: view!.drums ? (inst.isDrumKit ? inst.defaultRole : 'drums') : inst.defaultRole === 'custom' ? view!.role : inst.defaultRole,
+      role: view!.drums
+        ? inst.isDrumKit
+          ? inst.defaultRole
+          : 'drums'
+        : inst.defaultRole === 'custom'
+          ? view!.role
+          : inst.defaultRole,
       trackName: inst.name,
       bars: view!.bars,
       origin: `transcription:${options.source}`,
@@ -85,7 +105,11 @@ export function ResultPanel({
   const exportMidi = () => {
     if (!view) return;
     try {
-      downloadBytes(songToMidi(ideaSong()), `${slugify(ideaTitle)}-${Math.round(view.bpm)}bpm.mid`, 'audio/midi');
+      downloadBytes(
+        songToMidi(ideaSong()),
+        `${slugify(ideaTitle)}-${Math.round(view.bpm)}bpm.mid`,
+        'audio/midi',
+      );
     } catch (err) {
       st.toast('error', `MIDI export failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -96,9 +120,21 @@ export function ResultPanel({
     try {
       const song = ideaSong();
       const created = await st.newProject(ideaTitle, song);
-      st.commit(created.song, `Transcribed ${sourceLabel.toLowerCase()} (${view.notes.length} notes)`, 'import');
+      st.commit(
+        created.song,
+        `Transcribed ${sourceLabel.toLowerCase()} (${view.notes.length} notes)`,
+        'import',
+      );
       const asset = await storeCaptureAsset(capture);
-      recordTranscriptionInProject({ capture, view, options, asset, trackId: created.song.tracks[0]?.id, trackName: created.song.tracks[0]?.name ?? inst.name, taskId: task?.id });
+      recordTranscriptionInProject({
+        capture,
+        view,
+        options,
+        asset,
+        trackId: created.song.tracks[0]?.id,
+        trackName: created.song.tracks[0]?.name ?? inst.name,
+        taskId: task?.id,
+      });
       st.selectTrack(created.song.tracks[0]?.id ?? null);
       st.setWorkbenchView('piano-roll');
       st.toast('success', `New project “${ideaTitle}” created from your idea`);
@@ -120,7 +156,10 @@ export function ResultPanel({
       const audio = await jobs.call<AudioData>('renderMix', { song: ideaSong(), sampleRate: 44100 });
       await previewPlayer.play(MIDI_ID, audio);
     } catch (err) {
-      st.toast('error', `Could not render the MIDI preview: ${err instanceof Error ? err.message : String(err)}`);
+      st.toast(
+        'error',
+        `Could not render the MIDI preview: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setRendering(false);
     }
@@ -130,12 +169,33 @@ export function ResultPanel({
     if (!capture || !view) return;
     try {
       const asset = await storeCaptureAsset(capture);
-      const target = req.mode === 'replace' ? req.trackId : p.after.tracks.find((t) => !p.before.tracks.some((b) => b.id === t.id))?.id;
-      recordTranscriptionInProject({ capture, view, options, asset, trackId: target, trackName: req.mode === 'replace' ? undefined : req.trackName, taskId: task?.id, proposalId: p.id, insert: req });
+      const target =
+        req.mode === 'replace'
+          ? req.trackId
+          : p.after.tracks.find((t) => !p.before.tracks.some((b) => b.id === t.id))?.id;
+      recordTranscriptionInProject({
+        capture,
+        view,
+        options,
+        asset,
+        trackId: target,
+        trackName: req.mode === 'replace' ? undefined : req.trackName,
+        taskId: task?.id,
+        proposalId: p.id,
+        insert: req,
+      });
     } catch (err) {
-      st.toast('warning', `The proposal was created, but the recording could not be stored: ${err instanceof Error ? err.message : String(err)}`);
+      st.toast(
+        'warning',
+        `The proposal was created, but the recording could not be stored: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
-    st.toast('success', req.mode === 'replace' ? 'Phrase substitution proposed — review it in the piano roll.' : 'New track proposed — review it in the piano roll.');
+    st.toast(
+      'success',
+      req.mode === 'replace'
+        ? 'Phrase substitution proposed — review it in the piano roll.'
+        : 'New track proposed — review it in the piano roll.',
+    );
   };
 
   // ------------------------------------------------------------------ status states
@@ -153,13 +213,20 @@ export function ResultPanel({
         )}
       </div>
       <div className="panel-body col" style={{ gap: 12 }}>
-        {!capture && <div className="muted small">Record, upload, tap or clap something — the transcription appears here with a confidence for every note.</div>}
+        {!capture && (
+          <div className="muted small">
+            Record, upload, tap or clap something — the transcription appears here with a confidence for every
+            note.
+          </div>
+        )}
 
         {running && task && (
           <div className="col" style={{ gap: 6 }} data-testid="transcription-progress">
             <div className="row">
               <Spinner />
-              <span className="grow">{task.message ?? (task.status === 'queued' ? 'Queued…' : 'Transcribing…')}</span>
+              <span className="grow">
+                {task.message ?? (task.status === 'queued' ? 'Queued…' : 'Transcribing…')}
+              </span>
               <Button size="sm" variant="danger" icon="close" onClick={() => taskQueue.cancel(task.id)}>
                 Cancel
               </Button>
@@ -182,7 +249,10 @@ export function ResultPanel({
         {view && (
           <>
             <div className="row wrap" data-testid="transcription-summary">
-              <Badge tone={confidenceTone(view.bpmConfidence)} title="Tempo used to place notes on bars and beats">
+              <Badge
+                tone={confidenceTone(view.bpmConfidence)}
+                title="Tempo used to place notes on bars and beats"
+              >
                 {Math.round(view.bpm * 10) / 10} BPM · {view.bpmSource}
                 {view.bpmConfidence !== undefined ? ` · ${pct(view.bpmConfidence)}` : ''}
               </Badge>
@@ -195,8 +265,16 @@ export function ResultPanel({
                 !view.drums && <Badge>key unknown</Badge>
               )}
               <Badge>
-                {view.notes.length} {view.drums ? (view.notes.length === 1 ? 'hit' : 'hits') : view.notes.length === 1 ? 'note' : 'notes'} · {view.bars} {view.bars === 1 ? 'bar' : 'bars'} ·{' '}
-                {view.meter.numerator}/{view.meter.denominator}
+                {view.notes.length}{' '}
+                {view.drums
+                  ? view.notes.length === 1
+                    ? 'hit'
+                    : 'hits'
+                  : view.notes.length === 1
+                    ? 'note'
+                    : 'notes'}{' '}
+                · {view.bars} {view.bars === 1 ? 'bar' : 'bars'} · {view.meter.numerator}/
+                {view.meter.denominator}
               </Badge>
               <Badge tone={confidenceTone(view.confidence)} title="Overall transcription confidence">
                 confidence {pct(view.confidence)}
@@ -234,7 +312,14 @@ export function ResultPanel({
                 testId="transcription-strip"
               />
             ) : (
-              <div style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 6 }}>
+              <div
+                style={{
+                  background: 'var(--bg-elev-1)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  padding: 6,
+                }}
+              >
                 <NotationPreview
                   notes={view.notes}
                   ppq={view.ppq}
@@ -250,7 +335,12 @@ export function ResultPanel({
             )}
             {regions.length > 0 ? (
               <div className="small" data-testid="low-confidence-regions">
-                <Icon name="alert" size={12} style={{ display: 'inline', verticalAlign: '-2px', color: 'var(--danger)' }} /> Check{' '}
+                <Icon
+                  name="alert"
+                  size={12}
+                  style={{ display: 'inline', verticalAlign: '-2px', color: 'var(--danger)' }}
+                />{' '}
+                Check{' '}
                 {regions.map((r, i) => (
                   <span key={i}>
                     {i > 0 ? ', ' : ''}
@@ -270,11 +360,20 @@ export function ResultPanel({
             {capture?.audio && <Waveform audio={capture.audio} height={40} position={posOriginal} />}
             <div className="row wrap">
               {capture?.audio && (
-                <Button size="sm" icon={playing === ORIGINAL_ID ? 'stop' : 'play'} onClick={() => void playOriginal()}>
+                <Button
+                  size="sm"
+                  icon={playing === ORIGINAL_ID ? 'stop' : 'play'}
+                  onClick={() => void playOriginal()}
+                >
                   {playing === ORIGINAL_ID ? 'Stop' : 'Play original'}
                 </Button>
               )}
-              <Button size="sm" icon={playing === MIDI_ID ? 'stop' : 'play'} onClick={() => void playMidi()} disabled={!view.notes.length || rendering}>
+              <Button
+                size="sm"
+                icon={playing === MIDI_ID ? 'stop' : 'play'}
+                onClick={() => void playMidi()}
+                disabled={!view.notes.length || rendering}
+              >
                 {rendering ? 'Rendering…' : playing === MIDI_ID ? 'Stop' : 'Play MIDI'}
               </Button>
               <span className="small dim">A/B the performance against the transcription.</span>
@@ -282,26 +381,56 @@ export function ResultPanel({
 
             <div className="divider" />
             <div className="row wrap" style={{ alignItems: 'flex-end' }}>
-              <Field label="Instrument" hint={view.suggestedInstrumentId === instrumentId ? 'Suggested from the source' : undefined}>
-                <Select value={instrumentId} onChange={setInstrumentChoice} options={instruments.map((i) => ({ value: i.id, label: i.name }))} aria-label="Transcription instrument" />
+              <Field
+                label="Instrument"
+                hint={view.suggestedInstrumentId === instrumentId ? 'Suggested from the source' : undefined}
+              >
+                <Select
+                  value={instrumentId}
+                  onChange={setInstrumentChoice}
+                  options={instruments.map((i) => ({ value: i.id, label: i.name }))}
+                  aria-label="Transcription instrument"
+                />
               </Field>
               <div className="spacer" />
-              <Button variant="ai" icon="plus" disabled={!view.notes.length} onClick={() => (project ? setDialog('new-track') : void newProject())} data-testid="insert-new-track">
+              <Button
+                variant="ai"
+                icon="plus"
+                disabled={!view.notes.length}
+                onClick={() => (project ? setDialog('new-track') : void newProject())}
+                data-testid="insert-new-track"
+              >
                 {project ? 'Insert as new track…' : 'Insert as new track (new project)'}
               </Button>
               <Button
                 icon="scissors"
-                disabled={!view.notes.length || !project || !project.song.tracks.some((t) => t.kind === 'midi')}
+                disabled={
+                  !view.notes.length || !project || !project.song.tracks.some((t) => t.kind === 'midi')
+                }
                 onClick={() => setDialog('replace')}
-                title={project ? 'Substitute a phrase of an existing track (spec §73)' : 'Open a project to replace a phrase in one of its tracks'}
+                title={
+                  project
+                    ? 'Substitute a phrase of an existing track (spec §73)'
+                    : 'Open a project to replace a phrase in one of its tracks'
+                }
                 data-testid="replace-phrase"
               >
                 Replace a phrase…
               </Button>
-              <Button icon="download" disabled={!view.notes.length} onClick={exportMidi} data-testid="export-transcription">
+              <Button
+                icon="download"
+                disabled={!view.notes.length}
+                onClick={exportMidi}
+                data-testid="export-transcription"
+              >
                 Export MIDI
               </Button>
-              <Button icon="folder" disabled={!view.notes.length} onClick={() => void newProject()} data-testid="new-project-from-idea">
+              <Button
+                icon="folder"
+                disabled={!view.notes.length}
+                onClick={() => void newProject()}
+                data-testid="new-project-from-idea"
+              >
                 New project from this idea
               </Button>
             </div>
@@ -311,7 +440,11 @@ export function ResultPanel({
 
       {dialog && project && view && (
         <InsertDialog
-          title={dialog === 'replace' ? 'Replace a phrase with the transcription' : 'Insert the transcription as a new track'}
+          title={
+            dialog === 'replace'
+              ? 'Replace a phrase with the transcription'
+              : 'Insert the transcription as a new track'
+          }
           song={project.song}
           defaultMode={dialog}
           allowSourceRange
@@ -323,13 +456,18 @@ export function ResultPanel({
             key: view.key,
             instrumentId: inst.id,
             role: view.drums ? 'drums' : inst.defaultRole === 'custom' ? view.role : inst.defaultRole,
-            trackName: capture?.origin === 'taps' ? 'Tapped rhythm' : `${inst.name} (${sourceLabel.toLowerCase()})`,
+            trackName:
+              capture?.origin === 'taps' ? 'Tapped rhythm' : `${inst.name} (${sourceLabel.toLowerCase()})`,
             drums: view.drums,
           }}
           source="songdeck-dsp"
           instruction={`${sourceLabel} → MIDI`}
           explanation={`Transcribed on-device (${view.method}); ${Math.round(view.bpm)} BPM, overall confidence ${pct(view.confidence)}. Low-confidence notes are outlined in the piano roll.`}
-          proposalTitle={(req) => (req.mode === 'replace' ? `Substitute bars ${req.targetBar}–${req.endBar} with ${sourceLabel.toLowerCase()} transcription` : `Add transcribed ${sourceLabel.toLowerCase()} as “${req.trackName}”`)}
+          proposalTitle={(req) =>
+            req.mode === 'replace'
+              ? `Substitute bars ${req.targetBar}–${req.endBar} with ${sourceLabel.toLowerCase()} transcription`
+              : `Add transcribed ${sourceLabel.toLowerCase()} as “${req.trackName}”`
+          }
           onClose={() => setDialog(null)}
           onProposed={(p, req) => void onProposed(p, req)}
         />

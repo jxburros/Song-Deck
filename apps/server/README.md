@@ -17,20 +17,20 @@ npm run start -w @songdeck/server -- --port 7790   # passing flags through npm
 npx tsx apps/server/src/cli.ts --port 0 --data-dir /tmp/sd --no-persist
 ```
 
-| Flag | Default | |
-| --- | --- | --- |
-| `--port <n>` | `7788` | `0` picks a free port |
-| `--host <addr>` | `127.0.0.1` | a non-loopback host **requires** `--token` |
-| `--data-dir <dir>` | `$SONGDECK_DATA_DIR` or `~/.songdeck` | vault, providers, projects, collab rooms, models, plugins |
-| `--static <dir>` / `--no-static` | `apps/studio/dist` if built (`studio/` in a release download) | serves the studio with SPA fallback |
-| `--token <secret>` | `$SONGDECK_TOKEN` | every `/api` request except `/api/health` needs `Authorization: Bearer <secret>` |
-| `--allow-origin <url>` | `http://localhost:5173`, `http://127.0.0.1:5173` | repeatable; replaces the defaults; same-origin is always allowed |
-| `--vault <backend>` | `auto` | `auto` · `keychain` · `encrypted-file` · `memory` |
-| `--no-persist` | | secrets live in memory only |
-| `--workers <n>` | cpus − 1 | render worker threads |
-| `--node-name <name>` | host name | render node display name |
-| `--plugins-dir <dir>` | `<repo>/plugins` (`plugins/` in a release download), `<data-dir>/plugins` | repeatable |
-| `--log-level <level>` / `--quiet` | `info` | `silent`, `error`, `warn`, `info`, `debug` |
+| Flag                              | Default                                                                   |                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `--port <n>`                      | `7788`                                                                    | `0` picks a free port                                                            |
+| `--host <addr>`                   | `127.0.0.1`                                                               | a non-loopback host **requires** `--token`                                       |
+| `--data-dir <dir>`                | `$SONGDECK_DATA_DIR` or `~/.songdeck`                                     | vault, providers, projects, collab rooms, models, plugins                        |
+| `--static <dir>` / `--no-static`  | `apps/studio/dist` if built (`studio/` in a release download)             | serves the studio with SPA fallback                                              |
+| `--token <secret>`                | `$SONGDECK_TOKEN`                                                         | every `/api` request except `/api/health` needs `Authorization: Bearer <secret>` |
+| `--allow-origin <url>`            | `http://localhost:5173`, `http://127.0.0.1:5173`                          | repeatable; replaces the defaults; same-origin is always allowed                 |
+| `--vault <backend>`               | `auto`                                                                    | `auto` · `keychain` · `encrypted-file` · `memory`                                |
+| `--no-persist`                    |                                                                           | secrets live in memory only                                                      |
+| `--workers <n>`                   | cpus − 1                                                                  | render worker threads                                                            |
+| `--node-name <name>`              | host name                                                                 | render node display name                                                         |
+| `--plugins-dir <dir>`             | `<repo>/plugins` (`plugins/` in a release download), `<data-dir>/plugins` | repeatable                                                                       |
+| `--log-level <level>` / `--quiet` | `info`                                                                    | `silent`, `error`, `warn`, `info`, `debug`                                       |
 
 In development the Vite dev server (port 5173) proxies `/api` (including the WebSocket) to 7788,
 so the studio and the server share an origin.
@@ -54,44 +54,49 @@ All JSON unless noted. Errors are always `{ "error": string, "code": string }` w
 HTTP status (`400` validation, `401` token, `403` origin/host/allowlist, `404`, `405`, `409`,
 `413` too large, `429` busy, `5xx`).
 
-| Method & path | |
-| --- | --- |
-| `GET /api/health` | `{ name: 'songdeck-server', version, vault: { backend }, features[], dataDir, auth: { required } }` (no token needed; `dataDir` only when authorized) |
-| `GET /api/vault` | `{ backend, detail?, refs: [{ ref, label?, updatedAt }] }` — never secrets |
-| `PUT /api/vault/:ref` | `{ secret, label? }` → `204` |
-| `DELETE /api/vault/:ref` | `204` |
-| `GET /api/providers` | `{ providers: ProviderConfig[] }` |
-| `PUT /api/providers` | `{ providers }` → `{ providers }`; configs with secrets are rejected (`secret-in-config`) |
-| `POST /api/proxy` | provider proxy (see below) |
-| `GET /api/hardware[?refresh=1]` | `HardwareInfo` (cached 60 s) |
-| `GET /api/models[?refresh=1]` | `{ categories: [{ id, label, models: ModelEntry[] }], sources, hardware, scannedAt }` |
-| `POST /api/models/rescan` | same, rescanned |
-| `GET /api/local-services` | `{ services: [{ presetId, name, baseUrl, status: 'found' \| 'absent' \| 'error', models, capabilities?, version? }], scannedAt }` |
-| `POST /api/connect/probe` | body `{ presetId, secret }` → `{ ok: true, result: { models, listed, account?, note? } }` or `{ ok: false, error: { kind, status?, message } }` |
-| `GET /api/node/info` | `{ id, name, version, engineVersion, cpuCores, loadAvg, busyJobs, queuedJobs, maxJobs, maxQueue, capabilities, mode, … }` |
-| `POST /api/render` | render job (see below) |
-| `GET /api/collab/rooms` | `[{ projectId, peers, revisions }]` |
-| `GET /api/collab/rooms/:id` | `{ projectId, peers, revisions, branches, comments }` |
-| `GET /api/collab/rooms/:id/revisions/:revId` | the full `Revision` (with snapshot) |
-| `WS /api/collab` | collaboration protocol (see below); token via `?access_token=` |
-| `GET /api/plugins` | `{ plugins: PluginRecord[], errors: [{ dir, id?, error }] }` |
-| `GET /api/plugins/:id/files/<path>` | plugin file with its MIME type |
-| `GET /api/managed/status` | which task roles the gateway can serve (and offline) |
-| `POST /api/managed/llm` · `/audio` · `/models` | managed "Automatic" gateway (`@songdeck/ai` contract) |
-| `GET /api/projects` | `{ projects: [{ name, file, size, mtime }] }` |
-| `GET /api/projects/:name` | `.songproject` bytes |
-| `PUT /api/projects/:name` | `.songproject` bytes (`application/octet-stream`) → `201`/`200 { name, file, size, mtime }` |
-| `DELETE /api/projects/:name` | `204` |
+| Method & path                                  |                                                                                                                                                       |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/health`                              | `{ name: 'songdeck-server', version, vault: { backend }, features[], dataDir, auth: { required } }` (no token needed; `dataDir` only when authorized) |
+| `GET /api/vault`                               | `{ backend, detail?, refs: [{ ref, label?, updatedAt }] }` — never secrets                                                                            |
+| `PUT /api/vault/:ref`                          | `{ secret, label? }` → `204`                                                                                                                          |
+| `DELETE /api/vault/:ref`                       | `204`                                                                                                                                                 |
+| `GET /api/providers`                           | `{ providers: ProviderConfig[] }`                                                                                                                     |
+| `PUT /api/providers`                           | `{ providers }` → `{ providers }`; configs with secrets are rejected (`secret-in-config`)                                                             |
+| `POST /api/proxy`                              | provider proxy (see below)                                                                                                                            |
+| `GET /api/hardware[?refresh=1]`                | `HardwareInfo` (cached 60 s)                                                                                                                          |
+| `GET /api/models[?refresh=1]`                  | `{ categories: [{ id, label, models: ModelEntry[] }], sources, hardware, scannedAt }`                                                                 |
+| `POST /api/models/rescan`                      | same, rescanned                                                                                                                                       |
+| `GET /api/local-services`                      | `{ services: [{ presetId, name, baseUrl, status: 'found' \| 'absent' \| 'error', models, capabilities?, version? }], scannedAt }`                     |
+| `POST /api/connect/probe`                      | body `{ presetId, secret }` → `{ ok: true, result: { models, listed, account?, note? } }` or `{ ok: false, error: { kind, status?, message } }`       |
+| `GET /api/node/info`                           | `{ id, name, version, engineVersion, cpuCores, loadAvg, busyJobs, queuedJobs, maxJobs, maxQueue, capabilities, mode, … }`                             |
+| `POST /api/render`                             | render job (see below)                                                                                                                                |
+| `GET /api/collab/rooms`                        | `[{ projectId, peers, revisions }]`                                                                                                                   |
+| `GET /api/collab/rooms/:id`                    | `{ projectId, peers, revisions, branches, comments }`                                                                                                 |
+| `GET /api/collab/rooms/:id/revisions/:revId`   | the full `Revision` (with snapshot)                                                                                                                   |
+| `WS /api/collab`                               | collaboration protocol (see below); token via `?access_token=`                                                                                        |
+| `GET /api/plugins`                             | `{ plugins: PluginRecord[], errors: [{ dir, id?, error }] }`                                                                                          |
+| `GET /api/plugins/:id/files/<path>`            | plugin file with its MIME type                                                                                                                        |
+| `GET /api/managed/status`                      | which task roles the gateway can serve (and offline)                                                                                                  |
+| `POST /api/managed/llm` · `/audio` · `/models` | managed "Automatic" gateway (`@songdeck/ai` contract)                                                                                                 |
+| `GET /api/projects`                            | `{ projects: [{ name, file, size, mtime }] }`                                                                                                         |
+| `GET /api/projects/:name`                      | `.songproject` bytes                                                                                                                                  |
+| `PUT /api/projects/:name`                      | `.songproject` bytes (`application/octet-stream`) → `201`/`200 { name, file, size, mtime }`                                                           |
+| `DELETE /api/projects/:name`                   | `204`                                                                                                                                                 |
 
 ### Provider proxy — `POST /api/proxy`
 
 Implements the contract of `ServerProxyTransport` (`packages/ai/src/transport/proxy.ts`):
 
 ```json
-{ "url": "https://api.anthropic.com/v1/messages", "method": "POST",
+{
+  "url": "https://api.anthropic.com/v1/messages",
+  "method": "POST",
   "headers": { "content-type": "application/json", "x-api-key": "proxy-managed" },
-  "body": "{…}", "bodyEncoding": "utf8",
-  "credentialRef": "provider:anthropic", "auth": { "type": "header", "name": "x-api-key" } }
+  "body": "{…}",
+  "bodyEncoding": "utf8",
+  "credentialRef": "provider:anthropic",
+  "auth": { "type": "header", "name": "x-api-key" }
+}
 ```
 
 The secret is read from the vault and injected per `auth` (`bearer` → `Authorization: Bearer …`,

@@ -18,7 +18,15 @@ export function startTask<I, O>(
   input: I,
   opts: { priority?: number; maxAttempts?: number; providerId?: string; runner?: string } = {},
 ): StartedTask<O> {
-  const rec = taskQueue.enqueue({ type, title, input, maxAttempts: opts.maxAttempts ?? 1, priority: opts.priority, providerId: opts.providerId, runner: opts.runner ?? 'local' });
+  const rec = taskQueue.enqueue({
+    type,
+    title,
+    input,
+    maxAttempts: opts.maxAttempts ?? 1,
+    priority: opts.priority,
+    providerId: opts.providerId,
+    runner: opts.runner ?? 'local',
+  });
   const done = new Promise<O>((resolve, reject) => {
     let settled = false;
     const check = (): boolean => {

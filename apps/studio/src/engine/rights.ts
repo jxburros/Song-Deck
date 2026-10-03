@@ -10,7 +10,12 @@ import {
   type ContentSignal,
   type Project,
 } from '@songdeck/core';
-import { classifyRightsSignals, readAudioMetadata, type AudioData, type RightsClassification } from '@songdeck/audio';
+import {
+  classifyRightsSignals,
+  readAudioMetadata,
+  type AudioData,
+  type RightsClassification,
+} from '@songdeck/audio';
 import type { ContentIdResult, DataFlowDescriptor } from '@songdeck/ai';
 import { useStudio } from '../state/store';
 import { serverBase, useSettings } from '../state/settings';
@@ -40,16 +45,21 @@ import { browserCredentials } from './credentials';
 // ---------------------------------------------------------------------------------------------
 
 const K = new Uint32Array([
-  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
-  0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
-  0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
-  0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98,
+  0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+  0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8,
+  0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+  0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819,
+  0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
+  0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
+  0xc67178f2,
 ]);
 
 /** Pure-JS SHA-256 (used only when crypto.subtle is unavailable). */
 export function sha256Fallback(data: Uint8Array): string {
-  const h = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+  const h = new Uint32Array([
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ]);
   const len = data.length;
   const total = Math.ceil((len + 9) / 64) * 64;
   const buf = new Uint8Array(total);
@@ -164,7 +174,9 @@ export interface ContentCheckSettings {
 
 const SETTINGS_KEY = 'content-check';
 
-export const useContentCheck = create<ContentCheckSettings & { update(patch: Partial<ContentCheckSettings>): void }>((set, get) => ({
+export const useContentCheck = create<
+  ContentCheckSettings & { update(patch: Partial<ContentCheckSettings>): void }
+>((set, get) => ({
   online: false,
   ...localGet<Partial<ContentCheckSettings>>(SETTINGS_KEY, {}),
   update(patch) {
@@ -199,10 +211,20 @@ export interface CheckedFile {
 }
 
 export function signalsOf(c: Pick<CheckedFile, 'metadata' | 'match'>): ContentSignal[] {
-  const out: ContentSignal[] = c.metadata.signals.map((s) => ({ kind: s.kind, label: s.label, value: s.value, source: s.source }));
+  const out: ContentSignal[] = c.metadata.signals.map((s) => ({
+    kind: s.kind,
+    label: s.label,
+    value: s.value,
+    source: s.source,
+  }));
   if (c.match) {
     const who = c.match.artists?.length ? ` — ${c.match.artists.join(', ')}` : '';
-    out.push({ kind: 'match', label: `${c.match.service} match`, value: `${c.match.title ?? 'unknown title'}${who} (${Math.round(c.match.score * 100)}%)`, source: c.match.service });
+    out.push({
+      kind: 'match',
+      label: `${c.match.service} match`,
+      value: `${c.match.title ?? 'unknown title'}${who} (${Math.round(c.match.score * 100)}%)`,
+      source: c.match.service,
+    });
   }
   return out;
 }
@@ -215,7 +237,14 @@ export function isFlagged(c: Pick<CheckedFile, 'metadata' | 'match'>): boolean {
 export async function checkFileOffline(file: UploadFile): Promise<CheckedFile> {
   const hash = await sha256Hex(file.bytes);
   const metadata = classifyRightsSignals(readAudioMetadata(file.bytes));
-  return { name: file.name, size: file.bytes.length, hash, metadata, online: 'off', remembered: recallAttestation(hash) };
+  return {
+    name: file.name,
+    size: file.bytes.length,
+    hash,
+    metadata,
+    online: 'off',
+    remembered: recallAttestation(hash),
+  };
 }
 
 function lookupViaServer(): boolean {
@@ -231,7 +260,11 @@ async function throttleLookup(): Promise<void> {
   lastLookupAt = Date.now();
 }
 
-export async function identifyFingerprint(fingerprint: string, durationSeconds: number, signal?: AbortSignal): Promise<ContentIdResult> {
+export async function identifyFingerprint(
+  fingerprint: string,
+  durationSeconds: number,
+  signal?: AbortSignal,
+): Promise<ContentIdResult> {
   await throttleLookup();
   if (lookupViaServer()) {
     const res = await fetch(`${serverBase()}/api/content-check/acoustid`, {
@@ -246,16 +279,28 @@ export async function identifyFingerprint(fingerprint: string, durationSeconds: 
   }
   // Loaded on demand: the provider layer stays out of the first-paint bundle.
   const { createAcoustIdProvider, DirectTransport } = await import('@songdeck/ai');
-  return createAcoustIdProvider({ transport: new DirectTransport(browserCredentials) }).identify({ fingerprint, durationSeconds, signal });
+  return createAcoustIdProvider({ transport: new DirectTransport(browserCredentials) }).identify({
+    fingerprint,
+    durationSeconds,
+    signal,
+  });
 }
 
 /** Optional online identification of one file (fingerprint computed on this device). */
-export async function checkFileOnline(file: UploadFile, signal?: AbortSignal): Promise<Pick<CheckedFile, 'online' | 'onlineError' | 'match'>> {
+export async function checkFileOnline(
+  file: UploadFile,
+  signal?: AbortSignal,
+): Promise<Pick<CheckedFile, 'online' | 'onlineError' | 'match'>> {
   // Offline mode (spec §51): nothing leaves the device, not even a fingerprint.
-  if (useSettings.getState().routing.offline) return { online: 'error', onlineError: 'Offline mode is on, so nothing was sent.' };
+  if (useSettings.getState().routing.offline)
+    return { online: 'error', onlineError: 'Offline mode is on, so nothing was sent.' };
   try {
     const audio = file.audio ?? (await decodeAudioBytes(file.bytes));
-    const fp = await jobs.call<{ fingerprint: string; durationSeconds: number }>('fingerprint', { audio }, { signal });
+    const fp = await jobs.call<{ fingerprint: string; durationSeconds: number }>(
+      'fingerprint',
+      { audio },
+      { signal },
+    );
     if (fp.durationSeconds < 1) return { online: 'error', onlineError: 'Too short to identify.' };
     const r = await identifyFingerprint(fp.fingerprint, fp.durationSeconds, signal);
     const best = r.matches[0];
@@ -307,10 +352,19 @@ export const useAttestationDialog = create<AttestationDialogState>(() => ({ requ
  * Ask the user to attest their right to use uploaded audio. Resolves with one attestation per
  * file, or null when the user cancels (the upload must then be abandoned).
  */
-export function requestAttestation(files: UploadFile[], opts: { context: string; purpose: string }): Promise<PendingAttestation[] | null> {
+export function requestAttestation(
+  files: UploadFile[],
+  opts: { context: string; purpose: string },
+): Promise<PendingAttestation[] | null> {
   if (!files.length) return Promise.resolve([]);
   return new Promise((resolve) => {
-    const req: AttestationRequest = { id: randomId('attreq'), files, context: opts.context, purpose: opts.purpose, resolve };
+    const req: AttestationRequest = {
+      id: randomId('attreq'),
+      files,
+      context: opts.context,
+      purpose: opts.purpose,
+      resolve,
+    };
     const s = useAttestationDialog.getState();
     if (s.request) useAttestationDialog.setState({ queue: [...s.queue, req] });
     else useAttestationDialog.setState({ request: req });
@@ -335,7 +389,11 @@ let sessionUploads: PendingAttestation[] = [];
 const PROJECTLESS_CONTEXTS = new Set(['rebuild', 'transcribe']);
 
 /** Build the attestation records for the checked files and remember the answer per hash. */
-export function buildAttestations(checked: CheckedFile[], answer: AttestationAnswer, context: string): PendingAttestation[] {
+export function buildAttestations(
+  checked: CheckedFile[],
+  answer: AttestationAnswer,
+  context: string,
+): PendingAttestation[] {
   const now = new Date().toISOString();
   return checked.map((c) => {
     const a: PendingAttestation = {
@@ -354,7 +412,15 @@ export function buildAttestations(checked: CheckedFile[], answer: AttestationAns
     if (answer.licence?.trim()) a.licence = answer.licence.trim();
     if (answer.notes?.trim()) a.notes = answer.notes.trim();
     if (c.match) a.match = c.match;
-    rememberAttestation(c.hash, { basis: a.basis, attestedBy: a.attestedBy, rightsHolder: a.rightsHolder, licence: a.licence, notes: a.notes, fileName: c.name, attestedAt: now });
+    rememberAttestation(c.hash, {
+      basis: a.basis,
+      attestedBy: a.attestedBy,
+      rightsHolder: a.rightsHolder,
+      licence: a.licence,
+      notes: a.notes,
+      fileName: c.name,
+      attestedAt: now,
+    });
     return a;
   });
 }
@@ -364,7 +430,10 @@ export function buildAttestations(checked: CheckedFile[], answer: AttestationAns
 // ---------------------------------------------------------------------------------------------
 
 /** Store an attestation in the open project (linked to the stored asset/provenance when there is one). */
-export function recordAttestation(pending: PendingAttestation, link: { assetId?: string; provenanceId?: string } = {}): void {
+export function recordAttestation(
+  pending: PendingAttestation,
+  link: { assetId?: string; provenanceId?: string } = {},
+): void {
   const st = useStudio.getState();
   if (!st.project) return;
   const att: AudioAttestation = { ...pending };
@@ -374,14 +443,22 @@ export function recordAttestation(pending: PendingAttestation, link: { assetId?:
 }
 
 /** Attestation of a project asset (latest first). */
-export function attestationForAsset(project: Project | null | undefined, assetId: string | undefined): AudioAttestation | undefined {
+export function attestationForAsset(
+  project: Project | null | undefined,
+  assetId: string | undefined,
+): AudioAttestation | undefined {
   if (!project || !assetId) return undefined;
   return [...(project.meta.attestations ?? [])].reverse().find((a) => a.assetId === assetId);
 }
 
 /** One line describing why a file needs care, e.g. "song.mp3 (personal study only)". */
 export function careLabel(a: Pick<AudioAttestation, 'basis' | 'flagged' | 'match' | 'fileName'>): string {
-  const why = [a.basis === 'personal-study' ? 'personal study only' : null, a.match ? 'matched a known recording' : a.flagged ? 'tagged as a commercial release' : null].filter(Boolean).join(', ');
+  const why = [
+    a.basis === 'personal-study' ? 'personal study only' : null,
+    a.match ? 'matched a known recording' : a.flagged ? 'tagged as a commercial release' : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
   return `“${a.fileName}” (${why})`;
 }
 
@@ -397,19 +474,35 @@ const KIND_ASSETS: Record<string, string[]> = {
  * The warning line for the data-flow confirmation: audio attested as personal study, flagged by
  * the metadata check or matched online is about to leave the device. Undefined when not relevant.
  */
-export function dataFlowRightsWarning(project: Project | null | undefined, flow: Pick<DataFlowDescriptor, 'leavesDevice' | 'items'>): string | undefined {
+export function dataFlowRightsWarning(
+  project: Project | null | undefined,
+  flow: Pick<DataFlowDescriptor, 'leavesDevice' | 'items'>,
+): string | undefined {
   if (!flow.leavesDevice) return undefined;
   const included = flow.items.filter((i) => i.included && KIND_ASSETS[i.kind]);
   const kinds = new Set(included.flatMap((i) => KIND_ASSETS[i.kind]));
   if (!kinds.size) return undefined;
   const care: AudioAttestation[] = [];
-  if (project) care.push(...attestationsNeedingCare(project, project.meta.assets.filter((a) => kinds.has(a.kind)).map((a) => a.id)));
+  if (project)
+    care.push(
+      ...attestationsNeedingCare(
+        project,
+        project.meta.assets.filter((a) => kinds.has(a.kind)).map((a) => a.id),
+      ),
+    );
   // Files uploaded to Rebuild / Transcribe travel as reference audio or recorded vocals before they belong to a project.
   if (included.some((i) => i.kind === 'reference-audio' || i.kind === 'recorded-vocals')) {
     const known = new Set((project?.meta.attestations ?? []).map((a) => a.contentHash));
     const cutoff = Date.now() - 6 * 3600_000;
     for (const a of sessionUploads) {
-      if (PROJECTLESS_CONTEXTS.has(a.context) && !known.has(a.contentHash) && attestationNeedsCare(a) && Date.parse(a.attestedAt) > cutoff && !care.some((c) => c.contentHash === a.contentHash)) care.push(a);
+      if (
+        PROJECTLESS_CONTEXTS.has(a.context) &&
+        !known.has(a.contentHash) &&
+        attestationNeedsCare(a) &&
+        Date.parse(a.attestedAt) > cutoff &&
+        !care.some((c) => c.contentHash === a.contentHash)
+      )
+        care.push(a);
     }
   }
   if (!care.length) return undefined;

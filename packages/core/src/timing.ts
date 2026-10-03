@@ -17,7 +17,8 @@ import type {
  * 1-based convention of structured AI operations and the UI.
  */
 
-type TimingSource = Pick<Song, 'ppq' | 'meterMap' | 'tempoMap'> & Partial<Pick<Song, 'sections' | 'keyMap' | 'chords'>>;
+type TimingSource = Pick<Song, 'ppq' | 'meterMap' | 'tempoMap'> &
+  Partial<Pick<Song, 'sections' | 'keyMap' | 'chords'>>;
 
 export interface SectionSpan {
   section: Section;
@@ -47,7 +48,9 @@ function sortedMeters(song: TimingSource): MeterEvent[] {
 }
 
 function sortedTempos(song: TimingSource): TempoEvent[] {
-  const t = song.tempoMap.length ? [...song.tempoMap].sort((a, b) => a.tick - b.tick) : [{ tick: 0, bpm: 120 }];
+  const t = song.tempoMap.length
+    ? [...song.tempoMap].sort((a, b) => a.tick - b.tick)
+    : [{ tick: 0, bpm: 120 }];
   if (t[0].tick !== 0) t.unshift({ tick: 0, bpm: t[0].bpm });
   return t;
 }
@@ -236,11 +239,17 @@ export function songDurationSeconds(song: TimingSource & Pick<Song, 'sections'>)
   return tickToSeconds(song, songLengthTicks(song));
 }
 
-export function sectionSpanById(song: TimingSource & Pick<Song, 'sections'>, sectionId: Id): SectionSpan | undefined {
+export function sectionSpanById(
+  song: TimingSource & Pick<Song, 'sections'>,
+  sectionId: Id,
+): SectionSpan | undefined {
   return sectionLayout(song).find((s) => s.section.id === sectionId);
 }
 
-export function sectionAtTick(song: TimingSource & Pick<Song, 'sections'>, tick: Ticks): SectionSpan | undefined {
+export function sectionAtTick(
+  song: TimingSource & Pick<Song, 'sections'>,
+  tick: Ticks,
+): SectionSpan | undefined {
   return sectionLayout(song).find((s) => tick >= s.startTick && tick < s.endTick);
 }
 

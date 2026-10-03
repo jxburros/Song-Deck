@@ -253,7 +253,8 @@ export interface MotifNote {
   velocity: number;
 }
 
-export type MotifRole = 'vocal-hook' | 'instrumental-hook' | 'riff' | 'answer' | 'rhythmic' | 'bass-figure' | 'other';
+export type MotifRole =
+  'vocal-hook' | 'instrumental-hook' | 'riff' | 'answer' | 'rhythmic' | 'bass-figure' | 'other';
 
 export interface Motif {
   id: Id;
@@ -394,7 +395,8 @@ export interface AudioClip {
   muted?: boolean;
 }
 
-export type VocalMode = 'none' | 'melody-only' | 'placeholder' | 'ai-singer' | 'voice-conversion' | 'recorded';
+export type VocalMode =
+  'none' | 'melody-only' | 'placeholder' | 'ai-singer' | 'voice-conversion' | 'recorded';
 
 export type VoiceType = 'soprano' | 'mezzo' | 'alto' | 'tenor' | 'baritone' | 'bass';
 
@@ -566,7 +568,19 @@ export type BassPattern =
  * funk scratch, salsa montuno, bossa nova comping, bluegrass chop and banjo roll, flamenco
  * rasgueado, blues boogie, highlife picking, house stabs, arpeggios or sustained chords.
  */
-export type CompStyle = 'skank' | 'funk' | 'montuno' | 'bossa' | 'chop' | 'roll' | 'rasgueado' | 'boogie' | 'highlife' | 'stabs' | 'arpeggio' | 'sustain';
+export type CompStyle =
+  | 'skank'
+  | 'funk'
+  | 'montuno'
+  | 'bossa'
+  | 'chop'
+  | 'roll'
+  | 'rasgueado'
+  | 'boogie'
+  | 'highlife'
+  | 'stabs'
+  | 'arpeggio'
+  | 'sustain';
 
 export interface GenreProfile {
   id: string;
@@ -590,9 +604,19 @@ export interface GenreProfile {
     powerChords?: boolean;
   };
   structure: {
-    templates: { name: string; weight: number; sections: { kind: SectionKind; bars: number; name?: string }[] }[];
+    templates: {
+      name: string;
+      weight: number;
+      sections: { kind: SectionKind; bars: number; name?: string }[];
+    }[];
   };
-  instruments: { instrumentId: string; role: TrackRole; function?: MusicalFunction; weight: number; essential?: boolean }[];
+  instruments: {
+    instrumentId: string;
+    role: TrackRole;
+    function?: MusicalFunction;
+    weight: number;
+    essential?: boolean;
+  }[];
   rhythm: {
     drumStyle: DrumStyle;
     /** 0 = straight, 1 = full triplet swing. */
@@ -1060,16 +1084,39 @@ export interface NoteTransform {
 export type MusicOperation =
   | { op: 'replace_notes'; track: TrackRef; region: OpRegion; notes: OpNote[]; reason?: string }
   | { op: 'add_notes'; track: TrackRef; notes: OpNote[]; reason?: string }
-  | { op: 'delete_notes'; track: TrackRef; region?: OpRegion; note_ids?: Id[]; pitch_range?: [number, number]; reason?: string }
-  | { op: 'transform_notes'; track: TrackRef; region?: OpRegion; note_ids?: Id[]; transform: NoteTransform; reason?: string }
+  | {
+      op: 'delete_notes';
+      track: TrackRef;
+      region?: OpRegion;
+      note_ids?: Id[];
+      pitch_range?: [number, number];
+      reason?: string;
+    }
+  | {
+      op: 'transform_notes';
+      track: TrackRef;
+      region?: OpRegion;
+      note_ids?: Id[];
+      transform: NoteTransform;
+      reason?: string;
+    }
   | { op: 'set_chords'; region: OpRegion; chords: OpChord[]; reason?: string }
   | { op: 'set_tempo'; bpm: number; at_bar?: number; reason?: string }
-  | { op: 'set_key'; tonic: string; mode: ModeName; at_bar?: number; transpose_notes?: boolean; reason?: string }
+  | {
+      op: 'set_key';
+      tonic: string;
+      mode: ModeName;
+      at_bar?: number;
+      transpose_notes?: boolean;
+      reason?: string;
+    }
   | { op: 'set_meter'; numerator: number; denominator: number; at_bar?: number; reason?: string }
   | {
       op: 'update_section';
       section: Id | string;
-      changes: Partial<Pick<Section, 'name' | 'kind' | 'energy' | 'energyEnd' | 'purpose' | 'mood' | 'feel' | 'progression'>> & { bars?: number };
+      changes: Partial<
+        Pick<Section, 'name' | 'kind' | 'energy' | 'energyEnd' | 'purpose' | 'mood' | 'feel' | 'progression'>
+      > & { bars?: number };
       reason?: string;
     }
   | {
@@ -1083,9 +1130,29 @@ export type MusicOperation =
   | { op: 'move_section'; section: Id | string; to_index: number; reason?: string }
   | { op: 'set_lyrics'; section: Id | string; lines: string[]; reason?: string }
   | { op: 'set_mixer'; track: TrackRef | 'master'; changes: MixerChange; reason?: string }
-  | { op: 'set_automation'; track: TrackRef | 'master'; param: AutomationParam; points: { bar: number; beat: number; value: number }[]; reason?: string }
-  | { op: 'set_expression'; track: TrackRef; region?: OpRegion; note_ids?: Id[]; expression: VocalExpression; reason?: string }
-  | { op: 'add_track'; name: string; instrument_id: string; role: TrackRole; function?: MusicalFunction; reason?: string }
+  | {
+      op: 'set_automation';
+      track: TrackRef | 'master';
+      param: AutomationParam;
+      points: { bar: number; beat: number; value: number }[];
+      reason?: string;
+    }
+  | {
+      op: 'set_expression';
+      track: TrackRef;
+      region?: OpRegion;
+      note_ids?: Id[];
+      expression: VocalExpression;
+      reason?: string;
+    }
+  | {
+      op: 'add_track';
+      name: string;
+      instrument_id: string;
+      role: TrackRole;
+      function?: MusicalFunction;
+      reason?: string;
+    }
   | { op: 'remove_track'; track: TrackRef; reason?: string }
   | { op: 'set_instrument'; track: TrackRef; instrument_id: string; reason?: string }
   | { op: 'set_macros'; track?: TrackRef; macros: Partial<MacroSettings>; reason?: string }

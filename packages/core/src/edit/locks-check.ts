@@ -81,7 +81,12 @@ export function hasAnyLock(locks: LockMap): boolean {
 }
 
 /** Whether a note of `track` at `tick` (section `sid`) is protected by the lock map. */
-export function noteProtected(p: ParsedLocks, trackId: string, note: Pick<Note, 'locked'>, sid: string | undefined): boolean {
+export function noteProtected(
+  p: ParsedLocks,
+  trackId: string,
+  note: Pick<Note, 'locked'>,
+  sid: string | undefined,
+): boolean {
   if (note.locked) return true;
   if (p.tracks.has(trackId)) return true;
   if (sid === undefined) return false;
@@ -132,7 +137,10 @@ function chordsBySection(song: Song, loc: SectionLocator): Map<string, string[]>
 function lanePoints(lanes: AutomationLane[], target: string, loc: SectionLocator): string[] {
   return lanes
     .filter((l) => l.target === target)
-    .map((l) => `${l.param}|${l.enabled}|${l.points.map((p) => `${loc.locate(p.tick)}=${p.value}/${p.curve ?? ''}`).join(',')}`)
+    .map(
+      (l) =>
+        `${l.param}|${l.enabled}|${l.points.map((p) => `${loc.locate(p.tick)}=${p.value}/${p.curve ?? ''}`).join(',')}`,
+    )
     .sort();
 }
 
@@ -169,11 +177,13 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
     if (!sameMultiset(sig(before, lb), sig(after, la))) err('Tempo is locked but the tempo map changed.');
   }
   if (p.key) {
-    const sig = (s: Song, l: SectionLocator) => s.keyMap.map((k) => `${l.locateBar(k.bar)}=${k.key.tonic}/${k.key.mode}`);
+    const sig = (s: Song, l: SectionLocator) =>
+      s.keyMap.map((k) => `${l.locateBar(k.bar)}=${k.key.tonic}/${k.key.mode}`);
     if (!sameMultiset(sig(before, lb), sig(after, la))) err('Key is locked but the key map changed.');
   }
   if (p.meter) {
-    const sig = (s: Song, l: SectionLocator) => s.meterMap.map((m) => `${l.locateBar(m.bar)}=${m.numerator}/${m.denominator}`);
+    const sig = (s: Song, l: SectionLocator) =>
+      s.meterMap.map((m) => `${l.locateBar(m.bar)}=${m.numerator}/${m.denominator}`);
     if (!sameMultiset(sig(before, lb), sig(after, la))) err('Meter is locked but the meter map changed.');
   }
   if (p.structure) {
@@ -181,12 +191,14 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
     if (sig(before) !== sig(after)) err('Song structure is locked but sections changed.');
   }
   if (p.motifs) {
-    if (stableStringify(before.motifs) !== stableStringify(after.motifs)) err('Motifs are locked but changed.');
+    if (stableStringify(before.motifs) !== stableStringify(after.motifs))
+      err('Motifs are locked but changed.');
   }
   for (const id of p.motifIds) {
     const a = before.motifs.find((m) => m.id === id);
     const b = after.motifs.find((m) => m.id === id);
-    if (a && stableStringify(a) !== stableStringify(b ?? null)) err(`Motif "${a.name}" is locked but changed.`);
+    if (a && stableStringify(a) !== stableStringify(b ?? null))
+      err(`Motif "${a.name}" is locked but changed.`);
   }
 
   // --- chords ------------------------------------------------------------
@@ -230,7 +242,8 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
     if (!b) continue;
     const a = after.sections.find((s) => s.id === sid);
     if (!a) err(`Section "${b.name}" is locked but was removed.`, { sectionId: sid });
-    else if (a.bars !== b.bars) err(`Section "${b.name}" is locked but its length changed.`, { sectionId: sid });
+    else if (a.bars !== b.bars)
+      err(`Section "${b.name}" is locked but its length changed.`, { sectionId: sid });
   }
 
   // --- notes ---------------------------------------------------------------
@@ -264,16 +277,20 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
     if (a.instrumentId !== b.instrumentId || a.kind !== b.kind) {
       err(`Track "${b.name}" is locked but its instrument changed.`, { trackId: tid });
     }
-    if (stableStringify(a.clips) !== stableStringify(b.clips)) err(`Track "${b.name}" is locked but its audio clips changed.`, { trackId: tid });
+    if (stableStringify(a.clips) !== stableStringify(b.clips))
+      err(`Track "${b.name}" is locked but its audio clips changed.`, { trackId: tid });
     if (untouched(tid)) continue;
     const [gb, ga] = groups(tid);
     const all = (m: Map<string, string[]>) => [...m.values()].flat();
-    if (!sameMultiset(all(gb), all(ga))) err(`Track "${b.name}" is locked but its notes changed.`, { trackId: tid });
+    if (!sameMultiset(all(gb), all(ga)))
+      err(`Track "${b.name}" is locked but its notes changed.`, { trackId: tid });
   }
 
   const sectionChecks: [string, string][] = [];
   for (const [tid, sids] of p.trackSections) for (const sid of sids) sectionChecks.push([tid, sid]);
-  for (const sid of p.sections) for (const tid of new Set([...beforeTracks.keys(), ...afterTracks.keys()])) sectionChecks.push([tid, sid]);
+  for (const sid of p.sections)
+    for (const tid of new Set([...beforeTracks.keys(), ...afterTracks.keys()]))
+      sectionChecks.push([tid, sid]);
   const seenPairs = new Set<string>();
   for (const [tid, sid] of sectionChecks) {
     if (p.tracks.has(tid) || untouched(tid)) continue; // already compared as a whole / unchanged
@@ -286,7 +303,10 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
     const a = ga.get(sid) ?? [];
     if (!sameMultiset(b, a)) {
       const name = trackName(before, tid) ?? trackName(after, tid);
-      err(`"${name}" in "${sectionName(before, sid)}" is locked but changed.`, { trackId: tid, sectionId: sid });
+      err(`"${name}" in "${sectionName(before, sid)}" is locked but changed.`, {
+        trackId: tid,
+        sectionId: sid,
+      });
     }
   }
 
@@ -300,7 +320,10 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
       if (!afterById) afterById = new Map((at?.notes ?? []).map((x) => [x.id, x] as const));
       const m = afterById.get(n.id);
       if (!m || la.locate(m.tick) !== lb.locate(n.tick) || noteContentKey(m) !== noteContentKey(n)) {
-        err(`A locked note in "${t.name}" (${barsLabel(before, n.tick, n.tick + 1)}) was changed or removed.`, { trackId: t.id, noteId: n.id });
+        err(
+          `A locked note in "${t.name}" (${barsLabel(before, n.tick, n.tick + 1)}) was changed or removed.`,
+          { trackId: t.id, noteId: n.id },
+        );
       }
     }
   }
@@ -309,7 +332,10 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
   for (const target of p.mixers) {
     if (target === 'master') {
       const sig = (s: Song) => stableStringify([s.mixer.master, s.mixer.reverb, s.mixer.delay]);
-      if (sig(before) !== sig(after) || !sameMultiset(lanePoints(before.automation, 'master', lb), lanePoints(after.automation, 'master', la))) {
+      if (
+        sig(before) !== sig(after) ||
+        !sameMultiset(lanePoints(before.automation, 'master', lb), lanePoints(after.automation, 'master', la))
+      ) {
         err('The master bus is locked but its settings changed.');
       }
       continue;
@@ -317,7 +343,10 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
     if (!beforeTracks.has(target)) continue;
     const sb = stableStringify(channelFor(before, target));
     const sa = stableStringify(channelFor(after, target));
-    if (sb !== sa || !sameMultiset(lanePoints(before.automation, target, lb), lanePoints(after.automation, target, la))) {
+    if (
+      sb !== sa ||
+      !sameMultiset(lanePoints(before.automation, target, lb), lanePoints(after.automation, target, la))
+    ) {
       err(`The mixer channel of "${trackName(before, target)}" is locked but changed.`, { trackId: target });
     }
   }
@@ -336,7 +365,12 @@ function sameLayout(a: Song, b: Song): boolean {
   const lb = sectionLayout(b);
   if (la.length !== lb.length) return false;
   for (let i = 0; i < la.length; i++) {
-    if (la[i].section.id !== lb[i].section.id || la[i].startTick !== lb[i].startTick || la[i].endTick !== lb[i].endTick) return false;
+    if (
+      la[i].section.id !== lb[i].section.id ||
+      la[i].startTick !== lb[i].startTick ||
+      la[i].endTick !== lb[i].endTick
+    )
+      return false;
   }
   return stableStringify(a.meterMap) === stableStringify(b.meterMap);
 }
@@ -349,7 +383,11 @@ export function scopeViolations(before: Song, after: Song, scope: ChangeScope): 
   const allowed = scope.trackIds ? new Set(scope.trackIds) : undefined;
   const structureSame = sameLayout(before, after);
   if (region && !structureSame) {
-    issues.push({ severity: 'info', code: 'region.unchecked', message: 'Song structure changed; the requested bar range could not be verified.' });
+    issues.push({
+      severity: 'info',
+      code: 'region.unchecked',
+      message: 'Song structure changed; the requested bar range could not be verified.',
+    });
   }
   const checkRegion = !!region && structureSame;
   const outside = (n: Note) => !region || n.tick < region.startTick || n.tick >= region.endTick;
@@ -366,12 +404,22 @@ export function scopeViolations(before: Song, after: Song, scope: ChangeScope): 
     const inScope = !allowed || allowed.has(id);
     if (!inScope) {
       if (!a || !b) {
-        issues.push({ severity: 'error', code: 'region.violated', message: `Track "${name}" was ${a ? 'added' : 'removed'} outside the requested tracks.`, trackId: id });
+        issues.push({
+          severity: 'error',
+          code: 'region.violated',
+          message: `Track "${name}" was ${a ? 'added' : 'removed'} outside the requested tracks.`,
+          trackId: id,
+        });
         continue;
       }
       const exact = (n: Note) => `${n.tick}|${noteContentKey(n)}`;
       if (!sameMultiset(b.notes.map(exact), a.notes.map(exact))) {
-        issues.push({ severity: 'error', code: 'region.violated', message: `Track "${name}" changed but was not part of the requested change.`, trackId: id });
+        issues.push({
+          severity: 'error',
+          code: 'region.violated',
+          message: `Track "${name}" changed but was not part of the requested change.`,
+          trackId: id,
+        });
       }
       continue;
     }
@@ -391,7 +439,11 @@ export function scopeViolations(before: Song, after: Song, scope: ChangeScope): 
     const csig = (c: ChordEvent) => `${c.tick}|${c.root}|${c.quality}|${c.bass ?? ''}`;
     const cOut = (c: ChordEvent) => c.tick < region!.startTick || c.tick >= region!.endTick;
     if (!sameMultiset(before.chords.filter(cOut).map(csig), after.chords.filter(cOut).map(csig))) {
-      issues.push({ severity: 'error', code: 'region.violated', message: `Chords changed outside the requested range (${barsLabel(before, region!.startTick, region!.endTick)}).` });
+      issues.push({
+        severity: 'error',
+        code: 'region.violated',
+        message: `Chords changed outside the requested range (${barsLabel(before, region!.startTick, region!.endTick)}).`,
+      });
     }
   }
   return issues;
@@ -402,7 +454,11 @@ export function scopeViolations(before: Song, after: Song, scope: ChangeScope): 
  * Only possible when both songs share the same bar/section layout; returns the number of
  * restored components (0 when the layouts differ).
  */
-export function restoreLockedMaterial(before: Song, after: Song, locks: LockMap = before.locks): { song: Song; restored: number } {
+export function restoreLockedMaterial(
+  before: Song,
+  after: Song,
+  locks: LockMap = before.locks,
+): { song: Song; restored: number } {
   if (!hasAnyLock(locks) || !sameLayout(before, after)) return { song: after, restored: 0 };
   const violations = lockViolations(before, after, locks);
   if (!violations.length) return { song: after, restored: 0 };
@@ -526,7 +582,10 @@ export function restoreLockedMaterial(before: Song, after: Song, locks: LockMap 
     } else {
       delete out.mixer.channels[target];
     }
-    out.automation = [...out.automation.filter((l) => l.target !== target), ...cloneSong(before.automation.filter((l) => l.target === target))];
+    out.automation = [
+      ...out.automation.filter((l) => l.target !== target),
+      ...cloneSong(before.automation.filter((l) => l.target === target)),
+    ];
     restored++;
   }
   return { song: out, restored };

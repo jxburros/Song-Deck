@@ -12,7 +12,8 @@ export function chordFunction(chord: ChordSpec, key: KeySignature): HarmonicFunc
   const interval = mod12(chord.root - key.tonic);
   if (deg < 0) {
     // Common chromatic chords
-    if (interval === 10 || interval === 8 || interval === 3) return isMinorMode(key.mode) ? 'tonic' : 'predominant';
+    if (interval === 10 || interval === 8 || interval === 3)
+      return isMinorMode(key.mode) ? 'tonic' : 'predominant';
     if (interval === 1) return 'predominant'; // Neapolitan
     return 'chromatic';
   }
@@ -32,9 +33,10 @@ export type CadenceType = 'authentic' | 'plagal' | 'half' | 'deceptive';
 export function detectCadence(prev: ChordSpec, cur: ChordSpec, key: KeySignature): CadenceType | null {
   const pi = mod12(prev.root - key.tonic);
   const ci = mod12(cur.root - key.tonic);
-  const prevIsDominant = pi === 7 && (triadQuality(prev.quality) === 'maj' || isDominantQuality(prev.quality));
+  const prevIsDominant =
+    pi === 7 && (triadQuality(prev.quality) === 'maj' || isDominantQuality(prev.quality));
   if (prevIsDominant && ci === 0) return 'authentic';
-  if ((pi === 5) && ci === 0) return 'plagal';
+  if (pi === 5 && ci === 0) return 'plagal';
   if (prevIsDominant && (ci === 9 || ci === 8)) return 'deceptive';
   if (ci === 7 && pi !== 7) return 'half';
   return null;

@@ -14,7 +14,18 @@ import { mod12 } from '../../theory/pitch';
 import { transposeDiatonic } from '../../theory/scales';
 import { voiceChord } from '../../theory/voicing';
 import type { Cell } from '../context';
-import { MOTIF_DESCRIPTIONS, abstractPhrase, adaptMotifToCount, alignStressToMeter, anchorNear, findSongMotif, phraseBarsFor, realizePhrase, vocalGrid, type Contour } from '../motifs';
+import {
+  MOTIF_DESCRIPTIONS,
+  abstractPhrase,
+  adaptMotifToCount,
+  alignStressToMeter,
+  anchorNear,
+  findSongMotif,
+  phraseBarsFor,
+  realizePhrase,
+  vocalGrid,
+  type Contour,
+} from '../motifs';
 import { drumStyleInfo } from '../styles';
 import { lineStresses, lineSyllables } from '../syllables';
 import { chordAtIn, clamp, clamp01, humanize, toVelocity, type RawNote } from '../util';
@@ -99,26 +110,46 @@ function vary(notes: MotifNote[], rng: Cell['rng'], amount: number): MotifNote[]
 
 export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
   const isVocal = opts.vocal;
-  const lines = isVocal ? c.song.lyrics.filter((l) => l.sectionId === c.section.id && (!l.trackId || l.trackId === c.track.id)) : [];
+  const lines = isVocal
+    ? c.song.lyrics.filter((l) => l.sectionId === c.section.id && (!l.trackId || l.trackId === c.track.id))
+    : [];
   const bars = c.bars.length;
   const slots = layoutPhrases(c, lines, bars);
   if (!slots.length) return { notes: [] };
-  const rootSlots = c.isRepeat && c.rootBars !== bars ? Math.max(1, layoutPhrases({ ...c, bars: c.bars.slice(0, Math.min(c.rootBars, bars)) } as Cell, [], Math.min(c.rootBars, bars)).length) : slots.length;
+  const rootSlots =
+    c.isRepeat && c.rootBars !== bars
+      ? Math.max(
+          1,
+          layoutPhrases(
+            { ...c, bars: c.bars.slice(0, Math.min(c.rootBars, bars)) } as Cell,
+            [],
+            Math.min(c.rootBars, bars),
+          ).length,
+        )
+      : slots.length;
   const r = c.range;
   const cl = r.comfortableLow;
   const ch = r.comfortableHigh;
   const frac = registerFraction(c.kind);
   const center = Math.round(cl + (ch - cl) * frac);
   const low = Math.max(r.low, c.kind === 'verse' ? cl - 1 : cl);
-  const high = c.kind === 'final-chorus' ? Math.min(r.high, ch + 2) : c.kind === 'verse' ? Math.round(cl + (ch - cl) * 0.8) : ch;
+  const high =
+    c.kind === 'final-chorus'
+      ? Math.min(r.high, ch + 2)
+      : c.kind === 'verse'
+        ? Math.round(cl + (ch - cl) * 0.8)
+        : ch;
   const grid = vocalGrid(c.meter, c.bpm);
   const style = c.g.drumStyle;
   // Rap-led grooves (hip-hop, trap, boom-bap, drill, phonk, baile funk) rap their verses.
   const rap = isVocal && !!drumStyleInfo(style).rap && c.kind === 'verse';
-  const chorusy = c.kind === 'chorus' || c.kind === 'final-chorus' || c.kind === 'post-chorus' || c.kind === 'drop';
+  const chorusy =
+    c.kind === 'chorus' || c.kind === 'final-chorus' || c.kind === 'post-chorus' || c.kind === 'drop';
   const motifA = findSongMotif(c.song, 'verse');
   const motifD = findSongMotif(c.song, 'chorusVocal');
-  const movement = c.avoid.has('large-leaps') ? Math.min(0.3, c.macros.melodicMovement) : c.macros.melodicMovement;
+  const movement = c.avoid.has('large-leaps')
+    ? Math.min(0.3, c.macros.melodicMovement)
+    : c.macros.melodicMovement;
   const notes: RawNote[] = [];
   const phrases: PhraseDraft[] = [];
   let prevEnd: number | null = null;
@@ -129,7 +160,10 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
     const prng = c.rng.fork('phrase', contentIdx);
     const len = slot.end - slot.start;
     const beat = c.meterAt(slot.start).meter.beatTicks;
-    const breath = Math.min(len - grid, chorusy ? beat : Math.round(Math.max(beat, Math.round((len * 0.2) / grid) * grid)));
+    const breath = Math.min(
+      len - grid,
+      chorusy ? beat : Math.round(Math.max(beat, Math.round((len * 0.2) / grid) * grid)),
+    );
     const sung = Math.max(grid * 2, len - breath);
     const syllables = slot.lines.flatMap((l) => lineSyllables(l.text));
     const count = syllables.length || undefined;
@@ -138,15 +172,20 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
     const versePhrase = c.kind === 'verse' && contentIdx % 2 === 0;
     let abstract: MotifNote[];
     let motifId: string | undefined;
-    const fit = (m: MotifNote[]) => m.filter((n) => n.offset < sung).map((n) => ({ ...n, duration: Math.min(n.duration, sung - n.offset) }));
+    const fit = (m: MotifNote[]) =>
+      m
+        .filter((n) => n.offset < sung)
+        .map((n) => ({ ...n, duration: Math.min(n.duration, sung - n.offset) }));
     if (hookPhrase && motifD && !rap) {
       abstract = fit(motifD.notes);
       motifId = motifD.id;
-      if (contentIdx >= 2 && prng.chance(0.2 + c.macros.repetition * 0.4)) abstract = vary(abstract, prng.fork('hookvar'), c.macros.repetition);
+      if (contentIdx >= 2 && prng.chance(0.2 + c.macros.repetition * 0.4))
+        abstract = vary(abstract, prng.fork('hookvar'), c.macros.repetition);
     } else if (versePhrase && motifA && !rap) {
       abstract = fit(motifA.notes);
       motifId = motifA.id;
-      if (contentIdx >= 2 && prng.chance(0.25 + c.macros.repetition * 0.5)) abstract = vary(abstract, prng.fork('versevar'), c.macros.repetition);
+      if (contentIdx >= 2 && prng.chance(0.25 + c.macros.repetition * 0.5))
+        abstract = vary(abstract, prng.fork('versevar'), c.macros.repetition);
     } else {
       // New material: answers, pre-chorus climbs, bridge contrast, cadences.
       let contour: Contour = 'arch';
@@ -158,7 +197,19 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
       if (source && !rap && prng.chance(0.6)) {
         // Answer phrase: keep the motif's rhythm, write a new contour over it.
         const rhythm = fit(source.notes);
-        const degs = abstractPhrase(prng.fork('answer'), { lengthTicks: sung, barOffset: 0, meter: c.meter, grid, count: rhythm.length, density: 0.5, syncopation: c.macros.syncopation }, { contour, movement, span: 4, endDegree: last ? 0 : undefined }).map((n) => n.degree);
+        const degs = abstractPhrase(
+          prng.fork('answer'),
+          {
+            lengthTicks: sung,
+            barOffset: 0,
+            meter: c.meter,
+            grid,
+            count: rhythm.length,
+            density: 0.5,
+            syncopation: c.macros.syncopation,
+          },
+          { contour, movement, span: 4, endDegree: last ? 0 : undefined },
+        ).map((n) => n.degree);
         abstract = rhythm.map((n, k) => ({ ...n, degree: degs[k] ?? n.degree }));
       } else {
         abstract = abstractPhrase(
@@ -173,7 +224,14 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
             count,
             lateStart: c.kind === 'verse' ? 0.3 : 0.12,
           },
-          { contour: rap ? 'flat' : contour, movement, span: rap ? 2 : c.kind === 'bridge' ? 5 : 4, flat: rap, endDegree: last ? 0 : c.kind === 'pre-chorus' ? 4 : undefined, avoidLeaps: c.avoid.has('large-leaps') },
+          {
+            contour: rap ? 'flat' : contour,
+            movement,
+            span: rap ? 2 : c.kind === 'bridge' ? 5 : 4,
+            flat: rap,
+            endDegree: last ? 0 : c.kind === 'pre-chorus' ? 4 : undefined,
+            avoidLeaps: c.avoid.has('large-leaps'),
+          },
           84,
         );
       }
@@ -184,16 +242,27 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
       const stress = slot.lines.flatMap((l) => lineStresses(l.text));
       if (stress.length === abstract.length) {
         const at = c.meterAt(slot.start);
-        abstract = alignStressToMeter(abstract, stress, { grid: rap ? PPQ / 4 : grid, barOffset: slot.start - at.barStart, meter: at.meter, lengthTicks: sung });
+        abstract = alignStressToMeter(abstract, stress, {
+          grid: rap ? PPQ / 4 : grid,
+          barOffset: slot.start - at.barStart,
+          meter: at.meter,
+          lengthTicks: sung,
+        });
       }
     }
     if (!abstract.length) return;
     // Repeated sections mostly repeat; the repetition macro adds small changes.
-    if (c.isRepeat && c.vrng.fork('pv', i).chance(c.macros.repetition * 0.45)) abstract = vary(abstract, c.vrng.fork('pvd', i), c.macros.repetition);
+    if (c.isRepeat && c.vrng.fork('pv', i).chance(c.macros.repetition * 0.45))
+      abstract = vary(abstract, c.vrng.fork('pvd', i), c.macros.repetition);
     // Final chorus climax: lift the peak of the closing phrases.
     if (c.kind === 'final-chorus' && i >= Math.max(1, slots.length - 2)) {
       const peak = abstract.reduce((best, n, k) => (n.degree > abstract[best].degree ? k : best), 0);
-      if (peak > 0 && peak < abstract.length - 1) abstract[peak] = { ...abstract[peak], degree: abstract[peak].degree + 2, duration: Math.max(abstract[peak].duration, beat) };
+      if (peak > 0 && peak < abstract.length - 1)
+        abstract[peak] = {
+          ...abstract[peak],
+          degree: abstract[peak].degree + 2,
+          duration: Math.max(abstract[peak].duration, beat),
+        };
     }
     const startTick = slot.start + abstract[0].offset;
     const chord = chordAtIn(c.chords, startTick);
@@ -204,7 +273,12 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
       // The hook comes back over the same chord: sing it exactly as before.
       anchor = placed.anchor;
     } else {
-      const target = prevEnd === null ? (hookPhrase ? center + 2 : center) : clamp(prevEnd + (hookPhrase ? 2 : 0), low + 2, high - 2);
+      const target =
+        prevEnd === null
+          ? hookPhrase
+            ? center + 2
+            : center
+          : clamp(prevEnd + (hookPhrase ? 2 : 0), low + 2, high - 2);
       // Keep the whole phrase inside the register (≈1.7 semitones per scale step).
       const degs = abstract.map((n) => n.degree);
       const lowT = low + Math.ceil(-Math.min(0, ...degs) * 1.7);
@@ -255,7 +329,8 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
           expr.vibrato = Math.round((0.35 + 0.25 * e) * 100) / 100;
           if (k === realized.length - 1) expr.release = c.kind === 'verse' ? 'falling' : 'normal';
         }
-        if (k === 0) expr.onset = c.kind === 'verse' && e < 0.55 ? 'soft' : chorusy && e > 0.85 ? 'hard' : 'normal';
+        if (k === 0)
+          expr.onset = c.kind === 'verse' && e < 0.55 ? 'soft' : chorusy && e > 0.85 ? 'hard' : 'normal';
         expr.breathiness = Math.round((c.kind === 'verse' ? 0.32 : chorusy ? 0.14 : 0.22) * 100) / 100;
         expr.tension = Math.round(clamp(0.3 + e * 0.45, 0, 1) * 100) / 100;
         n.expression = expr;
@@ -278,13 +353,23 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
       const lastNote = realized[realized.length - 1];
       prevEnd = lastNote.pitch;
       const label = hookPhrase ? `${c.section.name} hook` : `${c.section.name} phrase ${i + 1}`;
-      const draft: PhraseDraft = { key, startTick: realized[0].tick, endTick: lastNote.tick + lastNote.duration, label };
+      const draft: PhraseDraft = {
+        key,
+        startTick: realized[0].tick,
+        endTick: lastNote.tick + lastNote.duration,
+        label,
+      };
       if (motifId) draft.motifId = motifId;
       if (slot.lines[0]) draft.lyricLineId = slot.lines[0].id;
       phrases.push(draft);
     }
   });
-  humanize(notes, c.macros.humanization * 0.6, c.vrng.fork('humanize'), { start: c.span.startTick, end: c.span.endTick, maxTicks: 10, maxVelocity: 6 });
+  humanize(notes, c.macros.humanization * 0.6, c.vrng.fork('humanize'), {
+    start: c.span.startTick,
+    end: c.span.endTick,
+    maxTicks: 10,
+    maxVelocity: 6,
+  });
   return { notes, phrases: isVocal ? phrases : undefined };
 }
 
@@ -293,15 +378,24 @@ function backingVocal(c: Cell): GenOutput {
   const lead = c.melodyNotes();
   const notes: RawNote[] = [];
   const r = c.range;
-  const chorusy = c.kind === 'chorus' || c.kind === 'final-chorus' || c.kind === 'post-chorus' || c.kind === 'drop';
+  const chorusy =
+    c.kind === 'chorus' || c.kind === 'final-chorus' || c.kind === 'post-chorus' || c.kind === 'drop';
   if (lead.length && chorusy) {
     for (const n of lead) {
       const ch = chordAtIn(c.chords, n.tick);
       const pcs = chordPitchClasses(ch);
       const options = [2, -2, -5, 4].map((steps) => transposeDiatonic(n.pitch, steps, c.key));
-      let pitch = options.find((p) => p >= r.low && p <= r.high && pcs.includes(mod12(p))) ?? options.find((p) => p >= r.low && p <= r.high) ?? n.pitch;
+      let pitch =
+        options.find((p) => p >= r.low && p <= r.high && pcs.includes(mod12(p))) ??
+        options.find((p) => p >= r.low && p <= r.high) ??
+        n.pitch;
       if (pitch === n.pitch) pitch = clamp(n.pitch - 12, r.low, r.high);
-      const out: RawNote = { pitch, tick: n.tick, duration: n.duration, velocity: toVelocity(n.velocity - 14) };
+      const out: RawNote = {
+        pitch,
+        tick: n.tick,
+        duration: n.duration,
+        velocity: toVelocity(n.velocity - 14),
+      };
       if (n.syllable) out.syllable = n.syllable;
       if (n.lyricLineId) out.lyricLineId = n.lyricLineId;
       notes.push(out);
@@ -323,7 +417,14 @@ function backingVocal(c: Cell): GenOutput {
       }
     }
     prev = best;
-    notes.push({ pitch: best, tick: ch.tick, duration: Math.max(60, ch.duration - 30), velocity: toVelocity(58 + 30 * c.energyAt(ch.tick)), syllable: 'ooh', articulation: 'legato' });
+    notes.push({
+      pitch: best,
+      tick: ch.tick,
+      duration: Math.max(60, ch.duration - 30),
+      velocity: toVelocity(58 + 30 * c.energyAt(ch.tick)),
+      syllable: 'ooh',
+      articulation: 'legato',
+    });
   }
   return { notes };
 }
@@ -334,10 +435,27 @@ function choirPad(c: Cell): GenOutput {
   let prev: number[] | undefined;
   const r = c.range;
   for (const ch of c.chords) {
-    const v = voiceChord({ root: ch.root, quality: ch.quality }, { low: Math.max(r.low, 45), high: Math.min(r.high, 79), voices: c.inst.polyphony === 'mono' ? 1 : 4, previous: prev, center: 62 });
+    const v = voiceChord(
+      { root: ch.root, quality: ch.quality },
+      {
+        low: Math.max(r.low, 45),
+        high: Math.min(r.high, 79),
+        voices: c.inst.polyphony === 'mono' ? 1 : 4,
+        previous: prev,
+        center: 62,
+      },
+    );
     prev = v;
     const e = c.energyAt(ch.tick);
-    for (const p of v) notes.push({ pitch: p, tick: ch.tick, duration: Math.max(60, ch.duration - 20), velocity: toVelocity(54 + 46 * e), articulation: 'legato', syllable: 'aah' });
+    for (const p of v)
+      notes.push({
+        pitch: p,
+        tick: ch.tick,
+        duration: Math.max(60, ch.duration - 20),
+        velocity: toVelocity(54 + 46 * e),
+        articulation: 'legato',
+        syllable: 'aah',
+      });
   }
   return { notes };
 }

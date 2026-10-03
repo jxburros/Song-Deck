@@ -40,7 +40,13 @@ export const BANDWIDTHS_FEMALE = [80, 95, 145, 200, 280];
 export type FormantBase = 'male' | 'female';
 
 /** Writes F1..F5 (Hz) for a vowel into `out`. */
-export function vowelFormants(v: VowelKey, base: FormantBase, scale: number, out: Float64Array, offset = 0): void {
+export function vowelFormants(
+  v: VowelKey,
+  base: FormantBase,
+  scale: number,
+  out: Float64Array,
+  offset = 0,
+): void {
   const t = base === 'male' ? MEN[v] : WOMEN[v];
   out[offset] = t[0] * scale;
   out[offset + 1] = t[1] * scale;
@@ -50,7 +56,13 @@ export function vowelFormants(v: VowelKey, base: FormantBase, scale: number, out
 }
 
 /** Consonant locus formants (male reference) scaled to the voice. */
-export function scaledLocus(f: [number, number, number], base: FormantBase, scale: number, out: Float64Array, offset = 0): void {
+export function scaledLocus(
+  f: [number, number, number],
+  base: FormantBase,
+  scale: number,
+  out: Float64Array,
+  offset = 0,
+): void {
   const k = base === 'male' ? 1 : 1.15;
   out[offset] = f[0] * k * scale;
   out[offset + 1] = f[1] * k * scale;

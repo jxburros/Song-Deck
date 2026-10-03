@@ -1,7 +1,13 @@
 import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createVault, EncryptedFileVault, KeychainVault, MemoryVault, type KeyringModule } from '../src/vault';
+import {
+  createVault,
+  EncryptedFileVault,
+  KeychainVault,
+  MemoryVault,
+  type KeyringModule,
+} from '../src/vault';
 import { json, startServer, tempDir, type TestServer } from './helpers';
 
 let srv: TestServer | undefined;
@@ -48,7 +54,12 @@ describe('vault over HTTP', () => {
 
   it('validates references, secrets and labels', async () => {
     srv = await startServer();
-    const put = (ref: string, body: unknown) => fetch(`${srv!.url}/api/vault/${ref}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const put = (ref: string, body: unknown) =>
+      fetch(`${srv!.url}/api/vault/${ref}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
     expect((await put('bad%20ref', { secret: 'x' })).status).toBe(400);
     expect((await put('a%00b', { secret: 'x' })).status).toBe(400);
     expect((await put('%E0%A4%A', { secret: 'x' })).status).toBe(400); // malformed percent-encoding
@@ -82,7 +93,9 @@ describe('encrypted-file vault', () => {
     const v2 = new EncryptedFileVault(d);
     await v2.init();
     expect(await v2.get('provider:anthropic')).toBe('sk-ant-plaintext-should-not-appear');
-    expect(await v2.list()).toEqual([{ ref: 'provider:anthropic', label: 'Anthropic', updatedAt: expect.any(String) }]);
+    expect(await v2.list()).toEqual([
+      { ref: 'provider:anthropic', label: 'Anthropic', updatedAt: expect.any(String) },
+    ]);
     expect(await v2.get('missing')).toBeUndefined();
     expect(await v2.delete('provider:anthropic')).toBe(true);
     expect(await v2.delete('provider:anthropic')).toBe(false);
@@ -144,7 +157,11 @@ describe('encrypted-file vault', () => {
   it('surfaces vault errors over HTTP as JSON errors', async () => {
     const d = dir();
     srv = await startServer({ vault: 'encrypted-file', dataDir: d });
-    await fetch(`${srv.url}/api/vault/a`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret: 's' }) });
+    await fetch(`${srv.url}/api/vault/a`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ secret: 's' }),
+    });
     writeFileSync(path.join(d, 'vault.enc'), 'garbage');
     const res = await fetch(`${srv.url}/api/vault`);
     expect(res.status).toBe(500);
@@ -191,9 +208,15 @@ describe('vault backend selection', () => {
   });
 
   it('falls back when the keychain probe fails or is unreliable', async () => {
-    expect((await createVault({ dataDir: dir(), keychain: async () => fakeKeyring('fail').mod })).backend).toBe('encrypted-file');
-    expect((await createVault({ dataDir: dir(), keychain: async () => fakeKeyring('wrong-value').mod })).backend).toBe('encrypted-file');
-    expect((await createVault({ dataDir: dir(), keychain: async () => undefined })).backend).toBe('encrypted-file');
+    expect(
+      (await createVault({ dataDir: dir(), keychain: async () => fakeKeyring('fail').mod })).backend,
+    ).toBe('encrypted-file');
+    expect(
+      (await createVault({ dataDir: dir(), keychain: async () => fakeKeyring('wrong-value').mod })).backend,
+    ).toBe('encrypted-file');
+    expect((await createVault({ dataDir: dir(), keychain: async () => undefined })).backend).toBe(
+      'encrypted-file',
+    );
   });
 
   it('falls back when the keychain hangs', async () => {
@@ -227,7 +250,9 @@ describe('vault backend selection', () => {
     const index = readFileSync(path.join(d, 'vault-index.json'), 'utf8');
     expect(index).toContain('provider:gemini');
     expect(index).not.toContain('AIzaSyD');
-    expect(await vault.list()).toEqual([{ ref: 'provider:gemini', label: 'Gemini', updatedAt: expect.any(String) }]);
+    expect(await vault.list()).toEqual([
+      { ref: 'provider:gemini', label: 'Gemini', updatedAt: expect.any(String) },
+    ]);
     expect(await vault.delete('provider:gemini')).toBe(true);
     expect(await vault.list()).toEqual([]);
     expect(store.size).toBe(0);

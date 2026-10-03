@@ -9,9 +9,15 @@ import { composeQuickSong, openComposer } from './compose-helpers';
  */
 
 async function scan(page: Page, label: string): Promise<string[]> {
-  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
   return results.violations.map(
-    (v) => `${label}: ${v.id} (${v.impact}) — ${v.help}\n    ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join('\n    ')}`,
+    (v) =>
+      `${label}: ${v.id} (${v.impact}) — ${v.help}\n    ${v.nodes
+        .slice(0, 3)
+        .map((n) => n.target.join(' '))
+        .join('\n    ')}`,
   );
 }
 
@@ -40,7 +46,10 @@ test('main screens have no WCAG A/AA violations in either theme', async ({ page 
 
   await openComposer(page);
   await both('Compose builder');
-  await page.getByTestId('compose-builder').getByRole('tab', { name: /^Lyrics/ }).click();
+  await page
+    .getByTestId('compose-builder')
+    .getByRole('tab', { name: /^Lyrics/ })
+    .click();
   await both('Compose lyrics');
 
   await composeQuickSong(page, 'Alt-rock band');

@@ -12,7 +12,11 @@ export type CaptureWorkerRequest =
   | {
       id: number;
       method: 'rebuildWithStems';
-      args: { audio: AudioData; title?: string; stems: { drums: AudioData; bass: AudioData; vocals: AudioData; other: AudioData } };
+      args: {
+        audio: AudioData;
+        title?: string;
+        stems: { drums: AudioData; bass: AudioData; vocals: AudioData; other: AudioData };
+      };
     }
   | { id: number; method: 'cancel'; args: { target: number } };
 
@@ -37,12 +41,18 @@ self.onmessage = async (ev: MessageEvent<CaptureWorkerRequest>) => {
       title,
       signal: controller.signal,
       separation: async () => stems,
-      onProgress: (stage, p, stages) => self.postMessage({ id: req.id, progress: p, stage, detail: stages } satisfies CaptureWorkerResponse),
+      onProgress: (stage, p, stages) =>
+        self.postMessage({ id: req.id, progress: p, stage, detail: stages } satisfies CaptureWorkerResponse),
     });
     self.postMessage({ id: req.id, ok: true, result } satisfies CaptureWorkerResponse);
   } catch (err) {
     const aborted = err instanceof Error && err.name === 'AbortError';
-    self.postMessage({ id: req.id, ok: false, error: err instanceof Error ? err.message : String(err), aborted } satisfies CaptureWorkerResponse);
+    self.postMessage({
+      id: req.id,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+      aborted,
+    } satisfies CaptureWorkerResponse);
   } finally {
     controllers.delete(req.id);
   }

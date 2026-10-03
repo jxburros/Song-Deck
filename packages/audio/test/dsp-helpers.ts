@@ -5,7 +5,13 @@ import type { AudioData } from '../src/types';
 
 let counter = 0;
 
-export function mkNote(pitch: number, tick: number, duration: number, velocity = 96, extra: Partial<Note> = {}): Note {
+export function mkNote(
+  pitch: number,
+  tick: number,
+  duration: number,
+  velocity = 96,
+  extra: Partial<Note> = {},
+): Note {
   return { id: `n${++counter}`, pitch, tick, duration, velocity, ...extra };
 }
 
@@ -40,10 +46,18 @@ export function setStrip(song: Song, trackId: string, s: Partial<ChannelStrip>):
 export function bandSong(bars = 2, bpm = 120): Song {
   const song = mkSong(bars, bpm);
   const bar = 1920;
-  const drums: Note[] = [], bass: Note[] = [], keys: Note[] = [], lead: Note[] = [];
+  const drums: Note[] = [],
+    bass: Note[] = [],
+    keys: Note[] = [],
+    lead: Note[] = [];
   for (let b = 0; b < bars; b++) {
     const t = b * bar;
-    drums.push(mkNote(GM_DRUM.KICK, t, 120, 110), mkNote(GM_DRUM.SNARE, t + 480, 120, 100), mkNote(GM_DRUM.KICK, t + 960, 120, 105), mkNote(GM_DRUM.SNARE, t + 1440, 120, 100));
+    drums.push(
+      mkNote(GM_DRUM.KICK, t, 120, 110),
+      mkNote(GM_DRUM.SNARE, t + 480, 120, 100),
+      mkNote(GM_DRUM.KICK, t + 960, 120, 105),
+      mkNote(GM_DRUM.SNARE, t + 1440, 120, 100),
+    );
     for (let e = 0; e < 8; e++) drums.push(mkNote(GM_DRUM.HIHAT_CLOSED, t + e * 240, 100, e % 2 ? 70 : 90));
     for (let e = 0; e < 4; e++) bass.push(mkNote(40 + (b % 2) * 5, t + e * 480, 440, 95));
     for (const p of [64, 67, 71]) keys.push(mkNote(p + (b % 2) * 5, t, bar - 60, 80));
@@ -81,7 +95,14 @@ export function hasNonFinite(buf: AudioData): boolean {
 }
 
 /** YIN fundamental estimate (Hz) of x[start .. start+win). */
-export function yinF0(x: ArrayLike<number>, sr: number, start = 0, win = 4096, fmin = 40, fmax = 2000): number {
+export function yinF0(
+  x: ArrayLike<number>,
+  sr: number,
+  start = 0,
+  win = 4096,
+  fmin = 40,
+  fmax = 2000,
+): number {
   const minLag = Math.floor(sr / fmax);
   const maxLag = Math.ceil(sr / fmin);
   const d = new Float64Array(maxLag + 2);
@@ -110,12 +131,15 @@ export function yinF0(x: ArrayLike<number>, sr: number, start = 0, win = 4096, f
   }
   if (best < 0) {
     let m = Infinity;
-    for (let lag = minLag; lag <= maxLag; lag++) if (cm[lag] < m) {
-      m = cm[lag];
-      best = lag;
-    }
+    for (let lag = minLag; lag <= maxLag; lag++)
+      if (cm[lag] < m) {
+        m = cm[lag];
+        best = lag;
+      }
   }
-  const a = cm[best - 1], b = cm[best], c = cm[best + 1];
+  const a = cm[best - 1],
+    b = cm[best],
+    c = cm[best + 1];
   const den = a - 2 * b + c;
   const off = den !== 0 ? (0.5 * (a - c)) / den : 0;
   return sr / (best + off);
@@ -129,7 +153,8 @@ export function cents(f: number, ref: number): number {
 export function toneMag(x: ArrayLike<number>, sr: number, f: number, start = 0, n = 8192): number {
   const w = (2 * Math.PI * f) / sr;
   const c = 2 * Math.cos(w);
-  let s1 = 0, s2 = 0;
+  let s1 = 0,
+    s2 = 0;
   for (let i = 0; i < n; i++) {
     const win = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1));
     const s0 = x[start + i] * win + c * s1 - s2;
@@ -140,7 +165,15 @@ export function toneMag(x: ArrayLike<number>, sr: number, f: number, start = 0, 
 }
 
 /** Energy in [f0, f1] Hz via a coarse DFT scan (step `df`). */
-export function bandEnergy(x: ArrayLike<number>, sr: number, f0: number, f1: number, start = 0, n = 8192, df = 10): number {
+export function bandEnergy(
+  x: ArrayLike<number>,
+  sr: number,
+  f0: number,
+  f1: number,
+  start = 0,
+  n = 8192,
+  df = 10,
+): number {
   let e = 0;
   for (let f = f0; f <= f1; f += df) {
     const m = toneMag(x, sr, f, start, n);

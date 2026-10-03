@@ -24,9 +24,18 @@ import { Icon } from '../../ui/icons';
 
 const BASES: { value: AttestationBasis; hint: string }[] = [
   { value: 'own-work', hint: 'You wrote, performed and recorded it, or otherwise hold the rights.' },
-  { value: 'licensed', hint: 'A licence, sample-pack terms or written permission from the rights holder covers this use.' },
-  { value: 'open-licence', hint: 'Public domain, or released under an open licence such as Creative Commons. Name the licence below.' },
-  { value: 'personal-study', hint: 'Learning, practice or analysis on this device — not for release. You will be reminded before it leaves the device or is exported.' },
+  {
+    value: 'licensed',
+    hint: 'A licence, sample-pack terms or written permission from the rights holder covers this use.',
+  },
+  {
+    value: 'open-licence',
+    hint: 'Public domain, or released under an open licence such as Creative Commons. Name the licence below.',
+  },
+  {
+    value: 'personal-study',
+    hint: 'Learning, practice or analysis on this device — not for release. You will be reminded before it leaves the device or is exported.',
+  },
 ];
 
 export function AttestationDialog() {
@@ -36,7 +45,9 @@ export function AttestationDialog() {
 }
 
 function bytesLabel(n: number): string {
-  return n >= 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
+  return n >= 1024 * 1024
+    ? `${(n / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(n / 1024))} KB`;
 }
 
 function AttestationModal({ request }: { request: AttestationRequest }) {
@@ -44,7 +55,9 @@ function AttestationModal({ request }: { request: AttestationRequest }) {
   const online = useContentCheck((s) => s.online);
   const [checked, setChecked] = useState<CheckedFile[] | null>(null);
   const [basis, setBasis] = useState<AttestationBasis | null>(null);
-  const [attestedBy, setAttestedBy] = useState(() => loadAttestationMemory().lastAttestedBy ?? userName ?? '');
+  const [attestedBy, setAttestedBy] = useState(
+    () => loadAttestationMemory().lastAttestedBy ?? userName ?? '',
+  );
   const [rightsHolder, setRightsHolder] = useState('');
   const [licence, setLicence] = useState('');
   const [notes, setNotes] = useState('');
@@ -78,10 +91,13 @@ function AttestationModal({ request }: { request: AttestationRequest }) {
 
   const cancel = () => settleAttestation(null);
   const needsLicence = basis === 'open-licence';
-  const ready = !!checked && !!basis && attestedBy.trim().length > 0 && (!needsLicence || licence.trim().length > 0);
+  const ready =
+    !!checked && !!basis && attestedBy.trim().length > 0 && (!needsLicence || licence.trim().length > 0);
   const confirm = () => {
     if (!ready || !checked || !basis) return;
-    settleAttestation(buildAttestations(checked, { basis, attestedBy, rightsHolder, licence, notes }, request.context));
+    settleAttestation(
+      buildAttestations(checked, { basis, attestedBy, rightsHolder, licence, notes }, request.context),
+    );
   };
   const flagged = checked?.filter((c) => isFlagged(c)) ?? [];
   const many = request.files.length > 1;
@@ -98,7 +114,13 @@ function AttestationModal({ request }: { request: AttestationRequest }) {
             Stored with the project and remembered for this file in this browser.
           </span>
           <Button onClick={cancel}>Cancel upload</Button>
-          <Button variant="primary" icon="shield" onClick={confirm} disabled={!ready} data-testid="attest-confirm">
+          <Button
+            variant="primary"
+            icon="shield"
+            onClick={confirm}
+            disabled={!ready}
+            data-testid="attest-confirm"
+          >
             {flagged.length ? 'Attest and continue anyway' : 'Attest and continue'}
           </Button>
         </>
@@ -106,8 +128,9 @@ function AttestationModal({ request }: { request: AttestationRequest }) {
     >
       <div className="col" style={{ gap: 12 }} data-testid="attestation-dialog">
         <div className="small muted">
-          <strong>{request.purpose}.</strong> Before {many ? 'these files are' : 'this file is'} used, say on what basis you may use {many ? 'them' : 'it'}. Song Deck
-          does not block anything — this is your record and a reminder.
+          <strong>{request.purpose}.</strong> Before {many ? 'these files are' : 'this file is'} used, say on
+          what basis you may use {many ? 'them' : 'it'}. Song Deck does not block anything — this is your
+          record and a reminder.
         </div>
 
         <div className="col" style={{ gap: 8 }}>
@@ -119,7 +142,8 @@ function AttestationModal({ request }: { request: AttestationRequest }) {
 
         {prefilled && (
           <div className="callout success small" data-testid="attestation-prefilled">
-            You attested {many ? 'these files' : 'this exact file'} before — your previous answer is filled in.
+            You attested {many ? 'these files' : 'this exact file'} before — your previous answer is filled
+            in.
           </div>
         )}
 
@@ -130,9 +154,23 @@ function AttestationModal({ request }: { request: AttestationRequest }) {
               <label
                 key={b.value}
                 className="card row"
-                style={{ cursor: 'pointer', alignItems: 'flex-start', gap: 10, padding: '8px 10px', borderColor: on ? 'var(--accent)' : undefined, background: on ? 'var(--accent-soft)' : undefined }}
+                style={{
+                  cursor: 'pointer',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  padding: '8px 10px',
+                  borderColor: on ? 'var(--accent)' : undefined,
+                  background: on ? 'var(--accent-soft)' : undefined,
+                }}
               >
-                <input type="radio" name={`basis-${request.id}`} checked={on} onChange={() => setBasis(b.value)} aria-label={ATTESTATION_BASIS_LABEL[b.value]} style={{ marginTop: 3 }} />
+                <input
+                  type="radio"
+                  name={`basis-${request.id}`}
+                  checked={on}
+                  onChange={() => setBasis(b.value)}
+                  aria-label={ATTESTATION_BASIS_LABEL[b.value]}
+                  style={{ marginTop: 3 }}
+                />
                 <span className="col" style={{ gap: 2 }}>
                   <strong>{ATTESTATION_BASIS_LABEL[b.value]}</strong>
                   <span className="small dim">{b.hint}</span>
@@ -147,27 +185,61 @@ function AttestationModal({ request }: { request: AttestationRequest }) {
             <TextInput value={attestedBy} onChange={setAttestedBy} aria-label="Attested by" />
           </Field>
           <Field label="Rights holder (optional)" hint="Who owns the recording, if not you">
-            <TextInput value={rightsHolder} onChange={setRightsHolder} placeholder="e.g. Acme Samples Ltd" aria-label="Rights holder" />
+            <TextInput
+              value={rightsHolder}
+              onChange={setRightsHolder}
+              placeholder="e.g. Acme Samples Ltd"
+              aria-label="Rights holder"
+            />
           </Field>
           {(basis === 'open-licence' || basis === 'licensed') && (
-            <Field label={basis === 'open-licence' ? 'Licence' : 'Licence / permission (optional)'} hint={basis === 'open-licence' ? 'e.g. CC BY 4.0, CC0, public domain' : 'e.g. licence number, contract, e-mail permission'}>
-              <TextInput value={licence} onChange={setLicence} placeholder={basis === 'open-licence' ? 'CC BY 4.0' : 'Licence #42'} aria-label="Licence" />
+            <Field
+              label={basis === 'open-licence' ? 'Licence' : 'Licence / permission (optional)'}
+              hint={
+                basis === 'open-licence'
+                  ? 'e.g. CC BY 4.0, CC0, public domain'
+                  : 'e.g. licence number, contract, e-mail permission'
+              }
+            >
+              <TextInput
+                value={licence}
+                onChange={setLicence}
+                placeholder={basis === 'open-licence' ? 'CC BY 4.0' : 'Licence #42'}
+                aria-label="Licence"
+              />
             </Field>
           )}
         </div>
         <Field label="Notes (optional)">
-          <TextArea value={notes} onChange={setNotes} rows={2} placeholder="Where it came from, what the licence allows…" aria-label="Attestation notes" />
+          <TextArea
+            value={notes}
+            onChange={setNotes}
+            rows={2}
+            placeholder="Where it came from, what the licence allows…"
+            aria-label="Attestation notes"
+          />
         </Field>
         <div className="small dim">
-          Checks are limited: embedded tags are easy to strip, and fingerprinting{online ? '' : ' (off — Settings → Privacy → Content check)'} only recognises this exact
-          recording, not covers, re-recordings or humming.
+          Checks are limited: embedded tags are easy to strip, and fingerprinting
+          {online ? '' : ' (off — Settings → Privacy → Content check)'} only recognises this exact recording,
+          not covers, re-recordings or humming.
         </div>
       </div>
     </Modal>
   );
 }
 
-function FileCheck({ name, size, check, onlineEnabled }: { name: string; size: number; check?: CheckedFile; onlineEnabled: boolean }) {
+function FileCheck({
+  name,
+  size,
+  check,
+  onlineEnabled,
+}: {
+  name: string;
+  size: number;
+  check?: CheckedFile;
+  onlineEnabled: boolean;
+}) {
   const level = check?.metadata.level ?? 'none';
   const commercial = level === 'likely-commercial' || !!check?.match;
   return (
@@ -193,9 +265,14 @@ function FileCheck({ name, size, check, onlineEnabled }: { name: string; size: n
         )}
       </div>
       {check && level !== 'none' && (
-        <div className={`callout small ${level === 'likely-commercial' ? 'warning' : ''}`} data-testid="attestation-warning" role={level === 'likely-commercial' ? 'alert' : undefined}>
+        <div
+          className={`callout small ${level === 'likely-commercial' ? 'warning' : ''}`}
+          data-testid="attestation-warning"
+          role={level === 'likely-commercial' ? 'alert' : undefined}
+        >
           {check.metadata.summary}
-          {level === 'likely-commercial' && ' You can still continue if you have the rights — but uploading other people’s releases without permission may infringe their copyright.'}
+          {level === 'likely-commercial' &&
+            ' You can still continue if you have the rights — but uploading other people’s releases without permission may infringe their copyright.'}
         </div>
       )}
       {check && onlineEnabled && (
@@ -207,13 +284,21 @@ function FileCheck({ name, size, check, onlineEnabled }: { name: string; size: n
           )}
           {check.online === 'matched' && check.match && (
             <div className="callout warning" role="alert">
-              AcoustID recognises this recording as <strong>{check.match.title ?? 'a known recording'}</strong>
+              AcoustID recognises this recording as{' '}
+              <strong>{check.match.title ?? 'a known recording'}</strong>
               {check.match.artists?.length ? ` by ${check.match.artists.join(', ')}` : ''}
-              {check.match.releaseTitle ? ` (${check.match.releaseTitle})` : ''} — {Math.round(check.match.score * 100)}% match.
+              {check.match.releaseTitle ? ` (${check.match.releaseTitle})` : ''} —{' '}
+              {Math.round(check.match.score * 100)}% match.
             </div>
           )}
-          {check.online === 'no-match' && <span className="dim">AcoustID: no match (this does not prove the recording is free to use).</span>}
-          {check.online === 'error' && <span className="dim">Online check unavailable: {check.onlineError}</span>}
+          {check.online === 'no-match' && (
+            <span className="dim">
+              AcoustID: no match (this does not prove the recording is free to use).
+            </span>
+          )}
+          {check.online === 'error' && (
+            <span className="dim">Online check unavailable: {check.onlineError}</span>
+          )}
         </div>
       )}
     </div>

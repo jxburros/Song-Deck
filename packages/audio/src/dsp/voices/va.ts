@@ -110,7 +110,11 @@ export class VaVoice extends Voice {
   private peak = 0;
   private readonly sr: number;
 
-  constructor(host: VoiceHost, private readonly p: VaParams, private readonly stereo: boolean) {
+  constructor(
+    host: VoiceHost,
+    private readonly p: VaParams,
+    private readonly stereo: boolean,
+  ) {
     super(host);
     this.sr = host.sampleRate;
     const oscs = p.oscs.slice(0, MAX_OSC);
@@ -119,7 +123,8 @@ export class VaVoice extends Voice {
     const uniNorm = 1 / Math.sqrt(this.nUni);
     oscs.forEach((o, i) => {
       this.lvl[i] = o.level * uniNorm;
-      this.waveCode[i] = o.wave === 'saw' ? 0 : o.wave === 'square' ? 1 : o.wave === 'pulse' ? 2 : o.wave === 'tri' ? 3 : 4;
+      this.waveCode[i] =
+        o.wave === 'saw' ? 0 : o.wave === 'square' ? 1 : o.wave === 'pulse' ? 2 : o.wave === 'tri' ? 3 : 4;
       this.pw[i] = o.pw ?? 0.5;
       for (let u = 0; u < this.nUni; u++) {
         const spread = this.nUni > 1 ? (u / (this.nUni - 1) - 0.5) * (p.detune ?? 0) : 0;
@@ -229,12 +234,16 @@ export class VaVoice extends Voice {
     if (n <= 0) return;
     const alive = this.amp.process(env, start, end);
     // ---- block-rate pitch ----
-    if (this.glideCoef > 0) this.curPitch = this.targetPitch + (this.curPitch - this.targetPitch) * Math.pow(this.glideCoef, n / CR);
-    else if (this.art & ART_SLIDE) this.curPitch = this.targetPitch + (this.curPitch - this.targetPitch) * Math.exp(-n / (0.03 * sr));
+    if (this.glideCoef > 0)
+      this.curPitch =
+        this.targetPitch + (this.curPitch - this.targetPitch) * Math.pow(this.glideCoef, n / CR);
+    else if (this.art & ART_SLIDE)
+      this.curPitch = this.targetPitch + (this.curPitch - this.targetPitch) * Math.exp(-n / (0.03 * sr));
     else this.curPitch = this.targetPitch;
     let pitch = this.curPitch;
     if (this.bendTime > 0 && this.t < this.bendTime) pitch += this.bendFrom * (1 - this.t / this.bendTime);
-    if (p.scoop && !(this.art & ART_STACCATO)) pitch += p.scoop.semis * Math.exp(-this.t / Math.max(0.005, p.scoop.time));
+    if (p.scoop && !(this.art & ART_STACCATO))
+      pitch += p.scoop.semis * Math.exp(-this.t / Math.max(0.005, p.scoop.time));
     if (p.vibrato) {
       const v = p.vibrato;
       const amt = clampNum((this.t - v.delay) / Math.max(0.01, v.fade), 0, 1);
@@ -255,8 +264,11 @@ export class VaVoice extends Voice {
     const dt0 = f0 / sr;
     // ---- oscillators (one tight loop per oscillator) ----
     for (let j = start; j < end; j++) buf[j] = 0;
-    const nOsc = this.nOsc, nUni = this.nUni;
-    const phases = this.phases, tri = this.tri, ratio = this.ratio;
+    const nOsc = this.nOsc,
+      nUni = this.nUni;
+    const phases = this.phases,
+      tri = this.tri,
+      ratio = this.ratio;
     let pwmOff = 0;
     if (p.pwm) pwmOff = p.pwm.depth * sin01(this.t * p.pwm.rate);
     for (let o = 0; o < nOsc; o++) {
@@ -350,10 +362,15 @@ export class VaVoice extends Voice {
     const tremRate = this.art & ART_TREMOLO ? Math.min(16, ((this.note?.bpm ?? 120) / 60) * 8) / sr : 0;
     const vg = this.velGain;
     const stereo = this.stereo;
-    const gl = stereo ? this.pg[0] : 1, gr = this.pg[1];
-    const f1 = this.f1, f2 = this.f2;
+    const gl = stereo ? this.pg[0] : 1,
+      gr = this.pg[1];
+    const f1 = this.f1,
+      f2 = this.f2;
     let peak = 0;
-    let ic1 = f1.ic1, ic2 = f1.ic2, jc1 = f2.ic1, jc2 = f2.ic2;
+    let ic1 = f1.ic1,
+      ic2 = f1.ic2,
+      jc1 = f2.ic1,
+      jc2 = f2.ic2;
     let trem = this.trem;
     // filter: coefficients every CR samples from the (control-rate) filter envelope
     // static filter envelope (sustain) and no LFO → one coefficient set for the whole block
@@ -371,21 +388,25 @@ export class VaVoice extends Voice {
         if (fType === 2) f2.set(cut, 0.54, sr);
       }
     }
-    for (let i = start; i < end; ) {
+    for (let i = start; i < end;) {
       const segEnd = Math.min(end, i + segLen);
       if (!staticEnv) {
-      this.cutKey = NaN;
-      const fev = this.fenv.advance(segEnd - i);
-      const cut = clampNum(baseCut * Math.pow(2, filt.envOct * accentBoost * fev), 30, sr * 0.45);
-      if (fType === 3) f1.set(cut, q, sr);
-      else {
-        f1.set(cut, fType === 2 ? Math.max(0.5, q * 0.7) : q, sr);
-        if (fType === 2) f2.set(cut, 0.54, sr);
+        this.cutKey = NaN;
+        const fev = this.fenv.advance(segEnd - i);
+        const cut = clampNum(baseCut * Math.pow(2, filt.envOct * accentBoost * fev), 30, sr * 0.45);
+        if (fType === 3) f1.set(cut, q, sr);
+        else {
+          f1.set(cut, fType === 2 ? Math.max(0.5, q * 0.7) : q, sr);
+          if (fType === 2) f2.set(cut, 0.54, sr);
+        }
       }
-      }
-      const a1 = f1.a1, a2 = f1.a2, a3 = f1.a3;
+      const a1 = f1.a1,
+        a2 = f1.a2,
+        a3 = f1.a3;
       if (fType === 2) {
-        const b1 = f2.a1, b2 = f2.a2, b3 = f2.a3;
+        const b1 = f2.a1,
+          b2 = f2.a2,
+          b3 = f2.a3;
         for (let j = i; j < segEnd; j++) {
           const v3 = buf[j] - ic2;
           const v1 = a1 * ic1 + a2 * v3;
@@ -429,7 +450,8 @@ export class VaVoice extends Voice {
       }
     }
     if (stereo) {
-      const ggl = gl * vg, ggr = gr * vg;
+      const ggl = gl * vg,
+        ggr = gr * vg;
       for (let j = start; j < end; j++) {
         const y = buf[j] * env[j];
         L[j] += y * ggl;

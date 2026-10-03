@@ -34,15 +34,66 @@ describe('syllabify', () => {
 
   it('gets syllable counts right on a list of song words', () => {
     const words: [string, number][] = [
-      ['love', 1], ['heart', 1], ['fire', 1], ['night', 1], ['the', 1], ['dreams', 1], ['loved', 1], ['makes', 1], ['tries', 1], ['eyes', 1],
-      ['tonight', 2], ['broken', 2], ['music', 2], ['inside', 2], ['alone', 2], ['wishes', 2], ['changes', 2], ['lonely', 2], ['heaven', 2],
-      ['every', 2], ['people', 2], ['flower', 2], ['power', 2], ['quiet', 2], ['poem', 2], ['lion', 2], ['cruel', 2], ['special', 2],
-      ['beautiful', 3], ['cathartic', 3], ['melody', 3], ['remember', 3], ['together', 3], ['yesterday', 3], ['forever', 3], ['family', 3],
-      ['violin', 3], ['piano', 3], ['radio', 3], ['happier', 3], ['musician', 3], ['idea', 3], ['video', 3],
-      ['imagination', 5], ['revolution', 4], ['emotional', 4], ['comfortable', 4], ['continuous', 4],
-      ['settled', 2], ['rhythm', 2], ['chasm', 2], ['fireworks', 2], ['something', 2], ["I'm", 1], ["isn't", 2], ['indeed', 2],
+      ['love', 1],
+      ['heart', 1],
+      ['fire', 1],
+      ['night', 1],
+      ['the', 1],
+      ['dreams', 1],
+      ['loved', 1],
+      ['makes', 1],
+      ['tries', 1],
+      ['eyes', 1],
+      ['tonight', 2],
+      ['broken', 2],
+      ['music', 2],
+      ['inside', 2],
+      ['alone', 2],
+      ['wishes', 2],
+      ['changes', 2],
+      ['lonely', 2],
+      ['heaven', 2],
+      ['every', 2],
+      ['people', 2],
+      ['flower', 2],
+      ['power', 2],
+      ['quiet', 2],
+      ['poem', 2],
+      ['lion', 2],
+      ['cruel', 2],
+      ['special', 2],
+      ['beautiful', 3],
+      ['cathartic', 3],
+      ['melody', 3],
+      ['remember', 3],
+      ['together', 3],
+      ['yesterday', 3],
+      ['forever', 3],
+      ['family', 3],
+      ['violin', 3],
+      ['piano', 3],
+      ['radio', 3],
+      ['happier', 3],
+      ['musician', 3],
+      ['idea', 3],
+      ['video', 3],
+      ['imagination', 5],
+      ['revolution', 4],
+      ['emotional', 4],
+      ['comfortable', 4],
+      ['continuous', 4],
+      ['settled', 2],
+      ['rhythm', 2],
+      ['chasm', 2],
+      ['fireworks', 2],
+      ['something', 2],
+      ["I'm", 1],
+      ["isn't", 2],
+      ['indeed', 2],
     ];
-    const wrong = words.filter(([w, n]) => syllabify(w).length !== n).map(([w, n]) => `${w}: ${syllabify(w).join('-')} (expected ${n})`);
+    const wrong = words
+      .filter(([w, n]) => syllabify(w).length !== n)
+      .map(([w, n]) => `${w}: ${syllabify(w).join('-')} (expected ${n})`);
     expect(wrong).toEqual([]);
   });
 
@@ -64,7 +115,19 @@ describe('G2P (textToPhonemes)', () => {
     expect(textToPhonemes('the')).toEqual(['DH', 'AH']);
     expect(textToPhonemes('you')).toEqual(['Y', 'UW']);
     expect(textToPhonemes('I')).toEqual(['AY']);
-    expect(textToPhonemes('Fire in my heart')).toEqual(['F', 'AY', 'ER', 'IH', 'N', 'M', 'AY', 'HH', 'AA', 'R', 'T']);
+    expect(textToPhonemes('Fire in my heart')).toEqual([
+      'F',
+      'AY',
+      'ER',
+      'IH',
+      'N',
+      'M',
+      'AY',
+      'HH',
+      'AA',
+      'R',
+      'T',
+    ]);
   });
 
   it('applies letter-to-sound rules to other words', () => {
@@ -97,12 +160,26 @@ describe('alignLyrics', () => {
     const r = alignLyrics(song, 't-vocal');
     expect(r.report).toHaveLength(12);
     expect(r.report.every((e) => e.status === 'aligned')).toBe(true);
-    expect(r.report[0]).toEqual({ sectionId: 'sec-verse1', lineId: 'ly-v1', syllables: 7, notes: 7, status: 'aligned' });
+    expect(r.report[0]).toEqual({
+      sectionId: 'sec-verse1',
+      lineId: 'ly-v1',
+      syllables: 7,
+      notes: 7,
+      status: 'aligned',
+    });
     const rep = opsOfType(r.operations, 'replace_notes');
     expect(rep).toHaveLength(1);
     expect(rep[0].track).toBe('t-vocal');
     expect(rep[0].region).toEqual({ start_bar: 1, end_bar: 8 });
-    expect(rep[0].notes.slice(0, 7).map((n) => n.syllable)).toEqual(['Walk-', 'ing', 'down', 'the', 'emp-', 'ty', 'road']);
+    expect(rep[0].notes.slice(0, 7).map((n) => n.syllable)).toEqual([
+      'Walk-',
+      'ing',
+      'down',
+      'the',
+      'emp-',
+      'ty',
+      'road',
+    ]);
     // Pitches and rhythm are preserved.
     const verse = song.tracks[2].notes.filter((n) => n.tick < 8 * BAR);
     expect(rep[0].notes.map((n) => n.pitch)).toEqual(verse.map((n) => n.pitch));
@@ -115,7 +192,12 @@ describe('alignLyrics', () => {
     song.lyrics[1].text = 'Counting cars'; // 3 syllables on 7 notes
     for (const n of song.tracks[2].notes) delete n.lyricLineId;
     const r = alignLyrics(song, 't-vocal', { sectionIds: ['sec-verse1'] });
-    expect(r.report.map((e) => e.status)).toEqual(['too-many-syllables', 'too-few-syllables', 'aligned', 'aligned']);
+    expect(r.report.map((e) => e.status)).toEqual([
+      'too-many-syllables',
+      'too-few-syllables',
+      'aligned',
+      'aligned',
+    ]);
     expect(r.report[0]).toMatchObject({ syllables: 9, notes: 7 });
     const sylls = opsOfType(r.operations, 'replace_notes')[0].notes.map((n) => n.syllable);
     expect(sylls.slice(0, 7)).toEqual(['Walking', 'down', 'the', 'empty', 'road', 'to-', 'night']);
@@ -173,7 +255,14 @@ describe('alignLyrics', () => {
 
 describe('generatePlaceholderLyrics', () => {
   it('is deterministic, hits the syllable budget and repeats the chorus hook', () => {
-    const opts = { sectionKind: 'chorus' as const, mood: 'cathartic', theme: 'fire', lines: 4, syllablesPerLine: [6, 6, 6, 6], seed: 7 };
+    const opts = {
+      sectionKind: 'chorus' as const,
+      mood: 'cathartic',
+      theme: 'fire',
+      lines: 4,
+      syllablesPerLine: [6, 6, 6, 6],
+      seed: 7,
+    };
     const a = generatePlaceholderLyrics(opts);
     expect(a).toEqual(generatePlaceholderLyrics(opts));
     expect(a).toHaveLength(4);
@@ -190,7 +279,13 @@ describe('generatePlaceholderLyrics', () => {
       expect(countSyllables(l)).toBeLessThanOrEqual(10);
       expect(l[0]).toBe(l[0].toUpperCase());
     }
-    const ends = lines.map((l) => l.split(/\s+/).pop()!.toLowerCase().replace(/[^a-z']/g, ''));
+    const ends = lines.map((l) =>
+      l
+        .split(/\s+/)
+        .pop()!
+        .toLowerCase()
+        .replace(/[^a-z']/g, ''),
+    );
     // Rhyme = same phonemes from the last vowel on (frame/game, wall/small), or the same spelling ending.
     const rhymeKey = (w: string) => {
       const ph = textToPhonemes(w);
@@ -198,7 +293,8 @@ describe('generatePlaceholderLyrics', () => {
       while (i > 0 && !/^[AEIOU]/.test(ph[i])) i--;
       return ph.slice(i).join(' ');
     };
-    const rhymes = (a: string, b: string) => a !== b && (rhymeKey(a) === rhymeKey(b) || a.slice(-2) === b.slice(-2));
+    const rhymes = (a: string, b: string) =>
+      a !== b && (rhymeKey(a) === rhymeKey(b) || a.slice(-2) === b.slice(-2));
     // AABB or ABAB: at least two pairs share an ending.
     const aabb = rhymes(ends[0], ends[1]) || rhymes(ends[2], ends[3]);
     const abab = rhymes(ends[0], ends[2]) || rhymes(ends[1], ends[3]);

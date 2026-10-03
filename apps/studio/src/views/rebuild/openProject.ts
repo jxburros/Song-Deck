@@ -16,7 +16,13 @@ import { guessMime } from '../../state/assets';
 import { runTask } from '../../engine/capture-tasks';
 import type { EncodedStem, SeparateTaskInput, SeparateTaskOutput } from '../../engine/handlers/analysis';
 import type { RunProvenance } from '@songdeck/ai';
-import { DSP_PROVIDER, makeAnalysisRecord, makeAssetMeta, makeProvenance, pushAnalysis } from '../../engine/capture-song';
+import {
+  DSP_PROVIDER,
+  makeAnalysisRecord,
+  makeAssetMeta,
+  makeProvenance,
+  pushAnalysis,
+} from '../../engine/capture-song';
 import { slugify } from '../../engine/capture-files';
 import { recordAttestation, type PendingAttestation } from '../../engine/rights';
 import { colorForRole } from '../workbench/SidePanel';
@@ -31,7 +37,10 @@ export interface RebuildSource {
   attestation?: PendingAttestation;
 }
 
-const STEM_INFO: Record<string, { label: string; role: TrackRole; instrumentId: string; stemGroup: StemGroup }> = {
+const STEM_INFO: Record<
+  string,
+  { label: string; role: TrackRole; instrumentId: string; stemGroup: StemGroup }
+> = {
   drums: { label: 'Drums', role: 'drums', instrumentId: 'drum-kit', stemGroup: 'drums' },
   bass: { label: 'Bass', role: 'bass', instrumentId: 'electric-bass', stemGroup: 'bass' },
   vocals: { label: 'Vocals', role: 'vocal', instrumentId: 'lead-vocal', stemGroup: 'vocals' },
@@ -64,20 +73,35 @@ export async function openRebuildAsProject(o: {
   const sourceAssetId = randomId('asset');
   const tracks: Track[] = [];
   const channels: Song['mixer']['channels'] = {};
-  const stemAssets: { meta: ReturnType<typeof makeAssetMeta>; bytes: Uint8Array; name: string; confidence?: number }[] = [];
+  const stemAssets: {
+    meta: ReturnType<typeof makeAssetMeta>;
+    bytes: Uint8Array;
+    name: string;
+    confidence?: number;
+  }[] = [];
   let separation: SeparateTaskOutput | null = null;
   let stemsTaskId: string | undefined;
 
   if (o.keepStems) {
     if (o.providedStems?.length && o.providedStems.every((st) => st.wav)) {
-      separation = { stems: o.providedStems, method: o.separation?.method ?? 'Provider separation', confidence: o.separation?.confidence, provenance: o.separation?.provenance };
+      separation = {
+        stems: o.providedStems,
+        method: o.separation?.method ?? 'Provider separation',
+        confidence: o.separation?.confidence,
+        provenance: o.separation?.provenance,
+      };
       stemsTaskId = o.taskId;
     } else {
       o.onStatus?.('Separating stems…');
       const { id, done } = runTask<SeparateTaskInput, SeparateTaskOutput>({
         type: 'analysis.separate',
         title: `Separate stems of “${title}”`,
-        input: { runId: randomId('run'), audio: o.source.audio, encode: true, provider: o.separationProvider },
+        input: {
+          runId: randomId('run'),
+          audio: o.source.audio,
+          encode: true,
+          provider: o.separationProvider,
+        },
         runner: 'local',
       });
       stemsTaskId = id;
@@ -90,7 +114,12 @@ export async function openRebuildAsProject(o: {
     const clipOffset = Math.max(0, offset);
     for (const stem of separation.stems) {
       if (!stem.wav) continue;
-      const info = STEM_INFO[stem.name] ?? { label: stem.name, role: 'custom' as TrackRole, instrumentId: 'piano', stemGroup: 'others' as StemGroup };
+      const info = STEM_INFO[stem.name] ?? {
+        label: stem.name,
+        role: 'custom' as TrackRole,
+        instrumentId: 'piano',
+        stemGroup: 'others' as StemGroup,
+      };
       const dur = (stem.audio.channels[0]?.length ?? 0) / stem.audio.sampleRate;
       const meta = makeAssetMeta({
         name: `${title} — ${stem.name}`,
@@ -171,7 +200,8 @@ export async function openRebuildAsProject(o: {
     generatedAt: new Date().toISOString(),
     cloud: false,
   });
-  if (o.source.attestation) recordAttestation(o.source.attestation, { assetId: sourceAssetId, provenanceId: sourceProvenanceId });
+  if (o.source.attestation)
+    recordAttestation(o.source.attestation, { assetId: sourceAssetId, provenanceId: sourceProvenanceId });
   st.addProvenance(
     makeProvenance({
       artifactId: created.song.id,
@@ -181,14 +211,20 @@ export async function openRebuildAsProject(o: {
       provider: DSP_PROVIDER,
       taskId: o.taskId,
       parameters: {
-        separationProvider: o.separation?.provenance ? `${o.separation.provenance.providerName} (${o.separation.provenance.location})` : 'on-device DSP',
+        separationProvider: o.separation?.provenance
+          ? `${o.separation.provenance.providerName} (${o.separation.provenance.location})`
+          : 'on-device DSP',
         bpm: o.report.bpm,
         key: keyName(o.report.key),
         meter: `${o.report.meter.numerator}/${o.report.meter.denominator}`,
         offsetSeconds: o.report.offsetSeconds,
         overallConfidence: o.report.overallConfidence,
         separationMethod: o.report.separationMethod,
-        tracks: o.song.tracks.map((t) => ({ name: t.name, instrumentId: t.instrumentId, confidence: o.report.trackConfidence[t.id] })),
+        tracks: o.song.tracks.map((t) => ({
+          name: t.name,
+          instrumentId: t.instrumentId,
+          confidence: o.report.trackConfidence[t.id],
+        })),
       },
     }),
   );
@@ -224,7 +260,10 @@ export async function openRebuildAsProject(o: {
         sourceAssetId,
         confidence: separation.confidence,
         summary: `${separation.stems.length} stems (${separation.stems.map((s) => s.name).join(', ')}) · ${separation.method}`,
-        data: { method: separation.method, stems: separation.stems.map((s) => ({ name: s.name, confidence: s.confidence })) },
+        data: {
+          method: separation.method,
+          stems: separation.stems.map((s) => ({ name: s.name, confidence: s.confidence })),
+        },
       }),
     );
   }

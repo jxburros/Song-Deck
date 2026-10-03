@@ -31,7 +31,20 @@ export type BaseDrumStyle =
 export type HarmonicFlavor = 'jazz' | 'soul' | 'pop' | 'rock' | 'ambient' | 'classical';
 
 /** Which auxiliary percussion a `percussion` track plays. */
-export type PercussionFamily = 'band' | 'electronic' | 'urban' | 'jazz' | 'orchestral' | 'latin' | 'brazil' | 'afro' | 'caribbean' | 'flamenco' | 'celtic' | 'south-asian' | 'disco';
+export type PercussionFamily =
+  | 'band'
+  | 'electronic'
+  | 'urban'
+  | 'jazz'
+  | 'orchestral'
+  | 'latin'
+  | 'brazil'
+  | 'afro'
+  | 'caribbean'
+  | 'flamenco'
+  | 'celtic'
+  | 'south-asian'
+  | 'disco';
 
 /** Preferred tonic family for keys chosen by the prompt parser. */
 export type TonicFamily = 'guitar' | 'metal' | 'keys' | 'electronic' | 'orchestral' | 'jazz';
@@ -49,7 +62,14 @@ export interface DrumStyleInfo {
   heavy?: boolean;
 }
 
-const I = (base: BaseDrumStyle, electronic: boolean, flavor: HarmonicFlavor, percussion: PercussionFamily, tonic: TonicFamily, extra: Partial<DrumStyleInfo> = {}): DrumStyleInfo => ({
+const I = (
+  base: BaseDrumStyle,
+  electronic: boolean,
+  flavor: HarmonicFlavor,
+  percussion: PercussionFamily,
+  tonic: TonicFamily,
+  extra: Partial<DrumStyleInfo> = {},
+): DrumStyleInfo => ({
   base,
   electronic,
   flavor,

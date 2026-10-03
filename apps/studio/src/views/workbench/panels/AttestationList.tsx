@@ -9,7 +9,9 @@ export function AttestationList({ project }: { project: Project }) {
     <div className="col" style={{ gap: 6 }} data-testid="rights-attestations">
       <div className="field-label">Upload attestations</div>
       {list.length === 0 ? (
-        <div className="small muted">Uploaded audio files record who attested the right to use them, and on what basis, here.</div>
+        <div className="small muted">
+          Uploaded audio files record who attested the right to use them, and on what basis, here.
+        </div>
       ) : (
         list
           .slice()
@@ -22,12 +24,24 @@ export function AttestationList({ project }: { project: Project }) {
                   <strong className="ellipsis" title={a.fileName}>
                     {a.fileName}
                   </strong>
-                  <Badge tone={a.basis === 'personal-study' ? 'warning' : 'success'}>{ATTESTATION_BASIS_SHORT[a.basis]}</Badge>
+                  <Badge tone={a.basis === 'personal-study' ? 'warning' : 'success'}>
+                    {ATTESTATION_BASIS_SHORT[a.basis]}
+                  </Badge>
                 </div>
                 <div className="muted">
-                  Attested by {a.attestedBy || 'unknown'} · {new Date(a.attestedAt).toLocaleDateString()} · {a.context}
+                  Attested by {a.attestedBy || 'unknown'} · {new Date(a.attestedAt).toLocaleDateString()} ·{' '}
+                  {a.context}
                 </div>
-                {(a.rightsHolder || a.licence) && <div className="dim">{[a.rightsHolder && `Rights holder: ${a.rightsHolder}`, a.licence && `Licence: ${a.licence}`].filter(Boolean).join(' · ')}</div>}
+                {(a.rightsHolder || a.licence) && (
+                  <div className="dim">
+                    {[
+                      a.rightsHolder && `Rights holder: ${a.rightsHolder}`,
+                      a.licence && `Licence: ${a.licence}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                )}
                 {a.notes && <div className="dim">{a.notes}</div>}
                 {care && (
                   <div className="row" style={{ gap: 4, marginTop: 4, color: 'var(--warning)' }}>

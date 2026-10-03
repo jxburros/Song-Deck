@@ -70,7 +70,8 @@ describe('analysis: STFT / ISTFT', () => {
     const rnd = lcg(3);
     const sr = 22050;
     const x = new Float32Array(sr * 2 + 123);
-    for (let i = 0; i < x.length; i++) x[i] = 0.5 * Math.sin((2 * Math.PI * 440 * i) / sr) + 0.2 * (rnd() * 2 - 1);
+    for (let i = 0; i < x.length; i++)
+      x[i] = 0.5 * Math.sin((2 * Math.PI * 440 * i) / sr) + 0.2 * (rnd() * 2 - 1);
     for (const [fftSize, hop] of [
       [1024, 256],
       [2048, 512],

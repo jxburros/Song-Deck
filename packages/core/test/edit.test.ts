@@ -68,7 +68,17 @@ describe('applyOperations — basics', () => {
       { op: 'replace_notes', track: 'bass', region: { start_bar: 2, end_bar: 3 }, notes: 'lots' },
       { op: 'replace_notes', track: 'nobody', region: { start_bar: 2, end_bar: 3 }, notes: [] },
       { op: 'replace_notes', track: 'bass', region: { start_bar: 99, end_bar: 120 }, notes: [] },
-      { op: 'add_notes', track: 'bass', notes: [{ pitch: 'H9', bar: 1, beat: 1, duration_beats: 1 }, { pitch: Number.NaN, bar: 1, beat: 1, duration_beats: 1 }, { pitch: 40, bar: -2, beat: 1, duration_beats: 1 }, { pitch: 40, bar: 1, beat: 1, duration_beats: 1, velocity: 'loud' }, null] },
+      {
+        op: 'add_notes',
+        track: 'bass',
+        notes: [
+          { pitch: 'H9', bar: 1, beat: 1, duration_beats: 1 },
+          { pitch: Number.NaN, bar: 1, beat: 1, duration_beats: 1 },
+          { pitch: 40, bar: -2, beat: 1, duration_beats: 1 },
+          { pitch: 40, bar: 1, beat: 1, duration_beats: 1, velocity: 'loud' },
+          null,
+        ],
+      },
       { op: 'delete_notes', track: 'bass', pitch_range: 'low' },
       { op: 'transform_notes', track: 'bass' },
       { op: 'set_chords', region: { start_bar: 1, end_bar: 1 } },
@@ -103,7 +113,22 @@ describe('applyOperations — basics', () => {
     expect(r!.report.ok).toBe(false);
     // The single applied op is add_notes, whose invalid notes were all dropped (no valid notes → no change).
     expect(r!.song.tracks.map((t) => t.notes.length)).toEqual(song.tracks.map((t) => t.notes.length));
-    expect(codes(r!.report)).toEqual(expect.arrayContaining(['op.malformed', 'op.unknown', 'track.not-found', 'region.invalid', 'region.outside', 'note.invalid', 'tempo.invalid', 'key.invalid', 'meter.invalid', 'section.not-found', 'section.invalid', 'lock.unknown-key']));
+    expect(codes(r!.report)).toEqual(
+      expect.arrayContaining([
+        'op.malformed',
+        'op.unknown',
+        'track.not-found',
+        'region.invalid',
+        'region.outside',
+        'note.invalid',
+        'tempo.invalid',
+        'key.invalid',
+        'meter.invalid',
+        'section.not-found',
+        'section.invalid',
+        'lock.unknown-key',
+      ]),
+    );
     for (const issue of r!.report.issues) {
       if (issue.severity === 'error') expect(issue.opIndex).toBeTypeOf('number');
     }
@@ -113,7 +138,14 @@ describe('applyOperations — basics', () => {
     const song = makeSong();
     song.locks[LockKeys.trackSection('trk_bass', 'sec_chorus')] = true;
     // Touches verse (fine) and chorus (locked) → nothing applied.
-    const r = apply(song, [{ op: 'replace_notes', track: 'bass', region: { start_bar: 11, end_bar: 14 }, notes: [{ pitch: 40, bar: 11, beat: 1, duration_beats: 4 }] }]);
+    const r = apply(song, [
+      {
+        op: 'replace_notes',
+        track: 'bass',
+        region: { start_bar: 11, end_bar: 14 },
+        notes: [{ pitch: 40, bar: 11, beat: 1, duration_beats: 4 }],
+      },
+    ]);
     expect(r.applied).toBe(0);
     expect(codes(r.report)).toContain('lock.violated');
     expect(songHash(r.song)).toBe(songHash(song));
@@ -124,7 +156,13 @@ describe('note operations', () => {
   it('replace_notes replaces the region, drops out-of-region notes and trims sustained notes', () => {
     const song = makeSong();
     // A long note in bar 4 sustaining into bar 5.
-    track(song, 'trk_bass').notes.push({ id: 'long', pitch: 47, tick: 3 * BAR + 3 * Q, duration: 2 * Q, velocity: 80 });
+    track(song, 'trk_bass').notes.push({
+      id: 'long',
+      pitch: 47,
+      tick: 3 * BAR + 3 * Q,
+      duration: 2 * Q,
+      velocity: 80,
+    });
     const r = apply(song, [
       {
         op: 'replace_notes',
@@ -150,7 +188,12 @@ describe('note operations', () => {
     expect(codes(r.report)).toContain('region.note-outside');
     // Everything outside bars 5–6 unchanged.
     const before = makeSong();
-    expect(validateChange(before, r.song, { region: { startTick: 4 * BAR, endTick: 6 * BAR }, trackIds: ['trk_bass'] }).issues.filter((i) => i.code === 'region.violated' && i.trackId !== 'trk_bass')).toEqual([]);
+    expect(
+      validateChange(before, r.song, {
+        region: { startTick: 4 * BAR, endTick: 6 * BAR },
+        trackIds: ['trk_bass'],
+      }).issues.filter((i) => i.code === 'region.violated' && i.trackId !== 'trk_bass'),
+    ).toEqual([]);
   });
 
   it('replace_notes keeps lyric alignment and motif membership of a rewritten sung line', () => {
@@ -162,24 +205,45 @@ describe('note operations', () => {
     }
     const words = ['Hold', 'on', 'to', 'the', 'light-', 'ning'];
     // New melody, same rhythm (bars 13–15, one syllable every two beats).
-    const newMelody = words.map((syllable, i) => ({ pitch: 60 + i, bar: 13 + Math.floor(i / 2), beat: i % 2 ? 3 : 1, duration_beats: 1.5, syllable }));
-    let r = apply(song, [{ op: 'replace_notes', track: 'Vocal', region: { start_bar: 13, end_bar: 16 }, notes: newMelody }]);
+    const newMelody = words.map((syllable, i) => ({
+      pitch: 60 + i,
+      bar: 13 + Math.floor(i / 2),
+      beat: i % 2 ? 3 : 1,
+      duration_beats: 1.5,
+      syllable,
+    }));
+    let r = apply(song, [
+      { op: 'replace_notes', track: 'Vocal', region: { start_bar: 13, end_bar: 16 }, notes: newMelody },
+    ]);
     let line = notesInBars(r.song, 'trk_vocal', 13, 16);
     expect(line.map((n) => n.pitch)).toEqual([60, 61, 62, 63, 64, 65]);
     expect(line.every((n) => n.lyricLineId === 'ly_0' && n.motifId === 'motif_hook')).toBe(true);
     expect(line.map((n) => n.phonemes?.[0])).toEqual(words.map((w) => `ph_${w}`));
 
     // Same words, new rhythm: one syllable per beat starting on beat 2.
-    const newRhythm = words.map((syllable, i) => ({ pitch: 64, bar: 13 + Math.floor((i + 1) / 4), beat: ((i + 1) % 4) + 1, duration_beats: 1, syllable }));
-    r = apply(song, [{ op: 'replace_notes', track: 'Vocal', region: { start_bar: 13, end_bar: 16 }, notes: newRhythm }]);
+    const newRhythm = words.map((syllable, i) => ({
+      pitch: 64,
+      bar: 13 + Math.floor((i + 1) / 4),
+      beat: ((i + 1) % 4) + 1,
+      duration_beats: 1,
+      syllable,
+    }));
+    r = apply(song, [
+      { op: 'replace_notes', track: 'Vocal', region: { start_bar: 13, end_bar: 16 }, notes: newRhythm },
+    ]);
     line = notesInBars(r.song, 'trk_vocal', 13, 16);
     expect(line.map((n) => n.syllable)).toEqual(words);
     expect(line.every((n) => n.lyricLineId === 'ly_0')).toBe(true);
     expect(line.map((n) => n.phonemes?.[0])).toEqual(words.map((w) => `ph_${w}`));
 
     // New words at the same onsets: motif membership stays, lyric line and phonemes do not.
-    const newWords = ['Let', 'go', 'of', 'the', 'thun-', 'der'].map((syllable, i) => ({ ...newMelody[i], syllable }));
-    r = apply(song, [{ op: 'replace_notes', track: 'Vocal', region: { start_bar: 13, end_bar: 16 }, notes: newWords }]);
+    const newWords = ['Let', 'go', 'of', 'the', 'thun-', 'der'].map((syllable, i) => ({
+      ...newMelody[i],
+      syllable,
+    }));
+    r = apply(song, [
+      { op: 'replace_notes', track: 'Vocal', region: { start_bar: 13, end_bar: 16 }, notes: newWords },
+    ]);
     line = notesInBars(r.song, 'trk_vocal', 13, 16);
     expect(line.every((n) => n.motifId === 'motif_hook')).toBe(true);
     expect(line.filter((n) => n.lyricLineId).map((n) => n.syllable)).toEqual(['the']);
@@ -188,7 +252,16 @@ describe('note operations', () => {
   });
 
   it('add_notes adds sorted notes with unique ids; out-of-range notes are folded (autoFix)', () => {
-    const r = apply(makeSong(), [{ op: 'add_notes', track: 'bass', notes: [{ pitch: 90, bar: 2, beat: 2.5, duration_beats: 0.5, velocity: 300 }, { pitch: 'B1', bar: 2, beat: 1, duration_beats: 1, articulation: 'staccato' }] }]);
+    const r = apply(makeSong(), [
+      {
+        op: 'add_notes',
+        track: 'bass',
+        notes: [
+          { pitch: 90, bar: 2, beat: 2.5, duration_beats: 0.5, velocity: 300 },
+          { pitch: 'B1', bar: 2, beat: 1, duration_beats: 1, articulation: 'staccato' },
+        ],
+      },
+    ]);
     expect(r.applied).toBe(1);
     const bass = track(r.song, 'trk_bass');
     const ids = new Set(bass.notes.map((n) => n.id));
@@ -203,11 +276,16 @@ describe('note operations', () => {
     expect(fixed[0].fixed).toBe(true);
     expect(added.find((n) => n.pitch === 35)!.articulation).toBe('staccato');
     // sorted
-    for (let i = 1; i < bass.notes.length; i++) expect(bass.notes[i].tick).toBeGreaterThanOrEqual(bass.notes[i - 1].tick);
+    for (let i = 1; i < bass.notes.length; i++)
+      expect(bass.notes[i].tick).toBeGreaterThanOrEqual(bass.notes[i - 1].tick);
   });
 
   it('without autoFix out-of-range notes are kept and reported', () => {
-    const r = apply(makeSong(), [{ op: 'add_notes', track: 'bass', notes: [{ pitch: 90, bar: 2, beat: 1, duration_beats: 1 }] }], { autoFix: false });
+    const r = apply(
+      makeSong(),
+      [{ op: 'add_notes', track: 'bass', notes: [{ pitch: 90, bar: 2, beat: 1, duration_beats: 1 }] }],
+      { autoFix: false },
+    );
     expect(track(r.song, 'trk_bass').notes.some((n) => n.pitch === 90)).toBe(true);
     const issue = r.report.issues.find((i) => i.code === 'note.out-of-range')!;
     expect(issue.fixed).toBeFalsy();
@@ -248,9 +326,24 @@ describe('note operations', () => {
   it('transform_notes: transpose, diatonic, velocity, timing, quantize, humanize, articulation', () => {
     const song = makeSong();
     const r = apply(song, [
-      { op: 'transform_notes', track: 'bass', region: { start_bar: 1, end_bar: 1 }, transform: { transpose_diatonic: 2 } },
-      { op: 'transform_notes', track: 'bass', region: { start_bar: 2, end_bar: 2 }, transform: { transpose: 12, velocity_scale: 2, velocity_add: 10 } },
-      { op: 'transform_notes', track: 'bass', region: { start_bar: 3, end_bar: 3 }, transform: { time_shift_beats: 0.5, duration_scale: 0.5 } },
+      {
+        op: 'transform_notes',
+        track: 'bass',
+        region: { start_bar: 1, end_bar: 1 },
+        transform: { transpose_diatonic: 2 },
+      },
+      {
+        op: 'transform_notes',
+        track: 'bass',
+        region: { start_bar: 2, end_bar: 2 },
+        transform: { transpose: 12, velocity_scale: 2, velocity_add: 10 },
+      },
+      {
+        op: 'transform_notes',
+        track: 'bass',
+        region: { start_bar: 3, end_bar: 3 },
+        transform: { time_shift_beats: 0.5, duration_scale: 0.5 },
+      },
       { op: 'transform_notes', track: 'drums', transform: { transpose: 5, articulation: 'accent' } },
     ]);
     expect(r.applied).toBe(4);
@@ -259,7 +352,9 @@ describe('note operations', () => {
     const bar2 = notesInBars(r.song, 'trk_bass', 2, 2);
     expect(bar2.every((n) => n.pitch === 48 && n.velocity === 127)).toBe(true);
     const bar3 = track(r.song, 'trk_bass').notes.filter((n) => n.id.startsWith('b_2_'));
-    expect(bar3.map((n) => [n.tick, n.duration])).toEqual([0, 1, 2, 3].map((b) => [2 * BAR + b * Q + Q / 2, Q / 2]));
+    expect(bar3.map((n) => [n.tick, n.duration])).toEqual(
+      [0, 1, 2, 3].map((b) => [2 * BAR + b * Q + Q / 2, Q / 2]),
+    );
     const drums = track(r.song, 'trk_drums');
     expect(drums.notes.every((n) => n.articulation === 'accent')).toBe(true);
     expect(drums.notes.filter((n) => n.pitch === 36)).toHaveLength(20); // not transposed
@@ -278,7 +373,9 @@ describe('note operations', () => {
       [120, 480],
       [960, 240],
     ]);
-    const half = apply(song, [{ op: 'transform_notes', track: 'bass', transform: { quantize_beats: 0.5, quantize_strength: 0.5 } }]);
+    const half = apply(song, [
+      { op: 'transform_notes', track: 'bass', transform: { quantize_beats: 0.5, quantize_strength: 0.5 } },
+    ]);
     expect(track(half.song, 'trk_bass').notes[0].tick).toBe(Math.round(130 + (240 - 130) * 0.5));
     const h1 = apply(makeSong(), [{ op: 'transform_notes', track: 'drums', transform: { humanize: 0.8 } }]);
     const h2 = apply(makeSong(), [{ op: 'transform_notes', track: 'drums', transform: { humanize: 0.8 } }]);
@@ -289,10 +386,22 @@ describe('note operations', () => {
   });
 
   it('set_expression merges vocal expression', () => {
-    const r = apply(makeSong(), [{ op: 'set_expression', track: 'vocal', region: { start_bar: 13, end_bar: 16 }, expression: { breathiness: 0.4, vibrato: 2, onset: 'soft', release: 'unknown' } }]);
+    const r = apply(makeSong(), [
+      {
+        op: 'set_expression',
+        track: 'vocal',
+        region: { start_bar: 13, end_bar: 16 },
+        expression: { breathiness: 0.4, vibrato: 2, onset: 'soft', release: 'unknown' },
+      },
+    ]);
     expect(r.applied).toBe(1);
     const v = notesInBars(r.song, 'trk_vocal', 13, 16);
-    expect(v.every((n) => n.expression?.breathiness === 0.4 && n.expression.vibrato === 1 && n.expression.onset === 'soft')).toBe(true);
+    expect(
+      v.every(
+        (n) =>
+          n.expression?.breathiness === 0.4 && n.expression.vibrato === 1 && n.expression.onset === 'soft',
+      ),
+    ).toBe(true);
     expect(notesInBars(r.song, 'trk_vocal', 17, 20).every((n) => !n.expression)).toBe(true);
     expect(codes(r.report)).toContain('expression.invalid');
   });
@@ -325,7 +434,13 @@ describe('harmony, tempo, key and meter', () => {
   });
 
   it('set_chords fills a leading gap from the sounding chord', () => {
-    const r = apply(makeSong(), [{ op: 'set_chords', region: { start_bar: 2, end_bar: 2 }, chords: [{ bar: 2, beat: 3, symbol: 'Am', duration_beats: 2 }] }]);
+    const r = apply(makeSong(), [
+      {
+        op: 'set_chords',
+        region: { start_bar: 2, end_bar: 2 },
+        chords: [{ bar: 2, beat: 3, symbol: 'Am', duration_beats: 2 }],
+      },
+    ]);
     const c1 = r.song.chords.find((c) => c.id === 'ch_1')!;
     expect(c1.tick).toBe(BAR);
     expect(c1.duration).toBe(2 * Q);
@@ -374,7 +489,9 @@ describe('harmony, tempo, key and meter', () => {
   });
 
   it('set_key at a bar only affects the modulated range', () => {
-    const r = apply(makeSong(), [{ op: 'set_key', tonic: 'F#', mode: 'minor', at_bar: 13, transpose_notes: true }]);
+    const r = apply(makeSong(), [
+      { op: 'set_key', tonic: 'F#', mode: 'minor', at_bar: 13, transpose_notes: true },
+    ]);
     expect(r.song.keyMap).toEqual([
       { bar: 0, key: { tonic: 4, mode: 'minor' } },
       { bar: 12, key: { tonic: 6, mode: 'minor' } },
@@ -390,7 +507,11 @@ describe('harmony, tempo, key and meter', () => {
     expect(songLengthBars(r.song)).toBe(20);
     const bass = track(r.song, 'trk_bass');
     expect(bass.notes).toHaveLength(60);
-    expect(bass.notes.filter((n) => n.id.startsWith('b_1_')).map((n) => n.tick)).toEqual([1440, 1440 + Q, 1440 + 2 * Q]);
+    expect(bass.notes.filter((n) => n.id.startsWith('b_1_')).map((n) => n.tick)).toEqual([
+      1440,
+      1440 + Q,
+      1440 + 2 * Q,
+    ]);
     // whole-bar chords now last one 3/4 bar
     expect(r.song.chords[1]).toMatchObject({ tick: 1440, duration: 1440 });
     expect(codes(r.report)).toContain('meter.material-dropped');
@@ -399,7 +520,9 @@ describe('harmony, tempo, key and meter', () => {
 
 describe('structure operations shift material', () => {
   it('update_section grows a section and shifts later material', () => {
-    const r = apply(makeSong(), [{ op: 'update_section', section: 'Verse', changes: { bars: 10, energy: 55, mood: 'tense' } }]);
+    const r = apply(makeSong(), [
+      { op: 'update_section', section: 'Verse', changes: { bars: 10, energy: 55, mood: 'tense' } },
+    ]);
     expect(r.applied).toBe(1);
     const verse = r.song.sections[1];
     expect(verse).toMatchObject({ bars: 10, energy: 55, mood: ['tense'] });
@@ -416,13 +539,21 @@ describe('structure operations shift material', () => {
   it('update_section shrinks a section and removes its tail', () => {
     const r = apply(makeSong(), [{ op: 'update_section', section: 'Verse', changes: { bars: 6 } }]);
     expect(songLengthBars(r.song)).toBe(18);
-    expect(track(r.song, 'trk_bass').notes.some((n) => n.id.startsWith('b_10_') || n.id.startsWith('b_11_'))).toBe(false);
+    expect(
+      track(r.song, 'trk_bass').notes.some((n) => n.id.startsWith('b_10_') || n.id.startsWith('b_11_')),
+    ).toBe(false);
     expect(track(r.song, 'trk_bass').notes.find((n) => n.id === 'b_12_0')!.tick).toBe(10 * BAR);
     expect(codes(r.report)).toContain('section.material-removed');
   });
 
   it('insert_section (empty) after the verse shifts the chorus', () => {
-    const r = apply(makeSong(), [{ op: 'insert_section', after: 'Verse', section: { name: 'Pre-Chorus', kind: 'pre-chorus', bars: 4, energy: 60 } }]);
+    const r = apply(makeSong(), [
+      {
+        op: 'insert_section',
+        after: 'Verse',
+        section: { name: 'Pre-Chorus', kind: 'pre-chorus', bars: 4, energy: 60 },
+      },
+    ]);
     expect(r.song.sections.map((s) => s.name)).toEqual(['Intro', 'Verse', 'Pre-Chorus', 'Chorus']);
     expect(notesInBars(r.song, 'trk_bass', 13, 16)).toEqual([]);
     expect(track(r.song, 'trk_vocal').notes[0].tick).toBe(16 * BAR);
@@ -430,13 +561,21 @@ describe('structure operations shift material', () => {
   });
 
   it('insert_section with copy_from duplicates material, chords and lyrics', () => {
-    const r = apply(makeSong(), [{ op: 'insert_section', section: { name: 'Final Chorus', kind: 'final-chorus', bars: 8 }, copy_from: 'Chorus' }]);
+    const r = apply(makeSong(), [
+      {
+        op: 'insert_section',
+        section: { name: 'Final Chorus', kind: 'final-chorus', bars: 8 },
+        copy_from: 'Chorus',
+      },
+    ]);
     expect(r.applied).toBe(1);
     const s = r.song.sections[3];
     expect(s).toMatchObject({ name: 'Final Chorus', kind: 'final-chorus', bars: 8, repeatOf: 'sec_chorus' });
     const copied = notesInBars(r.song, 'trk_vocal', 21, 28);
     const orig = notesInBars(r.song, 'trk_vocal', 13, 20);
-    expect(copied.map((n) => [n.pitch, n.tick - 8 * BAR, n.syllable])).toEqual(orig.map((n) => [n.pitch, n.tick, n.syllable]));
+    expect(copied.map((n) => [n.pitch, n.tick - 8 * BAR, n.syllable])).toEqual(
+      orig.map((n) => [n.pitch, n.tick, n.syllable]),
+    );
     expect(new Set([...copied, ...orig].map((n) => n.id)).size).toBe(copied.length + orig.length);
     const newLines = r.song.lyrics.filter((l) => l.sectionId === s.id);
     expect(newLines.map((l) => l.text)).toEqual(['Hold on to the lightning', 'Hold on to the lightning']);
@@ -446,13 +585,35 @@ describe('structure operations shift material', () => {
   });
 
   it('insert_section loops copied material to fill a longer section', () => {
-    const r = apply(makeSong(), [{ op: 'insert_section', after: 'Intro', section: { name: 'Long Intro', kind: 'intro', bars: 10 }, copy_from: 'Intro' }]);
+    const r = apply(makeSong(), [
+      {
+        op: 'insert_section',
+        after: 'Intro',
+        section: { name: 'Long Intro', kind: 'intro', bars: 10 },
+        copy_from: 'Intro',
+      },
+    ]);
     // 4-bar intro copied into 10 bars: 4 + 4 + 2 bars of material.
     const copied = notesInBars(r.song, 'trk_bass', 5, 14);
     expect(copied).toHaveLength(40);
-    expect(copied.slice(0, 16).map((n) => n.pitch)).toEqual(notesInBars(r.song, 'trk_bass', 1, 4).map((n) => n.pitch));
-    expect(notesInBars(r.song, 'trk_bass', 13, 14).map((n) => n.pitch)).toEqual(notesInBars(r.song, 'trk_bass', 1, 2).map((n) => n.pitch));
-    expect(r.song.chords.filter((c) => c.tick >= 4 * BAR && c.tick < 14 * BAR).map((c) => c.symbol)).toEqual(['Em', 'C', 'G', 'D', 'Em', 'C', 'G', 'D', 'Em', 'C']);
+    expect(copied.slice(0, 16).map((n) => n.pitch)).toEqual(
+      notesInBars(r.song, 'trk_bass', 1, 4).map((n) => n.pitch),
+    );
+    expect(notesInBars(r.song, 'trk_bass', 13, 14).map((n) => n.pitch)).toEqual(
+      notesInBars(r.song, 'trk_bass', 1, 2).map((n) => n.pitch),
+    );
+    expect(r.song.chords.filter((c) => c.tick >= 4 * BAR && c.tick < 14 * BAR).map((c) => c.symbol)).toEqual([
+      'Em',
+      'C',
+      'G',
+      'D',
+      'Em',
+      'C',
+      'G',
+      'D',
+      'Em',
+      'C',
+    ]);
     expect(validateSong(r.song).ok).toBe(true);
   });
 
@@ -508,7 +669,11 @@ describe('structure operations shift material', () => {
 
 describe('lyrics, mixer, automation, tracks, macros', () => {
   it('set_lyrics replaces lines and un-aligns stale syllables', () => {
-    const r = apply(makeSong(), [{ op: 'set_lyrics', section: 'Chorus', lines: ['  We are the  storm ', '', 'We are the fire'] }], { author: 'provider-x' });
+    const r = apply(
+      makeSong(),
+      [{ op: 'set_lyrics', section: 'Chorus', lines: ['  We are the  storm ', '', 'We are the fire'] }],
+      { author: 'provider-x' },
+    );
     const lines = r.song.lyrics.filter((l) => l.sectionId === 'sec_chorus');
     expect(lines.map((l) => [l.text, l.trackId, l.author])).toEqual([
       ['We are the storm', 'trk_vocal', 'provider-x'],
@@ -520,7 +685,11 @@ describe('lyrics, mixer, automation, tracks, macros', () => {
 
   it('set_mixer applies, clamps and validates fields; master bus', () => {
     const r = apply(makeSong(), [
-      { op: 'set_mixer', track: 'bass', changes: { volumeDb: -3, pan: 2, 'eq.lowShelfDb': 3, 'compressor.enabled': true, loudness: 11 } },
+      {
+        op: 'set_mixer',
+        track: 'bass',
+        changes: { volumeDb: -3, pan: 2, 'eq.lowShelfDb': 3, 'compressor.enabled': true, loudness: 11 },
+      },
       { op: 'set_mixer', track: 'master', changes: { volumeDb: -1, pan: 0.5 } },
     ]);
     expect(r.applied).toBe(2);
@@ -532,7 +701,12 @@ describe('lyrics, mixer, automation, tracks, macros', () => {
     expect(r.song.mixer.master.volumeDb).toBe(-1);
     expect(codes(r.report)).toEqual(expect.arrayContaining(['mixer.clamped', 'mixer.invalid-field']));
     const diff = diffSongs(makeSong(), r.song);
-    expect(diff.mixerChanged).toEqual(expect.arrayContaining([{ target: 'trk_bass', field: 'volumeDb', before: -6, after: -3 }, { target: 'master', field: 'volumeDb', before: 0, after: -1 }]));
+    expect(diff.mixerChanged).toEqual(
+      expect.arrayContaining([
+        { target: 'trk_bass', field: 'volumeDb', before: -6, after: -3 },
+        { target: 'master', field: 'volumeDb', before: 0, after: -1 },
+      ]),
+    );
   });
 
   it('set_mixer creates a channel strip when missing', () => {
@@ -545,9 +719,26 @@ describe('lyrics, mixer, automation, tracks, macros', () => {
 
   it('set_automation writes a lane per target+param and merges ranges', () => {
     const r = apply(makeSong(), [
-      { op: 'set_automation', track: 'vocal', param: 'volumeDb', points: [{ bar: 13, beat: 1, value: -12 }, { bar: 14, beat: 1, value: 0 }, { bar: 20, beat: 1, value: 30 }] },
+      {
+        op: 'set_automation',
+        track: 'vocal',
+        param: 'volumeDb',
+        points: [
+          { bar: 13, beat: 1, value: -12 },
+          { bar: 14, beat: 1, value: 0 },
+          { bar: 20, beat: 1, value: 30 },
+        ],
+      },
       { op: 'set_automation', track: 'vocal', param: 'volumeDb', points: [{ bar: 14, beat: 1, value: -3 }] },
-      { op: 'set_automation', track: 'master', param: 'eq.lowpassHz', points: [{ bar: 1, beat: 1, value: 800 }, { bar: 4, beat: 4.5, value: 20000, curve: 'step' }] },
+      {
+        op: 'set_automation',
+        track: 'master',
+        param: 'eq.lowpassHz',
+        points: [
+          { bar: 1, beat: 1, value: 800 },
+          { bar: 4, beat: 4.5, value: 20000, curve: 'step' },
+        ],
+      },
     ]);
     expect(r.applied).toBe(3);
     const lane = r.song.automation.find((l) => l.target === 'trk_vocal')!;
@@ -556,21 +747,43 @@ describe('lyrics, mixer, automation, tracks, macros', () => {
       { tick: 13 * BAR, value: -3 },
       { tick: 19 * BAR, value: 12 },
     ]);
-    expect(r.song.automation.find((l) => l.target === 'master')!.points[1]).toEqual({ tick: 3 * BAR + 3.5 * Q, value: 20000, curve: 'step' });
+    expect(r.song.automation.find((l) => l.target === 'master')!.points[1]).toEqual({
+      tick: 3 * BAR + 3.5 * Q,
+      value: 20000,
+      curve: 'step',
+    });
     expect(codes(r.report)).toContain('automation.clamped');
   });
 
   it('add_track / set_instrument / remove_track', () => {
     const r = apply(makeSong(), [
-      { op: 'add_track', name: 'Violin', instrument_id: 'violin', role: 'strings', function: 'counter-melody' },
-      { op: 'add_notes', track: 'Violin', notes: [{ pitch: 'G3', bar: 5, beat: 1, duration_beats: 4 }, { pitch: 'C3', bar: 6, beat: 1, duration_beats: 4 }] },
+      {
+        op: 'add_track',
+        name: 'Violin',
+        instrument_id: 'violin',
+        role: 'strings',
+        function: 'counter-melody',
+      },
+      {
+        op: 'add_notes',
+        track: 'Violin',
+        notes: [
+          { pitch: 'G3', bar: 5, beat: 1, duration_beats: 4 },
+          { pitch: 'C3', bar: 6, beat: 1, duration_beats: 4 },
+        ],
+      },
       { op: 'add_track', name: 'Perc', instrument_id: 'shaker-loop', role: 'percussion' },
       { op: 'set_instrument', track: 'piano', instrument_id: 'cello' },
       { op: 'remove_track', track: 'Drums' },
     ]);
     expect(r.applied).toBe(5);
     const violin = r.song.tracks.find((t) => t.name === 'Violin')!;
-    expect(violin).toMatchObject({ role: 'strings', instrumentId: 'violin', constraints: { function: 'counter-melody' }, stemGroup: 'strings' });
+    expect(violin).toMatchObject({
+      role: 'strings',
+      instrumentId: 'violin',
+      constraints: { function: 'counter-melody' },
+      stemGroup: 'strings',
+    });
     expect(violin.notes.map((n) => n.pitch)).toEqual([55, 60]); // C3 folded up into the violin range
     expect(r.song.mixer.channels[violin.id]).toBeDefined();
     const perc = r.song.tracks.find((t) => t.name === 'Perc')!;
@@ -597,9 +810,23 @@ describe('lyrics, mixer, automation, tracks, macros', () => {
 
   it('noteToOpNote / opNoteToNote round trip (1-based bars/beats)', () => {
     const song = makeSong();
-    const n = { id: 'x', pitch: 52, tick: 4 * BAR + Q + Q / 2, duration: Q * 1.5, velocity: 77, articulation: 'legato' as const };
+    const n = {
+      id: 'x',
+      pitch: 52,
+      tick: 4 * BAR + Q + Q / 2,
+      duration: Q * 1.5,
+      velocity: 77,
+      articulation: 'legato' as const,
+    };
     const op = noteToOpNote(song, n);
-    expect(op).toEqual({ pitch: 52, bar: 5, beat: 2.5, duration_beats: 1.5, velocity: 77, articulation: 'legato' });
+    expect(op).toEqual({
+      pitch: 52,
+      bar: 5,
+      beat: 2.5,
+      duration_beats: 1.5,
+      velocity: 77,
+      articulation: 'legato',
+    });
     expect(opNoteToNote(song, op, 'x')).toEqual(n);
     expect(opNoteToNote(song, { pitch: 'E3', bar: 1, beat: 1, duration_beats: 1 }, 'y').pitch).toBe(52);
     expect(() => opNoteToNote(song, { pitch: 'Q', bar: 1, beat: 1, duration_beats: 1 }, 'z')).toThrow();
@@ -623,7 +850,11 @@ describe('locks (spec §22)', () => {
       { op: 'replace_notes', track: 'bass', region: { start_bar: 3, end_bar: 5 }, notes: [] },
       { op: 'delete_notes', track: 'piano', region: { start_bar: 11, end_bar: 11 } },
       { op: 'set_tempo', bpm: 100 },
-      { op: 'set_chords', region: { start_bar: 5, end_bar: 5 }, chords: [{ bar: 5, beat: 1, symbol: 'Am', duration_beats: 4 }] },
+      {
+        op: 'set_chords',
+        region: { start_bar: 5, end_bar: 5 },
+        chords: [{ bar: 5, beat: 1, symbol: 'Am', duration_beats: 4 }],
+      },
       { op: 'set_lyrics', section: 'Chorus', lines: ['nope'] },
       { op: 'set_mixer', track: 'bass', changes: { volumeDb: 0 } },
       { op: 'remove_track', track: 'vocal' },
@@ -650,8 +881,16 @@ describe('locks (spec §22)', () => {
     expect(codes(r.report)).toContain('lock.skipped');
     expect(validateChange(song, r.song).ok).toBe(true);
     const chorusDrums = notesInBars(r.song, 'trk_drums', 15, 22);
-    expect(chorusDrums.every((n) => n.velocity === track(song, 'trk_drums').notes.find((x) => x.id === n.id)!.velocity)).toBe(true);
-    expect(notesInBars(r.song, 'trk_drums', 1, 4).every((n) => n.velocity === track(song, 'trk_drums').notes.find((x) => x.id === n.id)!.velocity - 20)).toBe(true);
+    expect(
+      chorusDrums.every(
+        (n) => n.velocity === track(song, 'trk_drums').notes.find((x) => x.id === n.id)!.velocity,
+      ),
+    ).toBe(true);
+    expect(
+      notesInBars(r.song, 'trk_drums', 1, 4).every(
+        (n) => n.velocity === track(song, 'trk_drums').notes.find((x) => x.id === n.id)!.velocity - 20,
+      ),
+    ).toBe(true);
   });
 
   it('structure lock blocks section edits; key/meter locks block their ops', () => {
@@ -666,7 +905,11 @@ describe('locks (spec §22)', () => {
     ]);
     expect(r.applied).toBe(0);
     // metadata edits are still possible
-    expect(apply(song, [{ op: 'update_section', section: 'Verse', changes: { energy: 70, purpose: 'Build tension' } }]).applied).toBe(1);
+    expect(
+      apply(song, [
+        { op: 'update_section', section: 'Verse', changes: { energy: 70, purpose: 'Build tension' } },
+      ]).applied,
+    ).toBe(1);
   });
 
   it('removing a section with locked track material is rejected by the generic lock check', () => {
@@ -724,10 +967,16 @@ describe('regenerate', () => {
       },
     });
     expect(r.applied).toBe(1);
-    expect(seen).toEqual([{ op: 'regenerate', track: 'trk_bass', region: { start_bar: 5, end_bar: 8 }, seed: 3 }]);
+    expect(seen).toEqual([
+      { op: 'regenerate', track: 'trk_bass', region: { start_bar: 5, end_bar: 8 }, seed: 3 },
+    ]);
     const bySection: unknown[] = [];
-    apply(makeSong(), [{ op: 'regenerate', sections: ['Chorus', 'verse'], level: 'variation' }], { regenerate: (s: Song, op: unknown) => (bySection.push(op), s) });
-    expect(bySection).toEqual([{ op: 'regenerate', sections: ['sec_chorus', 'sec_verse'], level: 'variation' }]);
+    apply(makeSong(), [{ op: 'regenerate', sections: ['Chorus', 'verse'], level: 'variation' }], {
+      regenerate: (s: Song, op: unknown) => (bySection.push(op), s),
+    });
+    expect(bySection).toEqual([
+      { op: 'regenerate', sections: ['sec_chorus', 'sec_verse'], level: 'variation' },
+    ]);
     expect(notesInBars(r.song, 'trk_bass', 5, 5).every((n) => n.pitch === 42)).toBe(true);
     const sloppy = (s: Song) => {
       const out = cloneSong(s);
@@ -770,13 +1019,27 @@ describe('validateSong', () => {
     const r = validateSong(song);
     expect(r.ok).toBe(false);
     expect(codes(r)).toEqual(
-      expect.arrayContaining(['note.invalid', 'note.out-of-range', 'note.overlap', 'polyphony.mono', 'chord.unparseable', 'chord.overlap', 'chord.gap', 'lyrics.mismatch']),
+      expect.arrayContaining([
+        'note.invalid',
+        'note.out-of-range',
+        'note.overlap',
+        'polyphony.mono',
+        'chord.unparseable',
+        'chord.overlap',
+        'chord.gap',
+        'lyrics.mismatch',
+      ]),
     );
   });
 
   it('flags lyric/vocal mismatch counts and missing vocal notes', () => {
     const song = makeSong();
-    song.lyrics.push({ id: 'ly_v', sectionId: 'sec_verse', text: 'A verse that nobody sings', trackId: 'trk_vocal' });
+    song.lyrics.push({
+      id: 'ly_v',
+      sectionId: 'sec_verse',
+      text: 'A verse that nobody sings',
+      trackId: 'trk_vocal',
+    });
     expect(codes(validateSong(song))).toContain('lyrics.no-vocal');
   });
 });
@@ -808,8 +1071,17 @@ describe('diffSongs', () => {
   it('reports modified notes, chords, structure, tempo, key, tracks', () => {
     const before = makeSong();
     const r = apply(before, [
-      { op: 'transform_notes', track: 'bass', region: { start_bar: 1, end_bar: 1 }, transform: { velocity_add: -10 } },
-      { op: 'set_chords', region: { start_bar: 9, end_bar: 12 }, chords: [{ bar: 9, beat: 1, symbol: 'Am', duration_beats: 16 }] },
+      {
+        op: 'transform_notes',
+        track: 'bass',
+        region: { start_bar: 1, end_bar: 1 },
+        transform: { velocity_add: -10 },
+      },
+      {
+        op: 'set_chords',
+        region: { start_bar: 9, end_bar: 12 },
+        chords: [{ bar: 9, beat: 1, symbol: 'Am', duration_beats: 16 }],
+      },
       { op: 'set_tempo', bpm: 128 },
       { op: 'set_key', tonic: 'G', mode: 'major' },
       { op: 'add_track', name: 'Strings', instrument_id: 'strings', role: 'strings' },
@@ -848,14 +1120,30 @@ describe('diffSongs', () => {
 describe('proposals (spec §21)', () => {
   it('createProposal computes after/diff/validation and can be accepted or rejected', () => {
     const before = makeSong();
-    const p = createProposal(before, [{ op: 'transform_notes', track: 'bass', region: { start_bar: 1, end_bar: 4 }, transform: { transpose: 12 } }], {
-      title: 'Bass up an octave',
-      source: 'internal',
-      instruction: 'make the intro bass higher',
+    const p = createProposal(
+      before,
+      [
+        {
+          op: 'transform_notes',
+          track: 'bass',
+          region: { start_bar: 1, end_bar: 4 },
+          transform: { transpose: 12 },
+        },
+      ],
+      {
+        title: 'Bass up an octave',
+        source: 'internal',
+        instruction: 'make the intro bass higher',
+        id: 'prop_1',
+        createdAt: '2026-10-03T00:00:00.000Z',
+      },
+    );
+    expect(p).toMatchObject({
       id: 'prop_1',
-      createdAt: '2026-10-03T00:00:00.000Z',
+      status: 'pending',
+      source: 'internal',
+      title: 'Bass up an octave',
     });
-    expect(p).toMatchObject({ id: 'prop_1', status: 'pending', source: 'internal', title: 'Bass up an octave' });
     expect(p.diff.summary).toEqual(['Bass: 16 notes modified (bars 1–4)']);
     expect(p.validation.ok).toBe(true);
     expect(p.before).toEqual(before);
@@ -868,7 +1156,14 @@ describe('proposals (spec §21)', () => {
   it('a proposal with rejected ops reports them but stays acceptable', () => {
     const song = makeSong();
     song.locks = { [LockKeys.tempo]: true };
-    const p = createProposal(song, [{ op: 'set_tempo', bpm: 90 }, { op: 'set_macros', macros: { energy: 1 } }], { title: 't', source: 'llm' });
+    const p = createProposal(
+      song,
+      [
+        { op: 'set_tempo', bpm: 90 },
+        { op: 'set_macros', macros: { energy: 1 } },
+      ],
+      { title: 't', source: 'llm' },
+    );
     expect(p.validation.ok).toBe(false);
     expect(p.after.tempoMap[0].bpm).toBe(120);
     expect(acceptProposal(p).macros.energy).toBe(1);
@@ -911,13 +1206,19 @@ describe('validateChange', () => {
   it('detects changes to locked material in section-relative terms', () => {
     const before = makeSong();
     before.locks = { [LockKeys.section('sec_chorus')]: true };
-    const moved = apply(before, [{ op: 'insert_section', after: 'Intro', section: { name: 'Gap', kind: 'interlude', bars: 1 } }]).song;
+    const moved = apply(before, [
+      { op: 'insert_section', after: 'Intro', section: { name: 'Gap', kind: 'interlude', bars: 1 } },
+    ]).song;
     expect(validateChange(before, moved).ok).toBe(true);
     const edited = cloneSong(moved);
     edited.tracks[0].notes.find((n) => n.id === 'b_15_0')!.velocity = 1;
     const r = validateChange(before, edited);
     expect(r.ok).toBe(false);
-    expect(r.issues[0]).toMatchObject({ code: 'lock.violated', sectionId: 'sec_chorus', trackId: 'trk_bass' });
+    expect(r.issues[0]).toMatchObject({
+      code: 'lock.violated',
+      sectionId: 'sec_chorus',
+      trackId: 'trk_bass',
+    });
   });
 
   it('checks the requested range and tracks', () => {
@@ -925,7 +1226,10 @@ describe('validateChange', () => {
     const after = cloneSong(before);
     after.tracks[3].notes[0].velocity = 1; // piano bar 1
     const span = sectionLayout(before)[2];
-    const r = validateChange(before, after, { region: { startTick: span.startTick, endTick: span.endTick }, trackIds: ['trk_bass'] });
+    const r = validateChange(before, after, {
+      region: { startTick: span.startTick, endTick: span.endTick },
+      trackIds: ['trk_bass'],
+    });
     expect(r.issues.map((i) => [i.code, i.trackId])).toEqual([['region.violated', 'trk_piano']]);
   });
 });
@@ -934,44 +1238,134 @@ describe('robustness (seeded fuzz)', () => {
   it('random valid/invalid operation batches never throw, never mutate input, never corrupt the song or break locks', async () => {
     const { createRng } = await import('../src/util/random');
     const rng = createRng(20261003);
-    const pick = <T,>(a: readonly T[]): T => a[Math.floor(rng.next() * a.length)];
-    const junk = () => pick<unknown>([undefined, null, Number.NaN, -5, 0, 3, 17, 1e9, 'x', 'E2', '', [], {}, true, 'bass', 'Chorus', 0.5, 300]);
-    const n = (lo: number, hi: number) => (rng.next() < 0.15 ? junk() : lo + Math.floor(rng.next() * (hi - lo + 1)));
-    const note = () => ({ pitch: rng.next() < 0.2 ? junk() : pick([40, 'E2', 'G4', 72, 'Bb3', 100, -3]), bar: n(1, 22), beat: rng.next() < 0.1 ? junk() : 1 + Math.floor(rng.next() * 8) / 2, duration_beats: rng.next() < 0.1 ? junk() : pick([0.25, 1, 4, 0, -1]), velocity: n(1, 127) });
+    const pick = <T>(a: readonly T[]): T => a[Math.floor(rng.next() * a.length)];
+    const junk = () =>
+      pick<unknown>([
+        undefined,
+        null,
+        Number.NaN,
+        -5,
+        0,
+        3,
+        17,
+        1e9,
+        'x',
+        'E2',
+        '',
+        [],
+        {},
+        true,
+        'bass',
+        'Chorus',
+        0.5,
+        300,
+      ]);
+    const n = (lo: number, hi: number) =>
+      rng.next() < 0.15 ? junk() : lo + Math.floor(rng.next() * (hi - lo + 1));
+    const note = () => ({
+      pitch: rng.next() < 0.2 ? junk() : pick([40, 'E2', 'G4', 72, 'Bb3', 100, -3]),
+      bar: n(1, 22),
+      beat: rng.next() < 0.1 ? junk() : 1 + Math.floor(rng.next() * 8) / 2,
+      duration_beats: rng.next() < 0.1 ? junk() : pick([0.25, 1, 4, 0, -1]),
+      velocity: n(1, 127),
+    });
     const region = () => (rng.next() < 0.1 ? junk() : { start_bar: n(1, 21), end_bar: n(1, 22) });
     const track = () => pick<unknown>(['bass', 'Drums', 'vocal', 'piano', 'nope', 42, undefined, 'master']);
     const section = () => pick<unknown>(['Intro', 'Verse', 'Chorus', 'x', undefined]);
     const makers: (() => unknown)[] = [
-      () => ({ op: 'replace_notes', track: track(), region: region(), notes: Array.from({ length: Math.floor(rng.next() * 5) }, note) }),
+      () => ({
+        op: 'replace_notes',
+        track: track(),
+        region: region(),
+        notes: Array.from({ length: Math.floor(rng.next() * 5) }, note),
+      }),
       () => ({ op: 'add_notes', track: track(), notes: Array.from({ length: 3 }, note) }),
       () => ({ op: 'delete_notes', track: track(), region: rng.next() < 0.5 ? region() : undefined }),
-      () => ({ op: 'transform_notes', track: track(), region: region(), transform: { transpose: n(-30, 30), time_shift_beats: pick([-100, 0.5, 1000]), quantize_beats: pick([0.25, 0, 'x']), humanize: pick([0.2, 5]) } }),
-      () => ({ op: 'set_chords', region: region(), chords: [{ bar: n(1, 22), beat: 1, symbol: pick(['Am', 'H7', 'G/B']), duration_beats: 4 }] }),
+      () => ({
+        op: 'transform_notes',
+        track: track(),
+        region: region(),
+        transform: {
+          transpose: n(-30, 30),
+          time_shift_beats: pick([-100, 0.5, 1000]),
+          quantize_beats: pick([0.25, 0, 'x']),
+          humanize: pick([0.2, 5]),
+        },
+      }),
+      () => ({
+        op: 'set_chords',
+        region: region(),
+        chords: [{ bar: n(1, 22), beat: 1, symbol: pick(['Am', 'H7', 'G/B']), duration_beats: 4 }],
+      }),
       () => ({ op: 'set_tempo', bpm: n(10, 500), at_bar: rng.next() < 0.5 ? n(1, 25) : undefined }),
-      () => ({ op: 'set_key', tonic: pick(['E', 'Bb', 'H']), mode: pick(['major', 'dorian', 'sad']), transpose_notes: rng.next() < 0.5, at_bar: rng.next() < 0.3 ? n(1, 22) : undefined }),
-      () => ({ op: 'set_meter', numerator: n(1, 13), denominator: pick([4, 8, 3]), at_bar: rng.next() < 0.5 ? n(1, 22) : undefined }),
+      () => ({
+        op: 'set_key',
+        tonic: pick(['E', 'Bb', 'H']),
+        mode: pick(['major', 'dorian', 'sad']),
+        transpose_notes: rng.next() < 0.5,
+        at_bar: rng.next() < 0.3 ? n(1, 22) : undefined,
+      }),
+      () => ({
+        op: 'set_meter',
+        numerator: n(1, 13),
+        denominator: pick([4, 8, 3]),
+        at_bar: rng.next() < 0.5 ? n(1, 22) : undefined,
+      }),
       () => ({ op: 'update_section', section: section(), changes: { bars: n(1, 16), energy: junk() } }),
-      () => ({ op: 'insert_section', after: section(), section: { name: 'Bridge', kind: 'bridge', bars: n(1, 12) }, copy_from: rng.next() < 0.5 ? section() : undefined }),
+      () => ({
+        op: 'insert_section',
+        after: section(),
+        section: { name: 'Bridge', kind: 'bridge', bars: n(1, 12) },
+        copy_from: rng.next() < 0.5 ? section() : undefined,
+      }),
       () => ({ op: 'remove_section', section: section() }),
       () => ({ op: 'move_section', section: section(), to_index: n(-2, 5) }),
-      () => ({ op: 'set_lyrics', section: section(), lines: rng.next() < 0.2 ? junk() : ['one two', 'three'] }),
+      () => ({
+        op: 'set_lyrics',
+        section: section(),
+        lines: rng.next() < 0.2 ? junk() : ['one two', 'three'],
+      }),
       () => ({ op: 'set_mixer', track: track(), changes: { volumeDb: n(-100, 20), pan: junk() } }),
-      () => ({ op: 'set_automation', track: track(), param: pick(['volumeDb', 'nope']), points: [{ bar: n(1, 25), beat: 1, value: junk() }] }),
-      () => ({ op: 'add_track', name: pick(['Violin', undefined]), instrument_id: pick(['violin', 'mystery', undefined]), role: pick(['strings', 'x']) }),
+      () => ({
+        op: 'set_automation',
+        track: track(),
+        param: pick(['volumeDb', 'nope']),
+        points: [{ bar: n(1, 25), beat: 1, value: junk() }],
+      }),
+      () => ({
+        op: 'add_track',
+        name: pick(['Violin', undefined]),
+        instrument_id: pick(['violin', 'mystery', undefined]),
+        role: pick(['strings', 'x']),
+      }),
       () => ({ op: 'remove_track', track: track() }),
       () => ({ op: 'set_instrument', track: track(), instrument_id: pick(['cello', 'drum-kit', undefined]) }),
-      () => ({ op: 'set_lock', key: pick(['song.tempo', 'track:Bass', 'section:Chorus', 'garbage']), locked: pick([true, false, undefined]) }),
+      () => ({
+        op: 'set_lock',
+        key: pick(['song.tempo', 'track:Bass', 'section:Chorus', 'garbage']),
+        locked: pick([true, false, undefined]),
+      }),
       () => ({ op: pick(['regenerate', 'bogus']), track: track() }),
     ];
     for (let iter = 0; iter < 80; iter++) {
       const song = makeSong();
-      if (iter % 2 === 0) song.locks = { [LockKeys.trackSection('trk_bass', 'sec_verse')]: true, [LockKeys.section('sec_intro')]: true, [LockKeys.tempo]: true };
+      if (iter % 2 === 0)
+        song.locks = {
+          [LockKeys.trackSection('trk_bass', 'sec_verse')]: true,
+          [LockKeys.section('sec_intro')]: true,
+          [LockKeys.tempo]: true,
+        };
       const hash = songHash(song);
       const ops = Array.from({ length: 1 + Math.floor(rng.next() * 5) }, () => pick(makers)());
-      const r = apply(song, ops, { autoFix: rng.next() < 0.8, regenerate: rng.next() < 0.5 ? (s: Song) => s : undefined });
+      const r = apply(song, ops, {
+        autoFix: rng.next() < 0.8,
+        regenerate: rng.next() < 0.5 ? (s: Song) => s : undefined,
+      });
       expect(songHash(song)).toBe(hash);
       expect(r.applied + r.skipped).toBe(ops.length);
-      const corrupt = validateSong(r.song).issues.filter((i) => i.severity === 'error' && !['chord.unparseable'].includes(i.code));
+      const corrupt = validateSong(r.song).issues.filter(
+        (i) => i.severity === 'error' && !['chord.unparseable'].includes(i.code),
+      );
       expect(corrupt).toEqual([]);
       expect(validateChange(song, r.song).issues.filter((i) => i.code === 'lock.violated')).toEqual([]);
     }

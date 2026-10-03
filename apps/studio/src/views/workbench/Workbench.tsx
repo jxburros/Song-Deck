@@ -90,7 +90,13 @@ export default function Workbench() {
           <WorkbenchToolbar />
         </div>
         <div className="wb-editor">
-          <Suspense fallback={<div className="empty-state"><Spinner /></div>}>
+          <Suspense
+            fallback={
+              <div className="empty-state">
+                <Spinner />
+              </div>
+            }
+          >
             <View />
           </Suspense>
         </div>
@@ -98,9 +104,18 @@ export default function Workbench() {
       <aside className="wb-right">
         <div className="right-tabs">
           {RIGHT_TABS.map((t) => (
-            <button key={t.value} className={`tab ${rightPanel === t.value ? 'active' : ''}`} onClick={() => setRightPanel(t.value)} title={t.title}>
+            <button
+              key={t.value}
+              className={`tab ${rightPanel === t.value ? 'active' : ''}`}
+              onClick={() => setRightPanel(t.value)}
+              title={t.title}
+            >
               {t.label}
-              {t.value === 'proposals' && pending > 0 && <span className="badge ai" style={{ height: 16, padding: '0 5px' }}>{pending}</span>}
+              {t.value === 'proposals' && pending > 0 && (
+                <span className="badge ai" style={{ height: 16, padding: '0 5px' }}>
+                  {pending}
+                </span>
+              )}
             </button>
           ))}
         </div>

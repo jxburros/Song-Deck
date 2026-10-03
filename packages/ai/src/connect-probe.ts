@@ -56,54 +56,124 @@ function probeConfig(presetId: string, credentialRef: string): ProviderConfig {
 
 const deps = (transport: Transport) => ({ transport, retry: { retries: 0 } });
 
-export async function probeProvider(presetId: string, opts: ConnectProbeOptions): Promise<ConnectProbeResult> {
+export async function probeProvider(
+  presetId: string,
+  opts: ConnectProbeOptions,
+): Promise<ConnectProbeResult> {
   const preset = getPreset(presetId);
   if (!preset) throw new ProviderError('bad-request', `Unknown provider "${presetId}"`);
   const config = probeConfig(presetId, opts.credentialRef ?? defaultCredentialRef(presetId));
   if (preset.adapter === 'elevenlabs-music') return probeElevenLabs(config, opts);
   if (preset.adapter === 'stability-audio') return probeStability(config, opts);
   const inst = createProvider(config, deps(opts.transport));
-  if (!inst.llm) throw new ProviderError('unsupported', `${preset.name} cannot be connected with a key here — use Advanced`);
+  if (!inst.llm)
+    throw new ProviderError(
+      'unsupported',
+      `${preset.name} cannot be connected with a key here — use Advanced`,
+    );
   const models = [...(await inst.llm.listModels(opts.signal)), ...(inst.llm.skippedModels ?? [])];
-  const note = presetId === 'gemini' && models.some((m) => isGeminiMusicModel(m.id)) ? 'This key can also use Lyria music models.' : undefined;
-  return { presetId, models: [...models].sort(compareModelsForRecommendation), listed: true, ...(note ? { note } : {}) };
+  const note =
+    presetId === 'gemini' && models.some((m) => isGeminiMusicModel(m.id))
+      ? 'This key can also use Lyria music models.'
+      : undefined;
+  return {
+    presetId,
+    models: [...models].sort(compareModelsForRecommendation),
+    listed: true,
+    ...(note ? { note } : {}),
+  };
 }
 
-async function probeElevenLabs(config: ProviderConfig, opts: ConnectProbeOptions): Promise<ConnectProbeResult> {
+async function probeElevenLabs(
+  config: ProviderConfig,
+  opts: ConnectProbeOptions,
+): Promise<ConnectProbeResult> {
   const http = createHttpClient(config, deps(opts.transport));
-  const known: ModelInfo = { id: 'music_v1', name: 'Eleven Music', capabilities: [...ELEVENLABS_MUSIC_CAPABILITIES], qualityTier: 5 };
+  const known: ModelInfo = {
+    id: 'music_v1',
+    name: 'Eleven Music',
+    capabilities: [...ELEVENLABS_MUSIC_CAPABILITIES],
+    qualityTier: 5,
+  };
   try {
-    const list = await http.json<unknown>({ url: joinUrl(config.baseUrl, 'models'), method: 'GET', signal: opts.signal });
-    const rows = (Array.isArray(list) ? list : []) as { model_id?: string; name?: string; description?: string }[];
+    const list = await http.json<unknown>({
+      url: joinUrl(config.baseUrl, 'models'),
+      method: 'GET',
+      signal: opts.signal,
+    });
+    const rows = (Array.isArray(list) ? list : []) as {
+      model_id?: string;
+      name?: string;
+      description?: string;
+    }[];
     const music = rows
       .filter((r) => typeof r.model_id === 'string' && /music/i.test(r.model_id))
-      .map((r) => ({ id: r.model_id!, ...(r.name ? { name: r.name } : {}), capabilities: [...ELEVENLABS_MUSIC_CAPABILITIES], qualityTier: 5 }) as ModelInfo);
+      .map(
+        (r) =>
+          ({
+            id: r.model_id!,
+            ...(r.name ? { name: r.name } : {}),
+            capabilities: [...ELEVENLABS_MUSIC_CAPABILITIES],
+            qualityTier: 5,
+          }) as ModelInfo,
+      );
     const speech = rows
       .filter((r) => typeof r.model_id === 'string' && !/music/i.test(r.model_id))
-      .map((r) => ({ id: r.model_id!, ...(r.name ? { name: r.name } : {}), capabilities: [], meta: { kind: 'speech' } }) as ModelInfo);
+      .map(
+        (r) =>
+          ({
+            id: r.model_id!,
+            ...(r.name ? { name: r.name } : {}),
+            capabilities: [],
+            meta: { kind: 'speech' },
+          }) as ModelInfo,
+      );
     return {
       presetId: config.presetId!,
       models: [...(music.length ? music : [known]), ...speech],
       listed: music.length > 0,
-      ...(music.length ? {} : { note: 'ElevenLabs lists speech models only; Eleven Music (music_v1) is available on plans that include music.' }),
+      ...(music.length
+        ? {}
+        : {
+            note: 'ElevenLabs lists speech models only; Eleven Music (music_v1) is available on plans that include music.',
+          }),
     };
   } catch (err) {
     const pe = toProviderError(err, config.id);
     const detail = (pe.details as { detail?: { status?: string } } | undefined)?.detail;
     if (pe.status === 401 && detail?.status === 'missing_permissions') {
-      return { presetId: config.presetId!, models: [known], listed: false, note: 'The key is valid but may not list models; Eleven Music is assumed.' };
+      return {
+        presetId: config.presetId!,
+        models: [known],
+        listed: false,
+        note: 'The key is valid but may not list models; Eleven Music is assumed.',
+      };
     }
     throw pe;
   }
 }
 
-async function probeStability(config: ProviderConfig, opts: ConnectProbeOptions): Promise<ConnectProbeResult> {
+async function probeStability(
+  config: ProviderConfig,
+  opts: ConnectProbeOptions,
+): Promise<ConnectProbeResult> {
   const http = createHttpClient(config, deps(opts.transport));
   const origin = new URL(config.baseUrl).origin;
-  const balance = await http.json<{ credits?: number }>({ url: `${origin}/v1/user/balance`, method: 'GET', signal: opts.signal });
+  const balance = await http.json<{ credits?: number }>({
+    url: `${origin}/v1/user/balance`,
+    method: 'GET',
+    signal: opts.signal,
+  });
   const preset = getPreset(config.presetId)!;
-  const ids = [...new Set([...(preset.suggestedModels ?? []), ...(preset.defaultModel ? [preset.defaultModel] : [])])];
-  const models: ModelInfo[] = ids.map((id) => ({ id, name: id.replace(/^stable-audio-/, 'Stable Audio '), capabilities: [...STABILITY_AUDIO_CAPABILITIES], qualityTier: 4 }));
+  const ids = [
+    ...new Set([...(preset.suggestedModels ?? []), ...(preset.defaultModel ? [preset.defaultModel] : [])]),
+  ];
+  const models: ModelInfo[] = ids.map((id) => ({
+    id,
+    name: id.replace(/^stable-audio-/, 'Stable Audio '),
+    capabilities: [...STABILITY_AUDIO_CAPABILITIES],
+    qualityTier: 4,
+  }));
   const credits = typeof balance?.credits === 'number' ? balance.credits : undefined;
   return {
     presetId: config.presetId!,
@@ -114,19 +184,40 @@ async function probeStability(config: ProviderConfig, opts: ConnectProbeOptions)
   };
 }
 
-export type ConnectErrorKind = 'invalid-key' | 'forbidden' | 'quota' | 'network' | 'unavailable' | 'unsupported' | 'unknown';
+export type ConnectErrorKind =
+  'invalid-key' | 'forbidden' | 'quota' | 'network' | 'unavailable' | 'unsupported' | 'unknown';
 
 /** Turn a probe failure into a short, actionable message. */
-export function describeConnectError(err: unknown, providerName: string, opts: { browserOnly?: boolean } = {}): { kind: ConnectErrorKind; message: string } {
+export function describeConnectError(
+  err: unknown,
+  providerName: string,
+  opts: { browserOnly?: boolean } = {},
+): { kind: ConnectErrorKind; message: string } {
   const pe = toProviderError(err);
   const msg = pe.message || '';
-  if (pe.kind === 'auth' && (pe.status === 401 || /invalid|incorrect|unauthori[sz]ed/i.test(msg))) return { kind: 'invalid-key', message: `${providerName} rejected this key — check that it was copied completely and has not been revoked.` };
-  if (pe.kind === 'bad-request' && /api[ _-]?key/i.test(msg)) return { kind: 'invalid-key', message: `${providerName} rejected this key (${msg}).` };
+  if (pe.kind === 'auth' && (pe.status === 401 || /invalid|incorrect|unauthori[sz]ed/i.test(msg)))
+    return {
+      kind: 'invalid-key',
+      message: `${providerName} rejected this key — check that it was copied completely and has not been revoked.`,
+    };
+  if (pe.kind === 'bad-request' && /api[ _-]?key/i.test(msg))
+    return { kind: 'invalid-key', message: `${providerName} rejected this key (${msg}).` };
   if (pe.status === 402 || /quota|billing|credit|insufficient|exceeded|RESOURCE_EXHAUSTED/i.test(msg)) {
-    return { kind: 'quota', message: `${providerName} accepted the key but the account is out of quota or credits (${msg}). Check billing on the provider's site.` };
+    return {
+      kind: 'quota',
+      message: `${providerName} accepted the key but the account is out of quota or credits (${msg}). Check billing on the provider's site.`,
+    };
   }
-  if (pe.kind === 'auth') return { kind: 'forbidden', message: `${providerName} refused access (${msg || `HTTP ${pe.status}`}). The key may lack permissions or the API may not be enabled for it.` };
-  if (pe.kind === 'rate-limit') return { kind: 'quota', message: `${providerName} is rate limiting this key right now — wait a minute and try again.` };
+  if (pe.kind === 'auth')
+    return {
+      kind: 'forbidden',
+      message: `${providerName} refused access (${msg || `HTTP ${pe.status}`}). The key may lack permissions or the API may not be enabled for it.`,
+    };
+  if (pe.kind === 'rate-limit')
+    return {
+      kind: 'quota',
+      message: `${providerName} is rate limiting this key right now — wait a minute and try again.`,
+    };
   if (pe.kind === 'network' || pe.kind === 'timeout') {
     return {
       kind: 'network',
@@ -135,7 +226,11 @@ export function describeConnectError(err: unknown, providerName: string, opts: {
         : `Could not reach ${providerName} (${msg}). Check your internet connection, VPN or firewall.`,
     };
   }
-  if (pe.kind === 'unavailable') return { kind: 'unavailable', message: `${providerName} is having problems (HTTP ${pe.status ?? '5xx'}). Try again shortly.` };
+  if (pe.kind === 'unavailable')
+    return {
+      kind: 'unavailable',
+      message: `${providerName} is having problems (HTTP ${pe.status ?? '5xx'}). Try again shortly.`,
+    };
   if (pe.kind === 'unsupported') return { kind: 'unsupported', message: msg };
   return { kind: 'unknown', message: `${providerName}: ${msg || 'unexpected error'}` };
 }
@@ -161,11 +256,20 @@ export function connectedConfig(presetId: string, opts: ConnectConfigOptions): P
   const rec = recommendModels(chosen);
   const writing = chosen.filter((m) => modelUses(m).includes('composition'));
   const defaultModel =
-    base.defaultModel && opts.selected.includes(base.defaultModel) && (writing.length === 0 || writing.some((m) => m.id === base.defaultModel)) ? base.defaultModel : (rec.defaultModel ?? opts.selected[0]);
-  const config: ProviderConfig = { ...base, enabled: true, credentialRef: base.credentialRef ?? defaultCredentialRef(base.id) };
+    base.defaultModel &&
+    opts.selected.includes(base.defaultModel) &&
+    (writing.length === 0 || writing.some((m) => m.id === base.defaultModel))
+      ? base.defaultModel
+      : (rec.defaultModel ?? opts.selected[0]);
+  const config: ProviderConfig = {
+    ...base,
+    enabled: true,
+    credentialRef: base.credentialRef ?? defaultCredentialRef(base.id),
+  };
   delete config.enabledModels;
   if (opts.probe.listed && opts.selected.length) config.enabledModels = [...opts.selected];
-  if (!opts.probe.listed && chosen.length) config.models = chosen.map((m) => ({ id: m.id, ...(m.name ? { name: m.name } : {}) }));
+  if (!opts.probe.listed && chosen.length)
+    config.models = chosen.map((m) => ({ id: m.id, ...(m.name ? { name: m.name } : {}) }));
   if (defaultModel) config.defaultModel = defaultModel;
   return config;
 }

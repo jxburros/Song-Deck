@@ -6,7 +6,10 @@ import { Knob } from './controls';
 import { FIELD_META, fmtDb } from './mixModel';
 
 /** Static gain-reduction curve of the engine's soft-knee compressor (dB, ≤ 0). */
-export function gainReduction(x: number, c: Pick<CompressorSettings, 'thresholdDb' | 'ratio' | 'kneeDb'>): number {
+export function gainReduction(
+  x: number,
+  c: Pick<CompressorSettings, 'thresholdDb' | 'ratio' | 'kneeDb'>,
+): number {
   const T = c.thresholdDb;
   const R = Math.max(1, c.ratio);
   const W = Math.max(0, c.kneeDb);
@@ -99,7 +102,12 @@ export function CompressorEditor({
   title: string;
   glue?: boolean;
 }) {
-  const knob = (key: keyof CompressorSettings, label: string, def: number, extra: { bipolar?: boolean; step?: number } = {}) => {
+  const knob = (
+    key: keyof CompressorSettings,
+    label: string,
+    def: number,
+    extra: { bipolar?: boolean; step?: number } = {},
+  ) => {
     const meta = FIELD_META[`compressor.${key}`];
     return (
       <Knob

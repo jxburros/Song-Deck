@@ -38,7 +38,10 @@ export function usePlayerState() {
 }
 
 /** Track an element's size (for canvases). */
-export function useElementSize<T extends HTMLElement>(): [React.RefObject<T | null>, { width: number; height: number }] {
+export function useElementSize<T extends HTMLElement>(): [
+  React.RefObject<T | null>,
+  { width: number; height: number },
+] {
   const ref = useRef<T>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   useEffect(() => {
@@ -59,7 +62,11 @@ export function useHotkeys(map: Record<string, (e: KeyboardEvent) => void>, deps
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (
+        t &&
+        (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+      )
+        return;
       const combo = `${e.metaKey || e.ctrlKey ? 'mod+' : ''}${e.shiftKey ? 'shift+' : ''}${e.key.toLowerCase()}`;
       const fn = map[combo];
       if (fn) {

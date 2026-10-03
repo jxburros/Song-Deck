@@ -96,12 +96,72 @@ export interface BandSpec {
 }
 
 export const BANDS: BandSpec[] = [
-  { id: 'hp', label: 'Low cut', short: 'HPF', type: 'highpass', freqKey: 'highpassHz', minHz: 20, maxHz: 8000, color: TRACK_NEUTRAL },
-  { id: 'ls', label: 'Low shelf', short: 'LOW', type: 'lowshelf', freqKey: 'lowShelfHz', gainKey: 'lowShelfDb', minHz: 20, maxHz: 2000, color: TRACK_PALETTE[2] },
-  { id: 'lm', label: 'Low-mid', short: 'LO-MID', type: 'peak', freqKey: 'lowMidHz', gainKey: 'lowMidDb', qKey: 'lowMidQ', minHz: 40, maxHz: 8000, color: TRACK_PALETTE[3] },
-  { id: 'hm', label: 'High-mid', short: 'HI-MID', type: 'peak', freqKey: 'highMidHz', gainKey: 'highMidDb', qKey: 'highMidQ', minHz: 200, maxHz: 16000, color: TRACK_PALETTE[8] },
-  { id: 'hs', label: 'High shelf', short: 'HIGH', type: 'highshelf', freqKey: 'highShelfHz', gainKey: 'highShelfDb', minHz: 1000, maxHz: 20000, color: TRACK_PALETTE[10] },
-  { id: 'lp', label: 'High cut', short: 'LPF', type: 'lowpass', freqKey: 'lowpassHz', minHz: 200, maxHz: 20000, color: TRACK_NEUTRAL },
+  {
+    id: 'hp',
+    label: 'Low cut',
+    short: 'HPF',
+    type: 'highpass',
+    freqKey: 'highpassHz',
+    minHz: 20,
+    maxHz: 8000,
+    color: TRACK_NEUTRAL,
+  },
+  {
+    id: 'ls',
+    label: 'Low shelf',
+    short: 'LOW',
+    type: 'lowshelf',
+    freqKey: 'lowShelfHz',
+    gainKey: 'lowShelfDb',
+    minHz: 20,
+    maxHz: 2000,
+    color: TRACK_PALETTE[2],
+  },
+  {
+    id: 'lm',
+    label: 'Low-mid',
+    short: 'LO-MID',
+    type: 'peak',
+    freqKey: 'lowMidHz',
+    gainKey: 'lowMidDb',
+    qKey: 'lowMidQ',
+    minHz: 40,
+    maxHz: 8000,
+    color: TRACK_PALETTE[3],
+  },
+  {
+    id: 'hm',
+    label: 'High-mid',
+    short: 'HI-MID',
+    type: 'peak',
+    freqKey: 'highMidHz',
+    gainKey: 'highMidDb',
+    qKey: 'highMidQ',
+    minHz: 200,
+    maxHz: 16000,
+    color: TRACK_PALETTE[8],
+  },
+  {
+    id: 'hs',
+    label: 'High shelf',
+    short: 'HIGH',
+    type: 'highshelf',
+    freqKey: 'highShelfHz',
+    gainKey: 'highShelfDb',
+    minHz: 1000,
+    maxHz: 20000,
+    color: TRACK_PALETTE[10],
+  },
+  {
+    id: 'lp',
+    label: 'High cut',
+    short: 'LPF',
+    type: 'lowpass',
+    freqKey: 'lowpassHz',
+    minHz: 200,
+    maxHz: 20000,
+    color: TRACK_NEUTRAL,
+  },
 ];
 
 /** Whether a band changes the signal (mirrors the engine's band activation rules). */
@@ -133,7 +193,12 @@ export function eqResponse(eq: EqSettings, freqs: ArrayLike<number>, fs = 48000)
 }
 
 /** Response of a single band (dB) at each frequency (0 when inactive). */
-export function bandResponse(eq: EqSettings, b: BandSpec, freqs: ArrayLike<number>, fs = 48000): Float64Array {
+export function bandResponse(
+  eq: EqSettings,
+  b: BandSpec,
+  freqs: ArrayLike<number>,
+  fs = 48000,
+): Float64Array {
   const out = new Float64Array(freqs.length);
   if (!bandActive(eq, b, fs)) return out;
   const c = bandCoefs(eq, b, fs);

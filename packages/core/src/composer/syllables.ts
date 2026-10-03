@@ -101,7 +101,8 @@ export function lineStresses(text: string): number[] {
       continue;
     }
     const idx = s.indexOf(1);
-    const at = idx < 0 ? -1 : n === 1 ? 0 : Math.min(n - 1, Math.round((idx * (n - 1)) / Math.max(1, s.length - 1)));
+    const at =
+      idx < 0 ? -1 : n === 1 ? 0 : Math.min(n - 1, Math.round((idx * (n - 1)) / Math.max(1, s.length - 1)));
     for (let i = 0; i < n; i++) out.push(i === at ? 1 : 0);
   }
   return out;

@@ -11,7 +11,15 @@ import { compileSchema, schemaInstructions } from '../schemas/dialects';
 import type { HttpClient } from '../transport/http';
 import type { LLMProvider, LLMRequest, LLMResponse, ModelInfo, ProviderInstance } from '../types';
 import { getPath } from '../util';
-import { buildDescriptor, costFor, createHttpClient, type CreateProviderDeps, jsonFromText, messageText, truncatedError } from './common';
+import {
+  buildDescriptor,
+  costFor,
+  createHttpClient,
+  type CreateProviderDeps,
+  jsonFromText,
+  messageText,
+  truncatedError,
+} from './common';
 
 export interface TemplateVars {
   system: string;
@@ -54,21 +62,40 @@ export class CustomHttpLLM implements LLMProvider {
 
   private get template(): CustomHttpTemplate {
     const t = this.config.extra?.customTemplate;
-    if (!t?.body || !t.responseTextPath) throw new ConfigurationError(`Custom HTTP provider "${this.config.id}" needs extra.customTemplate.body and responseTextPath`);
+    if (!t?.body || !t.responseTextPath)
+      throw new ConfigurationError(
+        `Custom HTTP provider "${this.config.id}" needs extra.customTemplate.body and responseTextPath`,
+      );
     return t;
   }
 
   async listModels(signal?: AbortSignal): Promise<ModelInfo[]> {
     const t = this.config.extra?.customTemplate;
-    const fallbackCaps = this.config.capabilities?.length ? this.config.capabilities : [...LLM_BASE_CAPABILITIES];
-    const manual: ModelInfo[] = (this.config.models ?? []).map((m) => ({ id: m.id, name: m.name, capabilities: m.capabilities ?? [...fallbackCaps], contextLength: m.contextLength, manual: true }));
+    const fallbackCaps = this.config.capabilities?.length
+      ? this.config.capabilities
+      : [...LLM_BASE_CAPABILITIES];
+    const manual: ModelInfo[] = (this.config.models ?? []).map((m) => ({
+      id: m.id,
+      name: m.name,
+      capabilities: m.capabilities ?? [...fallbackCaps],
+      contextLength: m.contextLength,
+      manual: true,
+    }));
     if (!t?.modelsUrl) {
       if (manual.length) return manual;
-      return this.config.defaultModel ? [{ id: this.config.defaultModel, capabilities: [...fallbackCaps], manual: true }] : [];
+      return this.config.defaultModel
+        ? [{ id: this.config.defaultModel, capabilities: [...fallbackCaps], manual: true }]
+        : [];
     }
     const json = await this.http.json<unknown>({ url: t.modelsUrl, method: 'GET', signal });
     const list = getPath(json, t.modelsPath ?? 'data');
-    const ids = (Array.isArray(list) ? list : []).map((x) => (typeof x === 'string' ? x : ((x as { id?: string; name?: string })?.id ?? (x as { name?: string })?.name))).filter((x): x is string => !!x);
+    const ids = (Array.isArray(list) ? list : [])
+      .map((x) =>
+        typeof x === 'string'
+          ? x
+          : ((x as { id?: string; name?: string })?.id ?? (x as { name?: string })?.name),
+      )
+      .filter((x): x is string => !!x);
     const discovered: ModelInfo[] = ids.map((id) => ({ id, capabilities: [...fallbackCaps] }));
     const manualIds = new Set(manual.map((m) => m.id));
     return [...manual, ...discovered.filter((m) => !manualIds.has(m.id))];
@@ -78,9 +105,14 @@ export class CustomHttpLLM implements LLMProvider {
   render(req: LLMRequest): { url: string; method: string; headers: Record<string, string>; body?: string } {
     const t = this.template;
     const schema = req.responseSchema;
-    const system = [req.system ?? '', schema ? schemaInstructions(schema, req.schemaName) : ''].filter(Boolean).join('\n\n');
+    const system = [req.system ?? '', schema ? schemaInstructions(schema, req.schemaName) : '']
+      .filter(Boolean)
+      .join('\n\n');
     const convo = req.messages.map((m) => ({ role: m.role, content: messageText(m) }));
-    const prompt = convo.length === 1 ? convo[0].content : convo.map((m) => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${m.content}`).join('\n\n');
+    const prompt =
+      convo.length === 1
+        ? convo[0].content
+        : convo.map((m) => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${m.content}`).join('\n\n');
     const vars: TemplateVars = {
       system,
       prompt,
@@ -111,14 +143,26 @@ export class CustomHttpLLM implements LLMProvider {
     });
     const value = getPath(json, t.responseTextPath);
     if (typeof value !== 'string') {
-      throw new ProviderError('parse', `No text at "${t.responseTextPath}" in the response`, { providerId: this.config.id, details: json });
+      throw new ProviderError('parse', `No text at "${t.responseTextPath}" in the response`, {
+        providerId: this.config.id,
+        details: json,
+      });
     }
     const finish = getPath(json, 'choices[0].finish_reason') ?? getPath(json, 'done_reason');
     if (finish === 'length' && req.responseSchema) throw truncatedError(this.config.id, value);
-    const res: LLMResponse = { text: value, model: req.model ?? this.config.defaultModel ?? 'custom', stopReason: typeof finish === 'string' ? finish : 'stop', structured: req.responseSchema ? 'prompt' : undefined };
+    const res: LLMResponse = {
+      text: value,
+      model: req.model ?? this.config.defaultModel ?? 'custom',
+      stopReason: typeof finish === 'string' ? finish : 'stop',
+      structured: req.responseSchema ? 'prompt' : undefined,
+    };
     const inTok = t.inputTokensPath ? Number(getPath(json, t.inputTokensPath)) : NaN;
     const outTok = t.outputTokensPath ? Number(getPath(json, t.outputTokensPath)) : NaN;
-    if (Number.isFinite(inTok) || Number.isFinite(outTok)) res.usage = { inputTokens: Number.isFinite(inTok) ? inTok : 0, outputTokens: Number.isFinite(outTok) ? outTok : 0 };
+    if (Number.isFinite(inTok) || Number.isFinite(outTok))
+      res.usage = {
+        inputTokens: Number.isFinite(inTok) ? inTok : 0,
+        outputTokens: Number.isFinite(outTok) ? outTok : 0,
+      };
     const parsed = jsonFromText(value, !!req.responseSchema);
     if (parsed !== undefined) res.json = parsed;
     const cost = this.config.location === 'local' ? 0 : costFor(this.config, res.model, res.usage);
@@ -129,5 +173,9 @@ export class CustomHttpLLM implements LLMProvider {
 
 export function createCustomHttpProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
   const http = createHttpClient(config, deps);
-  return { descriptor: buildDescriptor(config, [...LLM_BASE_CAPABILITIES]), config, llm: new CustomHttpLLM(config, http) };
+  return {
+    descriptor: buildDescriptor(config, [...LLM_BASE_CAPABILITIES]),
+    config,
+    llm: new CustomHttpLLM(config, http),
+  };
 }

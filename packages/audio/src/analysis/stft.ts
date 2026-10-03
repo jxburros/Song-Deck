@@ -147,11 +147,24 @@ export function stft(buf: Float32Array, opts: StftOptions): Spectrogram {
       im[o + k] = fi[k];
     }
   });
-  return { fftSize: n, hop: opts.hop, numFrames: frames, numBins: nb, re, im, window: resolveWindow(opts.window, n), center, length: buf.length };
+  return {
+    fftSize: n,
+    hop: opts.hop,
+    numFrames: frames,
+    numBins: nb,
+    re,
+    im,
+    window: resolveWindow(opts.window, n),
+    center,
+    length: buf.length,
+  };
 }
 
 /** Inverse STFT (weighted overlap-add, normalised by the summed squared window). */
-export function istft(spec: Spectrogram, opts: { length?: number; window?: Float32Array } = {}): Float32Array {
+export function istft(
+  spec: Spectrogram,
+  opts: { length?: number; window?: Float32Array } = {},
+): Float32Array {
   const n = spec.fftSize;
   const hop = spec.hop;
   const nb = spec.numBins;
@@ -189,7 +202,11 @@ export function spectrogramMagnitude(spec: Spectrogram): Float32Array {
 }
 
 /** Magnitude spectrogram computed frame by frame (no complex storage). */
-export function magnitudeSpectrogram(x: Float32Array, sampleRate: number, opts: StftOptions): MagnitudeSpectrogram {
+export function magnitudeSpectrogram(
+  x: Float32Array,
+  sampleRate: number,
+  opts: StftOptions,
+): MagnitudeSpectrogram {
   const n = opts.fftSize;
   const nb = (n >> 1) + 1;
   const center = opts.center !== false;
@@ -227,7 +244,13 @@ export class OverlapAdd {
     this.frame = new Float64Array(fftSize);
   }
 
-  static windowSum(length: number, fftSize: number, hop: number, window: Float32Array, center = true): Float32Array {
+  static windowSum(
+    length: number,
+    fftSize: number,
+    hop: number,
+    window: Float32Array,
+    center = true,
+  ): Float32Array {
     const pad = center ? fftSize >> 1 : 0;
     const frames = stftFrameCount(length, fftSize, hop, center);
     const total = Math.max((frames - 1) * hop + fftSize, length + pad);

@@ -38,8 +38,9 @@ export default function Home() {
         <div className="hero">
           <h1>AI that gives you the song back.</h1>
           <p className="promise">
-            Generate a song. Keep the song. Change the notes. Change the instruments. Change the singer. Change the production. Regenerate only what
-            you want. Use whichever AI you want — or none at all: everything here runs on this device until you choose a provider.
+            Generate a song. Keep the song. Change the notes. Change the instruments. Change the singer.
+            Change the production. Regenerate only what you want. Use whichever AI you want — or none at all:
+            everything here runs on this device until you choose a provider.
           </p>
           <div className="row wrap" style={{ marginTop: 14 }}>
             <Button variant="primary" size="lg" icon="sparkles" onClick={() => st.setMode('compose')}>
@@ -80,11 +81,19 @@ export default function Home() {
           <span className="muted small">Stored on this device · autosaved with full version history</span>
         </div>
         {projects.length === 0 ? (
-          <div className="card muted">No projects yet. Start by composing a song from a prompt — no API key needed.</div>
+          <div className="card muted">
+            No projects yet. Start by composing a song from a prompt — no API key needed.
+          </div>
         ) : (
           <div className="project-grid">
             {projects.map((p) => (
-              <div key={p.id} className="card selectable" onClick={() => void st.openProject(p.id)} role="button" tabIndex={0}>
+              <div
+                key={p.id}
+                className="card selectable"
+                onClick={() => void st.openProject(p.id)}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="row between">
                   <div style={{ fontWeight: 700 }} className="ellipsis">
                     {p.name}
@@ -125,10 +134,26 @@ export default function Home() {
         </div>
         <div className="grid-4">
           {[
-            ['compose', 'Composition first', 'Prompt → Song Blueprint → plan → MIDI. The song is structured data you own: key, chords, melodies, motifs, lyrics.'],
-            ['lock', 'Lock & regenerate', 'Lock anything — tempo, chords, a drum section — then regenerate only unlocked material, reproducibly by seed.'],
-            ['sparkles', 'AI proposes, you decide', 'Natural-language edits come back as visual note diffs to accept, reject or modify. Bad model output never corrupts a project.'],
-            ['shield', 'Any AI, or none', 'Bring your own keys, run local models, or stay fully offline. Every request shows exactly what leaves the device.'],
+            [
+              'compose',
+              'Composition first',
+              'Prompt → Song Blueprint → plan → MIDI. The song is structured data you own: key, chords, melodies, motifs, lyrics.',
+            ],
+            [
+              'lock',
+              'Lock & regenerate',
+              'Lock anything — tempo, chords, a drum section — then regenerate only unlocked material, reproducibly by seed.',
+            ],
+            [
+              'sparkles',
+              'AI proposes, you decide',
+              'Natural-language edits come back as visual note diffs to accept, reject or modify. Bad model output never corrupts a project.',
+            ],
+            [
+              'shield',
+              'Any AI, or none',
+              'Bring your own keys, run local models, or stay fully offline. Every request shows exactly what leaves the device.',
+            ],
           ].map(([icon, title, body]) => (
             <div className="card" key={title}>
               <div className="row" style={{ marginBottom: 6, color: 'var(--accent-text)' }}>
@@ -160,7 +185,8 @@ export default function Home() {
             </>
           }
         >
-          This removes the project, its version history and its audio from this device. Export a .songproject first if you want a backup.
+          This removes the project, its version history and its audio from this device. Export a .songproject
+          first if you want a backup.
         </Modal>
       )}
       {newName !== null && (
@@ -198,11 +224,23 @@ function ConnectNudge() {
   const [dismissed, setDismissed] = useState(() => localGet<boolean>(NUDGE_KEY, false));
   if (hasProviders || dismissed) return null;
   return (
-    <div className="card row" data-testid="connect-nudge" style={{ gap: 12, marginBottom: 18, borderColor: 'var(--ai-line)', boxShadow: 'inset 3px 0 0 var(--ai)' }}>
+    <div
+      className="card row"
+      data-testid="connect-nudge"
+      style={{
+        gap: 12,
+        marginBottom: 18,
+        borderColor: 'var(--ai-line)',
+        boxShadow: 'inset 3px 0 0 var(--ai)',
+      }}
+    >
       <Icon name="plug" />
       <div className="grow" style={{ minWidth: 0 }}>
         <strong>Works offline — add AI when you want it.</strong>
-        <div className="small muted">Paste an API key (Gemini, Claude, OpenAI, ElevenLabs…) or use a local model server; Song Deck lists what each model can do here.</div>
+        <div className="small muted">
+          Paste an API key (Gemini, Claude, OpenAI, ElevenLabs…) or use a local model server; Song Deck lists
+          what each model can do here.
+        </div>
       </div>
       <Button variant="ai" icon="plug" onClick={() => openSettings('providers', 'connect')}>
         Connect an AI service

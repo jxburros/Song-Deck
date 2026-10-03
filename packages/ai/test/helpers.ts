@@ -44,18 +44,30 @@ export function mockFetch(handler: FetchHandler) {
 }
 
 export function jsonResponse(obj: unknown, status = 200, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...headers } });
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { 'content-type': 'application/json', ...headers },
+  });
 }
 
-export function bytesResponse(bytes: Uint8Array, contentType = 'audio/wav', headers: Record<string, string> = {}): Response {
+export function bytesResponse(
+  bytes: Uint8Array,
+  contentType = 'audio/wav',
+  headers: Record<string, string> = {},
+): Response {
   const copy = new Uint8Array(bytes.length);
   copy.set(bytes);
   return new Response(copy, { status: 200, headers: { 'content-type': contentType, ...headers } });
 }
 
-export const FAKE_WAV = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x24, 0, 0, 0, 0x57, 0x41, 0x56, 0x45, 0, 1, 2, 3, 255, 254]);
+export const FAKE_WAV = new Uint8Array([
+  0x52, 0x49, 0x46, 0x46, 0x24, 0, 0, 0, 0x57, 0x41, 0x56, 0x45, 0, 1, 2, 3, 255, 254,
+]);
 
-export function depsWith(fetchFn: (input: string, init?: RequestInit) => Promise<Response>, secrets: Record<string, string> = {}): CreateProviderDeps {
+export function depsWith(
+  fetchFn: (input: string, init?: RequestInit) => Promise<Response>,
+  secrets: Record<string, string> = {},
+): CreateProviderDeps {
   return {
     transport: new DirectTransport(new MemoryCredentialStore(secrets), { fetch: fetchFn }),
     retry: { baseDelayMs: 0, maxDelayMs: 0 },
@@ -72,8 +84,23 @@ export function bodyJson(call: RecordedCall): Record<string, unknown> {
 
 const BAR = PPQ * 4;
 
-function note(id: string, pitch: number, bar0: number, beat0: number, beats: number, velocity = 90, extra: Partial<Note> = {}): Note {
-  return { id, pitch, tick: bar0 * BAR + Math.round(beat0 * PPQ), duration: Math.round(beats * PPQ), velocity, ...extra };
+function note(
+  id: string,
+  pitch: number,
+  bar0: number,
+  beat0: number,
+  beats: number,
+  velocity = 90,
+  extra: Partial<Note> = {},
+): Note {
+  return {
+    id,
+    pitch,
+    tick: bar0 * BAR + Math.round(beat0 * PPQ),
+    duration: Math.round(beats * PPQ),
+    velocity,
+    ...extra,
+  };
 }
 
 export interface TestSongOptions {
@@ -87,29 +114,59 @@ export interface TestSongOptions {
  * Tracks: Bass (8ths), Drums, Lead Vocal (with syllables in verse+chorus).
  */
 export function makeSong(opts: TestSongOptions = {}): Song {
-  const song = createEmptySong({ title: 'Test Song', bpm: 120, key: { tonic: 4, mode: 'minor' }, id: 'song_test', seed: 7 });
+  const song = createEmptySong({
+    title: 'Test Song',
+    bpm: 120,
+    key: { tonic: 4, mode: 'minor' },
+    id: 'song_test',
+    seed: 7,
+  });
   song.sections = [
     { id: 'sec_intro', name: 'Intro', kind: 'intro', bars: 4, energy: 30, purpose: 'Establish motif' },
-    { id: 'sec_v1', name: 'Verse 1', kind: 'verse', bars: 8, energy: 45, energyEnd: 55, purpose: 'Tell the story', mood: ['melancholy'] },
+    {
+      id: 'sec_v1',
+      name: 'Verse 1',
+      kind: 'verse',
+      bars: 8,
+      energy: 45,
+      energyEnd: 55,
+      purpose: 'Tell the story',
+      mood: ['melancholy'],
+    },
     { id: 'sec_ch1', name: 'Chorus 1', kind: 'chorus', bars: 8, energy: 85, purpose: 'Emotional release' },
     { id: 'sec_outro', name: 'Outro', kind: 'outro', bars: 4, energy: 25 },
   ];
-  if (opts.chorusBpm) song.tempoMap = [{ tick: 0, bpm: 120 }, { tick: 12 * BAR, bpm: opts.chorusBpm }];
+  if (opts.chorusBpm)
+    song.tempoMap = [
+      { tick: 0, bpm: 120 },
+      { tick: 12 * BAR, bpm: opts.chorusBpm },
+    ];
   const prog = [
     { root: 4, quality: 'min' as const, symbol: 'Em', roman: 'i' },
     { root: 0, quality: 'maj' as const, symbol: 'C', roman: 'VI' },
     { root: 7, quality: 'maj' as const, symbol: 'G', roman: 'III' },
     { root: 2, quality: 'maj' as const, symbol: 'D', roman: 'VII' },
   ];
-  song.chords = Array.from({ length: 24 }, (_, bar) => ({ id: `ch_${bar}`, tick: bar * BAR, duration: BAR, ...prog[bar % 4] }));
+  song.chords = Array.from({ length: 24 }, (_, bar) => ({
+    id: `ch_${bar}`,
+    tick: bar * BAR,
+    duration: BAR,
+    ...prog[bar % 4],
+  }));
   const bassNotes: Note[] = [];
   for (let bar = 0; bar < 24; bar++) {
     const root = [40, 36, 43, 38][bar % 4];
-    for (let e = 0; e < 8; e++) bassNotes.push(note(`b_${bar}_${e}`, root, bar, e * 0.5, 0.5, e % 2 === 0 ? 96 : 80));
+    for (let e = 0; e < 8; e++)
+      bassNotes.push(note(`b_${bar}_${e}`, root, bar, e * 0.5, 0.5, e % 2 === 0 ? 96 : 80));
   }
   const drumNotes: Note[] = [];
   for (let bar = 0; bar < 24; bar++) {
-    drumNotes.push(note(`k_${bar}_0`, 36, bar, 0, 0.25, 110), note(`s_${bar}_1`, 38, bar, 1, 0.25, 100), note(`k_${bar}_2`, 36, bar, 2, 0.25, 105), note(`s_${bar}_3`, 38, bar, 3, 0.25, 100));
+    drumNotes.push(
+      note(`k_${bar}_0`, 36, bar, 0, 0.25, 110),
+      note(`s_${bar}_1`, 38, bar, 1, 0.25, 100),
+      note(`k_${bar}_2`, 36, bar, 2, 0.25, 105),
+      note(`s_${bar}_3`, 38, bar, 3, 0.25, 100),
+    );
     for (let e = 0; e < 8; e++) drumNotes.push(note(`h_${bar}_${e}`, 42, bar, e * 0.5, 0.25, 70));
   }
   const vocalNotes: Note[] = [];
@@ -130,9 +187,33 @@ export function makeSong(opts: TestSongOptions = {}): Song {
     ...t,
   });
   song.tracks = [
-    track({ id: 'trk_bass', name: 'Bass', role: 'bass', instrumentId: 'electric-bass', notes: bassNotes, constraints: { lowest: 28, highest: 55, complexity: 'medium', function: 'bass-line' }, stemGroup: 'bass' }),
-    track({ id: 'trk_drums', name: 'Drums', role: 'drums', instrumentId: 'drum-kit', notes: drumNotes, midiChannel: 9, stemGroup: 'drums' }),
-    track({ id: 'trk_vox', name: 'Lead Vocal', role: 'vocal', instrumentId: 'voice', notes: vocalNotes, vocal: { voiceType: 'tenor', mode: 'ai-singer' }, stemGroup: 'vocals' }),
+    track({
+      id: 'trk_bass',
+      name: 'Bass',
+      role: 'bass',
+      instrumentId: 'electric-bass',
+      notes: bassNotes,
+      constraints: { lowest: 28, highest: 55, complexity: 'medium', function: 'bass-line' },
+      stemGroup: 'bass',
+    }),
+    track({
+      id: 'trk_drums',
+      name: 'Drums',
+      role: 'drums',
+      instrumentId: 'drum-kit',
+      notes: drumNotes,
+      midiChannel: 9,
+      stemGroup: 'drums',
+    }),
+    track({
+      id: 'trk_vox',
+      name: 'Lead Vocal',
+      role: 'vocal',
+      instrumentId: 'voice',
+      notes: vocalNotes,
+      vocal: { voiceType: 'tenor', mode: 'ai-singer' },
+      stemGroup: 'vocals',
+    }),
   ];
   song.lyrics = opts.instrumental
     ? []
@@ -146,7 +227,10 @@ export function makeSong(opts: TestSongOptions = {}): Song {
     song.vocals.mode = 'none';
     song.tracks = song.tracks.filter((t) => t.role !== 'vocal');
   }
-  song.genreBlend = [{ genreId: 'emo', weight: 0.6 }, { genreId: 'pop-punk', weight: 0.4 }];
+  song.genreBlend = [
+    { genreId: 'emo', weight: 0.6 },
+    { genreId: 'pop-punk', weight: 0.4 },
+  ];
   song.blueprint = {
     title: 'Test Song',
     tempo: 120,
@@ -164,7 +248,18 @@ export function makeSong(opts: TestSongOptions = {}): Song {
   song.production.negativePrompt = 'lo-fi noise';
   song.locks = { 'track:trk_drums:section:sec_ch1': true };
   song.mixer.channels = {
-    trk_bass: { volumeDb: -6, pan: 0, mute: false, solo: false, eq: { ...song.mixer.master.eq, lowMidDb: -2 }, compressor: { ...song.mixer.master.compressor }, reverbSend: 0.1, delaySend: 0, width: 1, drive: 0 },
+    trk_bass: {
+      volumeDb: -6,
+      pan: 0,
+      mute: false,
+      solo: false,
+      eq: { ...song.mixer.master.eq, lowMidDb: -2 },
+      compressor: { ...song.mixer.master.compressor },
+      reverbSend: 0.1,
+      delaySend: 0,
+      width: 1,
+      drive: 0,
+    },
   };
   return song;
 }
@@ -186,6 +281,12 @@ export class FakeLLM implements LLMProvider {
     this.requests.push(req);
     const r = this.replies.length > 1 ? this.replies.shift()! : this.replies[0];
     const text = typeof r === 'function' ? r(req) : r;
-    return { text, model: req.model ?? 'fake-model', stopReason: 'end_turn', usage: { inputTokens: 100, outputTokens: 50 }, costUsd: 0.001 };
+    return {
+      text,
+      model: req.model ?? 'fake-model',
+      stopReason: 'end_turn',
+      usage: { inputTokens: 100, outputTokens: 50 },
+      costUsd: 0.001,
+    };
   }
 }

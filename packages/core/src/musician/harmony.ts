@@ -23,8 +23,34 @@ import type { Rng } from '../util/random';
  */
 
 const IDENTIFY_ORDER: ChordQuality[] = [
-  'maj', 'min', 'dim', 'aug', 'sus4', 'sus2', '5', '7', 'maj7', 'min7', 'm7b5', 'dim7', '6', 'min6', 'add9', 'minadd9',
-  '7sus4', '9', 'maj9', 'min9', 'minmaj7', 'aug7', '7b9', '7#9', '11', 'min11', '13', 'maj13',
+  'maj',
+  'min',
+  'dim',
+  'aug',
+  'sus4',
+  'sus2',
+  '5',
+  '7',
+  'maj7',
+  'min7',
+  'm7b5',
+  'dim7',
+  '6',
+  'min6',
+  'add9',
+  'minadd9',
+  '7sus4',
+  '9',
+  'maj9',
+  'min9',
+  'minmaj7',
+  'aug7',
+  '7b9',
+  '7#9',
+  '11',
+  'min11',
+  '13',
+  'maj13',
 ];
 
 function withBass(spec: ChordSpec, bass?: number): ChordSpec {
@@ -41,7 +67,8 @@ export function identifyChord(pcs: number[], rootHint?: number, bass?: number): 
   for (const r of roots)
     for (const q of IDENTIFY_ORDER) {
       const c = new Set(CHORD_INTERVALS[q].map((i) => mod12(r + i)));
-      if (c.size === set.size && [...c].every((p) => set.has(p))) return withBass({ root: r, quality: q }, bass);
+      if (c.size === set.size && [...c].every((p) => set.has(p)))
+        return withBass({ root: r, quality: q }, bass);
     }
   let best: ChordSpec | null = null;
   let bestScore = -Infinity;
@@ -76,7 +103,9 @@ export function mapPcByMode(pc: number, from: KeySignature, to: KeySignature): n
 
 export function mapChordByMode(chord: ChordSpec, from: KeySignature, to: KeySignature): ChordSpec {
   const root = mapPcByMode(chord.root, from, to);
-  const pcs = chordPitchClasses({ root: chord.root, quality: chord.quality }).map((pc) => mapPcByMode(pc, from, to));
+  const pcs = chordPitchClasses({ root: chord.root, quality: chord.quality }).map((pc) =>
+    mapPcByMode(pc, from, to),
+  );
   const id = identifyChord(pcs, root) ?? { root, quality: chord.quality };
   return withBass(id, chord.bass !== undefined ? mapPcByMode(chord.bass, from, to) : undefined);
 }
@@ -168,7 +197,11 @@ export function spellChord(spec: ChordSpec, key: KeySignature): string {
 /** Roman numeral that also names a non-chord-tone slash bass ("IV over D"). */
 export function romanOf(spec: ChordSpec, key: KeySignature): string {
   const roman = chordToRoman(spec, key);
-  if (spec.bass !== undefined && spec.bass !== spec.root && !chordPitchClasses({ root: spec.root, quality: spec.quality }).includes(spec.bass)) {
+  if (
+    spec.bass !== undefined &&
+    spec.bass !== spec.root &&
+    !chordPitchClasses({ root: spec.root, quality: spec.quality }).includes(spec.bass)
+  ) {
     const flats = roman.startsWith('b') || keyPrefersFlatsSafe(key);
     return `${roman} over ${(flats ? FLAT_NAMES : SHARP_NAMES)[mod12(spec.bass)]}`;
   }
@@ -200,14 +233,21 @@ export { sameChord };
  * A major/dominant chord resolving down a fifth: V → I, or a secondary dominant (a dominant seventh,
  * or a major chord from outside the key) → its target. Darkening it would weaken the cadence.
  */
-export function isCadentialDominant(chord: ChordSpec, next: ChordSpec | undefined, key: KeySignature): boolean {
+export function isCadentialDominant(
+  chord: ChordSpec,
+  next: ChordSpec | undefined,
+  key: KeySignature,
+): boolean {
   if (!next || mod12(chord.root - next.root) !== 7) return false;
   const target = triadQuality(next.quality);
   if (target !== 'maj' && target !== 'min') return false;
-  if (!(chord.quality === 'maj' || (isDominantQuality(chord.quality) && chord.quality !== '7sus4'))) return false;
+  if (!(chord.quality === 'maj' || (isDominantQuality(chord.quality) && chord.quality !== '7sus4')))
+    return false;
   const deg = mod12(chord.root - key.tonic);
   if (deg === 7) return true;
-  return deg !== 0 && (isDominantQuality(chord.quality) || !isDiatonic({ root: chord.root, quality: 'maj' }, key));
+  return (
+    deg !== 0 && (isDominantQuality(chord.quality) || !isDiatonic({ root: chord.root, quality: 'maj' }, key))
+  );
 }
 
 /**
@@ -230,32 +270,58 @@ export function brightenChord(chord: ChordSpec, key: KeySignature): ChordSpec {
   const deg = chordDegree(chord, key);
   const tq = triadQuality(chord.quality);
   if (isMinorMode(key.mode)) {
-    if (tq === 'min' && (deg === 0 || deg === 3 || deg === 4)) return { ...chord, quality: raiseThird(chord.quality) };
+    if (tq === 'min' && (deg === 0 || deg === 3 || deg === 4))
+      return { ...chord, quality: raiseThird(chord.quality) };
     if (tq === 'dim' && deg === 1) return { ...chord, quality: chord.quality === 'm7b5' ? 'min7' : 'min' };
     return chord;
   }
-  if (isMinorQuality(chord.quality) && deg >= 0 && deg <= 5) return { ...chord, quality: raiseThird(chord.quality) };
+  if (isMinorQuality(chord.quality) && deg >= 0 && deg <= 5)
+    return { ...chord, quality: raiseThird(chord.quality) };
   return chord;
 }
 
 /** Harmonically ambiguous substitute: sus2 / sus4 / 7sus4 (quartal) / power (no third) / 11 / IV-over-V pedal. */
-export function ambiguousChord(chord: ChordSpec, key: KeySignature, rng: Rng): { spec: ChordSpec; label: string } {
+export function ambiguousChord(
+  chord: ChordSpec,
+  key: KeySignature,
+  rng: Rng,
+): { spec: ChordSpec; label: string } {
   const tq = triadQuality(chord.quality);
-  if (tq === 'sus' || chord.quality === '5' || tq === 'dim' || tq === 'aug') return { spec: chord, label: 'already ambiguous' };
+  if (tq === 'sus' || chord.quality === '5' || tq === 'dim' || tq === 'aug')
+    return { spec: chord, label: 'already ambiguous' };
   const scale = scalePitchClasses(key);
   const inScale = (pcs: number[]) => pcs.every((p) => scale.includes(mod12(p)));
   const r = chord.root;
   const options: { spec: ChordSpec; label: string; w: number }[] = [];
-  if (inScale([r, r + 2, r + 7])) options.push({ spec: { root: r, quality: 'sus2' }, label: 'sus2 (third replaced by the 2nd)', w: 3 });
-  if (inScale([r, r + 5, r + 7])) options.push({ spec: { root: r, quality: 'sus4' }, label: 'sus4 (third replaced by the 4th)', w: 2.5 });
-  if (inScale([r, r + 5, r + 7, r + 10])) options.push({ spec: { root: r, quality: '7sus4' }, label: 'quartal 7sus4 (stacked fourths)', w: isDominantQuality(chord.quality) || chordDegree(chord, key) === 4 ? 3 : 1.2 });
+  if (inScale([r, r + 2, r + 7]))
+    options.push({ spec: { root: r, quality: 'sus2' }, label: 'sus2 (third replaced by the 2nd)', w: 3 });
+  if (inScale([r, r + 5, r + 7]))
+    options.push({ spec: { root: r, quality: 'sus4' }, label: 'sus4 (third replaced by the 4th)', w: 2.5 });
+  if (inScale([r, r + 5, r + 7, r + 10]))
+    options.push({
+      spec: { root: r, quality: '7sus4' },
+      label: 'quartal 7sus4 (stacked fourths)',
+      w: isDominantQuality(chord.quality) || chordDegree(chord, key) === 4 ? 3 : 1.2,
+    });
   if (inScale([r, r + 7, r + 10, r + 14, r + 17]))
     options.push({ spec: { root: r, quality: '11' }, label: 'quartal 11 chord (no third)', w: 1 });
   options.push({ spec: { root: r, quality: '5' }, label: 'open fifth (no third)', w: 1 });
-  if (chordDegree(chord, key) === 4) options.push({ spec: { root: mod12(r - 2), quality: 'maj', bass: r }, label: 'IV-over-V slash chord (dominant without its leading tone)', w: 2.5 });
+  if (chordDegree(chord, key) === 4)
+    options.push({
+      spec: { root: mod12(r - 2), quality: 'maj', bass: r },
+      label: 'IV-over-V slash chord (dominant without its leading tone)',
+      w: 2.5,
+    });
   if (chordDegree(chord, key) === 0 && inScale([r + 5, r + 9]))
-    options.push({ spec: { root: mod12(r + 5), quality: 'maj', bass: r }, label: 'IV over a tonic pedal', w: 1 });
-  const pick = rng.weighted(options, options.map((o) => o.w));
+    options.push({
+      spec: { root: mod12(r + 5), quality: 'maj', bass: r },
+      label: 'IV over a tonic pedal',
+      w: 1,
+    });
+  const pick = rng.weighted(
+    options,
+    options.map((o) => o.w),
+  );
   return { spec: pick.spec, label: pick.label };
 }
 
@@ -265,7 +331,11 @@ export function tenseChord(chord: ChordSpec, key: KeySignature, rng: Rng): Chord
   const q = chord.quality;
   const tq = triadQuality(q);
   const deg = chordDegree(chord, key);
-  if (isDominantQuality(q) && q !== '7sus4') return { ...chord, quality: isMinorMode(key.mode) || deg < 0 || deg === 1 || deg === 2 || deg === 5 ? '7b9' : '9' };
+  if (isDominantQuality(q) && q !== '7sus4')
+    return {
+      ...chord,
+      quality: isMinorMode(key.mode) || deg < 0 || deg === 1 || deg === 2 || deg === 5 ? '7b9' : '9',
+    };
   if (tq === 'sus') return { ...chord, quality: '7sus4' };
   if (tq === 'dim') return { ...chord, quality: q === 'dim' ? (isMinorMode(key.mode) ? 'dim7' : 'm7b5') : q };
   if (tq === 'aug') return { ...chord, quality: 'aug7' };
@@ -298,7 +368,11 @@ export function relaxChord(chord: ChordSpec, key: KeySignature): ChordSpec {
 }
 
 /** Unconventional substitution with a label (tritone sub, chromatic mediant, Neapolitan, modal interchange…). */
-export function unconventionalChord(chord: ChordSpec, key: KeySignature, rng: Rng): { spec: ChordSpec; label: string } | null {
+export function unconventionalChord(
+  chord: ChordSpec,
+  key: KeySignature,
+  rng: Rng,
+): { spec: ChordSpec; label: string } | null {
   const deg = chordDegree(chord, key);
   const tq = triadQuality(chord.quality);
   const r = chord.root;
@@ -310,25 +384,48 @@ export function unconventionalChord(chord: ChordSpec, key: KeySignature, rng: Rn
     opts.push({ spec: { root: mod12(r + 8), quality: 'maj' }, label: 'chromatic mediant (bVI)', w: 2 });
     opts.push({ spec: { root: mod12(r + 4), quality: 'maj' }, label: 'chromatic mediant (III)', w: 1.5 });
   }
-  if (deg === 0 && tq === 'min') opts.push({ spec: { root: mod12(r + 3), quality: 'maj', bass: r }, label: 'relative major over the tonic bass', w: 1.5 });
-  if (deg === 3 && tq === 'maj') opts.push({ spec: { root: r, quality: 'min' }, label: 'minor iv (modal interchange)', w: 3 });
-  if (deg === 3 && tq === 'min') opts.push({ spec: { root: r, quality: 'maj' }, label: 'Dorian major IV', w: 2 });
-  if (deg === 5 && tq === 'min' && !minorKey) opts.push({ spec: { root: mod12(r - 1), quality: 'maj' }, label: 'bVI (borrowed from the parallel minor)', w: 3 });
+  if (deg === 0 && tq === 'min')
+    opts.push({
+      spec: { root: mod12(r + 3), quality: 'maj', bass: r },
+      label: 'relative major over the tonic bass',
+      w: 1.5,
+    });
+  if (deg === 3 && tq === 'maj')
+    opts.push({ spec: { root: r, quality: 'min' }, label: 'minor iv (modal interchange)', w: 3 });
+  if (deg === 3 && tq === 'min')
+    opts.push({ spec: { root: r, quality: 'maj' }, label: 'Dorian major IV', w: 2 });
+  if (deg === 5 && tq === 'min' && !minorKey)
+    opts.push({
+      spec: { root: mod12(r - 1), quality: 'maj' },
+      label: 'bVI (borrowed from the parallel minor)',
+      w: 3,
+    });
   if (deg === 1) opts.push({ spec: { root: mod12(r - 1), quality: 'maj' }, label: 'Neapolitan bII', w: 2 });
-  if (deg === 2 && tq === 'min') opts.push({ spec: { root: r, quality: '7' }, label: 'secondary dominant (V7/vi)', w: 2 });
-  if (deg === 6 && minorKey) opts.push({ spec: { root: mod12(r + 3), quality: 'min' }, label: 'minor-key chromatic mediant', w: 1 });
+  if (deg === 2 && tq === 'min')
+    opts.push({ spec: { root: r, quality: '7' }, label: 'secondary dominant (V7/vi)', w: 2 });
+  if (deg === 6 && minorKey)
+    opts.push({ spec: { root: mod12(r + 3), quality: 'min' }, label: 'minor-key chromatic mediant', w: 1 });
   if (tq === 'maj' || tq === 'min') {
     const third = mod12(r + (tq === 'maj' ? 4 : 3));
-    opts.push({ spec: { root: r, quality: chord.quality, bass: third }, label: 'first inversion (third in the bass)', w: 1 });
+    opts.push({
+      spec: { root: r, quality: chord.quality, bass: third },
+      label: 'first inversion (third in the bass)',
+      w: 1,
+    });
   }
   if (!opts.length) return null;
-  const pick = rng.weighted(opts, opts.map((o) => o.w));
+  const pick = rng.weighted(
+    opts,
+    opts.map((o) => o.w),
+  );
   return { spec: pick.spec, label: pick.label };
 }
 
 /** Pick a modal colour for "try modal harmony". */
 export function chooseModalColour(key: KeySignature, rng: Rng): ModeName {
-  return isMinorMode(key.mode) ? rng.pick(['dorian', 'phrygian'] as ModeName[]) : rng.pick(['mixolydian', 'lydian'] as ModeName[]);
+  return isMinorMode(key.mode)
+    ? rng.pick(['dorian', 'phrygian'] as ModeName[])
+    : rng.pick(['mixolydian', 'lydian'] as ModeName[]);
 }
 
 /**
@@ -357,7 +454,12 @@ export function modalChord(chord: ChordSpec, key: KeySignature, mode: ModeName):
  * chord moves to the new chord's tone of the same function (third → third or sus, etc.), else to the
  * nearest new chord tone. Non-chord tones are passed through `scaleMap` when given.
  */
-export function refitPitch(pitch: number, oldChord: ChordSpec | undefined, newChord: ChordSpec | undefined, scaleMap?: (pc: number) => number): number {
+export function refitPitch(
+  pitch: number,
+  oldChord: ChordSpec | undefined,
+  newChord: ChordSpec | undefined,
+  scaleMap?: (pc: number) => number,
+): number {
   const pc = mod12(pitch);
   if (!newChord) return scaleMap ? pitch + signedPcDelta(pc, scaleMap(pc)) : pitch;
   const newPcs = chordPitchClasses(newChord);
@@ -394,7 +496,11 @@ export function refitPitch(pitch: number, oldChord: ChordSpec | undefined, newCh
  * that is not a semitone above a chord tone (an "avoid note"); otherwise it moves to the nearest
  * chord tone of the new chord.
  */
-export function refitMelodicPitch(pitch: number, newChord: ChordSpec | undefined, scalePcs: number[]): number {
+export function refitMelodicPitch(
+  pitch: number,
+  newChord: ChordSpec | undefined,
+  scalePcs: number[],
+): number {
   if (!newChord) return pitch;
   const pc = mod12(pitch);
   const tones = chordPitchClasses(newChord);
@@ -402,7 +508,9 @@ export function refitMelodicPitch(pitch: number, newChord: ChordSpec | undefined
   // Avoid notes: a half step above a chord tone, or the "wrong" third (minor 3rd over a major triad,
   // major 3rd over a minor one) — e.g. the old G over a Picardy E major chord.
   const tq = triadQuality(newChord.quality);
-  const wrongThird = ((tq === 'maj' || tq === 'aug') && mod12(pc - newChord.root) === 3) || (tq === 'min' && mod12(pc - newChord.root) === 4);
+  const wrongThird =
+    ((tq === 'maj' || tq === 'aug') && mod12(pc - newChord.root) === 3) ||
+    (tq === 'min' && mod12(pc - newChord.root) === 4);
   const avoid = wrongThird || tones.some((t) => mod12(pc - t) === 1);
   if (scalePcs.includes(pc) && !avoid) return pitch;
   let best = pitch;

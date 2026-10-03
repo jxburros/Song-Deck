@@ -89,57 +89,99 @@ async function getJson(fetchImpl: FetchLike, url: string, opts: LocalProbeOption
   }
 }
 
-function llmModel(id: string, parameterSize?: string, serverCapabilities?: string[], contextLength?: number): LocalServiceModel | undefined {
+function llmModel(
+  id: string,
+  parameterSize?: string,
+  serverCapabilities?: string[],
+  contextLength?: number,
+): LocalServiceModel | undefined {
   const inferred = inferModelCapabilities(id, { parameterSize, serverCapabilities, contextLength });
   return inferred ? { id, capabilities: inferred.capabilities } : undefined;
 }
 
 /** Probe one target. Never throws: failures come back as `absent` / `error`. */
-export async function probeLocalService(target: LocalServiceTarget, opts: LocalProbeOptions = {}): Promise<DetectedLocalService> {
+export async function probeLocalService(
+  target: LocalServiceTarget,
+  opts: LocalProbeOptions = {},
+): Promise<DetectedLocalService> {
   const fetchImpl: FetchLike = opts.fetch ?? ((input, init) => globalThis.fetch(input, init));
   const base = trim(target.baseUrl);
   const name = getPreset(target.presetId)?.name ?? target.presetId;
-  const out: DetectedLocalService = { presetId: target.presetId, name, baseUrl: base, status: 'absent', models: [] };
-  if (!isLoopbackUrl(base)) return { ...out, status: 'error', error: 'Only addresses on this machine are probed' };
+  const out: DetectedLocalService = {
+    presetId: target.presetId,
+    name,
+    baseUrl: base,
+    status: 'absent',
+    models: [],
+  };
+  if (!isLoopbackUrl(base))
+    return { ...out, status: 'error', error: 'Only addresses on this machine are probed' };
   const t0 = Date.now();
   try {
     if (target.kind === 'ollama') {
-      const data = (await getJson(fetchImpl, `${base.replace(/\/(api|v1)$/, '')}/api/tags`, opts)) as { models?: { name?: string; model?: string; details?: { parameter_size?: string }; capabilities?: string[] }[] };
+      const data = (await getJson(fetchImpl, `${base.replace(/\/(api|v1)$/, '')}/api/tags`, opts)) as {
+        models?: {
+          name?: string;
+          model?: string;
+          details?: { parameter_size?: string };
+          capabilities?: string[];
+        }[];
+      };
       for (const m of data?.models ?? []) {
         const id = m.name ?? m.model;
         const model = id ? llmModel(id, m.details?.parameter_size, m.capabilities) : undefined;
         if (model) out.models.push(model);
       }
     } else if (target.kind === 'openai') {
-      const data = (await getJson(fetchImpl, `${base}/models`, opts)) as { data?: { id?: string; context_length?: number; max_model_len?: number }[] };
+      const data = (await getJson(fetchImpl, `${base}/models`, opts)) as {
+        data?: { id?: string; context_length?: number; max_model_len?: number }[];
+      };
       for (const m of data?.data ?? []) {
-        const model = m.id ? llmModel(m.id, undefined, undefined, m.context_length ?? m.max_model_len) : undefined;
+        const model = m.id
+          ? llmModel(m.id, undefined, undefined, m.context_length ?? m.max_model_len)
+          : undefined;
         if (model) out.models.push(model);
       }
     } else {
-      const info = (await getJson(fetchImpl, `${base}/info`, opts)) as { name?: string; version?: string; capabilities?: unknown[]; models?: { id?: string; name?: string; capabilities?: unknown[] }[] };
+      const info = (await getJson(fetchImpl, `${base}/info`, opts)) as {
+        name?: string;
+        version?: string;
+        capabilities?: unknown[];
+        models?: { id?: string; name?: string; capabilities?: unknown[] }[];
+      };
       const caps = normalizeCapabilities(info?.capabilities);
       const fallback = getPreset(target.presetId)?.capabilities ?? [];
       out.capabilities = caps.length ? caps : [...fallback];
       if (typeof info?.version === 'string') out.version = info.version;
       if (typeof info?.name === 'string' && info.name.trim()) out.name = `${name} — ${info.name.trim()}`;
-      const models = Array.isArray(info?.models) && info.models.length ? info.models : [{ id: info?.name ?? target.presetId, name: info?.name }];
+      const models =
+        Array.isArray(info?.models) && info.models.length
+          ? info.models
+          : [{ id: info?.name ?? target.presetId, name: info?.name }];
       for (const m of models) {
         if (!m || typeof m !== 'object') continue;
         const own = normalizeCapabilities(m.capabilities);
-        out.models.push({ id: String(m.id ?? m.name ?? 'model'), ...(m.name ? { name: String(m.name) } : {}), capabilities: own.length ? own : out.capabilities });
+        out.models.push({
+          id: String(m.id ?? m.name ?? 'model'),
+          ...(m.name ? { name: String(m.name) } : {}),
+          capabilities: own.length ? own : out.capabilities,
+        });
       }
     }
     return { ...out, status: 'found', ms: Date.now() - t0 };
   } catch (err) {
     const status = (err as { status?: number })?.status;
     // Something answered with an error: the port is taken by a server, but not one we understand.
-    if (status !== undefined) return { ...out, status: 'error', error: `HTTP ${status}`, ms: Date.now() - t0 };
+    if (status !== undefined)
+      return { ...out, status: 'error', error: `HTTP ${status}`, ms: Date.now() - t0 };
     return { ...out, status: 'absent', ms: Date.now() - t0 };
   }
 }
 
 /** Probe every target in parallel. */
-export async function detectLocalServices(targets: readonly LocalServiceTarget[] = DEFAULT_LOCAL_SERVICE_TARGETS, opts: LocalProbeOptions = {}): Promise<DetectedLocalService[]> {
+export async function detectLocalServices(
+  targets: readonly LocalServiceTarget[] = DEFAULT_LOCAL_SERVICE_TARGETS,
+  opts: LocalProbeOptions = {},
+): Promise<DetectedLocalService[]> {
   return Promise.all(targets.map((t) => probeLocalService(t, opts)));
 }

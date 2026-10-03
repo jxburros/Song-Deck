@@ -12,28 +12,92 @@ const add = (v: number, a: number, words: string) => {
   for (const w of words.split(/\s+/)) if (w) LEXICON[w] = [v, a];
 };
 // Sadness, loss, loneliness.
-add(-0.75, 0.3, 'sad sorrow sorrows tears tear cry crying cried weep weeping grief grieve mourn mourning lonely alone loneliness empty emptiness gone goodbye goodbyes lost lose losing miss missing missed broken heartbreak heartbroken hollow cold colder grey gray rain raining ache aching hurt hurts hurting pain painful bleed bleeding wound wounds scar scars fade fading faded');
-add(-0.55, 0.22, 'tired weary sleep sleepless shadow shadows dark darkness night nights ghost ghosts grave graves dust ashes silence silent quiet hollow nothing nowhere never forgotten forget regret regrets sorry');
+add(
+  -0.75,
+  0.3,
+  'sad sorrow sorrows tears tear cry crying cried weep weeping grief grieve mourn mourning lonely alone loneliness empty emptiness gone goodbye goodbyes lost lose losing miss missing missed broken heartbreak heartbroken hollow cold colder grey gray rain raining ache aching hurt hurts hurting pain painful bleed bleeding wound wounds scar scars fade fading faded',
+);
+add(
+  -0.55,
+  0.22,
+  'tired weary sleep sleepless shadow shadows dark darkness night nights ghost ghosts grave graves dust ashes silence silent quiet hollow nothing nowhere never forgotten forget regret regrets sorry',
+);
 // Anger, defiance, danger.
-add(-0.6, 0.88, 'hate hatred anger angry rage raging fury furious fight fighting war burn burning fire scream screaming break breaking smash blood bloody kill killing enemy enemies revenge storm storms thunder violent');
-add(0.1, 0.85, 'rebel rebels defy defiant rise rising stand unbroken unstoppable louder scream run running fast faster wild riot');
+add(
+  -0.6,
+  0.88,
+  'hate hatred anger angry rage raging fury furious fight fighting war burn burning fire scream screaming break breaking smash blood bloody kill killing enemy enemies revenge storm storms thunder violent',
+);
+add(
+  0.1,
+  0.85,
+  'rebel rebels defy defiant rise rising stand unbroken unstoppable louder scream run running fast faster wild riot',
+);
 // Fear and tension.
-add(-0.55, 0.7, 'fear afraid scared panic nervous anxious trapped chains chained cage caged drown drowning falling fall edge danger lie lies liar');
+add(
+  -0.55,
+  0.7,
+  'fear afraid scared panic nervous anxious trapped chains chained cage caged drown drowning falling fall edge danger lie lies liar',
+);
 // Joy, celebration.
-add(0.85, 0.7, 'happy happiness joy joyful smile smiling laugh laughing laughter dance dancing party celebrate sunshine sunny sun shine shining bright alive free freedom golden summer');
-add(0.8, 0.85, 'jump fly flying high higher sky stars celebrate tonight euphoria euphoric glow glowing electric');
+add(
+  0.85,
+  0.7,
+  'happy happiness joy joyful smile smiling laugh laughing laughter dance dancing party celebrate sunshine sunny sun shine shining bright alive free freedom golden summer',
+);
+add(
+  0.8,
+  0.85,
+  'jump fly flying high higher sky stars celebrate tonight euphoria euphoric glow glowing electric',
+);
 // Love, tenderness, warmth.
-add(0.7, 0.4, 'love loving lover loved kiss kisses hold holding embrace tender sweet sweetheart darling baby honey heart hearts warm warmth home together forever gentle soft');
+add(
+  0.7,
+  0.4,
+  'love loving lover loved kiss kisses hold holding embrace tender sweet sweetheart darling baby honey heart hearts warm warmth home together forever gentle soft',
+);
 // Hope and comfort.
-add(0.6, 0.45, 'hope hopeful faith believe dream dreams dreaming light morning dawn new begin beginning heal healing safe peace peaceful grace pray prayer');
+add(
+  0.6,
+  0.45,
+  'hope hopeful faith believe dream dreams dreaming light morning dawn new begin beginning heal healing safe peace peaceful grace pray prayer',
+);
 // Calm, nature, stillness.
-add(0.35, 0.15, 'calm still slow slowly breathe breathing ocean sea waves river breeze moon moonlight quietly rest float floating drift drifting');
+add(
+  0.35,
+  0.15,
+  'calm still slow slowly breathe breathing ocean sea waves river breeze moon moonlight quietly rest float floating drift drifting',
+);
 // Nostalgia and memory.
-add(-0.1, 0.35, 'remember memories memory yesterday old young younger used childhood photograph letters past back ago again');
+add(
+  -0.1,
+  0.35,
+  'remember memories memory yesterday old young younger used childhood photograph letters past back ago again',
+);
 // Desire, longing.
-add(-0.25, 0.6, 'want wanting need needing long longing yearn yearning wish wishing waiting wait crave burning');
+add(
+  -0.25,
+  0.6,
+  'want wanting need needing long longing yearn yearning wish wishing waiting wait crave burning',
+);
 
-const NEGATIONS = new Set(['not', 'no', 'never', "don't", 'dont', "can't", 'cant', "won't", 'wont', 'without', 'nothing', "ain't", 'aint', "isn't", "wasn't"]);
+const NEGATIONS = new Set([
+  'not',
+  'no',
+  'never',
+  "don't",
+  'dont',
+  "can't",
+  'cant',
+  "won't",
+  'wont',
+  'without',
+  'nothing',
+  "ain't",
+  'aint',
+  "isn't",
+  "wasn't",
+]);
 const INTENSIFIERS = new Set(['so', 'very', 'too', 'really', 'always', 'all', 'forever']);
 
 /** Prototype moods in valence/arousal space (catalog ids or aliases; unresolvable ones are skipped). */
@@ -115,11 +179,16 @@ export function suggestMoodsFromLyrics(text: string, max = 3): LyricMoodReading 
     n += weight;
     hits.set(w, (hits.get(w) ?? 0) + 1);
   }
-  const keywords = [...hits.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map(([w]) => w).slice(0, 8);
+  const keywords = [...hits.entries()]
+    .sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))
+    .map(([w]) => w)
+    .slice(0, 8);
   if (!n) return { valence: 0, arousal: 0.5, evidence: 0, moods: [], tempoFeel: 'mid', keywords };
   const valence = Math.max(-1, Math.min(1, v / n));
   const arousal = Math.max(0, Math.min(1, a / n));
-  const ranked = MOOD_POINTS.map((p) => ({ p, d: Math.hypot((p.v - valence) * 0.8, p.a - arousal) })).sort((x, y) => x.d - y.d || x.p.id.localeCompare(y.p.id));
+  const ranked = MOOD_POINTS.map((p) => ({ p, d: Math.hypot((p.v - valence) * 0.8, p.a - arousal) })).sort(
+    (x, y) => x.d - y.d || x.p.id.localeCompare(y.p.id),
+  );
   const moods: string[] = [];
   for (const { p, d } of ranked) {
     // Only moods close to the reading: a far-off tag is no suggestion even if it is the only one.
@@ -129,5 +198,12 @@ export function suggestMoodsFromLyrics(text: string, max = 3): LyricMoodReading 
     moods.push(tag.id);
     if (moods.length >= max) break;
   }
-  return { valence, arousal, evidence: n, moods, tempoFeel: arousal < 0.35 ? 'slow' : arousal > 0.65 ? 'fast' : 'mid', keywords };
+  return {
+    valence,
+    arousal,
+    evidence: n,
+    moods,
+    tempoFeel: arousal < 0.35 ? 'slow' : arousal > 0.65 ? 'fast' : 'mid',
+    keywords,
+  };
 }

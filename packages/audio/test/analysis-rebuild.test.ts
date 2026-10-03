@@ -2,10 +2,29 @@ import { describe, expect, it } from 'vitest';
 import { PPQ, keyName, sectionLayout, songHash, type Note, type Song } from '@songdeck/core';
 import { rebuildProject, separateSources, transcribeAudio, type RebuildStage } from '../src/analysis';
 import type { AudioData } from '../src/types';
-import { chordBlocks, clickTrack, hummedMelody, mono, renderDrums, rockBeat, stereo, synthSong, type SynthSong } from './analysis-signals';
+import {
+  chordBlocks,
+  clickTrack,
+  hummedMelody,
+  mono,
+  renderDrums,
+  rockBeat,
+  stereo,
+  synthSong,
+  type SynthSong,
+} from './analysis-signals';
 
 const SR = 22050;
-const STAGE_ORDER: RebuildStage['id'][] = ['separation', 'tempo', 'key', 'chords', 'pitch', 'instruments', 'midi', 'structure'];
+const STAGE_ORDER: RebuildStage['id'][] = [
+  'separation',
+  'tempo',
+  'key',
+  'chords',
+  'pitch',
+  'instruments',
+  'midi',
+  'structure',
+];
 
 let cached: { song: SynthSong; audio: AudioData } | undefined;
 
@@ -31,7 +50,12 @@ function testSong(): { song: SynthSong; audio: AudioData } {
 }
 
 /** Fraction of truth notes found with the same pitch within ±1/8 beat. */
-function noteRecall(truth: { pitch: number; start: number }[], notes: Note[], offset: number, bpm: number): number {
+function noteRecall(
+  truth: { pitch: number; start: number }[],
+  notes: Note[],
+  offset: number,
+  bpm: number,
+): number {
   const tol = PPQ / 2;
   let ok = 0;
   for (const t of truth) {
@@ -72,7 +96,13 @@ function validateSong(song: Song): void {
     expect(c.symbol.length).toBeGreaterThan(0);
     expect(c.roman).toBeTruthy();
   }
-  const ids = [song.id, ...song.tracks.map((t) => t.id), ...song.sections.map((s) => s.id), ...song.chords.map((c) => c.id), ...song.tracks.flatMap((t) => t.notes.map((n) => n.id))];
+  const ids = [
+    song.id,
+    ...song.tracks.map((t) => t.id),
+    ...song.sections.map((s) => s.id),
+    ...song.chords.map((c) => c.id),
+    ...song.tracks.flatMap((t) => t.notes.map((n) => n.id)),
+  ];
   expect(new Set(ids).size).toBe(ids.length);
 }
 
@@ -199,7 +229,11 @@ describe('analysis: rebuildProject (end-to-end)', () => {
 
 describe('analysis: transcribeAudio (Transcribe mode)', () => {
   it('humming → lead-vocal notes on the detected grid', async () => {
-    const melody = [60, 62, 64, 65, 67, 65, 64, 62, 60, 64, 67, 72].map((p, i) => ({ pitch: p, start: 0.5 + i * 0.5, duration: 0.42 }));
+    const melody = [60, 62, 64, 65, 67, 65, 64, 62, 60, 64, 67, 72].map((p, i) => ({
+      pitch: p,
+      start: 0.5 + i * 0.5,
+      duration: 0.42,
+    }));
     const x = hummedMelody(SR, melody, { seed: 2 });
     const r = await transcribeAudio(mono(SR, x), { source: 'humming', bpm: 120, offsetSeconds: 0.5 });
     expect(r.suggestedRole).toBe('vocal');
@@ -239,24 +273,37 @@ describe('analysis: transcribeAudio (Transcribe mode)', () => {
   });
 
   it('piano → polyphonic notes, keys role, key from audio', async () => {
-    const x = chordBlocks(SR, ['C', 'F', 'G', 'C'].map((symbol) => ({ symbol, duration: 2 })), { bass: false });
+    const x = chordBlocks(
+      SR,
+      ['C', 'F', 'G', 'C'].map((symbol) => ({ symbol, duration: 2 })),
+      { bass: false },
+    );
     const r = await transcribeAudio(mono(SR, x), { source: 'piano', bpm: 120, offsetSeconds: 0 });
     expect(r.suggestedRole).toBe('keys');
     expect(r.suggestedInstrumentId).toBe('piano');
     expect(keyName(r.key)).toBe('C major');
     // C major triad (C5 E5 G5 in chordBlocks voicing) at the start, F major at bar 2
-    const at = (tick: number) => r.notes.filter((n) => n.tick === tick).map((n) => n.pitch % 12).sort((a, b) => a - b);
+    const at = (tick: number) =>
+      r.notes
+        .filter((n) => n.tick === tick)
+        .map((n) => n.pitch % 12)
+        .sort((a, b) => a - b);
     expect(at(0)).toEqual([0, 4, 7]);
     expect(at(4 * PPQ)).toEqual([0, 5, 9]);
     expect(r.warnings.some((w) => w.includes('approximate'))).toBe(true);
   });
 
   it('bass → monophonic bass line in range', async () => {
-    const x = chordBlocks(SR, ['Em', 'C', 'G', 'D'].map((symbol) => ({ symbol, duration: 1 })), { amp: 0 });
+    const x = chordBlocks(
+      SR,
+      ['Em', 'C', 'G', 'D'].map((symbol) => ({ symbol, duration: 1 })),
+      { amp: 0 },
+    );
     const r = await transcribeAudio(mono(SR, x), { source: 'bass', bpm: 120, offsetSeconds: 0 });
     expect(r.suggestedRole).toBe('bass');
     expect(r.notes.map((n) => n.pitch)).toEqual([40, 36, 43, 38]);
-    for (let i = 1; i < r.notes.length; i++) expect(r.notes[i - 1].tick + r.notes[i - 1].duration).toBeLessThanOrEqual(r.notes[i].tick);
+    for (let i = 1; i < r.notes.length; i++)
+      expect(r.notes[i - 1].tick + r.notes[i - 1].duration).toBeLessThanOrEqual(r.notes[i].tick);
   });
 
   it('click track without notes still reports tempo', async () => {

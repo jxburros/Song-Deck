@@ -122,8 +122,10 @@ export interface ProviderConfig {
   extra?: ProviderExtra;
 }
 
-const SECRET_KEY_RE = /^(api[-_]?key|apikey|secret|client[-_]?secret|password|passwd|token|access[-_]?token|refresh[-_]?token|bearer|authorization|x-api-key|xi-api-key|x-goog-api-key|private[-_]?key)$/i;
-const SECRET_VALUE_RE = /^(sk-[A-Za-z0-9_-]{16,}|sk-ant-[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{30,}|gsk_[A-Za-z0-9]{20,}|xai-[A-Za-z0-9]{20,}|ya29\.[A-Za-z0-9_.-]{20,}|Bearer\s+[A-Za-z0-9._-]{16,})$/;
+const SECRET_KEY_RE =
+  /^(api[-_]?key|apikey|secret|client[-_]?secret|password|passwd|token|access[-_]?token|refresh[-_]?token|bearer|authorization|x-api-key|xi-api-key|x-goog-api-key|private[-_]?key)$/i;
+const SECRET_VALUE_RE =
+  /^(sk-[A-Za-z0-9_-]{16,}|sk-ant-[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{30,}|gsk_[A-Za-z0-9]{20,}|xai-[A-Za-z0-9]{20,}|ya29\.[A-Za-z0-9_.-]{20,}|Bearer\s+[A-Za-z0-9._-]{16,})$/;
 
 /**
  * Find fields of a config that look like secrets (keys named apiKey/token/…, or values shaped like
@@ -160,7 +162,10 @@ export function findSecretsInConfig(config: unknown): string[] {
 export function assertNoSecrets(config: ProviderConfig): void {
   const secrets = findSecretsInConfig(config);
   if (secrets.length) {
-    throw new ConfigurationError(`Provider config "${config.id}" must not contain secrets (store them in the vault and reference them with credentialRef)`, secrets);
+    throw new ConfigurationError(
+      `Provider config "${config.id}" must not contain secrets (store them in the vault and reference them with credentialRef)`,
+      secrets,
+    );
   }
 }
 
@@ -188,19 +193,28 @@ export function sanitizeConfig<T>(config: T): T {
 /** Validate a config; returns human-readable problems (empty = valid). */
 export function validateProviderConfig(config: ProviderConfig): string[] {
   const problems: string[] = [];
-  if (!config.id || !/^[A-Za-z0-9._:-]+$/.test(config.id)) problems.push('id must be non-empty and contain only letters, digits, . _ : -');
+  if (!config.id || !/^[A-Za-z0-9._:-]+$/.test(config.id))
+    problems.push('id must be non-empty and contain only letters, digits, . _ : -');
   if (!config.name?.trim()) problems.push('name is required');
   if (!config.adapter) problems.push('adapter is required');
-  if (config.location !== 'cloud' && config.location !== 'local') problems.push("location must be 'cloud' or 'local'");
-  if (config.adapter !== 'managed' && config.adapter !== 'google-lyria' && !config.baseUrl?.trim()) problems.push('baseUrl is required');
-  if (config.baseUrl && !/^(https?:\/\/|\/)/.test(config.baseUrl)) problems.push('baseUrl must start with http://, https:// or /');
-  if (!config.auth || !['bearer', 'header', 'query', 'none'].includes(config.auth.type)) problems.push('auth.type must be bearer, header, query or none');
-  if ((config.auth?.type === 'header' || config.auth?.type === 'query') && !config.auth.name) problems.push(`auth.name is required for auth type ${config.auth.type}`);
+  if (config.location !== 'cloud' && config.location !== 'local')
+    problems.push("location must be 'cloud' or 'local'");
+  if (config.adapter !== 'managed' && config.adapter !== 'google-lyria' && !config.baseUrl?.trim())
+    problems.push('baseUrl is required');
+  if (config.baseUrl && !/^(https?:\/\/|\/)/.test(config.baseUrl))
+    problems.push('baseUrl must start with http://, https:// or /');
+  if (!config.auth || !['bearer', 'header', 'query', 'none'].includes(config.auth.type))
+    problems.push('auth.type must be bearer, header, query or none');
+  if ((config.auth?.type === 'header' || config.auth?.type === 'query') && !config.auth.name)
+    problems.push(`auth.name is required for auth type ${config.auth.type}`);
   if (!(config.timeoutMs > 0)) problems.push('timeoutMs must be > 0');
   if (!(config.concurrency >= 1)) problems.push('concurrency must be >= 1');
-  if (config.qualityTier !== undefined && (config.qualityTier < 1 || config.qualityTier > 5)) problems.push('qualityTier must be 1..5');
-  if (config.requestsPerMinute !== undefined && !(config.requestsPerMinute > 0)) problems.push('requestsPerMinute must be > 0');
-  for (const c of config.capabilities ?? []) if (!isCapability(c)) problems.push(`unknown capability ${String(c)}`);
+  if (config.qualityTier !== undefined && (config.qualityTier < 1 || config.qualityTier > 5))
+    problems.push('qualityTier must be 1..5');
+  if (config.requestsPerMinute !== undefined && !(config.requestsPerMinute > 0))
+    problems.push('requestsPerMinute must be > 0');
+  for (const c of config.capabilities ?? [])
+    if (!isCapability(c)) problems.push(`unknown capability ${String(c)}`);
   for (const p of findSecretsInConfig(config)) problems.push(`possible secret at ${p} (use credentialRef)`);
   return problems;
 }
@@ -224,6 +238,8 @@ export function defaultCredentialRef(providerId: string): string {
   return `provider:${providerId}`;
 }
 
-export function authForConfig(config: Pick<ProviderConfig, 'auth' | 'credentialRef'>): AuthSpec & { credentialRef?: string } {
+export function authForConfig(
+  config: Pick<ProviderConfig, 'auth' | 'credentialRef'>,
+): AuthSpec & { credentialRef?: string } {
   return { ...config.auth, credentialRef: config.auth.type === 'none' ? undefined : config.credentialRef };
 }

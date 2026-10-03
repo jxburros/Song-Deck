@@ -17,7 +17,13 @@ import type {
   ModifyCompositionRequest,
   PlanSongRequest,
 } from '../types';
-import { ASSISTANT_IDENTITY, EDITING_RULES, MIX_REFERENCE, MUSIC_IR_CONVENTIONS, OPERATION_REFERENCE } from './conventions';
+import {
+  ASSISTANT_IDENTITY,
+  EDITING_RULES,
+  MIX_REFERENCE,
+  MUSIC_IR_CONVENTIONS,
+  OPERATION_REFERENCE,
+} from './conventions';
 
 export interface PromptPair {
   system: string;
@@ -34,15 +40,24 @@ function blueprintSummary(b: Blueprint): string {
     b.prompt ? `Idea: ${b.prompt}` : '',
     `Key: ${keyName(b.key)} · Tempo: ${b.tempo} BPM · Meter: ${b.meter.numerator}/${b.meter.denominator}`,
     b.styles.length ? `Styles: ${b.styles.join(', ')}` : '',
-    b.genreBlend.length ? `Genre blend: ${b.genreBlend.map((g) => `${g.genreId} ${g.weight}`).join(', ')}` : '',
+    b.genreBlend.length
+      ? `Genre blend: ${b.genreBlend.map((g) => `${g.genreId} ${g.weight}`).join(', ')}`
+      : '',
     b.moods.length ? `Moods: ${b.moods.join('; ')}` : '',
-    b.instrumentation.length ? `Instrumentation: ${b.instrumentation.map((t) => `${t.name} (${t.role}${t.function ? `, ${t.function}` : ''})`).join(', ')}` : '',
+    b.instrumentation.length
+      ? `Instrumentation: ${b.instrumentation.map((t) => `${t.name} (${t.role}${t.function ? `, ${t.function}` : ''})`).join(', ')}`
+      : '',
     b.structure.length
       ? `Structure: ${b.structure
-          .map((s) => `${s.name} [${s.kind}] ${s.bars} bars${s.energy !== undefined ? ` energy ${s.energy}${s.energyEnd !== undefined ? `→${s.energyEnd}` : ''}` : ''}${s.harmony?.length ? ` harmony ${s.harmony.join(' ')}` : ''}${s.purpose ? ` (${s.purpose})` : ''}`)
+          .map(
+            (s) =>
+              `${s.name} [${s.kind}] ${s.bars} bars${s.energy !== undefined ? ` energy ${s.energy}${s.energyEnd !== undefined ? `→${s.energyEnd}` : ''}` : ''}${s.harmony?.length ? ` harmony ${s.harmony.join(' ')}` : ''}${s.purpose ? ` (${s.purpose})` : ''}`,
+          )
           .join('; ')}`
       : '',
-    b.vocal ? `Vocal: ${b.vocal.voiceType}, ${b.vocal.mode}${b.vocal.description ? `, ${b.vocal.description}` : ''}` : '',
+    b.vocal
+      ? `Vocal: ${b.vocal.voiceType}, ${b.vocal.mode}${b.vocal.description ? `, ${b.vocal.description}` : ''}`
+      : '',
     b.lyricsTheme ? `Lyrics theme: ${b.lyricsTheme}` : '',
   ];
   return lines.filter(Boolean).join('\n');
@@ -74,17 +89,21 @@ export function planSongPrompt(req: PlanSongRequest): PromptPair {
 export function designBlueprintPrompt(req: DesignBlueprintRequest): PromptPair {
   const system = join(
     ASSISTANT_IDENTITY,
-    'Task: turn the user\'s idea into a SONG BLUEPRINT (spec §10): title, tempo, meter, key, styles, genre blend, moods, instrumentation (tracks with roles), structure (sections with bars, energy, purpose, mood and optional harmony), vocal setup, lyrics theme and macro controls.',
+    "Task: turn the user's idea into a SONG BLUEPRINT (spec §10): title, tempo, meter, key, styles, genre blend, moods, instrumentation (tracks with roles), structure (sections with bars, energy, purpose, mood and optional harmony), vocal setup, lyrics theme and macro controls.",
     MUSIC_IR_CONVENTIONS,
     [
       'Guidance:',
       '- Choose values idiomatic for the requested style; keep the instrumentation realistic for a band/production of that style (typically 4–8 tracks).',
       '- Give every section a purpose ("Establish motif", "Rising tension", "Emotional release") and an energy 0..100.',
       '- If the user names a key, tempo, structure or instruments, use exactly those.',
-      req.constraints?.length ? '- The user fixed some choices in the builder (listed below as "Fixed by the user"). They are hard constraints: keep every one exactly and only fill in what they leave open.' : '',
+      req.constraints?.length
+        ? '- The user fixed some choices in the builder (listed below as "Fixed by the user"). They are hard constraints: keep every one exactly and only fill in what they leave open.'
+        : '',
       req.genres?.length ? '- For genre_blend use ONLY these genre ids.' : '',
       req.instruments?.length ? '- For instrument_id use ONLY these instrument ids.' : '',
-      req.tags?.length ? '- "tags" lists style, mood, era, production, vocal, region or rhythm tags that suit the idea; use ONLY the available tag ids.' : '',
+      req.tags?.length
+        ? '- "tags" lists style, mood, era, production, vocal, region or rhythm tags that suit the idea; use ONLY the available tag ids.'
+        : '',
       req.lyrics
         ? '- The user wrote the lyrics below. Never change, add or remove words. Choose genres, tags, moods, tempo and a structure whose sections follow the stanzas (one section per stanza, in order).'
         : '',
@@ -93,15 +112,26 @@ export function designBlueprintPrompt(req: DesignBlueprintRequest): PromptPair {
       .join('\n'),
   );
   const tagsByKind = new Map<string, string[]>();
-  for (const t of req.tags ?? []) tagsByKind.set(t.kind ?? 'other', [...(tagsByKind.get(t.kind ?? 'other') ?? []), t.id]);
+  for (const t of req.tags ?? [])
+    tagsByKind.set(t.kind ?? 'other', [...(tagsByKind.get(t.kind ?? 'other') ?? []), t.id]);
   const user = join(
     `Idea: ${req.prompt}`,
-    req.constraints?.length ? `Fixed by the user (hard constraints):\n${req.constraints.map((c) => `- ${c}`).join('\n')}` : '',
+    req.constraints?.length
+      ? `Fixed by the user (hard constraints):\n${req.constraints.map((c) => `- ${c}`).join('\n')}`
+      : '',
     req.lyrics ? `The user's lyrics (keep the words exactly):\n"""\n${req.lyrics.trim()}\n"""` : '',
-    req.genres?.length ? `Available genre ids: ${req.genres.map((g) => `${g.id} (${g.name})`).join(', ')}` : '',
-    req.instruments?.length ? `Available instrument ids: ${req.instruments.map((i) => `${i.id} (${i.name}${i.family ? `, ${i.family}` : ''})`).join(', ')}` : '',
-    tagsByKind.size ? `Available tag ids:\n${[...tagsByKind.entries()].map(([kind, ids]) => `- ${kind}: ${ids.join(', ')}`).join('\n')}` : '',
-    req.defaults && Object.keys(req.defaults).length ? `Defaults chosen by the user (keep unless the idea contradicts them): ${JSON.stringify(req.defaults)}` : '',
+    req.genres?.length
+      ? `Available genre ids: ${req.genres.map((g) => `${g.id} (${g.name})`).join(', ')}`
+      : '',
+    req.instruments?.length
+      ? `Available instrument ids: ${req.instruments.map((i) => `${i.id} (${i.name}${i.family ? `, ${i.family}` : ''})`).join(', ')}`
+      : '',
+    tagsByKind.size
+      ? `Available tag ids:\n${[...tagsByKind.entries()].map(([kind, ids]) => `- ${kind}: ${ids.join(', ')}`).join('\n')}`
+      : '',
+    req.defaults && Object.keys(req.defaults).length
+      ? `Defaults chosen by the user (keep unless the idea contradicts them): ${JSON.stringify(req.defaults)}`
+      : '',
     'Return the blueprint as JSON.',
   );
   return { system, user };
@@ -111,7 +141,7 @@ export function modifyCompositionPrompt(req: ModifyCompositionRequest): PromptPa
   const instruction = req.instruction ?? req.context.instruction;
   const system = join(
     ASSISTANT_IDENTITY,
-    'Task: implement the user\'s instruction as a minimal list of structured MUSIC OPERATIONS (spec §20, §46). Song Deck validates and previews them as a proposal; nothing is applied directly.',
+    "Task: implement the user's instruction as a minimal list of structured MUSIC OPERATIONS (spec §20, §46). Song Deck validates and previews them as a proposal; nothing is applied directly.",
     MUSIC_IR_CONVENTIONS,
     EDITING_RULES,
     OPERATION_REFERENCE,
@@ -133,7 +163,9 @@ export function analyzeMusicPrompt(req: AnalyzeMusicRequest): PromptPair {
   const system = join(
     ASSISTANT_IDENTITY,
     'Task: ANALYZE the music (spec §58 analyze_music): key, tempo, harmony, form, energy curve, arrangement and anything notable. Be specific — reference sections, bars and chords.',
-    req.audio ? 'An audio recording is attached: listen to it and describe what you actually hear (tempo, key, instrumentation, structure, production, mix balance). Say when you are unsure.' : '',
+    req.audio
+      ? 'An audio recording is attached: listen to it and describe what you actually hear (tempo, key, instrumentation, structure, production, mix balance). Say when you are unsure.'
+      : '',
     MUSIC_IR_CONVENTIONS,
   );
   const user = join(
@@ -199,7 +231,7 @@ export function generateLyricsPrompt(req: GenerateLyricsRequest): PromptPair {
 export function chatPrompt(req: ChatRequest): PromptPair {
   const system = join(
     ASSISTANT_IDENTITY,
-    'Task: answer the user\'s question about THIS project (spec §44) in concrete terms — sections, bars, chords, tracks, notes. If the user asks for a change, also PROPOSE it as operations (the user reviews it); otherwise return an empty operations list.',
+    "Task: answer the user's question about THIS project (spec §44) in concrete terms — sections, bars, chords, tracks, notes. If the user asks for a change, also PROPOSE it as operations (the user reviews it); otherwise return an empty operations list.",
     MUSIC_IR_CONVENTIONS,
     EDITING_RULES,
     OPERATION_REFERENCE,

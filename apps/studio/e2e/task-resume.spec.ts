@@ -45,11 +45,19 @@ test('a rebuild interrupted by a reload resumes from its stored input and succee
     return rec.id;
   })()`);
 
-  await expect.poll(async () => (await taskState(page, id))?.status, { timeout: 60_000, intervals: [100] }).toBe('running');
+  await expect
+    .poll(async () => (await taskState(page, id))?.status, { timeout: 60_000, intervals: [100] })
+    .toBe('running');
   // Reload only once the "running" state is persisted (saves are asynchronous), so the reload
   // really interrupts a running task.
   await expect
-    .poll(() => page.evaluate(`import('/src/state/persistence.ts').then(({ kvGet }) => kvGet('tasks')).then((ts) => ts?.find((t) => t.id === '${id}')?.status)`), { timeout: 30_000, intervals: [50] })
+    .poll(
+      () =>
+        page.evaluate(
+          `import('/src/state/persistence.ts').then(({ kvGet }) => kvGet('tasks')).then((ts) => ts?.find((t) => t.id === '${id}')?.status)`,
+        ),
+      { timeout: 30_000, intervals: [50] },
+    )
     .toBe('running');
   await page.reload();
   await expect(page.getByText('AI that gives you the song back.')).toBeVisible();
@@ -62,6 +70,10 @@ test('a rebuild interrupted by a reload resumes from its stored input and succee
   expect(done!.error).toBeUndefined();
   // The stored input is released once the task no longer needs it.
   await expect
-    .poll(() => page.evaluate(`import('/src/state/persistence.ts').then(({ kvGet }) => kvGet('task-input:${id}')).then((v) => v === undefined)`))
+    .poll(() =>
+      page.evaluate(
+        `import('/src/state/persistence.ts').then(({ kvGet }) => kvGet('task-input:${id}')).then((v) => v === undefined)`,
+      ),
+    )
     .toBe(true);
 });

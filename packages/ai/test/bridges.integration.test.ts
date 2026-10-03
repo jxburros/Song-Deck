@@ -40,7 +40,10 @@ const MOCK_BRIDGE = resolve(REPO_ROOT, 'bridges/mock_bridge.py');
 const PYTHON = process.env.SONGDECK_PYTHON || 'python3';
 const HAS_PYTHON = (() => {
   try {
-    const r = spawnSync(PYTHON, ['-c', 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)'], { stdio: 'ignore', timeout: 15_000 });
+    const r = spawnSync(PYTHON, ['-c', 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)'], {
+      stdio: 'ignore',
+      timeout: 15_000,
+    });
     return r.status === 0;
   } catch {
     return false;
@@ -48,7 +51,14 @@ const HAS_PYTHON = (() => {
 })();
 
 /** Role offsets of `--role all` (they mirror the preset ports 8810…8815). */
-const ROLE = { music: 0, singing: 1, separation: 2, transcription: 3, voiceConversion: 4, mastering: 5 } as const;
+const ROLE = {
+  music: 0,
+  singing: 1,
+  separation: 2,
+  transcription: 3,
+  voiceConversion: 4,
+  mastering: 5,
+} as const;
 
 // ---------------------------------------------------------------------------
 // Process helpers
@@ -135,7 +145,14 @@ async function startBridge(args: string[], env: Record<string, string> = {}): Pr
 
 interface Health {
   status: string;
-  jobs: { running: number; queued: number; completed: number; cancelled: number; failed: number; rejected: number };
+  jobs: {
+    running: number;
+    queued: number;
+    completed: number;
+    cancelled: number;
+    failed: number;
+    rejected: number;
+  };
 }
 
 async function health(baseUrl: string): Promise<Health> {
@@ -170,9 +187,11 @@ function parseWav(bytes: Uint8Array): ParsedWav {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const tag = (o: number) => String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]);
   if (bytes.length < 44 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE') throw new Error('not a RIFF/WAVE file');
-  if (dv.getUint32(4, true) !== bytes.length - 8) throw new Error(`RIFF size ${dv.getUint32(4, true)} != ${bytes.length - 8}`);
+  if (dv.getUint32(4, true) !== bytes.length - 8)
+    throw new Error(`RIFF size ${dv.getUint32(4, true)} != ${bytes.length - 8}`);
   let o = 12;
-  let fmt: { format: number; channels: number; sampleRate: number; blockAlign: number; bits: number } | undefined;
+  let fmt:
+    { format: number; channels: number; sampleRate: number; blockAlign: number; bits: number } | undefined;
   let dataOff = -1;
   let dataLen = 0;
   while (o + 8 <= bytes.length) {
@@ -180,7 +199,13 @@ function parseWav(bytes: Uint8Array): ParsedWav {
     const size = dv.getUint32(o + 4, true);
     const body = o + 8;
     if (id === 'fmt ') {
-      fmt = { format: dv.getUint16(body, true), channels: dv.getUint16(body + 2, true), sampleRate: dv.getUint32(body + 4, true), blockAlign: dv.getUint16(body + 12, true), bits: dv.getUint16(body + 14, true) };
+      fmt = {
+        format: dv.getUint16(body, true),
+        channels: dv.getUint16(body + 2, true),
+        sampleRate: dv.getUint32(body + 4, true),
+        blockAlign: dv.getUint16(body + 12, true),
+        bits: dv.getUint16(body + 14, true),
+      };
     } else if (id === 'data') {
       if (body + size > bytes.length) throw new Error('data chunk is truncated');
       dataOff = body;
@@ -199,13 +224,22 @@ function parseWav(bytes: Uint8Array): ParsedWav {
       let v: number;
       if (fmt.format === 3 && fmt.bits === 32) v = dv.getFloat32(p, true);
       else if (fmt.format === 1 && fmt.bits === 16) v = dv.getInt16(p, true) / 32768;
-      else if (fmt.format === 1 && fmt.bits === 24) v = (((bytes[p] | (bytes[p + 1] << 8) | (bytes[p + 2] << 16)) << 8) >> 8) / 8388608;
+      else if (fmt.format === 1 && fmt.bits === 24)
+        v = (((bytes[p] | (bytes[p + 1] << 8) | (bytes[p + 2] << 16)) << 8) >> 8) / 8388608;
       else if (fmt.format === 1 && fmt.bits === 32) v = dv.getInt32(p, true) / 2147483648;
       else throw new Error(`unsupported WAV encoding ${fmt.format}/${fmt.bits}`);
       samples[c][i] = v;
     }
   }
-  return { format: fmt.format, channels: fmt.channels, sampleRate: fmt.sampleRate, bitsPerSample: fmt.bits, frames, duration: frames / fmt.sampleRate, samples };
+  return {
+    format: fmt.format,
+    channels: fmt.channels,
+    sampleRate: fmt.sampleRate,
+    bitsPerSample: fmt.bits,
+    frames,
+    duration: frames / fmt.sampleRate,
+    samples,
+  };
 }
 
 /** 16-bit PCM WAV from float channels. */
@@ -229,7 +263,12 @@ function encodeWav(channels: Float64Array[], sampleRate: number): Uint8Array {
   put(36, 'data');
   dv.setUint32(40, frames * nch * 2, true);
   for (let i = 0; i < frames; i++) {
-    for (let c = 0; c < nch; c++) dv.setInt16(44 + (i * nch + c) * 2, Math.max(-32768, Math.min(32767, Math.round(channels[c][i] * 32767))), true);
+    for (let c = 0; c < nch; c++)
+      dv.setInt16(
+        44 + (i * nch + c) * 2,
+        Math.max(-32768, Math.min(32767, Math.round(channels[c][i] * 32767))),
+        true,
+      );
   }
   return out;
 }
@@ -237,7 +276,12 @@ function encodeWav(channels: Float64Array[], sampleRate: number): Uint8Array {
 const wavAudio = (data: Uint8Array): EncodedAudio => ({ mimeType: 'audio/wav', data });
 
 /** Sine tones (+ a weak 2nd harmonic) at MIDI pitches with short fades. */
-function tones(notes: { midi: number; start: number; dur: number }[], sampleRate: number, totalSeconds: number, amp = 0.5): Float64Array {
+function tones(
+  notes: { midi: number; start: number; dur: number }[],
+  sampleRate: number,
+  totalSeconds: number,
+  amp = 0.5,
+): Float64Array {
   const out = new Float64Array(Math.round(totalSeconds * sampleRate));
   for (const n of notes) {
     const f = 440 * 2 ** ((n.midi - 69) / 12);
@@ -282,9 +326,13 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
   let bridge: RunningBridge | undefined;
   let base = 0;
   const url = (offset: number) => `http://127.0.0.1:${base + offset}`;
-  const deps: CreateProviderDeps = { transport: new DirectTransport(), retry: { baseDelayMs: 0, maxDelayMs: 0 } };
+  const deps: CreateProviderDeps = {
+    transport: new DirectTransport(),
+    retry: { baseDelayMs: 0, maxDelayMs: 0 },
+  };
   /** A provider from a LOCAL preset with only the base URL changed. */
-  const provider = (presetId: string, offset: number): ProviderInstance => createProvider(configFromPreset(presetId, { baseUrl: url(offset) }), deps);
+  const provider = (presetId: string, offset: number): ProviderInstance =>
+    createProvider(configFromPreset(presetId, { baseUrl: url(offset) }), deps);
 
   beforeAll(async () => {
     base = await freePortBase(6);
@@ -301,7 +349,15 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
       const ag = provider('ace-step-local', ROLE.music).audioGeneration!;
       const models = await ag.discoverModels();
       expect(models.map((m) => m.id)).toEqual(['mock-additive', 'mock-additive-lofi']);
-      expect(await ag.getCapabilities()).toEqual(expect.arrayContaining(['TEXT_TO_MUSIC', 'AUDIO_TO_AUDIO', 'LYRIC_CONDITIONING', 'INPAINTING', 'OUTPAINTING']));
+      expect(await ag.getCapabilities()).toEqual(
+        expect.arrayContaining([
+          'TEXT_TO_MUSIC',
+          'AUDIO_TO_AUDIO',
+          'LYRIC_CONDITIONING',
+          'INPAINTING',
+          'OUTPAINTING',
+        ]),
+      );
     });
 
     it('generate: valid WAV of the requested duration, X-Seed/X-Model, deterministic per seed', async () => {
@@ -315,7 +371,13 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
         instrumental: false,
         sections: [
           { name: 'Intro', kind: 'intro', startSeconds: 0, endSeconds: 1.5 },
-          { name: 'Chorus 1', kind: 'chorus', startSeconds: 1.5, endSeconds: 4, lines: ['Fire in the sky', 'Carry me home'] },
+          {
+            name: 'Chorus 1',
+            kind: 'chorus',
+            startSeconds: 1.5,
+            endSeconds: 4,
+            lines: ['Fire in the sky', 'Carry me home'],
+          },
         ],
       };
       const res = await ag.generateMusic(req);
@@ -330,7 +392,9 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
       expect(res.costUsd).toBe(0);
 
       expect(sameBytes((await ag.generateMusic(req)).audio.data, res.audio.data)).toBe(true);
-      expect(sameBytes((await ag.generateMusic({ ...req, seed: 43 })).audio.data, res.audio.data)).toBe(false);
+      expect(sameBytes((await ag.generateMusic({ ...req, seed: 43 })).audio.data, res.audio.data)).toBe(
+        false,
+      );
       const lofi = await ag.generateMusic({ ...req, model: 'mock-additive-lofi' });
       expect(lofi.model).toBe('mock-additive-lofi');
       const unseeded = await ag.generateMusic({ prompt: 'ambient pad', durationSeconds: 1 });
@@ -357,17 +421,30 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
       expect(maxAbsDiff(t.samples[0], input.samples[0])).toBeGreaterThan(0.01);
       expect(tr.seed).toBe(2);
 
-      const ip = await ag.inpaintAudio!({ audio: src.audio, startSeconds: 1, endSeconds: 2, prompt: 'variation', seed: 3 });
+      const ip = await ag.inpaintAudio!({
+        audio: src.audio,
+        startSeconds: 1,
+        endSeconds: 2,
+        prompt: 'variation',
+        seed: 3,
+      });
       const p = parseWav(ip.audio.data);
       expect(p.frames).toBe(input.frames);
       expect(ip.durationSeconds).toBe(1);
       for (let c = 0; c < input.channels; c++) {
         expect(maxAbsDiff(p.samples[c].subarray(0, sr), input.samples[c].subarray(0, sr))).toBe(0);
         expect(maxAbsDiff(p.samples[c].subarray(2 * sr), input.samples[c].subarray(2 * sr))).toBe(0);
-        expect(maxAbsDiff(p.samples[c].subarray(sr, 2 * sr), input.samples[c].subarray(sr, 2 * sr))).toBeGreaterThan(0.01);
+        expect(
+          maxAbsDiff(p.samples[c].subarray(sr, 2 * sr), input.samples[c].subarray(sr, 2 * sr)),
+        ).toBeGreaterThan(0.01);
       }
 
-      const ex = await ag.extendAudio!({ audio: src.audio, prompt: 'keep going', durationSeconds: 1.5, seed: 4 });
+      const ex = await ag.extendAudio!({
+        audio: src.audio,
+        prompt: 'keep going',
+        durationSeconds: 1.5,
+        seed: 4,
+      });
       const e = parseWav(ex.audio.data);
       expect(e.duration).toBeCloseTo(4.5, 3);
       expect(maxAbsDiff(e.samples[0].subarray(0, input.frames), input.samples[0])).toBe(0);
@@ -378,20 +455,39 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
 
     it('maps bridge errors to ProviderError (404 unknown model, 400 invalid input)', async () => {
       const ag = provider('ace-step-local', ROLE.music).audioGeneration!;
-      const err = await ag.generateMusic({ prompt: 'x', durationSeconds: 1, model: 'no-such-model' }).catch((e: unknown) => e);
+      const err = await ag
+        .generateMusic({ prompt: 'x', durationSeconds: 1, model: 'no-such-model' })
+        .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ProviderError);
       expect(err).toMatchObject({ kind: 'bad-request', status: 404 });
       expect((err as Error).message).toContain('no-such-model');
-      await expect(ag.generateMusic({ prompt: 'x', durationSeconds: 0 })).rejects.toMatchObject({ kind: 'bad-request', status: 400 });
-      await expect(ag.generateMusic({ prompt: 'x', durationSeconds: 1, key: 'H minor' })).rejects.toMatchObject({ status: 400 });
-      await expect(ag.inpaintAudio!({ audio: wavAudio(new Uint8Array([1, 2, 3])), startSeconds: 0, endSeconds: 1, prompt: 'x' })).rejects.toMatchObject({ status: 400 });
+      await expect(ag.generateMusic({ prompt: 'x', durationSeconds: 0 })).rejects.toMatchObject({
+        kind: 'bad-request',
+        status: 400,
+      });
+      await expect(
+        ag.generateMusic({ prompt: 'x', durationSeconds: 1, key: 'H minor' }),
+      ).rejects.toMatchObject({ status: 400 });
+      await expect(
+        ag.inpaintAudio!({
+          audio: wavAudio(new Uint8Array([1, 2, 3])),
+          startSeconds: 0,
+          endSeconds: 1,
+          prompt: 'x',
+        }),
+      ).rejects.toMatchObject({ status: 400 });
     });
 
     it('aborting the request (Song Deck cancel) stops the job on the bridge', async () => {
       const ag = provider('ace-step-local', ROLE.music).audioGeneration!;
       const before = await health(url(ROLE.music));
       const controller = new AbortController();
-      const pending = ag.generateMusic({ prompt: 'a long render', durationSeconds: 120, seed: 9, signal: controller.signal });
+      const pending = ag.generateMusic({
+        prompt: 'a long render',
+        durationSeconds: 120,
+        seed: 9,
+        signal: controller.signal,
+      });
       await waitFor(async () => (await health(url(ROLE.music))).jobs.running === 1, 5000, 'the job to start');
       controller.abort();
       await expect(pending).rejects.toMatchObject({ kind: 'cancelled' });
@@ -409,16 +505,49 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
   describe('singing bridge (diffsinger-local preset)', () => {
     const notes: SingingRequest['notes'] = [
       { pitch: 60, startSeconds: 0.5, durationSeconds: 0.5, lyric: 'la', velocity: 100 },
-      { pitch: 64, startSeconds: 1.0, durationSeconds: 0.5, lyric: 'li', velocity: 90, expression: { vibrato: 0.3, vibratoRate: 5.5 } },
-      { pitch: 67, startSeconds: 1.5, durationSeconds: 0.75, lyric: 'lo', velocity: 90, expression: { breathiness: 0.2, release: 'falling' } },
+      {
+        pitch: 64,
+        startSeconds: 1.0,
+        durationSeconds: 0.5,
+        lyric: 'li',
+        velocity: 90,
+        expression: { vibrato: 0.3, vibratoRate: 5.5 },
+      },
+      {
+        pitch: 67,
+        startSeconds: 1.5,
+        durationSeconds: 0.75,
+        lyric: 'lo',
+        velocity: 90,
+        expression: { breathiness: 0.2, release: 'falling' },
+      },
     ];
-    const req: SingingRequest = { voiceId: 'mock-tenor', tempoBpm: 120, sampleRate: 32000, seed: 7, notes, language: 'en' };
+    const req: SingingRequest = {
+      voiceId: 'mock-tenor',
+      tempoBpm: 120,
+      sampleRate: 32000,
+      seed: 7,
+      notes,
+      language: 'en',
+    };
 
     it('lists the two stock voices', async () => {
       const voices = await provider('diffsinger-local', ROLE.singing).singing!.listVoices();
       expect(voices).toEqual([
-        { id: 'mock-soprano', name: 'Mock Soprano (sine)', voiceType: 'soprano', language: 'en', kind: 'stock' },
-        { id: 'mock-tenor', name: 'Mock Tenor (sawtooth)', voiceType: 'tenor', language: 'en', kind: 'stock' },
+        {
+          id: 'mock-soprano',
+          name: 'Mock Soprano (sine)',
+          voiceType: 'soprano',
+          language: 'en',
+          kind: 'stock',
+        },
+        {
+          id: 'mock-tenor',
+          name: 'Mock Tenor (sawtooth)',
+          voiceType: 'tenor',
+          language: 'en',
+          kind: 'stock',
+        },
       ]);
     });
 
@@ -437,19 +566,30 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
       // Same seed → the regenerated phrase is that slice of the full render.
       expect(maxAbsDiff(pw.samples[0], fw.samples[0].subarray(32000, 32000 + pw.frames))).toBeLessThan(1e-4);
 
-      await expect(singing.synthesizeSinging({ ...req, voiceId: 'nobody' })).rejects.toMatchObject({ kind: 'bad-request', status: 404 });
+      await expect(singing.synthesizeSinging({ ...req, voiceId: 'nobody' })).rejects.toMatchObject({
+        kind: 'bad-request',
+        status: 404,
+      });
     });
 
     it('sings a vocal track built from a Song (buildSingingRequest) and the transcription bridge hears the pitches', async () => {
       const song = makeSong();
-      const sreq = buildSingingRequest(song, 'trk_vox', { voiceId: 'mock-soprano', seed: 3, startTick: 4 * 1920, endTick: 5 * 1920 });
+      const sreq = buildSingingRequest(song, 'trk_vox', {
+        voiceId: 'mock-soprano',
+        seed: 3,
+        startTick: 4 * 1920,
+        endTick: 5 * 1920,
+      });
       const res = await provider('diffsinger-local', ROLE.singing).singing!.synthesizeSinging(sreq);
       const w = parseWav(res.audio.data);
       const end = Math.max(...sreq.notes.map((n) => n.startSeconds + n.durationSeconds));
       expect(Math.abs(w.duration - end)).toBeLessThanOrEqual(1 / 44100);
 
       const sung = await provider('diffsinger-local', ROLE.singing).singing!.synthesizeSinging(req);
-      const heard = await provider('basic-pitch-local', ROLE.transcription).transcription!.transcribeNotes({ audio: sung.audio, source: 'vocals' });
+      const heard = await provider('basic-pitch-local', ROLE.transcription).transcription!.transcribeNotes({
+        audio: sung.audio,
+        source: 'vocals',
+      });
       expect(heard.notes.map((n) => n.pitch)).toEqual([60, 64, 67]);
     });
   });
@@ -464,7 +604,10 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
         { midi: 69, start: 1.6, dur: 0.6 },
       ];
       const audio = wavAudio(encodeWav([tones(melody, sr, 2.4)], sr));
-      const res = await provider('basic-pitch-local', ROLE.transcription).transcription!.transcribeNotes({ audio, source: 'melody' });
+      const res = await provider('basic-pitch-local', ROLE.transcription).transcription!.transcribeNotes({
+        audio,
+        source: 'melody',
+      });
       expect(res.notes.map((n) => n.pitch)).toEqual([57, 60, 64, 69]);
       res.notes.forEach((n, i) => {
         expect(Math.abs(n.start - melody[i].start)).toBeLessThan(0.06);
@@ -479,14 +622,23 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
 
   describe('separation bridge (demucs-local preset)', () => {
     it('returns the requested stems as WAVs that sum back to the input', async () => {
-      const src = await provider('ace-step-local', ROLE.music).audioGeneration!.generateMusic({ prompt: 'mix to split', durationSeconds: 2, seed: 5 });
+      const src = await provider('ace-step-local', ROLE.music).audioGeneration!.generateMusic({
+        prompt: 'mix to split',
+        durationSeconds: 2,
+        seed: 5,
+      });
       const input = parseWav(src.audio.data);
       const sep = provider('demucs-local', ROLE.separation).separation!;
       const res = await sep.separateStems({ audio: src.audio });
       expect(Object.keys(res.stems)).toEqual(['drums', 'bass', 'vocals', 'other']);
       expect(res.model).toBe('mock-bandsplit-4');
       const stems = Object.values(res.stems).map((a) => parseWav(a.data));
-      for (const s of stems) expect([s.frames, s.channels, s.sampleRate]).toEqual([input.frames, input.channels, input.sampleRate]);
+      for (const s of stems)
+        expect([s.frames, s.channels, s.sampleRate]).toEqual([
+          input.frames,
+          input.channels,
+          input.sampleRate,
+        ]);
       for (let c = 0; c < input.channels; c++) {
         let maxErr = 0;
         for (let i = 0; i < input.frames; i++) {
@@ -499,7 +651,10 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
       const six = await sep.separateStems({ audio: src.audio, stems: ['vocals', 'guitar', 'piano'] });
       expect(Object.keys(six.stems)).toEqual(['vocals', 'guitar', 'piano']);
       expect(six.model).toBe('mock-bandsplit-6');
-      await expect(sep.separateStems({ audio: src.audio, stems: ['kazoo'] })).rejects.toMatchObject({ kind: 'bad-request', status: 400 });
+      await expect(sep.separateStems({ audio: src.audio, stems: ['kazoo'] })).rejects.toMatchObject({
+        kind: 'bad-request',
+        status: 400,
+      });
     });
   });
 
@@ -514,30 +669,51 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
         ['mock-baritone', 'stock'],
         ['mock-user-voice', 'user-trained'],
       ]);
-      const res = await vc.convertVoice({ audio, targetVoice: { id: 'mock-alto', kind: 'stock' }, pitchShift: 12 });
+      const res = await vc.convertVoice({
+        audio,
+        targetVoice: { id: 'mock-alto', kind: 'stock' },
+        pitchShift: 12,
+      });
       expect(res).toMatchObject({ voiceId: 'mock-alto', model: 'mock-voice-conversion' });
       expect(parseWav(res.audio.data).frames).toBe(sr);
       const transcriber = provider('basic-pitch-local', ROLE.transcription).transcription!;
       const heard = await transcriber.transcribeNotes({ audio: res.audio, source: 'vocals' });
       expect(heard.notes.map((n) => n.pitch)).toEqual([81]); // A4 + 12 semitones
-      const down = await vc.convertVoice({ audio, targetVoice: { id: 'mock-baritone', kind: 'stock' }, pitchShift: -5 });
+      const down = await vc.convertVoice({
+        audio,
+        targetVoice: { id: 'mock-baritone', kind: 'stock' },
+        pitchShift: -5,
+      });
       expect(parseWav(down.audio.data).frames).toBe(sr); // duration is preserved
-      expect((await transcriber.transcribeNotes({ audio: down.audio, source: 'vocals' })).notes.map((n) => n.pitch)).toEqual([64]);
+      expect(
+        (await transcriber.transcribeNotes({ audio: down.audio, source: 'vocals' })).notes.map(
+          (n) => n.pitch,
+        ),
+      ).toEqual([64]);
     });
 
     it('refuses a non-stock voice without consent before anything is sent (ConsentRequiredError)', async () => {
       const vc = provider('rvc-local', ROLE.voiceConversion).voiceConversion!;
       const before = await health(url(ROLE.voiceConversion));
-      await expect(vc.convertVoice({ audio, targetVoice: { id: 'mock-user-voice', kind: 'user-trained' } })).rejects.toBeInstanceOf(ConsentRequiredError);
+      await expect(
+        vc.convertVoice({ audio, targetVoice: { id: 'mock-user-voice', kind: 'user-trained' } }),
+      ).rejects.toBeInstanceOf(ConsentRequiredError);
       const after = await health(url(ROLE.voiceConversion));
       expect(after.jobs).toEqual(before.jobs); // the bridge never saw the request
       const ok = await vc.convertVoice({
         audio,
         targetVoice: { id: 'mock-user-voice', kind: 'user-trained' },
-        consent: { attestedBy: 'Test Singer', rightsHolder: 'Test Singer', basis: 'own-voice', attestedAt: '2026-10-01T00:00:00Z' },
+        consent: {
+          attestedBy: 'Test Singer',
+          rightsHolder: 'Test Singer',
+          basis: 'own-voice',
+          attestedAt: '2026-10-01T00:00:00Z',
+        },
       });
       expect(ok.voiceId).toBe('mock-user-voice');
-      await expect(vc.convertVoice({ audio, targetVoice: { id: 'nobody', kind: 'stock' } })).rejects.toMatchObject({ kind: 'bad-request', status: 404 });
+      await expect(
+        vc.convertVoice({ audio, targetVoice: { id: 'nobody', kind: 'stock' } }),
+      ).rejects.toMatchObject({ kind: 'bad-request', status: 404 });
     });
   });
 
@@ -554,10 +730,16 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
       expect(20 * Math.log10(rms(w.samples[0]) / rms(quiet))).toBeGreaterThan(10);
       expect(peakOf(w.samples)).toBeLessThanOrEqual(10 ** (-1 / 20) + 1e-4);
 
-      const reference = await provider('ace-step-local', ROLE.music).audioGeneration!.generateMusic({ prompt: 'reference', durationSeconds: 2, seed: 11 });
+      const reference = await provider('ace-step-local', ROLE.music).audioGeneration!.generateMusic({
+        prompt: 'reference',
+        durationSeconds: 2,
+        seed: 11,
+      });
       const cd = await m.master({ audio, target: 'cd', reference: reference.audio });
       expect(parseWav(cd.audio.data).bitsPerSample).toBe(16);
-      await expect(m.master({ audio, target: 'radio' as unknown as MasteringRequest['target'] })).rejects.toMatchObject({ kind: 'bad-request', status: 400 });
+      await expect(
+        m.master({ audio, target: 'radio' as unknown as MasteringRequest['target'] }),
+      ).rejects.toMatchObject({ kind: 'bad-request', status: 400 });
     });
   });
 
@@ -568,7 +750,9 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
     beforeAll(async () => {
       const port = await freePortBase(1);
       // The token comes from the environment (keeps it out of `ps` output), as the README recommends.
-      secured = await startBridge(['--role', 'mastering', '--port', String(port)], { SONGDECK_BRIDGE_TOKEN: TOKEN });
+      secured = await startBridge(['--role', 'mastering', '--port', String(port)], {
+        SONGDECK_BRIDGE_TOKEN: TOKEN,
+      });
     }, 40_000);
 
     afterAll(async () => {
@@ -579,14 +763,24 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
       const baseUrl = secured!.urls[0];
       const sr = 22050;
       const audio = wavAudio(encodeWav([tones([{ midi: 60, start: 0, dur: 0.5 }], sr, 0.5, 0.1)], sr));
-      const authed = createProvider(configFromPreset('mastering-local', { baseUrl, auth: { type: 'bearer' }, credentialRef: 'provider:mastering-local' }), {
-        transport: new DirectTransport(new MemoryCredentialStore({ 'provider:mastering-local': TOKEN })),
-        retry: { baseDelayMs: 0, maxDelayMs: 0 },
-      });
+      const authed = createProvider(
+        configFromPreset('mastering-local', {
+          baseUrl,
+          auth: { type: 'bearer' },
+          credentialRef: 'provider:mastering-local',
+        }),
+        {
+          transport: new DirectTransport(new MemoryCredentialStore({ 'provider:mastering-local': TOKEN })),
+          retry: { baseDelayMs: 0, maxDelayMs: 0 },
+        },
+      );
       const res = await authed.mastering!.master({ audio, target: 'demo' });
       expect(parseWav(res.audio.data).frames).toBe(0.5 * sr);
       const anonymous = createProvider(configFromPreset('mastering-local', { baseUrl }), deps);
-      await expect(anonymous.mastering!.master({ audio, target: 'demo' })).rejects.toMatchObject({ kind: 'auth', status: 401 });
+      await expect(anonymous.mastering!.master({ audio, target: 'demo' })).rejects.toMatchObject({
+        kind: 'auth',
+        status: 401,
+      });
       expect((await fetch(`${baseUrl}/health`)).status).toBe(200);
       expect((await fetch(`${baseUrl}/info`)).status).toBe(401);
     });

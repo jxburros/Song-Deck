@@ -26,7 +26,10 @@ const SFZ = `
 function samples(): Record<string, AudioData> {
   // exactly periodic loops so loop points are seamless
   const s220 = sine(220, 1, SR, 0.5);
-  const s440: AudioData = { sampleRate: 44100, channels: [Float32Array.from({ length: 300 }, (_, i) => 0.5 * Math.sin((2 * Math.PI * i) / 100))] };
+  const s440: AudioData = {
+    sampleRate: 44100,
+    channels: [Float32Array.from({ length: 300 }, (_, i) => 0.5 * Math.sin((2 * Math.PI * i) / 100))],
+  };
   const saw = new Float32Array(SR);
   for (let i = 0; i < SR; i++) saw[i] = 0.4 * (((i * 261.63) / SR) % 1) - 0.2;
   return {
@@ -81,7 +84,14 @@ describe('SFZ sample instruments', () => {
       ]),
     ];
     setStrip(song, 's', { volumeDb: 0 });
-    const out = renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0.3, patchOverrides: { s: 'user-sampler' }, sampleInstruments: { 'user-sampler': inst } });
+    const out = renderSong(song, {
+      sampleRate: SR,
+      applyMaster: false,
+      includeSends: false,
+      tailSeconds: 0.3,
+      patchOverrides: { s: 'user-sampler' },
+      sampleInstruments: { 'user-sampler': inst },
+    });
     const L = out.channels[0];
     expect(Math.abs(cents(yinF0(L, SR, Math.round(0.1 * SR)), 220))).toBeLessThan(5);
     expect(Math.abs(cents(yinF0(L, SR, Math.round(1.1 * SR)), 220 * Math.pow(2, 2 / 12)))).toBeLessThan(5);
@@ -99,9 +109,18 @@ describe('SFZ sample instruments', () => {
     const lib = samples();
     const inst = parseSfz(SFZ, (p) => lib[p]);
     const song = mkSong(2);
-    song.tracks = [mkTrack('s', 'x', [mkNote(62, 0, 900, 100), mkNote(62, 960, 900, 100), mkNote(62, 1920, 900, 100)])];
+    song.tracks = [
+      mkTrack('s', 'x', [mkNote(62, 0, 900, 100), mkNote(62, 960, 900, 100), mkNote(62, 1920, 900, 100)]),
+    ];
     setStrip(song, 's', { volumeDb: 0 });
-    const out = renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0, patchOverrides: { s: 'rr' }, sampleInstruments: { rr: inst } });
+    const out = renderSong(song, {
+      sampleRate: SR,
+      applyMaster: false,
+      includeSends: false,
+      tailSeconds: 0,
+      patchOverrides: { s: 'rr' },
+      sampleInstruments: { rr: inst },
+    });
     const L = out.channels[0];
     const f1 = yinF0(L, SR, Math.round(0.1 * SR));
     const f2 = yinF0(L, SR, Math.round(1.1 * SR));

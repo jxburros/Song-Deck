@@ -65,10 +65,21 @@ describe('version history', () => {
     const v1 = headRevision(p0);
     expect(v1).toMatchObject({ number: 1, kind: 'create', parents: [] });
     const song2 = edit(p0.song, [{ op: 'set_tempo', bpm: 150 }]);
-    const p1 = commitRevision(p0, song2, 'Faster', 'edit', 'alice', { now: '2026-10-03T10:00:00.000Z', id: 'rev_2' });
+    const p1 = commitRevision(p0, song2, 'Faster', 'edit', 'alice', {
+      now: '2026-10-03T10:00:00.000Z',
+      id: 'rev_2',
+    });
     expect(p0.history.revisions).toHaveLength(1); // immutable
     const v2 = headRevision(p1);
-    expect(v2).toMatchObject({ id: 'rev_2', number: 2, parents: [v1.id], branchId: p0.history.currentBranchId, message: 'Faster', kind: 'edit', author: 'alice' });
+    expect(v2).toMatchObject({
+      id: 'rev_2',
+      number: 2,
+      parents: [v1.id],
+      branchId: p0.history.currentBranchId,
+      message: 'Faster',
+      kind: 'edit',
+      author: 'alice',
+    });
     expect(p1.meta.updatedAt).toBe('2026-10-03T10:00:00.000Z');
     expect(p1.song).toBe(song2);
     // The snapshot is a copy: later mutation of the working song does not alter history.
@@ -98,7 +109,13 @@ describe('version history', () => {
     p = commitRevision(p, edit(p.song, [{ op: 'set_tempo', bpm: 130 }]), 'v2', 'edit');
     const v2 = headRevision(p);
     p = createBranch(p, 'Heavy Version', undefined, 'Distorted guitars', { id: 'br_heavy' });
-    expect(currentBranch(p)).toMatchObject({ id: 'br_heavy', name: 'Heavy Version', headRevisionId: v2.id, baseRevisionId: v2.id, description: 'Distorted guitars' });
+    expect(currentBranch(p)).toMatchObject({
+      id: 'br_heavy',
+      name: 'Heavy Version',
+      headRevisionId: v2.id,
+      baseRevisionId: v2.id,
+      description: 'Distorted guitars',
+    });
     p = commitRevision(p, edit(p.song, [{ op: 'set_tempo', bpm: 180 }]), 'Heavy tempo', 'edit');
     expect(headRevision(p).branchId).toBe('br_heavy');
     expect(headRevision(p, main).id).toBe(v2.id);
@@ -113,7 +130,12 @@ describe('version history', () => {
     expect(() => deleteBranch(p, acoustic)).toThrow(/current branch/);
     p = switchBranch(p, 'br_heavy');
     const before = p.history.revisions.length;
-    p = commitRevision(switchBranch(p, acoustic), edit(p.song, [{ op: 'set_tempo', bpm: 90 }]), 'acoustic edit', 'edit');
+    p = commitRevision(
+      switchBranch(p, acoustic),
+      edit(p.song, [{ op: 'set_tempo', bpm: 90 }]),
+      'acoustic edit',
+      'edit',
+    );
     expect(p.history.revisions).toHaveLength(before + 1);
     p = switchBranch(p, main);
     p = deleteBranch(p, acoustic);
@@ -161,7 +183,19 @@ describe('version history', () => {
 
   it('compares revisions', () => {
     let p = newProject();
-    p = commitRevision(p, edit(p.song, [{ op: 'transform_notes', track: 'bass', region: { start_bar: 17, end_bar: 20 }, transform: { transpose: 12 } }]), 'Bass up', 'edit');
+    p = commitRevision(
+      p,
+      edit(p.song, [
+        {
+          op: 'transform_notes',
+          track: 'bass',
+          region: { start_bar: 17, end_bar: 20 },
+          transform: { transpose: 12 },
+        },
+      ]),
+      'Bass up',
+      'edit',
+    );
     const [v1, v2] = p.history.revisions;
     expect(compareRevisions(p, v1.id, v2.id).summary).toEqual(['Bass: 16 notes modified (bars 17–20)']);
     expect(compareRevisions(p, v2.id, v2.id).summary).toEqual(['No changes']);
@@ -171,7 +205,14 @@ describe('version history', () => {
     let p = newProject();
     p = commitRevision(p, edit(p.song, [{ op: 'set_tempo', bpm: 130 }]), 'v2', 'edit');
     p = createBranch(p, 'Alt');
-    p = addGenerationRecord(p, { id: 'gen_1', kind: 'composition', createdAt: at(), providerId: 'internal', status: 'succeeded', revisionId: p.history.revisions[1].id });
+    p = addGenerationRecord(p, {
+      id: 'gen_1',
+      kind: 'composition',
+      createdAt: at(),
+      providerId: 'internal',
+      status: 'succeeded',
+      revisionId: p.history.revisions[1].id,
+    });
     const d = duplicateProject(p, 'Demo (copy)');
     expect(d.meta.name).toBe('Demo (copy)');
     expect(d.meta.id).not.toBe(p.meta.id);
@@ -200,12 +241,20 @@ describe('merge selected changes', () => {
       edit(p.song, [
         { op: 'transform_notes', track: 'bass', transform: { transpose: 12 } },
         { op: 'transform_notes', track: 'drums', transform: { velocity_add: 10 } },
-        { op: 'set_chords', region: { start_bar: 13, end_bar: 13 }, chords: [{ bar: 13, beat: 1, symbol: 'Am', duration_beats: 4 }] },
+        {
+          op: 'set_chords',
+          region: { start_bar: 13, end_bar: 13 },
+          chords: [{ bar: 13, beat: 1, symbol: 'Am', duration_beats: 4 }],
+        },
         { op: 'set_mixer', track: 'bass', changes: { volumeDb: -1 } },
         { op: 'set_tempo', bpm: 170 },
         { op: 'set_lyrics', section: 'Chorus', lines: ['Louder now'] },
         { op: 'add_track', name: 'Lead Guitar', instrument_id: 'electric-guitar-lead', role: 'lead-guitar' },
-        { op: 'add_notes', track: 'Lead Guitar', notes: [{ pitch: 'E4', bar: 13, beat: 1, duration_beats: 4 }] },
+        {
+          op: 'add_notes',
+          track: 'Lead Guitar',
+          notes: [{ pitch: 'E4', bar: 13, beat: 1, duration_beats: 4 }],
+        },
       ]),
       'Heavier',
       'edit',
@@ -221,9 +270,13 @@ describe('merge selected changes', () => {
     const rev = headRevision(m);
     expect(rev).toMatchObject({ kind: 'merge', parents: [head.id, heavyRev], number: 3 });
     expect(rev.message).toBe('Merged track "Bass", added track "Lead Guitar" from v2');
-    expect(bass(m.song).notes.map((n) => n.pitch)).toEqual(bass(getHeavy(p, heavyRev)).notes.map((n) => n.pitch));
+    expect(bass(m.song).notes.map((n) => n.pitch)).toEqual(
+      bass(getHeavy(p, heavyRev)).notes.map((n) => n.pitch),
+    );
     expect(m.song.tracks.find((t) => t.name === 'Lead Guitar')!.notes).toHaveLength(1);
-    expect(m.song.tracks.find((t) => t.id === 'trk_drums')).toEqual(p.song.tracks.find((t) => t.id === 'trk_drums'));
+    expect(m.song.tracks.find((t) => t.id === 'trk_drums')).toEqual(
+      p.song.tracks.find((t) => t.id === 'trk_drums'),
+    );
     expect(m.song.tempoMap[0].bpm).toBe(120);
     expect(m.song.chords).toEqual(p.song.chords);
   });
@@ -240,7 +293,11 @@ describe('merge selected changes', () => {
     expect(r.song.chords.find((c) => c.tick === 12 * BAR)!.symbol).toBe('Am');
     expect(r.song.chords.find((c) => c.tick === 4 * BAR)!.symbol).toBe('Em');
     expect(r.song.tracks.some((t) => t.name === 'Lead Guitar')).toBe(false); // not explicitly selected
-    const withTrack = mergeSongs(p.song, from, { sectionIds: ['sec_chorus'], trackIds: ['Lead Guitar'], lyrics: true });
+    const withTrack = mergeSongs(p.song, from, {
+      sectionIds: ['sec_chorus'],
+      trackIds: ['Lead Guitar'],
+      lyrics: true,
+    });
     expect(withTrack.song.tracks.find((t) => t.name === 'Lead Guitar')!.notes).toHaveLength(1);
     expect(notesInBars(withTrack.song, 'trk_bass', 13, 20)).toEqual(notesInBars(p.song, 'trk_bass', 13, 20));
     expect(withTrack.song.lyrics.map((l) => l.text)).toEqual(['Louder now']);
@@ -288,17 +345,88 @@ function richProject(): { project: Project; assets: Map<string, Uint8Array> } {
   p = { ...p, meta: { ...p.meta, createdAt: at(), updatedAt: at() } };
   p = commitRevision(p, edit(p.song, [{ op: 'set_tempo', bpm: 128 }]), 'Faster', 'edit', 'me', { now: at() });
   p = createBranch(p, 'Acoustic', undefined, 'Unplugged', { now: at() });
-  p = commitRevision(p, edit(p.song, [{ op: 'set_instrument', track: 'bass', instrument_id: 'upright-bass' }]), 'Upright', 'edit', undefined, { now: at() });
-  const guide: AudioAssetMeta = { id: 'asset_guide', name: 'guide_mix.wav', kind: 'guide-render', path: assetPathFor('guide-render', 'guide_mix.wav'), mimeType: 'audio/wav', sampleRate: 48000, channels: 2, durationSeconds: 40, bytes: 1044, createdAt: at() };
-  const stem: AudioAssetMeta = { ...guide, id: 'asset_stem', name: 'bass.wav', kind: 'stem', path: assetPathFor('stem', 'bass.wav') };
-  const missing: AudioAssetMeta = { ...guide, id: 'asset_missing', name: 'gone.wav', kind: 'reference', path: assetPathFor('reference', 'gone.wav') };
+  p = commitRevision(
+    p,
+    edit(p.song, [{ op: 'set_instrument', track: 'bass', instrument_id: 'upright-bass' }]),
+    'Upright',
+    'edit',
+    undefined,
+    { now: at() },
+  );
+  const guide: AudioAssetMeta = {
+    id: 'asset_guide',
+    name: 'guide_mix.wav',
+    kind: 'guide-render',
+    path: assetPathFor('guide-render', 'guide_mix.wav'),
+    mimeType: 'audio/wav',
+    sampleRate: 48000,
+    channels: 2,
+    durationSeconds: 40,
+    bytes: 1044,
+    createdAt: at(),
+  };
+  const stem: AudioAssetMeta = {
+    ...guide,
+    id: 'asset_stem',
+    name: 'bass.wav',
+    kind: 'stem',
+    path: assetPathFor('stem', 'bass.wav'),
+  };
+  const missing: AudioAssetMeta = {
+    ...guide,
+    id: 'asset_missing',
+    name: 'gone.wav',
+    kind: 'reference',
+    path: assetPathFor('reference', 'gone.wav'),
+  };
   p = addAsset(addAsset(addAsset(p, guide, at()), stem, at()), missing, at());
-  p = addProvenance(p, { id: 'prov_1', artifactId: 'asset_guide', artifactName: 'guide_mix.wav', artifactKind: 'audio', sources: [{ kind: 'song', ref: 'song.json', revision: 2 }], providerId: 'internal', providerName: 'Guide renderer', seed: 42, generatedAt: at(), cloud: false }, at());
+  p = addProvenance(
+    p,
+    {
+      id: 'prov_1',
+      artifactId: 'asset_guide',
+      artifactName: 'guide_mix.wav',
+      artifactKind: 'audio',
+      sources: [{ kind: 'song', ref: 'song.json', revision: 2 }],
+      providerId: 'internal',
+      providerName: 'Guide renderer',
+      seed: 42,
+      generatedAt: at(),
+      cloud: false,
+    },
+    at(),
+  );
   p = recordProviderUse(p, 'internal', 'Song Deck engine', at());
-  p = addAnalysisRecord(p, { id: 'an_1', kind: 'key', createdAt: at(), summary: 'E minor', confidence: 0.9, data: { tonic: 4 } }, at());
-  p = addGenerationRecord(p, { id: 'gen_1', kind: 'composition', createdAt: at(), providerId: 'internal', status: 'succeeded', seed: 42, revisionId: p.history.revisions[1].id }, at());
-  p = updateRights(p, { humanComposers: ['Test Writer'], aiAssistance: 'Arrangement drafted with Song Deck' }, at());
-  p.song.motifs.push({ id: 'motif_a', name: 'Motif A', role: 'vocal-hook', lengthTicks: 1920, notes: [{ offset: 0, duration: 480, degree: 0, velocity: 90 }] });
+  p = addAnalysisRecord(
+    p,
+    { id: 'an_1', kind: 'key', createdAt: at(), summary: 'E minor', confidence: 0.9, data: { tonic: 4 } },
+    at(),
+  );
+  p = addGenerationRecord(
+    p,
+    {
+      id: 'gen_1',
+      kind: 'composition',
+      createdAt: at(),
+      providerId: 'internal',
+      status: 'succeeded',
+      seed: 42,
+      revisionId: p.history.revisions[1].id,
+    },
+    at(),
+  );
+  p = updateRights(
+    p,
+    { humanComposers: ['Test Writer'], aiAssistance: 'Arrangement drafted with Song Deck' },
+    at(),
+  );
+  p.song.motifs.push({
+    id: 'motif_a',
+    name: 'Motif A',
+    role: 'vocal-hook',
+    lengthTicks: 1920,
+    notes: [{ offset: 0, duration: 480, degree: 0, velocity: 90 }],
+  });
   const assets = new Map<string, Uint8Array>([
     ['asset_guide', wavBytes(1000)],
     ['asset_stem', wavBytes(500)],
@@ -323,11 +451,29 @@ describe('.songproject packages', () => {
     const { project, assets } = richProject();
     const files = unzipSync(packProject(project, assets));
     const names = Object.keys(files).sort();
-    for (const required of ['project.json', 'song.json', 'history/revisions.json', 'audio/guide-renders/guide_mix.wav', 'stems/bass.wav', 'analysis/an_1.json', 'generations/gen_1.json', 'motifs/motif_a.json', 'midi/song.mid', 'midi/bass.mid', 'midi/vocal.mid', 'lyrics/03-chorus.txt', 'lyrics/lyric-sheet.txt']) {
+    for (const required of [
+      'project.json',
+      'song.json',
+      'history/revisions.json',
+      'audio/guide-renders/guide_mix.wav',
+      'stems/bass.wav',
+      'analysis/an_1.json',
+      'generations/gen_1.json',
+      'motifs/motif_a.json',
+      'midi/song.mid',
+      'midi/bass.mid',
+      'midi/vocal.mid',
+      'lyrics/03-chorus.txt',
+      'lyrics/lyric-sheet.txt',
+    ]) {
       expect(names).toContain(required);
     }
-    expect(names.filter((n) => n.startsWith('history/snapshots/'))).toHaveLength(project.history.revisions.length);
-    expect(strFromU8(files['lyrics/03-chorus.txt'])).toBe('Hold on to the lightning\nHold on to the lightning\n');
+    expect(names.filter((n) => n.startsWith('history/snapshots/'))).toHaveLength(
+      project.history.revisions.length,
+    );
+    expect(strFromU8(files['lyrics/03-chorus.txt'])).toBe(
+      'Hold on to the lightning\nHold on to the lightning\n',
+    );
     const header = JSON.parse(strFromU8(files['project.json']));
     expect(header).toMatchObject({ format: 'songdeck-project', formatVersion: 1 });
     expect(header.meta.id).toBe(project.meta.id);
@@ -340,18 +486,44 @@ describe('.songproject packages', () => {
     const { project, assets } = richProject();
     const leaky: Project = cloneSong(project);
     (leaky.meta.settings as Record<string, unknown>).apiKey = 'sk-live-should-not-be-here-123456';
-    leaky.meta.provenance[0].parameters = { temperature: 0.7, api_key: 'abc', nested: { Authorization: 'Bearer abcdefghijklmnop', model: 'x' }, maxTokens: 2048 };
-    leaky.generations[0].details = { prompt: 'make it heavier', token: 'sk-ant-api03-ABCDEFGHIJKLMNOPQRSTUV', note: 'AIzaSyA1234567890abcdefghijklmnopqrstuv' };
+    leaky.meta.provenance[0].parameters = {
+      temperature: 0.7,
+      api_key: 'abc',
+      nested: { Authorization: 'Bearer abcdefghijklmnop', model: 'x' },
+      maxTokens: 2048,
+    };
+    leaky.generations[0].details = {
+      prompt: 'make it heavier',
+      token: 'sk-ant-api03-ABCDEFGHIJKLMNOPQRSTUV',
+      note: 'AIzaSyA1234567890abcdefghijklmnopqrstuv',
+    };
     const files = unzipSync(packProject(leaky, assets));
     const all = Object.entries(files)
       .filter(([n]) => n.endsWith('.json'))
       .map(([, d]) => strFromU8(d))
       .join('\n');
-    for (const secret of ['sk-live-should-not-be-here', '"abc"', 'Bearer abcdefghijklmnop', 'sk-ant-api03', 'AIzaSyA1234567890']) expect(all).not.toContain(secret);
+    for (const secret of [
+      'sk-live-should-not-be-here',
+      '"abc"',
+      'Bearer abcdefghijklmnop',
+      'sk-ant-api03',
+      'AIzaSyA1234567890',
+    ])
+      expect(all).not.toContain(secret);
     const back = unpackProject(packProject(leaky, assets)).project;
-    expect(back.meta.provenance[0].parameters).toEqual({ temperature: 0.7, nested: { model: 'x' }, maxTokens: 2048 });
-    expect(back.generations[0].details).toEqual({ prompt: 'make it heavier', token: undefined, note: '[redacted]' });
-    expect(scrubSecrets({ password: 'x', list: ['ghp_abcdefghijklmnopqrstuvwxyz'] })).toEqual({ list: ['[redacted]'] });
+    expect(back.meta.provenance[0].parameters).toEqual({
+      temperature: 0.7,
+      nested: { model: 'x' },
+      maxTokens: 2048,
+    });
+    expect(back.generations[0].details).toEqual({
+      prompt: 'make it heavier',
+      token: undefined,
+      note: '[redacted]',
+    });
+    expect(scrubSecrets({ password: 'x', list: ['ghp_abcdefghijklmnopqrstuvwxyz'] })).toEqual({
+      list: ['[redacted]'],
+    });
   });
 
   it('validates the package format and version', () => {
@@ -360,16 +532,28 @@ describe('.songproject packages', () => {
     expect(() => unpackProject(zipSync({ 'song.json': strToU8('{}') }))).toThrow(/project\.json is missing/);
     const files = unzipSync(packProject(project, assets));
     const header = JSON.parse(strFromU8(files['project.json']));
-    expect(() => unpackProject(zipSync({ ...files, 'project.json': strToU8(JSON.stringify({ ...header, formatVersion: 99 })) }))).toThrow(/newer version/);
-    expect(() => unpackProject(zipSync({ ...files, 'project.json': strToU8(JSON.stringify({ ...header, format: 'other' })) }))).toThrow(/Not a \.songproject/);
-    expect(() => unpackProject(zipSync({ ...files, 'song.json': strToU8('{oops') }))).toThrow(/song\.json is not valid JSON/);
+    expect(() =>
+      unpackProject(
+        zipSync({ ...files, 'project.json': strToU8(JSON.stringify({ ...header, formatVersion: 99 })) }),
+      ),
+    ).toThrow(/newer version/);
+    expect(() =>
+      unpackProject(
+        zipSync({ ...files, 'project.json': strToU8(JSON.stringify({ ...header, format: 'other' })) }),
+      ),
+    ).toThrow(/Not a \.songproject/);
+    expect(() => unpackProject(zipSync({ ...files, 'song.json': strToU8('{oops') }))).toThrow(
+      /song\.json is not valid JSON/,
+    );
   });
 
   it('is tolerant of missing optional folders and repairs broken history', () => {
     const { project, assets } = richProject();
     const files = unzipSync(packProject(project, assets));
     // Only the canonical minimum: project.json + song.json.
-    const minimal = unpackProject(zipSync({ 'project.json': files['project.json'], 'song.json': files['song.json'] }));
+    const minimal = unpackProject(
+      zipSync({ 'project.json': files['project.json'], 'song.json': files['song.json'] }),
+    );
     expect(minimal.project.song).toEqual(project.song);
     expect(minimal.project.history.revisions).toHaveLength(1);
     expect(minimal.project.history.revisions[0].kind).toBe('import');
@@ -384,8 +568,12 @@ describe('.songproject packages', () => {
     const repaired = unpackProject(zipSync(broken)).project;
     expect(repaired.history.revisions.map((r) => r.number)).toEqual([1, 3]);
     expect(repaired.history.revisions[1].parents).toEqual([project.history.revisions[0].id]);
-    expect(repaired.history.branches.find((b) => b.name === 'Main')!.headRevisionId).toBe(project.history.revisions[0].id);
-    expect(repaired.history.branches.find((b) => b.name === 'Acoustic')!.baseRevisionId).toBe(project.history.revisions[0].id);
+    expect(repaired.history.branches.find((b) => b.name === 'Main')!.headRevisionId).toBe(
+      project.history.revisions[0].id,
+    );
+    expect(repaired.history.branches.find((b) => b.name === 'Acoustic')!.baseRevisionId).toBe(
+      project.history.revisions[0].id,
+    );
     expect(v2.number).toBe(2);
   });
 });
@@ -405,7 +593,18 @@ describe('assets, provenance, providers', () => {
 
   it('adds, replaces and removes assets and provenance; records provider use', () => {
     let p = newProject();
-    const meta: AudioAssetMeta = { id: 'a1', name: 'x.wav', kind: 'stem', path: '../../x.wav', mimeType: 'audio/wav', sampleRate: 44100, channels: 2, durationSeconds: 1, bytes: 10, createdAt: '2026-01-01T00:00:00Z' };
+    const meta: AudioAssetMeta = {
+      id: 'a1',
+      name: 'x.wav',
+      kind: 'stem',
+      path: '../../x.wav',
+      mimeType: 'audio/wav',
+      sampleRate: 44100,
+      channels: 2,
+      durationSeconds: 1,
+      bytes: 10,
+      createdAt: '2026-01-01T00:00:00Z',
+    };
     p = addAsset(p, meta, '2026-02-01T00:00:00.000Z');
     expect(p.meta.assets[0].path).toBe('x.wav');
     expect(p.meta.updatedAt).toBe('2026-02-01T00:00:00.000Z');
@@ -415,7 +614,17 @@ describe('assets, provenance, providers', () => {
     p = removeAsset(p, 'a1');
     expect(p.meta.assets).toEqual([]);
     expect(removeAsset(p, 'a1')).toBe(p);
-    const rec = { id: 'pv', artifactId: 'a1', artifactName: 'x.wav', artifactKind: 'audio' as const, sources: [], providerId: 'p', providerName: 'P', generatedAt: '2026-01-01T00:00:00Z', cloud: true };
+    const rec = {
+      id: 'pv',
+      artifactId: 'a1',
+      artifactName: 'x.wav',
+      artifactKind: 'audio' as const,
+      sources: [],
+      providerId: 'p',
+      providerName: 'P',
+      generatedAt: '2026-01-01T00:00:00Z',
+      cloud: true,
+    };
     p = addProvenance(addProvenance(p, rec), { ...rec, seed: 7 });
     expect(provenanceFor(p, 'a1')).toEqual([{ ...rec, seed: 7 }]);
     p = recordProviderUse(p, 'openai', 'OpenAI', '2026-03-01T00:00:00.000Z');

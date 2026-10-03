@@ -45,7 +45,13 @@ export function ConfirmDialog() {
   return (
     <Modal
       title={confirm.title}
-      icon={confirm.kind === 'dataflow' || confirm.kind === 'consent' ? 'shield' : confirm.kind === 'cost' ? 'info' : 'alert'}
+      icon={
+        confirm.kind === 'dataflow' || confirm.kind === 'consent'
+          ? 'shield'
+          : confirm.kind === 'cost'
+            ? 'info'
+            : 'alert'
+      }
       onClose={() => resolve(false)}
       footer={
         <>
@@ -65,7 +71,11 @@ export function ConfirmDialog() {
               <div style={{ fontSize: 16, fontWeight: 700 }}>{flow.providerName}</div>
             </div>
             <Badge tone={flow.leavesDevice ? 'warning' : 'success'}>
-              {flow.location === 'cloud' ? 'Cloud — leaves this device' : flow.location === 'local' ? 'Local model — stays on this machine' : 'On-device engine'}
+              {flow.location === 'cloud'
+                ? 'Cloud — leaves this device'
+                : flow.location === 'local'
+                  ? 'Local model — stays on this machine'
+                  : 'On-device engine'}
             </Badge>
           </div>
           <div className="field-label" style={{ marginBottom: 6 }}>
@@ -93,7 +103,9 @@ export function ConfirmDialog() {
             <div className="row between">
               <span className="muted">Estimated cost</span>
               <span className="mono">
-                {body.estimate.known ? `${money(body.estimate.minUsd)}–${money(body.estimate.maxUsd)}` : 'unknown (provider did not publish pricing)'}
+                {body.estimate.known
+                  ? `${money(body.estimate.minUsd)}–${money(body.estimate.maxUsd)}`
+                  : 'unknown (provider did not publish pricing)'}
               </span>
             </div>
           )}

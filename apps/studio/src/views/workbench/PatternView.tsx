@@ -20,7 +20,9 @@ export default function PatternView() {
   const song = useStudio((s) => s.project?.song ?? null);
   const selectedTrackId = useStudio((s) => s.selectedTrackId);
   const st = useStudio.getState();
-  const track = song?.tracks.find((t) => t.id === selectedTrackId && t.kind === 'midi') ?? song?.tracks.find((t) => t.kind === 'midi');
+  const track =
+    song?.tracks.find((t) => t.id === selectedTrackId && t.kind === 'midi') ??
+    song?.tracks.find((t) => t.kind === 'midi');
   const layout = useMemo(() => (song ? sectionLayout(song) : []), [song]);
   const [sectionId, setSectionId] = useState<string>(layout[0]?.section.id ?? '');
   const [lengthBars, setLengthBars] = useState(1);
@@ -61,7 +63,8 @@ export default function PatternView() {
       .join('|');
   const sig = signature(patStart);
   let repeats = 0;
-  for (let b = span.startBar; b + patBars <= span.endBar; b += patBars) if (signature(barToTick(song, b)) === sig) repeats++;
+  for (let b = span.startBar; b + patBars <= span.endBar; b += patBars)
+    if (signature(barToTick(song, b)) === sig) repeats++;
 
   const cellNote = (pitch: number, step: number): Note | undefined =>
     notesIn.find((n) => n.pitch === pitch && Math.round((n.tick - patStart) / stepTicks) === step);
@@ -76,7 +79,10 @@ export default function PatternView() {
     const existing = cellNote(pitch, step);
     if (existing) {
       if (isNoteLocked(song, track, existing)) return st.toast('warning', 'That note is locked.');
-      commit(track.notes.filter((n) => n.id !== existing.id), `Pattern: removed ${isDrums ? GM_DRUM_NAMES[pitch] ?? pitch : midiToNoteName(pitch)}`);
+      commit(
+        track.notes.filter((n) => n.id !== existing.id),
+        `Pattern: removed ${isDrums ? (GM_DRUM_NAMES[pitch] ?? pitch) : midiToNoteName(pitch)}`,
+      );
     } else {
       const note: Note = {
         id: randomId('n'),
@@ -87,14 +93,19 @@ export default function PatternView() {
         origin: 'user',
       };
       auditionNote(pitch, note.velocity, isDrums);
-      commit([...track.notes, note], `Pattern: added ${isDrums ? GM_DRUM_NAMES[pitch] ?? pitch : midiToNoteName(pitch)}`);
+      commit(
+        [...track.notes, note],
+        `Pattern: added ${isDrums ? (GM_DRUM_NAMES[pitch] ?? pitch) : midiToNoteName(pitch)}`,
+      );
     }
   };
 
   const applyToRepetitions = (scope: 'section' | 'kind') => {
     const len = patEnd - patStart;
     const pattern = notesIn.map((n) => ({ ...n, tick: n.tick - patStart }));
-    const targets = layout.filter((s) => (scope === 'section' ? s.section.id === span.section.id : s.section.kind === span.section.kind));
+    const targets = layout.filter((s) =>
+      scope === 'section' ? s.section.id === span.section.id : s.section.kind === span.section.kind,
+    );
     let notes = [...track.notes];
     let changedWindows = 0;
     let skipped = 0;
@@ -112,18 +123,43 @@ export default function PatternView() {
         changedWindows++;
       }
     }
-    commit(notes, `Applied ${patBars}-bar pattern to ${changedWindows} repetitions (${scope === 'section' ? span.section.name : `all ${span.section.kind} sections`})`);
+    commit(
+      notes,
+      `Applied ${patBars}-bar pattern to ${changedWindows} repetitions (${scope === 'section' ? span.section.name : `all ${span.section.kind} sections`})`,
+    );
     if (skipped) st.toast('warning', `${skipped} locked repetitions were left unchanged.`);
   };
 
   const color = track.color || colorForRole(track.role);
   const cell = Math.max(14, Math.min(26, Math.floor(900 / Math.max(16, steps))));
   return (
-    <div className="scroll" style={{ position: 'absolute', inset: 0, padding: 14 }} data-testid="pattern-view">
+    <div
+      className="scroll"
+      style={{ position: 'absolute', inset: 0, padding: 14 }}
+      data-testid="pattern-view"
+    >
       <div className="row wrap" style={{ marginBottom: 12 }}>
-        <Select size="sm" value={track.id} onChange={(id) => st.selectTrack(id)} options={song.tracks.filter((t) => t.kind === 'midi').map((t) => ({ value: t.id, label: t.name }))} />
-        <Select size="sm" value={span.section.id} onChange={(v) => { setSectionId(v); setOffsetBar(0); }} options={layout.map((s) => ({ value: s.section.id, label: s.section.name }))} />
-        <Select size="sm" value={String(lengthBars)} onChange={(v) => setLengthBars(parseInt(v, 10))} options={[1, 2, 4, 8].map((n) => ({ value: String(n), label: `${n}-bar loop` }))} />
+        <Select
+          size="sm"
+          value={track.id}
+          onChange={(id) => st.selectTrack(id)}
+          options={song.tracks.filter((t) => t.kind === 'midi').map((t) => ({ value: t.id, label: t.name }))}
+        />
+        <Select
+          size="sm"
+          value={span.section.id}
+          onChange={(v) => {
+            setSectionId(v);
+            setOffsetBar(0);
+          }}
+          options={layout.map((s) => ({ value: s.section.id, label: s.section.name }))}
+        />
+        <Select
+          size="sm"
+          value={String(lengthBars)}
+          onChange={(v) => setLengthBars(parseInt(v, 10))}
+          options={[1, 2, 4, 8].map((n) => ({ value: String(n), label: `${n}-bar loop` }))}
+        />
         <Select
           size="sm"
           value={String(offsetBar)}
@@ -133,23 +169,56 @@ export default function PatternView() {
             label: `Bars ${span.startBar + i * patBars + 1}–${span.startBar + (i + 1) * patBars}`,
           }))}
         />
-        <Select size="sm" value={String(stepsPerBeat)} onChange={(v) => setStepsPerBeat(parseInt(v, 10))} options={[{ value: '2', label: '1/8 steps' }, { value: '4', label: '1/16 steps' }, { value: '3', label: '1/8 triplets' }, { value: '6', label: '1/16 triplets' }]} />
+        <Select
+          size="sm"
+          value={String(stepsPerBeat)}
+          onChange={(v) => setStepsPerBeat(parseInt(v, 10))}
+          options={[
+            { value: '2', label: '1/8 steps' },
+            { value: '4', label: '1/16 steps' },
+            { value: '3', label: '1/8 triplets' },
+            { value: '6', label: '1/16 triplets' },
+          ]}
+        />
         <Badge tone={repeats > 1 ? 'ai' : undefined}>
           repeats {repeats}× in {span.section.name}
         </Badge>
         <div className="spacer" />
-        <Button size="sm" onClick={() => applyToRepetitions('section')} title="Copy this loop over every window of the section">
+        <Button
+          size="sm"
+          onClick={() => applyToRepetitions('section')}
+          title="Copy this loop over every window of the section"
+        >
           Apply to all repetitions in section
         </Button>
-        <Button size="sm" onClick={() => applyToRepetitions('kind')} title={`Copy into every ${span.section.kind} section`}>
+        <Button
+          size="sm"
+          onClick={() => applyToRepetitions('kind')}
+          title={`Copy into every ${span.section.kind} section`}
+        >
           Apply to every {span.section.kind}
         </Button>
       </div>
-      <div style={{ display: 'inline-grid', gridTemplateColumns: `110px repeat(${steps}, ${cell}px)`, gap: 2, userSelect: 'none' }}>
+      <div
+        style={{
+          display: 'inline-grid',
+          gridTemplateColumns: `110px repeat(${steps}, ${cell}px)`,
+          gap: 2,
+          userSelect: 'none',
+        }}
+      >
         {rows.map((pitch) => (
           <div key={pitch} style={{ display: 'contents' }}>
-            <div className="small ellipsis" style={{ lineHeight: `${cell}px`, color: 'var(--text-muted)', paddingRight: 6, textAlign: 'right' }}>
-              {isDrums ? GM_DRUM_NAMES[pitch] ?? `drum ${pitch}` : midiToNoteName(pitch)}
+            <div
+              className="small ellipsis"
+              style={{
+                lineHeight: `${cell}px`,
+                color: 'var(--text-muted)',
+                paddingRight: 6,
+                textAlign: 'right',
+              }}
+            >
+              {isDrums ? (GM_DRUM_NAMES[pitch] ?? `drum ${pitch}`) : midiToNoteName(pitch)}
             </div>
             {Array.from({ length: steps }, (_, step) => {
               const n = cellNote(pitch, step);
@@ -167,7 +236,11 @@ export default function PatternView() {
                     borderLeftColor: beatStart ? 'var(--border-strong)' : undefined,
                     borderRadius: 3,
                     cursor: 'pointer',
-                    background: n ? color : Math.floor(step / (stepsPerBeat * 4)) % 2 ? 'var(--bg-elev-2)' : 'var(--bg-elev-1)',
+                    background: n
+                      ? color
+                      : Math.floor(step / (stepsPerBeat * 4)) % 2
+                        ? 'var(--bg-elev-2)'
+                        : 'var(--bg-elev-1)',
                     opacity: n ? 0.45 + (n.velocity / 127) * 0.55 : 1,
                   }}
                 />
@@ -177,7 +250,8 @@ export default function PatternView() {
         ))}
       </div>
       <p className="small muted" style={{ marginTop: 12 }}>
-        Click cells to toggle notes. Use “Apply to all repetitions” to propagate a loop edit; locked bars are never overwritten.
+        Click cells to toggle notes. Use “Apply to all repetitions” to propagate a loop edit; locked bars are
+        never overwritten.
       </p>
     </div>
   );

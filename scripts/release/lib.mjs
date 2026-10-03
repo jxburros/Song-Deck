@@ -15,22 +15,39 @@ export function manifests() {
   const root = readJson('package.json');
   return [
     { dir: '.', file: 'package.json', pkg: root },
-    ...root.workspaces.map((dir) => ({ dir, file: `${dir}/package.json`, pkg: readJson(`${dir}/package.json`) })),
+    ...root.workspaces.map((dir) => ({
+      dir,
+      file: `${dir}/package.json`,
+      pkg: readJson(`${dir}/package.json`),
+    })),
   ];
 }
 
 /** Names of the workspace packages (`@songdeck/core`, …). */
 export function workspaceNames() {
-  return new Set(manifests().slice(1).map((m) => m.pkg.name));
+  return new Set(
+    manifests()
+      .slice(1)
+      .map((m) => m.pkg.name),
+  );
 }
 
-export const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
+export const DEPENDENCY_FIELDS = [
+  'dependencies',
+  'devDependencies',
+  'optionalDependencies',
+  'peerDependencies',
+];
 
-const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+const SEMVER =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 /** "v0.1.0", "0.1.0" or "refs/tags/v0.1.0" → "0.1.0"; undefined when it is not a semantic version. */
 export function parseVersion(input) {
-  const v = String(input ?? '').trim().replace(/^refs\/tags\//, '').replace(/^v/, '');
+  const v = String(input ?? '')
+    .trim()
+    .replace(/^refs\/tags\//, '')
+    .replace(/^v/, '');
   return SEMVER.test(v) ? v : undefined;
 }
 
@@ -63,11 +80,17 @@ export function githubRepo() {
   if (process.env.GITHUB_REPOSITORY) return `https://github.com/${process.env.GITHUB_REPOSITORY}`;
   let remote = '';
   try {
-    remote = execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    remote = execFileSync('git', ['remote', 'get-url', 'origin'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
   } catch {
     return '';
   }
-  const m = /github\.com[/:]([^/]+\/[^/]+?)(?:\.git)?$/i.exec(remote) ?? /\/git\/([^/]+\/[^/]+?)(?:\.git)?$/.exec(remote);
+  const m =
+    /github\.com[/:]([^/]+\/[^/]+?)(?:\.git)?$/i.exec(remote) ??
+    /\/git\/([^/]+\/[^/]+?)(?:\.git)?$/.exec(remote);
   return m ? `https://github.com/${m[1]}` : '';
 }
 

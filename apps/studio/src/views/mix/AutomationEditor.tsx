@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent as RMouseEvent,
+  type PointerEvent as RPointerEvent,
+} from 'react';
 import {
   TRACK_NEUTRAL,
   barLengthTicks,
@@ -52,7 +60,13 @@ function snapTick(song: Song, tick: number, snap: Snap, end: number): number {
   const p = tickToBar(song, t);
   const barStart = barToTick(song, p.bar);
   const unit =
-    snap === 'bar' ? barLengthTicks(p.meter, song.ppq) : snap === 'beat' ? ticksPerBeat(p.meter.denominator, song.ppq) : snap === '8th' ? song.ppq / 2 : song.ppq / 4;
+    snap === 'bar'
+      ? barLengthTicks(p.meter, song.ppq)
+      : snap === 'beat'
+        ? ticksPerBeat(p.meter.denominator, song.ppq)
+        : snap === '8th'
+          ? song.ppq / 2
+          : song.ppq / 4;
   return Math.max(0, Math.min(end, Math.round(barStart + Math.round((t - barStart) / unit) * unit)));
 }
 
@@ -158,9 +172,24 @@ interface LaneCanvasProps {
   onCommit: (points: AutomationPoint[], message: string) => void;
 }
 
-function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, snap, newCurve, onSelectPoint, onDraft, onCommit }: LaneCanvasProps) {
+function LaneCanvas({
+  song,
+  lane,
+  points,
+  width,
+  end,
+  locked,
+  selectedIndex,
+  snap,
+  newCurve,
+  onSelectPoint,
+  onDraft,
+  onCommit,
+}: LaneCanvasProps) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const drag = useRef<{ index: number; points: AutomationPoint[]; moved: boolean; created: boolean } | null>(null);
+  const drag = useRef<{ index: number; points: AutomationPoint[]; moved: boolean; created: boolean } | null>(
+    null,
+  );
   const [hover, setHover] = useState<number | null>(null);
   const theme = useThemeName();
   const meta = AUTOMATION_META[lane.param];
@@ -170,7 +199,8 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
   const xOf = (t: number) => (t / end) * width;
   const yOf = (v: number) => PAD + (1 - automationNorm(lane.param, v)) * plotH;
   const tickOf = (x: number) => (x / width) * end;
-  const valueOf = (y: number) => roundAutomation(lane.param, automationDenorm(lane.param, 1 - (y - PAD) / plotH));
+  const valueOf = (y: number) =>
+    roundAutomation(lane.param, automationDenorm(lane.param, 1 - (y - PAD) / plotH));
   const title = laneTitle(song, lane);
 
   useEffect(() => {
@@ -376,9 +406,16 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (i === null) return;
     e.preventDefault();
     if (locked) return;
-    const pts = points.map((p, k) => (k === i ? { ...p, curve: (p.curve ?? 'linear') === 'step' ? ('linear' as const) : ('step' as const) } : p));
+    const pts = points.map((p, k) =>
+      k === i
+        ? { ...p, curve: (p.curve ?? 'linear') === 'step' ? ('linear' as const) : ('step' as const) }
+        : p,
+    );
     onSelectPoint(i);
-    onCommit(pts, `Automation: ${laneTitle(song, lane)} — ${pts[i].curve} segment at ${posLabel(song, pts[i].tick)}`);
+    onCommit(
+      pts,
+      `Automation: ${laneTitle(song, lane)} — ${pts[i].curve} segment at ${posLabel(song, pts[i].tick)}`,
+    );
   };
   const onKeyDown = (e: KeyboardEvent<HTMLCanvasElement>) => {
     if (locked || selectedIndex === null || !points[selectedIndex]) return;
@@ -392,8 +429,10 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     }
     const n = automationNorm(lane.param, p.value);
     const stepN = e.shiftKey ? 0.01 : 0.04;
-    if (e.key === 'ArrowUp') next = { ...p, value: roundAutomation(lane.param, automationDenorm(lane.param, n + stepN)) };
-    if (e.key === 'ArrowDown') next = { ...p, value: roundAutomation(lane.param, automationDenorm(lane.param, n - stepN)) };
+    if (e.key === 'ArrowUp')
+      next = { ...p, value: roundAutomation(lane.param, automationDenorm(lane.param, n + stepN)) };
+    if (e.key === 'ArrowDown')
+      next = { ...p, value: roundAutomation(lane.param, automationDenorm(lane.param, n - stepN)) };
     const unit = snapUnit(song, p.tick, snap === 'off' ? 'beat' : snap);
     const prevT = i > 0 ? points[i - 1].tick : 0;
     const nextT = i < points.length - 1 ? points[i + 1].tick : end;
@@ -402,7 +441,10 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (!next) return;
     e.preventDefault();
     const pts = points.map((q, k) => (k === i ? next! : q));
-    onCommit(pts, `Automation: ${laneTitle(song, lane)} — ${posLabel(song, next.tick)} ${meta.fmt(next.value)}`);
+    onCommit(
+      pts,
+      `Automation: ${laneTitle(song, lane)} — ${posLabel(song, next.tick)} ${meta.fmt(next.value)}`,
+    );
   };
 
   return (
@@ -455,7 +497,11 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
   const [hostRef, size] = useElementSize<HTMLDivElement>();
   const [snap, setSnap] = useState<Snap>('beat');
   const [newCurve, setNewCurve] = useState<'linear' | 'step'>('linear');
-  const [target, setTarget] = useState<string>(defaultTarget && song.tracks.some((t) => t.id === defaultTarget) ? defaultTarget : (song.tracks[0]?.id ?? MASTER));
+  const [target, setTarget] = useState<string>(
+    defaultTarget && song.tracks.some((t) => t.id === defaultTarget)
+      ? defaultTarget
+      : (song.tracks[0]?.id ?? MASTER),
+  );
   const [param, setParam] = useState<AutomationParam>('volumeDb');
   const [selected, setSelected] = useState<{ laneId: string; index: number } | null>(null);
   const [draft, setDraft] = useState<{ laneId: string; points: AutomationPoint[] } | null>(null);
@@ -469,7 +515,9 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
     ...song.tracks.map((t) => ({ value: t.id, label: t.name })),
     { value: MASTER, label: 'Master' },
   ];
-  const paramOptions = AUTOMATION_PARAMS.filter((p) => target !== MASTER || AUTOMATION_META[p].masterOk).map((p) => ({ value: p, label: AUTOMATION_META[p].label }));
+  const paramOptions = AUTOMATION_PARAMS.filter((p) => target !== MASTER || AUTOMATION_META[p].masterOk).map(
+    (p) => ({ value: p, label: AUTOMATION_META[p].label }),
+  );
   const existing = lanes.find((l) => l.target === target && l.param === param);
   const targetLocked = isStripLocked(song, target);
 
@@ -493,17 +541,45 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
       <div className="panel-header wrap">
         <Icon name="sliders" />
         <h3>Automation</h3>
-        <span className="small dim grow">Parameter changes over time — rendered identically in playback and exports.</span>
+        <span className="small dim grow">
+          Parameter changes over time — rendered identically in playback and exports.
+        </span>
       </div>
       <div className="mx-auto-toolbar">
         <div className="row wrap">
           <span className="field-label">Add lane</span>
-          <Select size="sm" value={target} onChange={(v) => {
-            setTarget(v);
-            if (v === MASTER && !AUTOMATION_META[param].masterOk) setParam('volumeDb');
-          }} options={targetOptions} aria-label="Automation target" style={{ width: 170 }} />
-          <Select size="sm" value={param} onChange={setParam} options={paramOptions} aria-label="Automation parameter" style={{ width: 150 }} />
-          <Button size="sm" icon="plus" onClick={addLane} disabled={targetLocked} title={targetLocked ? 'This strip is locked' : existing ? 'Lane exists — scroll to it' : 'Add an automation lane'}>
+          <Select
+            size="sm"
+            value={target}
+            onChange={(v) => {
+              setTarget(v);
+              if (v === MASTER && !AUTOMATION_META[param].masterOk) setParam('volumeDb');
+            }}
+            options={targetOptions}
+            aria-label="Automation target"
+            style={{ width: 170 }}
+          />
+          <Select
+            size="sm"
+            value={param}
+            onChange={setParam}
+            options={paramOptions}
+            aria-label="Automation parameter"
+            style={{ width: 150 }}
+          />
+          <Button
+            size="sm"
+            icon="plus"
+            onClick={addLane}
+            disabled={targetLocked}
+            title={
+              targetLocked
+                ? 'This strip is locked'
+                : existing
+                  ? 'Lane exists — scroll to it'
+                  : 'Add an automation lane'
+            }
+          >
             {existing ? 'Show lane' : 'Add lane'}
           </Button>
         </div>
@@ -554,8 +630,8 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
       <div className="mx-auto-scroll" ref={hostRef}>
         {lanes.length === 0 ? (
           <EmptyState icon="sliders" title="No automation lanes yet">
-            Pick a track (or the master) and a parameter, then click <strong>Add lane</strong>. Click inside a lane to add points; drag them to shape fades,
-            swells and rides across sections.
+            Pick a track (or the master) and a parameter, then click <strong>Add lane</strong>. Click inside a
+            lane to add points; drag them to shape fades, swells and rides across sections.
           </EmptyState>
         ) : (
           <div className="mx-auto-content" style={{ width: HEADER_W + width }}>
@@ -571,11 +647,25 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
               const sel = selected?.laneId === lane.id ? selected.index : null;
               const selPoint = sel !== null ? lane.points[sel] : undefined;
               return (
-                <div className={`mx-auto-row ${lane.enabled ? '' : 'disabled'}`} key={lane.id} id={`lane-${lane.id}`}>
+                <div
+                  className={`mx-auto-row ${lane.enabled ? '' : 'disabled'}`}
+                  key={lane.id}
+                  id={`lane-${lane.id}`}
+                >
                   <div className="mx-auto-head">
                     <div className="row" style={{ gap: 6 }}>
-                      <span className="mx-color-dot" style={{ background: lane.target === MASTER ? 'var(--accent)' : (track?.color ?? TRACK_NEUTRAL) }} />
-                      <span className="ellipsis grow" style={{ fontWeight: 600 }} title={laneTitle(song, lane)}>
+                      <span
+                        className="mx-color-dot"
+                        style={{
+                          background:
+                            lane.target === MASTER ? 'var(--accent)' : (track?.color ?? TRACK_NEUTRAL),
+                        }}
+                      />
+                      <span
+                        className="ellipsis grow"
+                        style={{ fontWeight: 600 }}
+                        title={laneTitle(song, lane)}
+                      >
                         {targetName(song, lane.target)}
                       </span>
                       {locked && <Icon name="lock" size={12} />}
@@ -586,7 +676,13 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
                         aria-label={`Remove ${laneTitle(song, lane)} lane`}
                         title="Remove lane"
                         disabled={locked}
-                        onClick={() => commitAutomation(song, lanes.filter((l) => l.id !== lane.id), `Removed automation lane: ${laneTitle(song, lane)}`)}
+                        onClick={() =>
+                          commitAutomation(
+                            song,
+                            lanes.filter((l) => l.id !== lane.id),
+                            `Removed automation lane: ${laneTitle(song, lane)}`,
+                          )
+                        }
                       />
                     </div>
                     <div className="row between small">
@@ -598,7 +694,14 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
                     <div className="row between small">
                       <Toggle
                         on={lane.enabled}
-                        onChange={(v) => !locked && updateLane(lane.id, { enabled: v }, `${v ? 'Enabled' : 'Disabled'} automation: ${laneTitle(song, lane)}`)}
+                        onChange={(v) =>
+                          !locked &&
+                          updateLane(
+                            lane.id,
+                            { enabled: v },
+                            `${v ? 'Enabled' : 'Disabled'} automation: ${laneTitle(song, lane)}`,
+                          )
+                        }
                         label={lane.enabled ? 'On' : 'Off'}
                         title="Enable / bypass this lane"
                       />
@@ -622,7 +725,9 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
                           style={{ width: 78 }}
                         />
                       ) : (
-                        <span className="dim">{lane.points.length ? 'select a point' : 'click lane to add'}</span>
+                        <span className="dim">
+                          {lane.points.length ? 'select a point' : 'click lane to add'}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -654,7 +759,8 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
       </div>
       {lanes.length > 0 && (
         <div className="mx-auto-help small dim">
-          Click = add point · drag = move (Shift locks value, Alt locks time) · double-click = delete · right-click = linear/step · arrows nudge the selected point
+          Click = add point · drag = move (Shift locks value, Alt locks time) · double-click = delete ·
+          right-click = linear/step · arrows nudge the selected point
         </div>
       )}
     </div>

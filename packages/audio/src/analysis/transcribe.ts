@@ -17,7 +17,8 @@ import { transcribePolyphonic } from './transcribe-poly';
 import type { DrumHit, TranscribedNote } from './types';
 import { clamp01, prepareChannels, throwIfAborted } from './util';
 
-export type TranscriptionSource = 'humming' | 'singing' | 'guitar' | 'bass' | 'piano' | 'drums' | 'isolated' | 'full-mix';
+export type TranscriptionSource =
+  'humming' | 'singing' | 'guitar' | 'bass' | 'piano' | 'drums' | 'isolated' | 'full-mix';
 
 export interface TranscribeAudioOptions {
   source: TranscriptionSource;
@@ -77,7 +78,10 @@ function pathForInstrument(id: StemInstrumentId): Path {
 }
 
 /** Bar-grid origin: first downbeat folded back to the start, minus a pickup bar when events precede it. */
-export function gridOrigin(tempo: Pick<TempoResult, 'bpm' | 'downbeats' | 'meter'>, firstEventSeconds: number): number {
+export function gridOrigin(
+  tempo: Pick<TempoResult, 'bpm' | 'downbeats' | 'meter'>,
+  firstEventSeconds: number,
+): number {
   const barSec = (60 / tempo.bpm) * tempo.meter.numerator;
   if (!tempo.downbeats.length || !(barSec > 0)) return 0;
   let origin = tempo.downbeats[0] - Math.floor(tempo.downbeats[0] / barSec + 1e-6) * barSec;
@@ -85,7 +89,10 @@ export function gridOrigin(tempo: Pick<TempoResult, 'bpm' | 'downbeats' | 'meter
   return origin;
 }
 
-export async function transcribeAudio(buf: AudioData, opts: TranscribeAudioOptions): Promise<TranscribeAudioResult> {
+export async function transcribeAudio(
+  buf: AudioData,
+  opts: TranscribeAudioOptions,
+): Promise<TranscribeAudioResult> {
   throwIfAborted(opts.signal);
   const warnings: string[] = [];
   const work = prepareChannels(buf);
@@ -131,7 +138,10 @@ export async function transcribeAudio(buf: AudioData, opts: TranscribeAudioOptio
       instrumentId = c.instrumentId;
       role = c.role;
       method = `classified as ${c.instrumentId} (${Math.round(c.confidence * 100)}%) → ${path}`;
-      if (c.confidence < 0.4) warnings.push(`Instrument classification is uncertain (${c.instrumentId}, ${Math.round(c.confidence * 100)}%).`);
+      if (c.confidence < 0.4)
+        warnings.push(
+          `Instrument classification is uncertain (${c.instrumentId}, ${Math.round(c.confidence * 100)}%).`,
+        );
       break;
     }
     case 'full-mix':
@@ -140,7 +150,9 @@ export async function transcribeAudio(buf: AudioData, opts: TranscribeAudioOptio
       instrumentId = 'lead-vocal';
       role = 'vocal';
       method = 'built-in separation → lead melody (vocal stem) + drums';
-      warnings.push('Full-mix transcription returns the lead melody and drum hits only; use Rebuild to reconstruct every part.');
+      warnings.push(
+        'Full-mix transcription returns the lead melody and drum hits only; use Rebuild to reconstruct every part.',
+      );
       break;
   }
   throwIfAborted(opts.signal);
@@ -155,7 +167,10 @@ export async function transcribeAudio(buf: AudioData, opts: TranscribeAudioOptio
     melodySource = sep.stems.vocals;
     const d = transcribeDrums(sep.stems.drums, { skipHpss: true });
     drumHits = d.hits;
-    if (work.channels.length < 2) warnings.push('Mono input: the melody stem relies on pitch-fluctuation cues only and may contain accompaniment.');
+    if (work.channels.length < 2)
+      warnings.push(
+        'Mono input: the melody stem relies on pitch-fluctuation cues only and may contain accompaniment.',
+      );
     confidence = sep.confidence.vocals;
   }
   throwIfAborted(opts.signal);
@@ -169,14 +184,25 @@ export async function transcribeAudio(buf: AudioData, opts: TranscribeAudioOptio
     });
     transcribed = r.notes;
     confidence = opts.source === 'full-mix' ? Math.sqrt(confidence * r.confidence) : r.confidence;
-    if (r.voicedFraction < 0.1) warnings.push('Very little pitched sound was found; is the recording silent or noisy?');
-    if (Math.abs(r.tuningCents) >= 25) warnings.push(`The performance is ${r.tuningCents > 0 ? 'sharp' : 'flat'} by about ${Math.abs(r.tuningCents)} cents; notes were rounded relative to that tuning.`);
+    if (r.voicedFraction < 0.1)
+      warnings.push('Very little pitched sound was found; is the recording silent or noisy?');
+    if (Math.abs(r.tuningCents) >= 25)
+      warnings.push(
+        `The performance is ${r.tuningCents > 0 ? 'sharp' : 'flat'} by about ${Math.abs(r.tuningCents)} cents; notes were rounded relative to that tuning.`,
+      );
   } else if (path === 'poly') {
     const range = RANGES[instrumentId] ?? [36, 96];
-    const r = transcribePolyphonic(work, { minPitch: Math.max(28, range[0]), maxPitch: Math.min(100, range[1]), maxPolyphony: instrumentId === 'piano' ? 8 : 6, signal: opts.signal });
+    const r = transcribePolyphonic(work, {
+      minPitch: Math.max(28, range[0]),
+      maxPitch: Math.min(100, range[1]),
+      maxPolyphony: instrumentId === 'piano' ? 8 : 6,
+      signal: opts.signal,
+    });
     transcribed = r.notes;
     confidence = r.confidence;
-    warnings.push('Polyphonic transcription is approximate: octave doublings and dense voicings may be missed.');
+    warnings.push(
+      'Polyphonic transcription is approximate: octave doublings and dense voicings may be missed.',
+    );
   } else {
     const r = transcribeDrums(work);
     drumHits = r.hits;
@@ -192,26 +218,51 @@ export async function transcribeAudio(buf: AudioData, opts: TranscribeAudioOptio
     const tempo = detectTempo(work);
     bpm = tempo.beats.length >= 4 ? tempo.bpm : 120;
     bpmConfidence = tempo.beats.length >= 4 ? tempo.confidence : 0;
-    if (bpmConfidence < 0.35) warnings.push(`Tempo is uncertain (${Math.round(bpm)} BPM, ${Math.round(bpmConfidence * 100)}%): set the tempo or record with the metronome for a reliable grid.`);
+    if (bpmConfidence < 0.35)
+      warnings.push(
+        `Tempo is uncertain (${Math.round(bpm)} BPM, ${Math.round(bpmConfidence * 100)}%): set the tempo or record with the metronome for a reliable grid.`,
+      );
     const firstEvent = Math.min(transcribed[0]?.startSeconds ?? Infinity, drumHits?.[0]?.time ?? Infinity);
-    if (opts.offsetSeconds === undefined) offset = Number.isFinite(firstEvent) && bpmConfidence >= 0.35 ? gridOrigin(tempo, firstEvent) : Number.isFinite(firstEvent) ? firstEvent : 0;
+    if (opts.offsetSeconds === undefined)
+      offset =
+        Number.isFinite(firstEvent) && bpmConfidence >= 0.35
+          ? gridOrigin(tempo, firstEvent)
+          : Number.isFinite(firstEvent)
+            ? firstEvent
+            : 0;
   }
 
   // ---- key ---------------------------------------------------------------------------------------
   let key: KeySignature = opts.key ?? { tonic: 0, mode: 'major' };
   let keyConfidence = opts.key ? 1 : 0;
   if (!opts.key && path !== 'drums') {
-    const k = path === 'poly' ? detectKey(work) : keyFromNotes(transcribed.map((n) => ({ pitch: n.pitch, duration: n.endSeconds - n.startSeconds, velocity: n.velocity })));
+    const k =
+      path === 'poly'
+        ? detectKey(work)
+        : keyFromNotes(
+            transcribed.map((n) => ({
+              pitch: n.pitch,
+              duration: n.endSeconds - n.startSeconds,
+              velocity: n.velocity,
+            })),
+          );
     key = k.key;
     keyConfidence = k.confidence;
-    if (keyConfidence > 0 && keyConfidence < 0.35 && k.alternatives[0]) warnings.push(`Key is ambiguous: ${keyName(k.key)} or ${keyName(k.alternatives[0].key)}.`);
+    if (keyConfidence > 0 && keyConfidence < 0.35 && k.alternatives[0])
+      warnings.push(`Key is ambiguous: ${keyName(k.key)} or ${keyName(k.alternatives[0].key)}.`);
   }
 
   // ---- IR notes ----------------------------------------------------------------------------------
   const quantizeBeats = opts.quantizeBeats ?? 0.25;
   let notes: Note[] = [];
   if (drumHits && path === 'drums') {
-    notes = drumHitsToNotes(drumHits, { bpm, quantizeBeats, quantizeStrength: opts.quantizeStrength, offsetSeconds: offset, seed: opts.seed });
+    notes = drumHitsToNotes(drumHits, {
+      bpm,
+      quantizeBeats,
+      quantizeStrength: opts.quantizeStrength,
+      offsetSeconds: offset,
+      seed: opts.seed,
+    });
   } else {
     const range = RANGES[instrumentId];
     notes = transcribedToNotes(transcribed, {
@@ -245,4 +296,3 @@ export async function transcribeAudio(buf: AudioData, opts: TranscribeAudioOptio
     transcribed,
   };
 }
-

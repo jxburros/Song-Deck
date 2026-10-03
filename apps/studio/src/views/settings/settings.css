@@ -467,7 +467,13 @@
   opacity: 0.65;
 }
 .st-provider.blocked {
-  background: repeating-linear-gradient(-45deg, var(--bg-elev-1), var(--bg-elev-1) 10px, color-mix(in srgb, var(--danger) 3.5%, transparent) 10px, color-mix(in srgb, var(--danger) 3.5%, transparent) 20px);
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--bg-elev-1),
+    var(--bg-elev-1) 10px,
+    color-mix(in srgb, var(--danger) 3.5%, transparent) 10px,
+    color-mix(in srgb, var(--danger) 3.5%, transparent) 20px
+  );
 }
 .st-provider-name {
   font-weight: 700;

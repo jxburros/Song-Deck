@@ -56,7 +56,8 @@ function loop(t: number) {
         e.clip.classList.add('on');
       }
       if (e.readout) {
-        const text = e.holdDb <= FLOOR_DB ? '−∞' : `${e.holdDb < 0 ? '−' : '+'}${Math.abs(e.holdDb).toFixed(1)}`;
+        const text =
+          e.holdDb <= FLOOR_DB ? '−∞' : `${e.holdDb < 0 ? '−' : '+'}${Math.abs(e.holdDb).toFixed(1)}`;
         if (text !== e.shownHold) {
           e.readout.textContent = text;
           e.shownHold = text;
@@ -86,7 +87,17 @@ function register(id: string, e: Entry): () => void {
 }
 
 /** Vertical level meter bound to a track id (or MASTER_METER). */
-export function MeterBar({ id, height, label, readoutId }: { id: string; height: number; label: string; readoutId?: string }) {
+export function MeterBar({
+  id,
+  height,
+  label,
+  readoutId,
+}: {
+  id: string;
+  height: number;
+  label: string;
+  readoutId?: string;
+}) {
   const fill = useRef<HTMLDivElement>(null);
   const rms = useRef<HTMLDivElement>(null);
   const hold = useRef<HTMLDivElement>(null);
@@ -111,7 +122,12 @@ export function MeterBar({ id, height, label, readoutId }: { id: string; height:
     return register(id, e);
   }, [id, readoutId]);
   return (
-    <div className="mx-meter" style={{ height, ['--mh' as string]: `${height - 7}px` }} role="group" aria-label={`${label} level meter`}>
+    <div
+      className="mx-meter"
+      style={{ height, ['--mh' as string]: `${height - 7}px` }}
+      role="group"
+      aria-label={`${label} level meter`}
+    >
       <button
         ref={clip}
         type="button"

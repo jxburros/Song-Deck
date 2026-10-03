@@ -23,9 +23,14 @@ const pct = (w: number, total: number) => `${Math.round((w / (total || 1)) * 100
 function genreBlock(g: GenreProfile): string[] {
   const modeTotal = g.modes.reduce((t, m) => t + m.weight, 0);
   const meterTotal = g.meters.reduce((t, m) => t + m.weight, 0);
-  const progs = [...g.harmony.progressions].sort((a, b) => b.weight - a.weight).slice(0, 3).map((p) => `\`${p.roman.join(' ')}\``);
+  const progs = [...g.harmony.progressions]
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 3)
+    .map((p) => `\`${p.roman.join(' ')}\``);
   const core = g.instruments.filter((i) => i.essential).map((i) => getInstrument(i.instrumentId).name);
-  const colour = g.instruments.filter((i) => !i.essential && i.weight >= 0.5).map((i) => getInstrument(i.instrumentId).name);
+  const colour = g.instruments
+    .filter((i) => !i.essential && i.weight >= 0.5)
+    .map((i) => getInstrument(i.instrumentId).name);
   const groove = [`\`${g.rhythm.drumStyle}\` drums`];
   if (g.rhythm.bassStyle) groove.push(`\`${g.rhythm.bassStyle}\` bass`);
   if (g.rhythm.compStyle) groove.push(`\`${g.rhythm.compStyle}\` comping`);
@@ -62,16 +67,23 @@ export function renderGenresDoc(): string {
     '',
     'A style tag names parent genres: picked on its own it pulls the blend toward them ("midwest emo" → emo + indie rock); ' +
       'added to a blend it reshapes the profile (tempo window, groove, harmony, line-up, production). Mood, era, production, vocal, ' +
-      'region and rhythm tags only reshape. Tag macro changes are applied at generation time on top of the song\'s own macros.',
+      "region and rhythm tags only reshape. Tag macro changes are applied at generation time on top of the song's own macros.",
     '',
     '## Genres',
     '',
   ];
   for (const g of BUILTIN_GENRES) lines.push(...genreBlock(g));
-  lines.push('## Groove families (drum styles)', '', '| Drum style | Closest original family | Kit | Harmonic flavour | Hand percussion |', '| --- | --- | --- | --- | --- |');
+  lines.push(
+    '## Groove families (drum styles)',
+    '',
+    '| Drum style | Closest original family | Kit | Harmonic flavour | Hand percussion |',
+    '| --- | --- | --- | --- | --- |',
+  );
   for (const d of ALL_DRUM_STYLES) {
     const i = DRUM_STYLE_INFO[d];
-    lines.push(`| \`${d}\` | ${i.base} | ${i.electronic ? 'drum machine' : 'acoustic'} | ${i.flavor} | ${i.percussion} |`);
+    lines.push(
+      `| \`${d}\` | ${i.base} | ${i.electronic ? 'drum machine' : 'acoustic'} | ${i.flavor} | ${i.percussion} |`,
+    );
   }
   lines.push('');
   for (const kind of TAG_KINDS) {
@@ -79,12 +91,17 @@ export function renderGenresDoc(): string {
     for (const { group, tags } of tagGroups(kind)) {
       lines.push(`### ${group}`, '');
       for (const t of tags) {
-        const parents = t.parents?.length ? ` → ${t.parents.map((p) => getGenre(p.genreId)?.name ?? p.genreId).join(', ')}` : '';
+        const parents = t.parents?.length
+          ? ` → ${t.parents.map((p) => getGenre(p.genreId)?.name ?? p.genreId).join(', ')}`
+          : '';
         const aliases = t.aliases?.length ? ` _Also: ${t.aliases.join(', ')}._` : '';
         lines.push(`- **${t.name}** (\`${t.id}\`${parents}) — ${t.description ?? ''}${aliases}`);
       }
       lines.push('');
     }
   }
-  return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`;
+  return `${lines
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd()}\n`;
 }

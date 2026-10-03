@@ -26,7 +26,15 @@ import { chordDegree, chordToRoman } from '../theory/roman';
 import { buildSongGen, type StyleOverrides } from './context';
 import { writeCells, type CellChange } from './engine';
 import { genreForSong } from './tags';
-import { chooseProgression, colorProgression, expandHarmony, flavorFor, moodDarkness, snapHarmonicRhythm, type PlannedHarmony } from './harmony';
+import {
+  chooseProgression,
+  colorProgression,
+  expandHarmony,
+  flavorFor,
+  moodDarkness,
+  snapHarmonicRhythm,
+  type PlannedHarmony,
+} from './harmony';
 import { buildSongMotifs } from './motifs';
 import { ornamentSong } from './ornament';
 import { harmonyGroupOf, type HarmonyGroup } from './planner';
@@ -61,9 +69,18 @@ interface CoreExtras {
 // Harmony regeneration
 // ---------------------------------------------------------------------------
 
-function substituteChord(c: ChordEvent, key: Song['keyMap'][number]['key'], rng: ReturnType<typeof deriveRng>): ChordSpec {
+function substituteChord(
+  c: ChordEvent,
+  key: Song['keyMap'][number]['key'],
+  rng: ReturnType<typeof deriveRng>,
+): ChordSpec {
   const fn = chordFunction(c, key);
-  const families: Record<string, number[]> = { tonic: [0, 5, 2], predominant: [3, 1, 5], dominant: [4, 6], chromatic: [3, 4, 5] };
+  const families: Record<string, number[]> = {
+    tonic: [0, 5, 2],
+    predominant: [3, 1, 5],
+    dominant: [4, 6],
+    chromatic: [3, 4, 5],
+  };
   const own = chordDegree(c, key);
   const options = (families[fn] ?? families.tonic).filter((d) => d !== own);
   const deg = options.length ? rng.pick(options) : own >= 0 ? own : 0;
@@ -72,7 +89,12 @@ function substituteChord(c: ChordEvent, key: Song['keyMap'][number]['key'], rng:
 }
 
 /** Re-plan (or substitute, inside a region) chords of unlocked sections. Returns changed section ids. */
-export function regenerateChords(song: Song, seed: number, scope: { sectionIds?: Set<string>; region?: { start: number; end: number } }, customGenres?: GenreProfile[]): Set<string> {
+export function regenerateChords(
+  song: Song,
+  seed: number,
+  scope: { sectionIds?: Set<string>; region?: { start: number; end: number } },
+  customGenres?: GenreProfile[],
+): Set<string> {
   const changed = new Set<string>();
   if (isLocked(song.locks, LockKeys.chords)) return changed;
   const spans = sectionLayout(song);
@@ -83,11 +105,24 @@ export function regenerateChords(song: Song, seed: number, scope: { sectionIds?:
     song.chords = song.chords.map((c) => {
       if (c.tick < start || c.tick + c.duration > end) return c;
       const span = spans.find((s) => c.tick >= s.startTick && c.tick < s.endTick);
-      if (!span || (scope.sectionIds && !scope.sectionIds.has(span.section.id)) || isChordSectionLocked(song, span.section.id)) return c;
+      if (
+        !span ||
+        (scope.sectionIds && !scope.sectionIds.has(span.section.id)) ||
+        isChordSectionLocked(song, span.section.id)
+      )
+        return c;
       const key = keyAtTick(song, c.tick);
       const spec = substituteChord(c, key, deriveRng(seed, 'chord-sub', c.tick));
       changed.add(span.section.id);
-      const ev: ChordEvent = { id: ids.next('ch'), tick: c.tick, duration: c.duration, root: spec.root, quality: spec.quality, symbol: formatChordSymbol(spec, key), roman: chordToRoman(spec, key) };
+      const ev: ChordEvent = {
+        id: ids.next('ch'),
+        tick: c.tick,
+        duration: c.duration,
+        root: spec.root,
+        quality: spec.quality,
+        symbol: formatChordSymbol(spec, key),
+        roman: chordToRoman(spec, key),
+      };
       return ev;
     });
     return changed;
@@ -96,7 +131,10 @@ export function regenerateChords(song: Song, seed: number, scope: { sectionIds?:
   const macros = effectiveMacros(song);
   const planned: PlannedHarmony = {};
   const groupChords = new Map<HarmonyGroup, ChordSpec[]>();
-  const darkness = moodDarkness([...(song.blueprint?.moods ?? []), ...song.sections.flatMap((s) => s.mood ?? [])]);
+  const darkness = moodDarkness([
+    ...(song.blueprint?.moods ?? []),
+    ...song.sections.flatMap((s) => s.mood ?? []),
+  ]);
   let chords = song.chords.slice();
   spans.forEach((sp, i) => {
     const s = sp.section;
@@ -127,7 +165,10 @@ export function regenerateChords(song: Song, seed: number, scope: { sectionIds?:
       );
       groupChords.set(grp, prog);
     }
-    const hr = s.harmonicRhythm && s.harmonicRhythm > 0 ? snapHarmonicRhythm(s.harmonicRhythm) : snapHarmonicRhythm(genre.harmony.harmonicRhythm);
+    const hr =
+      s.harmonicRhythm && s.harmonicRhythm > 0
+        ? snapHarmonicRhythm(s.harmonicRhythm)
+        : snapHarmonicRhythm(genre.harmony.harmonicRhythm);
     const harmony = expandHarmony(prog, s.bars, hr, key, { endOnTonic: i === spans.length - 1 });
     const events = chordsForPlanSection(song, sp, harmony, key, new IdFactory(seed, `chords/${s.id}/regen`));
     chords = [...chords.filter((c) => c.tick < sp.startTick || c.tick >= sp.endTick), ...events];
@@ -136,7 +177,8 @@ export function regenerateChords(song: Song, seed: number, scope: { sectionIds?:
       for (const e of events) if (romans[romans.length - 1] !== e.roman) romans.push(e.roman ?? '');
       s.progression = romans;
     }
-    if (song.plan && song.plan.sections.length === song.sections.length) song.plan.sections[i] = { ...song.plan.sections[i], harmony };
+    if (song.plan && song.plan.sections.length === song.sections.length)
+      song.plan.sections[i] = { ...song.plan.sections[i], harmony };
     changed.add(s.id);
   });
   song.chords = chords.sort((a, b) => a.tick - b.tick);
@@ -152,7 +194,12 @@ export function regenerateChords(song: Song, seed: number, scope: { sectionIds?:
  * motif and song.motifs are unlocked, its source track is fully in scope, and every note tagged
  * with it will be regenerated.
  */
-function refreshMotifs(song: Song, seed: number, scope: { trackIds?: Set<string>; partial: boolean }, customGenres?: GenreProfile[]): void {
+function refreshMotifs(
+  song: Song,
+  seed: number,
+  scope: { trackIds?: Set<string>; partial: boolean },
+  customGenres?: GenreProfile[],
+): void {
   if (isLocked(song.locks, LockKeys.motifs) || scope.partial || !song.motifs.length) return;
   const genre = genreForSong(song, customGenres);
   const macros = effectiveMacros(song);
@@ -177,7 +224,8 @@ function refreshMotifs(song: Song, seed: number, scope: { trackIds?: Set<string>
       if (scope.trackIds && !scope.trackIds.has(t.id)) return m;
       if (refs.some((n) => isNoteLocked(song, t, n))) return m;
     }
-    const replacement = fresh.find((f) => f.description === m.description) ?? fresh.find((f) => f.name === m.name);
+    const replacement =
+      fresh.find((f) => f.description === m.description) ?? fresh.find((f) => f.name === m.name);
     if (!replacement) return m;
     return { ...m, notes: replacement.notes.map((n) => ({ ...n })), lengthTicks: replacement.lengthTicks };
   });
@@ -237,7 +285,11 @@ const RELATED_DRUMS: Partial<Record<DrumStyle, DrumStyle[]>> = {
 };
 
 /** Seeded arrangement/feel changes for a reinterpretation pass. */
-export function reinterpretationOverrides(song: Song, seed: number, customGenres?: GenreProfile[]): StyleOverrides {
+export function reinterpretationOverrides(
+  song: Song,
+  seed: number,
+  customGenres?: GenreProfile[],
+): StyleOverrides {
   const rng = deriveRng(seed, 'reinterpret');
   const genre = genreForSong(song, customGenres);
   const o: StyleOverrides = {
@@ -268,13 +320,22 @@ function carriesMotifs(t: Track): boolean {
 }
 
 /** Shared implementation of regenerateUnlocked / createVariation. */
-export function regenerateCore(song: Song, opts: RegenerateOptions, extras: CoreExtras = {}): RegenerateResult {
+export function regenerateCore(
+  song: Song,
+  opts: RegenerateOptions,
+  extras: CoreExtras = {},
+): RegenerateResult {
   const next = cloneSong(song);
   const seed = Math.floor(Math.abs(opts.seed ?? song.generation?.seed ?? 1));
   const spans = sectionLayout(next);
   const songEnd = spans.length ? spans[spans.length - 1].endTick : 0;
   const hasRegion = opts.startTick !== undefined || opts.endTick !== undefined;
-  const region = hasRegion ? { start: Math.max(0, Math.floor(opts.startTick ?? 0)), end: Math.min(songEnd, Math.ceil(opts.endTick ?? songEnd)) } : undefined;
+  const region = hasRegion
+    ? {
+        start: Math.max(0, Math.floor(opts.startTick ?? 0)),
+        end: Math.min(songEnd, Math.ceil(opts.endTick ?? songEnd)),
+      }
+    : undefined;
   if (region && region.end <= region.start) return { song: next, changed: [] };
   const trackIds = opts.trackIds ? new Set(opts.trackIds) : undefined;
   const sectionIds = opts.sectionIds ? new Set(opts.sectionIds) : undefined;
@@ -301,7 +362,7 @@ export function regenerateCore(song: Song, opts: RegenerateOptions, extras: Core
   const principal = principalId(next, opts.customInstruments);
   let overrides = extras.overrides;
   const fullScope = !trackIds && !sectionIds && !region && level === undefined && extras.amount === undefined;
-  let arrangementSeed = fullScope ? seed : song.generation?.seed ?? seed;
+  let arrangementSeed = fullScope ? seed : (song.generation?.seed ?? seed);
   let filter: ((t: Track, sid: string) => boolean) | undefined;
   if (level === 'variation') filter = (t) => t.id !== principal && !carriesMotifs(t);
   if (level === 'reinterpretation') {
@@ -322,12 +383,24 @@ export function regenerateCore(song: Song, opts: RegenerateOptions, extras: Core
       }
     }
     const chosen = new Set(eligible.filter((k) => unitHash(`${seed}|amount|${k}`) < amount));
-    if (!chosen.size && eligible.length && amount > 0) chosen.add(eligible.reduce((best, k) => (unitHash(`${seed}|pick|${k}`) < unitHash(`${seed}|pick|${best}`) ? k : best), eligible[0]));
+    if (!chosen.size && eligible.length && amount > 0)
+      chosen.add(
+        eligible.reduce(
+          (best, k) => (unitHash(`${seed}|pick|${k}`) < unitHash(`${seed}|pick|${best}`) ? k : best),
+          eligible[0],
+        ),
+      );
     const base = filter;
     filter = (t, sid) => (!base || base(t, sid)) && chosen.has(`${t.id}|${sid}`);
   }
   const g = buildSongGen(next, { seed, arrangementSeed, level, overrides, ...settings });
-  const changed: CellChange[] = writeCells(g, seed, { trackIds, sectionIds, region, filter, respectLocks: true });
+  const changed: CellChange[] = writeCells(g, seed, {
+    trackIds,
+    sectionIds,
+    region,
+    filter,
+    respectLocks: true,
+  });
 
   // 4. Generation info.
   next.generation = { ...next.generation, seed: arrangementSeed };

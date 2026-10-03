@@ -53,7 +53,10 @@ export function nodeBaseUrl(node: Pick<RenderNodeConfig, 'url'>): string {
   return url || serverBase();
 }
 
-export function nodeHeaders(node: Pick<RenderNodeConfig, 'token'>, extra: Record<string, string> = {}): Record<string, string> {
+export function nodeHeaders(
+  node: Pick<RenderNodeConfig, 'token'>,
+  extra: Record<string, string> = {},
+): Record<string, string> {
   return { ...extra, ...(node.token ? { authorization: `Bearer ${node.token}` } : {}) };
 }
 
@@ -82,15 +85,22 @@ async function errorText(res: Response): Promise<string> {
 }
 
 /** `GET {node}/api/node/info`. */
-export async function fetchNodeInfo(node: Pick<RenderNodeConfig, 'url' | 'token'>, opts: { signal?: AbortSignal; timeoutMs?: number } = {}): Promise<NodeInfo> {
+export async function fetchNodeInfo(
+  node: Pick<RenderNodeConfig, 'url' | 'token'>,
+  opts: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<NodeInfo> {
   const t = timeoutSignal(opts.timeoutMs ?? 4000, opts.signal);
   try {
-    const res = await fetch(`${nodeBaseUrl(node)}/api/node/info`, { headers: nodeHeaders(node), signal: t.signal });
+    const res = await fetch(`${nodeBaseUrl(node)}/api/node/info`, {
+      headers: nodeHeaders(node),
+      signal: t.signal,
+    });
     if (!res.ok) throw new Error(await errorText(res));
     return (await res.json()) as NodeInfo;
   } catch (err) {
     if (err instanceof DOMException && err.name === 'TimeoutError') throw new Error('No answer within 4 s');
-    if (err instanceof TypeError) throw new Error('Unreachable (not running, wrong URL, or the node does not allow this origin)');
+    if (err instanceof TypeError)
+      throw new Error('Unreachable (not running, wrong URL, or the node does not allow this origin)');
     throw err;
   } finally {
     t.done();
@@ -103,9 +113,16 @@ export async function checkNode(node: RenderNodeConfig, signal?: AbortSignal): P
   try {
     const info = await fetchNodeInfo(node, { signal });
     const latencyMs = Math.round(performance.now() - t0);
-    if (!info.capabilities?.includes('render-stems')) return { node, ok: false, info, latencyMs, reason: 'audio engine unavailable on this node' };
+    if (!info.capabilities?.includes('render-stems'))
+      return { node, ok: false, info, latencyMs, reason: 'audio engine unavailable on this node' };
     if (info.engineVersion && info.engineVersion !== ENGINE_VERSION) {
-      return { node, ok: false, info, latencyMs, reason: `engine ${info.engineVersion} ≠ this studio's ${ENGINE_VERSION} (renders would not match)` };
+      return {
+        node,
+        ok: false,
+        info,
+        latencyMs,
+        reason: `engine ${info.engineVersion} ≠ this studio's ${ENGINE_VERSION} (renders would not match)`,
+      };
     }
     if (info.queuedJobs >= info.maxQueue) return { node, ok: false, info, latencyMs, reason: 'queue full' };
     return { node, ok: true, info, latencyMs };
@@ -120,7 +137,11 @@ export function checkNodes(nodes: RenderNodeConfig[], signal?: AbortSignal): Pro
 }
 
 /** `POST {node}/api/render` with a JSON job. */
-export function postRender(node: Pick<RenderNodeConfig, 'url' | 'token'>, job: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
+export function postRender(
+  node: Pick<RenderNodeConfig, 'url' | 'token'>,
+  job: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<Response> {
   return fetch(`${nodeBaseUrl(node)}/api/render`, {
     method: 'POST',
     headers: nodeHeaders(node, { 'content-type': 'application/json' }),
@@ -141,11 +162,25 @@ export interface NodeTestResult {
 }
 
 /** A small test render: the loudness report or a WAV of `song` (limit with `endTick`). */
-export async function testRenderNode(node: Pick<RenderNodeConfig, 'url' | 'token'>, song: Song, kind: 'loudness' | 'mix', opts: { endTick?: number; signal?: AbortSignal } = {}): Promise<NodeTestResult> {
+export async function testRenderNode(
+  node: Pick<RenderNodeConfig, 'url' | 'token'>,
+  song: Song,
+  kind: 'loudness' | 'mix',
+  opts: { endTick?: number; signal?: AbortSignal } = {},
+): Promise<NodeTestResult> {
   const t0 = performance.now();
   const res = await postRender(
     node,
-    { kind, song, options: { sampleRate: 44100, tailSeconds: 1, ...(opts.endTick ? { startTick: 0, endTick: opts.endTick } : {}), ...(kind === 'mix' ? { bitDepth: 16 } : {}) } },
+    {
+      kind,
+      song,
+      options: {
+        sampleRate: 44100,
+        tailSeconds: 1,
+        ...(opts.endTick ? { startTick: 0, endTick: opts.endTick } : {}),
+        ...(kind === 'mix' ? { bitDepth: 16 } : {}),
+      },
+    },
     opts.signal,
   );
   if (!res.ok) throw new Error(await errorText(res));
@@ -156,7 +191,13 @@ export async function testRenderNode(node: Pick<RenderNodeConfig, 'url' | 'token
     return { kind, ms: Math.round(performance.now() - t0), renderMs, durationSeconds, wav };
   }
   const report = (await res.json()) as Record<string, unknown>;
-  return { kind, ms: Math.round(performance.now() - t0), renderMs, durationSeconds: durationSeconds ?? (report.durationSeconds as number | undefined), report };
+  return {
+    kind,
+    ms: Math.round(performance.now() - t0),
+    renderMs,
+    durationSeconds: durationSeconds ?? (report.durationSeconds as number | undefined),
+    report,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -227,7 +268,11 @@ export function configuredRenderNodes(): RenderNodeConfig[] {
  * job worker per group (node failure) or entirely (no usable node). Same result shape as
  * `renderStemsAudio`: `{ [stemGroup | trackId]: AudioData }`.
  */
-export async function renderStemsDistributed(song: Song, assets: Record<string, AudioData>, opts: DistributedStemOptions = {}): Promise<Record<string, AudioData>> {
+export async function renderStemsDistributed(
+  song: Song,
+  assets: Record<string, AudioData>,
+  opts: DistributedStemOptions = {},
+): Promise<Record<string, AudioData>> {
   const by = opts.by ?? 'stemGroup';
   const sampleRate = opts.sampleRate ?? 44100;
   const bitDepth = opts.bitDepth ?? 24;
@@ -242,7 +287,8 @@ export async function renderStemsDistributed(song: Song, assets: Record<string, 
     const job = groups.get(key) ?? { stem: key, trackIds: [], assetIds: [], weight: 0, busyRetries: 0 };
     job.trackIds.push(t.id);
     job.weight += t.kind === 'audio' ? t.clips.length * 50 : t.notes.length + 20;
-    for (const c of t.clips ?? []) if (assets[c.assetId] && !job.assetIds.includes(c.assetId)) job.assetIds.push(c.assetId);
+    for (const c of t.clips ?? [])
+      if (assets[c.assetId] && !job.assetIds.includes(c.assetId)) job.assetIds.push(c.assetId);
     groups.set(key, job);
   }
   const all = [...groups.values()].sort((a, b) => b.weight - a.weight);
@@ -257,13 +303,21 @@ export async function renderStemsDistributed(song: Song, assets: Record<string, 
 
   const localAll = async (reason: string): Promise<Record<string, AudioData>> => {
     const t0 = performance.now();
-    const out = await renderStemsAudio(s, { by, sampleRate, signal, assets, onProgress: (p) => opts.onProgress?.(p, 'Rendering stems on this device') });
+    const out = await renderStemsAudio(s, {
+      by,
+      sampleRate,
+      signal,
+      assets,
+      onProgress: (p) => opts.onProgress?.(p, 'Rendering stems on this device'),
+    });
     const ms = Math.round(performance.now() - t0);
-    for (const j of all) opts.onPlacement?.({ stem: j.stem, trackIds: j.trackIds, where: 'this device', ms, fallback: reason });
+    for (const j of all)
+      opts.onPlacement?.({ stem: j.stem, trackIds: j.trackIds, where: 'this device', ms, fallback: reason });
     opts.onProgress?.(1);
     return out;
   };
-  if (!healthy.length) return localAll(nodes.length ? 'no render node available' : 'no render nodes configured');
+  if (!healthy.length)
+    return localAll(nodes.length ? 'no render node available' : 'no render nodes configured');
 
   const results: Record<string, AudioData> = {};
   const queue: StemJob[] = [];
@@ -272,10 +326,13 @@ export async function renderStemsDistributed(song: Song, assets: Record<string, 
   // using sampled instruments render here (identical output either way).
   const { instruments, sampleInstruments } = currentRenderInstruments();
   const sampled = new Set(instruments.filter((p) => sampleInstruments[p.patchId]).map((p) => p.id));
-  const usesSamples = (job: StemJob) => job.trackIds.some((id) => sampled.has(s.tracks.find((t) => t.id === id)?.instrumentId ?? ''));
+  const usesSamples = (job: StemJob) =>
+    job.trackIds.some((id) => sampled.has(s.tracks.find((t) => t.id === id)?.instrumentId ?? ''));
   for (const j of all) {
-    if (j.assetIds.length && !opts.uploadAssets) local.push({ job: j, reason: 'audio clips render on this device' });
-    else if (usesSamples(j)) local.push({ job: j, reason: 'sampled plugin instruments render on this device' });
+    if (j.assetIds.length && !opts.uploadAssets)
+      local.push({ job: j, reason: 'audio clips render on this device' });
+    else if (usesSamples(j))
+      local.push({ job: j, reason: 'sampled plugin instruments render on this device' });
     else queue.push(j);
   }
 
@@ -308,7 +365,12 @@ export async function renderStemsDistributed(song: Song, assets: Record<string, 
       const t0 = performance.now();
       try {
         progress(`Rendering ${job.stem} on ${name}`);
-        const res = await fetch(`${nodeBaseUrl(h.node)}/api/render`, { method: 'POST', headers: nodeHeaders(h.node, { 'content-type': 'application/json' }), body, signal });
+        const res = await fetch(`${nodeBaseUrl(h.node)}/api/render`, {
+          method: 'POST',
+          headers: nodeHeaders(h.node, { 'content-type': 'application/json' }),
+          body,
+          signal,
+        });
         if (res.status === 429) {
           job.busyRetries++;
           if (job.busyRetries > 3) local.push({ job, reason: `${name} stayed busy` });
@@ -323,7 +385,13 @@ export async function renderStemsDistributed(song: Song, assets: Record<string, 
         if (!Object.keys(stems).length) throw new Error('empty stems response');
         for (const [stem, b64] of Object.entries(stems)) results[stem] = decodeWav(base64ToBytes(b64));
         done++;
-        opts.onPlacement?.({ stem: job.stem, trackIds: job.trackIds, where: name, nodeId: h.info?.id, ms: Math.round(performance.now() - t0) });
+        opts.onPlacement?.({
+          stem: job.stem,
+          trackIds: job.trackIds,
+          where: name,
+          nodeId: h.info?.id,
+          ms: Math.round(performance.now() - t0),
+        });
         progress();
       } catch (err) {
         if (isAbortError(err) || signal?.aborted) throw abortError();
@@ -353,10 +421,20 @@ export async function renderStemsDistributed(song: Song, assets: Record<string, 
     throwIfAborted(signal);
     const t0 = performance.now();
     progress(`Rendering ${job.stem} on this device`);
-    const audio = await jobs.call<AudioData>('renderMix', { song: s, assets, sampleRate, applyMaster: false, trackIds: job.trackIds }, { signal });
+    const audio = await jobs.call<AudioData>(
+      'renderMix',
+      { song: s, assets, sampleRate, applyMaster: false, trackIds: job.trackIds },
+      { signal },
+    );
     results[job.stem] = audio;
     done++;
-    opts.onPlacement?.({ stem: job.stem, trackIds: job.trackIds, where: 'this device', ms: Math.round(performance.now() - t0), fallback: reason });
+    opts.onPlacement?.({
+      stem: job.stem,
+      trackIds: job.trackIds,
+      where: 'this device',
+      ms: Math.round(performance.now() - t0),
+      fallback: reason,
+    });
     progress();
   }
   opts.onProgress?.(1);

@@ -10,7 +10,17 @@
  */
 import { GM_DRUM } from '@songdeck/core';
 import { Svf } from './filters';
-import { BLOCK, NOISE_SCALE, clampNum, seedState, sin01, softClip, t60Coef, velocityGain, xorshift } from './utils';
+import {
+  BLOCK,
+  NOISE_SCALE,
+  clampNum,
+  seedState,
+  sin01,
+  softClip,
+  t60Coef,
+  velocityGain,
+  xorshift,
+} from './utils';
 import { ART_DEAD, type NoteEvent, Voice, type VoiceHost, panGains } from './voices/types';
 
 export interface DrumTone {
@@ -37,7 +47,15 @@ export interface DrumPiece {
   pan: number;
   tones?: DrumTone[];
   noises?: DrumNoise[];
-  metal?: { freqs: number[]; decay: number; level: number; hp: number; bp: number; q: number; attack?: number };
+  metal?: {
+    freqs: number[];
+    decay: number;
+    level: number;
+    hp: number;
+    bp: number;
+    q: number;
+    attack?: number;
+  };
   click?: { level: number; decay: number };
   bursts?: { count: number; spacing: number };
   /** Soft saturation amount. */
@@ -112,7 +130,10 @@ const ACOUSTIC: Record<number, DrumPiece> = {
     name: 'sidestick',
     gain: 0.55,
     pan: 0.05,
-    tones: [{ f: 1750, fEnd: 1650, sweep: 0.01, decay: 0.035, level: 0.6 }, { f: 520, decay: 0.04, level: 0.4 }],
+    tones: [
+      { f: 1750, fEnd: 1650, sweep: 0.01, decay: 0.035, level: 0.6 },
+      { f: 520, decay: 0.04, level: 0.4 },
+    ],
     noises: [{ filter: 'bp', f: 2600, q: 2.5, decay: 0.035, level: 0.6 }],
   },
   [GM_DRUM.SNARE]: {
@@ -174,7 +195,15 @@ const ACOUSTIC: Record<number, DrumPiece> = {
     name: 'hh-pedal',
     gain: 0.32,
     pan: -0.3,
-    metal: { freqs: HAT808.map((f) => f * 1.5), decay: 0.09, level: 0.5, hp: 6000, bp: 9000, q: 0.9, attack: 0.003 },
+    metal: {
+      freqs: HAT808.map((f) => f * 1.5),
+      decay: 0.09,
+      level: 0.5,
+      hp: 6000,
+      bp: 9000,
+      q: 0.9,
+      attack: 0.003,
+    },
     noises: [{ filter: 'hp', f: 6500, q: 0.7, decay: 0.06, level: 0.4, attack: 0.002 }],
     group: 1,
     chokes: 1,
@@ -344,8 +373,18 @@ const ACOUSTIC: Record<number, DrumPiece> = {
     pan: -0.25,
     noises: [{ filter: 'hp', f: 5200, q: 0.7, decay: 0.07, attack: 0.005, level: 0.9 }],
   },
-  [GM_DRUM.WHISTLE_SHORT]: { name: 'whistle', gain: 0.3, pan: 0, tones: [{ f: 2320, decay: 0.12, level: 0.7 }] },
-  [GM_DRUM.WHISTLE_LONG]: { name: 'whistle', gain: 0.3, pan: 0, tones: [{ f: 2280, decay: 0.55, level: 0.7 }] },
+  [GM_DRUM.WHISTLE_SHORT]: {
+    name: 'whistle',
+    gain: 0.3,
+    pan: 0,
+    tones: [{ f: 2320, decay: 0.12, level: 0.7 }],
+  },
+  [GM_DRUM.WHISTLE_LONG]: {
+    name: 'whistle',
+    gain: 0.3,
+    pan: 0,
+    tones: [{ f: 2280, decay: 0.55, level: 0.7 }],
+  },
   [GM_DRUM.GUIRO_SHORT]: {
     name: 'guiro',
     gain: 0.35,
@@ -380,8 +419,18 @@ const ACOUSTIC: Record<number, DrumPiece> = {
     tones: [{ f: 830, fEnd: 810, sweep: 0.004, decay: 0.09, level: 0.9 }],
     noises: [{ filter: 'bp', f: 1900, q: 2, decay: 0.012, level: 0.3 }],
   },
-  [GM_DRUM.CUICA_MUTE]: { name: 'cuica', gain: 0.35, pan: 0.2, tones: [{ f: 520, fEnd: 760, sweep: 0.03, decay: 0.12, level: 0.8 }] },
-  [GM_DRUM.CUICA_OPEN]: { name: 'cuica', gain: 0.35, pan: 0.2, tones: [{ f: 760, fEnd: 470, sweep: 0.08, decay: 0.3, level: 0.8 }] },
+  [GM_DRUM.CUICA_MUTE]: {
+    name: 'cuica',
+    gain: 0.35,
+    pan: 0.2,
+    tones: [{ f: 520, fEnd: 760, sweep: 0.03, decay: 0.12, level: 0.8 }],
+  },
+  [GM_DRUM.CUICA_OPEN]: {
+    name: 'cuica',
+    gain: 0.35,
+    pan: 0.2,
+    tones: [{ f: 760, fEnd: 470, sweep: 0.08, decay: 0.3, level: 0.8 }],
+  },
   [GM_DRUM.TRIANGLE_MUTE]: {
     name: 'triangle',
     gain: 0.3,
@@ -509,13 +558,21 @@ export function drumPiece(kit: DrumKitId, note: number): DrumPiece {
   let g = genericPieces.get(key);
   if (!g) {
     const f = Math.min(6000, 200 * Math.pow(2, (key - 60) / 24));
-    g = { name: 'perc', gain: 0.4, pan: 0, tones: [{ f: f * 1.1, fEnd: f, sweep: 0.01, decay: 0.15, level: 0.8 }], noises: [{ filter: 'bp', f: Math.min(15000, f * 6), q: 1.5, decay: 0.02, level: 0.3 }] };
+    g = {
+      name: 'perc',
+      gain: 0.4,
+      pan: 0,
+      tones: [{ f: f * 1.1, fEnd: f, sweep: 0.01, decay: 0.15, level: 0.8 }],
+      noises: [{ filter: 'bp', f: Math.min(15000, f * 6), q: 1.5, decay: 0.02, level: 0.3 }],
+    };
     genericPieces.set(key, g);
   }
   return g;
 }
 
-const MAXT = 3, MAXN = 2, MAXM = 6;
+const MAXT = 3,
+  MAXN = 2,
+  MAXM = 6;
 
 export class DrumVoice extends Voice {
   piece: DrumPiece | null = null;
@@ -684,8 +741,12 @@ export class DrumVoice extends Voice {
         let att = this.nAtt[k];
         const attInc = this.nAttInc[k];
         const dec = this.nDec[k];
-        const a1 = flt.a1, a2 = flt.a2, a3 = flt.a3, kq = flt.k;
-        let ic1 = flt.ic1, ic2 = flt.ic2;
+        const a1 = flt.a1,
+          a2 = flt.a2,
+          a3 = flt.a3,
+          kq = flt.k;
+        let ic1 = flt.ic1,
+          ic2 = flt.ic2;
         let s2 = ns ^ (k * 0x9e3779b9);
         if (s2 === 0) s2 = 1;
         let timer = this.burstTimer;
@@ -730,11 +791,21 @@ export class DrumVoice extends Voice {
     // metal bank → BP → HP
     if (this.nM > 0 && this.mAmp > 1e-6) {
       const nM = this.nM;
-      const mph = this.mph, minc = this.minc;
-      const bp = this.mbp, hp = this.mhp;
-      const ba1 = bp.a1, ba2 = bp.a2, ba3 = bp.a3;
-      const ha1 = hp.a1, ha2 = hp.a2, ha3 = hp.a3, hk = hp.k;
-      let bc1 = bp.ic1, bc2 = bp.ic2, hc1 = hp.ic1, hc2 = hp.ic2;
+      const mph = this.mph,
+        minc = this.minc;
+      const bp = this.mbp,
+        hp = this.mhp;
+      const ba1 = bp.a1,
+        ba2 = bp.a2,
+        ba3 = bp.a3;
+      const ha1 = hp.a1,
+        ha2 = hp.a2,
+        ha3 = hp.a3,
+        hk = hp.k;
+      let bc1 = bp.ic1,
+        bc2 = bp.ic2,
+        hc1 = hp.ic1,
+        hc2 = hp.ic2;
       let amp = this.mAmp;
       const dec = this.mDec;
       let att = this.mAtt;
@@ -792,7 +863,8 @@ export class DrumVoice extends Voice {
     const drive = this.drive;
     const dg = 1 + drive * 3;
     const dn = drive > 0 ? 1 / softClip(dg) : 1;
-    const gl = this.pg[0] * this.gain, gr = this.pg[1] * this.gain;
+    const gl = this.pg[0] * this.gain,
+      gr = this.pg[1] * this.gain;
     let fade = this.fade;
     const fs = this.fadeStep;
     let peak = 0;

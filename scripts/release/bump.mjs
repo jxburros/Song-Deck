@@ -9,7 +9,8 @@ import path from 'node:path';
 import { DEPENDENCY_FIELDS, fail, manifests, parseVersion, ROOT, workspaceNames } from './lib.mjs';
 
 const version = parseVersion(process.argv[2]);
-if (!version || process.argv[2].startsWith('v')) fail('usage: node scripts/release/bump.mjs <version>, e.g. 0.2.0');
+if (!version || process.argv[2].startsWith('v'))
+  fail('usage: node scripts/release/bump.mjs <version>, e.g. 0.2.0');
 
 const names = workspaceNames();
 const setPins = (pkg) => {
@@ -17,7 +18,8 @@ const setPins = (pkg) => {
     for (const dep of Object.keys(pkg[field] ?? {})) if (names.has(dep)) pkg[field][dep] = version;
   }
 };
-const writeJson = (file, value) => writeFileSync(path.join(ROOT, file), `${JSON.stringify(value, null, 2)}\n`);
+const writeJson = (file, value) =>
+  writeFileSync(path.join(ROOT, file), `${JSON.stringify(value, null, 2)}\n`);
 
 const all = manifests();
 const previous = all[0].pkg.version;
@@ -42,8 +44,12 @@ const changelog = readFileSync(changelogFile, 'utf8');
 const today = new Date().toISOString().slice(0, 10);
 let note = `CHANGELOG.md: "## [${version}]" already exists`;
 if (!new RegExp(`^## \\[${version.replace(/[.+]/g, '\\$&')}\\]`, 'm').test(changelog)) {
-  if (!/^## \[Unreleased\][^\n]*$/m.test(changelog)) fail('CHANGELOG.md has no "## [Unreleased]" section to release');
-  writeFileSync(changelogFile, changelog.replace(/^## \[Unreleased\][^\n]*$/m, `## [Unreleased]\n\n## [${version}] - ${today}`));
+  if (!/^## \[Unreleased\][^\n]*$/m.test(changelog))
+    fail('CHANGELOG.md has no "## [Unreleased]" section to release');
+  writeFileSync(
+    changelogFile,
+    changelog.replace(/^## \[Unreleased\][^\n]*$/m, `## [Unreleased]\n\n## [${version}] - ${today}`),
+  );
   note = `CHANGELOG.md: the Unreleased notes are now "## [${version}] - ${today}"`;
 }
 

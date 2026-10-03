@@ -4,7 +4,18 @@
  * instrumentation, structural proportions, energy curve, repetition pattern, tempo, meter and tonal
  * centre — and `composeFromDNA` to grow related songs from it.
  */
-import type { Blueprint, BlueprintSection, BlueprintTrack, GenreWeight, KeySignature, MusicalFunction, SectionKind, Song, SongDNA, TrackRole } from '../ir/types';
+import type {
+  Blueprint,
+  BlueprintSection,
+  BlueprintTrack,
+  GenreWeight,
+  KeySignature,
+  MusicalFunction,
+  SectionKind,
+  Song,
+  SongDNA,
+  TrackRole,
+} from '../ir/types';
 import { CHORD_INTERVALS, isDiatonic } from '../theory/chords';
 import { chordToRoman } from '../theory/roman';
 import { barToTick, chordAtTick, keyAtTick, sectionLayout, tickToBar } from '../timing';
@@ -44,7 +55,8 @@ function sectionRomans(song: Song, start: number, end: number): string[] {
   const slots: number[] = [];
   let bar = tickToBar(song, start).bar;
   for (let t = barToTick(song, bar); t < end; t = barToTick(song, ++bar)) if (t >= start) slots.push(t);
-  for (const c of song.chords) if (c.tick > start && c.tick < end && !slots.includes(c.tick)) slots.push(c.tick);
+  for (const c of song.chords)
+    if (c.tick > start && c.tick < end && !slots.includes(c.tick)) slots.push(c.tick);
   slots.sort((a, b) => a - b);
   const out: string[] = [];
   for (const t of slots) {
@@ -73,7 +85,10 @@ export function repetitionOf(song: Song): { pattern: string; repeatRatio: number
   for (const sp of spans) {
     const s = sp.section;
     const root = sectionGroupId(song, s);
-    const sig = root !== s.id && sigOf.has(root) ? sigOf.get(root)! : `${harmonyGroupOf(s.kind)}|${principalOf(sectionRomans(song, sp.startTick, sp.endTick)).join('-')}`;
+    const sig =
+      root !== s.id && sigOf.has(root)
+        ? sigOf.get(root)!
+        : `${harmonyGroupOf(s.kind)}|${principalOf(sectionRomans(song, sp.startTick, sp.endTick)).join('-')}`;
     sigOf.set(s.id, sig);
     let letter = sigToLetter.get(sig);
     if (letter) repeatedBars += s.bars;
@@ -92,7 +107,9 @@ export function repetitionOf(song: Song): { pattern: string; repeatRatio: number
 export function extractSongDNA(song: Song): SongDNA {
   const key: KeySignature = song.keyMap[0]?.key ? { ...song.keyMap[0].key } : { tonic: 0, mode: 'major' };
   const tempo = song.tempoMap[0]?.bpm ?? 120;
-  const meter = song.meterMap[0] ? { numerator: song.meterMap[0].numerator, denominator: song.meterMap[0].denominator } : { numerator: 4, denominator: 4 };
+  const meter = song.meterMap[0]
+    ? { numerator: song.meterMap[0].numerator, denominator: song.meterMap[0].denominator }
+    : { numerator: 4, denominator: 4 };
   const spans = sectionLayout(song);
 
   // Harmonic language (duration-weighted).
@@ -109,7 +126,8 @@ export function extractSongDNA(song: Song): SongDNA {
     if ((CHORD_INTERVALS[c.quality]?.length ?? 3) >= 4) extended += c.duration;
   }
   const chordVocabulary: Record<string, number> = {};
-  for (const [r, d] of Object.entries(vocab).sort((a, b) => b[1] - a[1])) chordVocabulary[r] = totalDur ? round(d / totalDur, 4) : 0;
+  for (const [r, d] of Object.entries(vocab).sort((a, b) => b[1] - a[1]))
+    chordVocabulary[r] = totalDur ? round(d / totalDur, 4) : 0;
 
   // Principal progression per section kind (first occurrence, reduced to its cycle).
   const principalProgressions: SongDNA['principalProgressions'] = [];
@@ -124,7 +142,9 @@ export function extractSongDNA(song: Song): SongDNA {
 
   // Rhythmic identity per role: 16-step onset histogram, syncopation index, density.
   const rhythmicIdentity: SongDNA['rhythmicIdentity'] = [];
-  const roles = [...new Set(song.tracks.filter((t) => t.kind === 'midi' && t.notes.length).map((t) => t.role))];
+  const roles = [
+    ...new Set(song.tracks.filter((t) => t.kind === 'midi' && t.notes.length).map((t) => t.role)),
+  ];
   for (const role of roles) {
     const grid = new Array<number>(16).fill(0);
     let onsets = 0;
@@ -155,14 +175,24 @@ export function extractSongDNA(song: Song): SongDNA {
   // Melodic contour of the principal melody per section kind.
   const instOf = (id: string) => getInstrument(id);
   const melody =
-    song.tracks.find((t) => t.kind === 'midi' && t.role === 'vocal' && resolveFunction(t, instOf(t.instrumentId)) === 'melody' && t.notes.length) ??
-    song.tracks.find((t) => t.kind === 'midi' && resolveFunction(t, instOf(t.instrumentId)) === 'melody' && t.notes.length);
+    song.tracks.find(
+      (t) =>
+        t.kind === 'midi' &&
+        t.role === 'vocal' &&
+        resolveFunction(t, instOf(t.instrumentId)) === 'melody' &&
+        t.notes.length,
+    ) ??
+    song.tracks.find(
+      (t) => t.kind === 'midi' && resolveFunction(t, instOf(t.instrumentId)) === 'melody' && t.notes.length,
+    );
   const melodicContour: SongDNA['melodicContour'] = [];
   if (melody) {
     const done = new Set<SectionKind>();
     for (const sp of spans) {
       if (done.has(sp.section.kind)) continue;
-      const notes = melody.notes.filter((n) => n.tick >= sp.startTick && n.tick < sp.endTick).sort((a, b) => a.tick - b.tick);
+      const notes = melody.notes
+        .filter((n) => n.tick >= sp.startTick && n.tick < sp.endTick)
+        .sort((a, b) => a.tick - b.tick);
       if (notes.length < 2) continue;
       done.add(sp.section.kind);
       const lo = Math.min(...notes.map((n) => n.pitch));
@@ -195,8 +225,14 @@ export function extractSongDNA(song: Song): SongDNA {
     motifs: cloneSong(song.motifs),
     rhythmicIdentity,
     melodicContour,
-    instrumentation: song.tracks.filter((t) => t.kind === 'midi').map((t) => ({ instrumentId: t.instrumentId, role: t.role })),
-    structure: song.sections.map((s) => ({ kind: s.kind, bars: s.bars, proportion: round(s.bars / totalBars) })),
+    instrumentation: song.tracks
+      .filter((t) => t.kind === 'midi')
+      .map((t) => ({ instrumentId: t.instrumentId, role: t.role })),
+    structure: song.sections.map((s) => ({
+      kind: s.kind,
+      bars: s.bars,
+      proportion: round(s.bars / totalBars),
+    })),
     energyCurve: song.sections.map((s) => s.energy),
     repetition: { pattern: rep.pattern, repeatRatio: rep.repeatRatio },
     genreBlend: song.genreBlend.map((g) => ({ ...g })),
@@ -215,13 +251,19 @@ export interface ComposeFromDnaOptions {
 }
 
 function defaultFunctionFor(instrumentId: string, role: TrackRole): MusicalFunction | undefined {
-  if (role === 'vocal') return instrumentId === 'lead-vocal' ? 'melody' : instrumentId === 'choir' ? 'pad' : 'harmony';
+  if (role === 'vocal')
+    return instrumentId === 'lead-vocal' ? 'melody' : instrumentId === 'choir' ? 'pad' : 'harmony';
   return getInstrument(instrumentId).defaultFunction;
 }
 
 /** Blueprint that reproduces a DNA's identity (structure, energies, principal progressions, instrumentation). */
 export function blueprintFromDNA(dna: SongDNA, opts: ComposeFromDnaOptions): Blueprint {
-  const genreBlend = opts.genreBlend && opts.genreBlend.length ? opts.genreBlend : dna.genreBlend.length ? dna.genreBlend : [{ genreId: 'pop', weight: 1 }];
+  const genreBlend =
+    opts.genreBlend && opts.genreBlend.length
+      ? opts.genreBlend
+      : dna.genreBlend.length
+        ? dna.genreBlend
+        : [{ genreId: 'pop', weight: 1 }];
   // Base macros come from the untagged blend: tag deltas apply at generation time.
   const baseGenre = blendGenres(genreBlend);
   const tags = normalizeTagIds(opts.tags ?? dna.tags);
@@ -234,7 +276,9 @@ export function blueprintFromDNA(dna: SongDNA, opts: ComposeFromDnaOptions): Blu
     const x = (i / Math.max(1, n - 1)) * (dna.energyCurve.length - 1);
     return Math.round(dna.energyCurve[Math.round(x)]);
   };
-  const structure: BlueprintSection[] = nameSections(dna.structure.map((s) => ({ kind: s.kind, bars: Math.max(1, Math.round(s.bars)) }))).map((s, i) => {
+  const structure: BlueprintSection[] = nameSections(
+    dna.structure.map((s) => ({ kind: s.kind, bars: Math.max(1, Math.round(s.bars)) })),
+  ).map((s, i) => {
     const out: BlueprintSection = { name: s.name, kind: s.kind, bars: s.bars };
     const e = energyAt(i);
     if (e !== undefined) out.energy = e;
@@ -245,14 +289,24 @@ export function blueprintFromDNA(dna: SongDNA, opts: ComposeFromDnaOptions): Blu
   const instrumentation =
     opts.instrumentation && opts.instrumentation.length
       ? opts.instrumentation.map((t) => ({ ...t }))
-      : nameBlueprintTracks(dna.instrumentation.map((i) => ({ instrumentId: i.instrumentId, role: i.role, function: defaultFunctionFor(i.instrumentId, i.role) })));
-  const synco = dna.rhythmicIdentity.length ? dna.rhythmicIdentity.reduce((t, r) => t + r.syncopation, 0) / dna.rhythmicIdentity.length : 0.4;
+      : nameBlueprintTracks(
+          dna.instrumentation.map((i) => ({
+            instrumentId: i.instrumentId,
+            role: i.role,
+            function: defaultFunctionFor(i.instrumentId, i.role),
+          })),
+        );
+  const synco = dna.rhythmicIdentity.length
+    ? dna.rhythmicIdentity.reduce((t, r) => t + r.syncopation, 0) / dna.rhythmicIdentity.length
+    : 0.4;
   const macros = {
     ...defaultMacros(),
     ...(baseGenre.macros ?? {}),
     syncopation: clamp01(synco * 1.2),
     repetition: clamp01(1 - dna.repetition.repeatRatio),
-    harmonicTension: clamp01(0.2 + dna.harmonicLanguage.extensionRate * 0.6 + dna.harmonicLanguage.borrowedChordRate * 0.8),
+    harmonicTension: clamp01(
+      0.2 + dna.harmonicLanguage.extensionRate * 0.6 + dna.harmonicLanguage.borrowedChordRate * 0.8,
+    ),
   };
   const hasLead = instrumentation.some((t) => t.instrumentId === 'lead-vocal');
   const bp = defaultBlueprint({

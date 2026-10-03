@@ -83,8 +83,20 @@ describe('explainSection (Theory View §43)', () => {
   });
 
   it('states each fact once per section (narrative and comparisons together)', () => {
-    const songs = [song, ...['epic pop with a huge chorus', 'sad folk waltz in 6/8', 'dark trance 140 bpm', 'jazz in D dorian'].map((p, i) => composeSong(parsePromptToBlueprint(p, { seed: i + 1 })))];
-    const sentences = (text: string) => text.split(/(?<=[.!?])\s+/).map((t) => t.trim()).filter(Boolean);
+    const songs = [
+      song,
+      ...[
+        'epic pop with a huge chorus',
+        'sad folk waltz in 6/8',
+        'dark trance 140 bpm',
+        'jazz in D dorian',
+      ].map((p, i) => composeSong(parsePromptToBlueprint(p, { seed: i + 1 }))),
+    ];
+    const sentences = (text: string) =>
+      text
+        .split(/(?<=[.!?])\s+/)
+        .map((t) => t.trim())
+        .filter(Boolean);
     for (const s of songs) {
       for (const sec of s.sections) {
         const ex = explainSection(s, sec.id);
@@ -94,16 +106,24 @@ describe('explainSection (Theory View §43)', () => {
         // The energy step to each neighbouring section is reported in exactly one place.
         for (const other of s.sections.filter((o) => o.id !== sec.id)) {
           const names = new RegExp(` ${other.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
-          expect(all.filter((t) => /^Energy \d/.test(t) && names.test(t)).length, `${sec.name} vs ${other.name}`).toBeLessThanOrEqual(1);
+          expect(
+            all.filter((t) => /^Energy \d/.test(t) && names.test(t)).length,
+            `${sec.name} vs ${other.name}`,
+          ).toBeLessThanOrEqual(1);
         }
       }
     }
     const chorus = explainSection(song, 'sec-chorus1');
-    const lift = 'The verse emphasizes E minor while the chorus places more weight on G major, producing a perceptual emotional lift without requiring a full modulation.';
+    const lift =
+      'The verse emphasizes E minor while the chorus places more weight on G major, producing a perceptual emotional lift without requiring a full modulation.';
     expect(chorus.narrative.filter((t) => t === lift)).toHaveLength(1);
     expect(chorus.comparisons).not.toContain(lift);
-    expect(chorus.comparisons.filter((t) => t.startsWith('Energy 90') && t.includes('Pre-Chorus'))).toHaveLength(1);
-    expect(explainSection(song, 'sec-bridge').comparisons.some((t) => t.startsWith('Energy 70→95 vs'))).toBe(true);
+    expect(
+      chorus.comparisons.filter((t) => t.startsWith('Energy 90') && t.includes('Pre-Chorus')),
+    ).toHaveLength(1);
+    expect(explainSection(song, 'sec-bridge').comparisons.some((t) => t.startsWith('Energy 70→95 vs'))).toBe(
+      true,
+    );
   });
 
   it('is pure and throws on unknown sections', () => {
@@ -159,7 +179,8 @@ describe('applyTheoryControl (§43 controls)', () => {
     expect(a.explanation).toMatch(/tritone|mediant|Neapolitan|interchange|inversion|bVI|Dorian|secondary/);
     const m = applyTheoryControl(song, 'sec-chorus1', 'modal', { seed: 2 });
     expect(m.explanation).toMatch(/Mixolydian|Lydian/);
-    for (const c of opsOfType(m.operations, 'set_chords').flatMap((o) => o.chords)) expect(parseChordSymbol(c.symbol)).not.toBeNull();
+    for (const c of opsOfType(m.operations, 'set_chords').flatMap((o) => o.chords))
+      expect(parseChordSymbol(c.symbol)).not.toBeNull();
   });
 
   it('"Make brighter" raises minor thirds in a major key', () => {

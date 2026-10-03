@@ -27,7 +27,12 @@ const outDir = resolve(args[0] ?? join(root, '../../docs/brand/screenshots'));
 mkdirSync(outDir, { recursive: true });
 const base = `http://127.0.0.1:${port}`;
 
-const server = spawn('npx', ['vite', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, env: { ...process.env, E2E: '1' }, stdio: 'ignore', detached: true });
+const server = spawn('npx', ['vite', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
+  cwd: root,
+  env: { ...process.env, E2E: '1' },
+  stdio: 'ignore',
+  detached: true,
+});
 const ready = async () => {
   for (let i = 0; i < 120; i++) {
     try {
@@ -44,7 +49,9 @@ async function compose(page) {
   await page.getByRole('button', { name: 'Compose a new song' }).click();
   await page
     .getByLabel('Song prompt')
-    .fill('Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.');
+    .fill(
+      'Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.',
+    );
   await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
 }
 
@@ -73,7 +80,12 @@ async function run(browser, theme, viewport, prefix) {
       const W = document.documentElement.clientWidth;
       // A scroll container (or a deliberately clipped component) inside the page is fine; being cut
       // off by the page shell itself (body, #root, .app, main) is not.
-      const shell = new Set([document.body, document.getElementById('root'), document.querySelector('.app'), document.querySelector('main')]);
+      const shell = new Set([
+        document.body,
+        document.getElementById('root'),
+        document.querySelector('.app'),
+        document.querySelector('main'),
+      ]);
       const clipped = (el) => {
         for (let p = el.parentElement; p && !shell.has(p); p = p.parentElement) {
           const o = getComputedStyle(p).overflowX;
@@ -87,9 +99,14 @@ async function run(browser, theme, viewport, prefix) {
           return r.width > 0 && r.height > 0 && r.right > W + 1 && !clipped(el);
         })
         .slice(0, 5)
-        .map((el) => `${el.tagName.toLowerCase()}.${[...el.classList].join('.')} right=${Math.round(el.getBoundingClientRect().right)}`);
+        .map(
+          (el) =>
+            `${el.tagName.toLowerCase()}.${[...el.classList].join('.')} right=${Math.round(el.getBoundingClientRect().right)}`,
+        );
     });
-    console.log(`  ${prefix}${name}-${theme}.png${overflow.length ? `  OVERFLOW: ${overflow.join(', ')}` : ''}`);
+    console.log(
+      `  ${prefix}${name}-${theme}.png${overflow.length ? `  OVERFLOW: ${overflow.join(', ')}` : ''}`,
+    );
   };
   const mode = async (name) => {
     const nav = page.getByRole('navigation', { name: 'Modes' });
@@ -109,9 +126,16 @@ async function run(browser, theme, viewport, prefix) {
   await page.getByRole('tab', { name: 'Theory' }).click();
   await shot('theory');
   await mode('Mix & Master');
-  await page.locator('.mx-strip, [data-testid="mixer"]').first().waitFor({ timeout: 30_000 }).catch(() => {});
+  await page
+    .locator('.mx-strip, [data-testid="mixer"]')
+    .first()
+    .waitFor({ timeout: 30_000 })
+    .catch(() => {});
   await shot('mix');
-  await page.getByTitle(/^Settings/).first().click();
+  await page
+    .getByTitle(/^Settings/)
+    .first()
+    .click();
   await shot('settings');
   if (all) {
     for (const m of ['Compose', 'Generate', 'Transcribe', 'Rebuild', 'Produce', 'Vocals', 'Export']) {
@@ -120,7 +144,8 @@ async function run(browser, theme, viewport, prefix) {
     }
   }
   await context.close();
-  if (errors.length) console.warn(`  page errors (${theme}${prefix ? ', mobile' : ''}):\n    ${errors.join('\n    ')}`);
+  if (errors.length)
+    console.warn(`  page errors (${theme}${prefix ? ', mobile' : ''}):\n    ${errors.join('\n    ')}`);
 }
 
 try {

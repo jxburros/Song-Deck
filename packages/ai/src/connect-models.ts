@@ -49,22 +49,98 @@ export interface AppUse {
 }
 
 export const APP_USES: AppUse[] = [
-  { id: 'composition', label: 'Composition planning', roles: ['composition', 'harmony'], capabilitySets: [['TEXT_REASONING', 'MUSIC_THEORY_REASONING']], group: 'writing' },
-  { id: 'lyrics', label: 'Lyrics', roles: ['lyrics'], capabilitySets: roleCapabilitySets('lyrics'), group: 'writing' },
-  { id: 'midi-editing', label: 'MIDI edits in plain words', roles: ['midi-editing'], capabilitySets: roleCapabilitySets('midi-editing'), group: 'writing' },
-  { id: 'theory', label: 'Theory Q&A & assistant', roles: ['analysis', 'chat'], capabilitySets: [['TEXT_REASONING', 'MUSIC_THEORY_REASONING']], group: 'writing' },
-  { id: 'mixing', label: 'Mix assistant', roles: ['mixing'], capabilitySets: [['TEXT_REASONING', 'MIXING']], group: 'writing' },
-  { id: 'audio-understanding', label: 'Listens to audio', roles: [], capabilitySets: [['AUDIO_UNDERSTANDING']], group: 'writing' },
-  { id: 'music', label: 'Music generation', roles: ['production'], capabilitySets: roleCapabilitySets('production'), group: 'music' },
-  { id: 'singing', label: 'Singing', roles: ['vocals'], capabilitySets: roleCapabilitySets('vocals'), group: 'vocals' },
-  { id: 'voice-conversion', label: 'Voice conversion', roles: ['voice-conversion'], capabilitySets: roleCapabilitySets('voice-conversion'), group: 'vocals' },
-  { id: 'transcription', label: 'Transcription', roles: ['transcription'], capabilitySets: roleCapabilitySets('transcription'), group: 'analysis' },
-  { id: 'separation', label: 'Stem separation', roles: ['separation'], capabilitySets: roleCapabilitySets('separation'), group: 'analysis' },
-  { id: 'mastering', label: 'Mastering', roles: ['mastering'], capabilitySets: roleCapabilitySets('mastering'), group: 'mastering' },
+  {
+    id: 'composition',
+    label: 'Composition planning',
+    roles: ['composition', 'harmony'],
+    capabilitySets: [['TEXT_REASONING', 'MUSIC_THEORY_REASONING']],
+    group: 'writing',
+  },
+  {
+    id: 'lyrics',
+    label: 'Lyrics',
+    roles: ['lyrics'],
+    capabilitySets: roleCapabilitySets('lyrics'),
+    group: 'writing',
+  },
+  {
+    id: 'midi-editing',
+    label: 'MIDI edits in plain words',
+    roles: ['midi-editing'],
+    capabilitySets: roleCapabilitySets('midi-editing'),
+    group: 'writing',
+  },
+  {
+    id: 'theory',
+    label: 'Theory Q&A & assistant',
+    roles: ['analysis', 'chat'],
+    capabilitySets: [['TEXT_REASONING', 'MUSIC_THEORY_REASONING']],
+    group: 'writing',
+  },
+  {
+    id: 'mixing',
+    label: 'Mix assistant',
+    roles: ['mixing'],
+    capabilitySets: [['TEXT_REASONING', 'MIXING']],
+    group: 'writing',
+  },
+  {
+    id: 'audio-understanding',
+    label: 'Listens to audio',
+    roles: [],
+    capabilitySets: [['AUDIO_UNDERSTANDING']],
+    group: 'writing',
+  },
+  {
+    id: 'music',
+    label: 'Music generation',
+    roles: ['production'],
+    capabilitySets: roleCapabilitySets('production'),
+    group: 'music',
+  },
+  {
+    id: 'singing',
+    label: 'Singing',
+    roles: ['vocals'],
+    capabilitySets: roleCapabilitySets('vocals'),
+    group: 'vocals',
+  },
+  {
+    id: 'voice-conversion',
+    label: 'Voice conversion',
+    roles: ['voice-conversion'],
+    capabilitySets: roleCapabilitySets('voice-conversion'),
+    group: 'vocals',
+  },
+  {
+    id: 'transcription',
+    label: 'Transcription',
+    roles: ['transcription'],
+    capabilitySets: roleCapabilitySets('transcription'),
+    group: 'analysis',
+  },
+  {
+    id: 'separation',
+    label: 'Stem separation',
+    roles: ['separation'],
+    capabilitySets: roleCapabilitySets('separation'),
+    group: 'analysis',
+  },
+  {
+    id: 'mastering',
+    label: 'Mastering',
+    roles: ['mastering'],
+    capabilitySets: roleCapabilitySets('mastering'),
+    group: 'mastering',
+  },
 ];
 
 export const MODEL_GROUPS: { id: ModelGroupId; label: string; description: string }[] = [
-  { id: 'writing', label: 'Writing, arranging & theory', description: 'Plans songs, writes lyrics, edits MIDI from plain words, answers theory questions.' },
+  {
+    id: 'writing',
+    label: 'Writing, arranging & theory',
+    description: 'Plans songs, writes lyrics, edits MIDI from plain words, answers theory questions.',
+  },
   { id: 'music', label: 'Music generation', description: 'Produces audio from the composition or a prompt.' },
   { id: 'vocals', label: 'Singing & voices', description: 'Sings lyrics on a melody or converts a vocal.' },
   { id: 'analysis', label: 'Transcription & separation', description: 'Turns audio into notes or stems.' },
@@ -73,11 +149,14 @@ export const MODEL_GROUPS: { id: ModelGroupId; label: string; description: strin
 
 /** Every app use a model can serve. */
 export function modelUses(model: Pick<ModelInfo, 'capabilities'>): AppUseId[] {
-  return APP_USES.filter((u) => u.capabilitySets.some((set) => hasCapabilities(model.capabilities, set))).map((u) => u.id);
+  return APP_USES.filter((u) => u.capabilitySets.some((set) => hasCapabilities(model.capabilities, set))).map(
+    (u) => u.id,
+  );
 }
 
 /** Pre-release / pinned snapshots rank below the stable alias of the same tier. */
-const UNSTABLE = /(preview|experimental|-exp\b|-exp-|beta|alpha|-latest\b|-\d{4}-\d{2}-\d{2}\b|-\d{8}\b|-\d{4}\b|-\d{2}-\d{2}\b)/i;
+const UNSTABLE =
+  /(preview|experimental|-exp\b|-exp-|beta|alpha|-latest\b|-\d{4}-\d{2}-\d{2}\b|-\d{8}\b|-\d{4}\b|-\d{2}-\d{2}\b)/i;
 
 /** Leading version number in an id ("gpt-5" → 5, "gemini-2.5-pro" → 2.5, "claude-opus-5-5" → 5.5). */
 export function modelVersion(id: string): number {

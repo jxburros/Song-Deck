@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { isChordLine, lyricStress, parseLyricSheet, parseSectionHeader, stanzaSimilarity, suggestMoodsFromLyrics, wordStress } from '../src/musician';
+import {
+  isChordLine,
+  lyricStress,
+  parseLyricSheet,
+  parseSectionHeader,
+  stanzaSimilarity,
+  suggestMoodsFromLyrics,
+  wordStress,
+} from '../src/musician';
 import {
   blueprintFromChoices,
   composeSong,
@@ -83,24 +91,43 @@ describe('parseSectionHeader', () => {
   });
 
   it('does not take lyric lines for headers', () => {
-    for (const line of ['Chorus of angels singing', 'Hook me up tonight', 'Bridge over troubled water', 'Love: it is all we need', 'I verse the world']) {
+    for (const line of [
+      'Chorus of angels singing',
+      'Hook me up tonight',
+      'Bridge over troubled water',
+      'Love: it is all we need',
+      'I verse the world',
+    ]) {
       expect(parseSectionHeader(line), line).toBeNull();
     }
   });
 
   it('keeps the text after an unbracketed "Chorus:" header', () => {
-    expect(parseSectionHeader('Chorus: Hold on to me')).toMatchObject({ kind: 'chorus', rest: 'Hold on to me' });
+    expect(parseSectionHeader('Chorus: Hold on to me')).toMatchObject({
+      kind: 'chorus',
+      rest: 'Hold on to me',
+    });
   });
 });
 
 describe('isChordLine', () => {
   it('recognises chord-only lines', () => {
-    for (const line of ['Am  F  C  G', 'G/B C D', '| Em | C | G | D |', 'Cmaj7 Fmaj7', 'F#m7b5 B7 Em', 'D7sus4 D', 'N.C.', 'Bbadd9 Eb x2']) {
+    for (const line of [
+      'Am  F  C  G',
+      'G/B C D',
+      '| Em | C | G | D |',
+      'Cmaj7 Fmaj7',
+      'F#m7b5 B7 Em',
+      'D7sus4 D',
+      'N.C.',
+      'Bbadd9 Eb x2',
+    ]) {
       expect(isChordLine(line), line).toBe(true);
     }
   });
   it('keeps lyric lines', () => {
-    for (const line of ['Be a man', 'A', 'Am I dreaming', 'Go Ed go', 'Dance all night']) expect(isChordLine(line), line).toBe(false);
+    for (const line of ['Be a man', 'A', 'Am I dreaming', 'Go Ed go', 'Dance all night'])
+      expect(isChordLine(line), line).toBe(false);
   });
 });
 
@@ -184,7 +211,8 @@ Sing along with me
 });
 
 describe('parseLyricSheet: unlabelled songs', () => {
-  const CHORUS = 'Hold on, hold on to me\nWe were never meant to be free\nHold on, hold on to me\nThis is where we want to be';
+  const CHORUS =
+    'Hold on, hold on to me\nWe were never meant to be free\nHold on, hold on to me\nThis is where we want to be';
   it('finds the repeated chorus, the verses before it and a late bridge', () => {
     const text = [
       'Under the streetlights I wait for the rain\nCounting the cars as they carry my name\nNobody answers the call\nShadows are taller than all',
@@ -211,8 +239,22 @@ describe('parseLyricSheet: unlabelled songs', () => {
 
   it('finds a pre-chorus that always leads into the chorus', () => {
     const PRE = 'And I feel it rising\nCalling out my name';
-    const text = ['Verse words one\nVerse words two', PRE, CHORUS, 'Second verse one\nSecond verse two', PRE, CHORUS].join('\n\n');
-    expect(kinds(parseLyricSheet(text))).toEqual(['verse', 'pre-chorus', 'chorus', 'verse', 'pre-chorus', 'chorus']);
+    const text = [
+      'Verse words one\nVerse words two',
+      PRE,
+      CHORUS,
+      'Second verse one\nSecond verse two',
+      PRE,
+      CHORUS,
+    ].join('\n\n');
+    expect(kinds(parseLyricSheet(text))).toEqual([
+      'verse',
+      'pre-chorus',
+      'chorus',
+      'verse',
+      'pre-chorus',
+      'chorus',
+    ]);
   });
 
   it('keeps verses that end on a shared refrain line as verses', () => {
@@ -233,7 +275,9 @@ describe('parseLyricSheet: unlabelled songs', () => {
   it('stanza similarity is symmetric and bounded', () => {
     expect(stanzaSimilarity(['a b c', 'd e f'], ['a b c', 'd e f'])).toBe(1);
     expect(stanzaSimilarity(['a b c'], ['x y z'])).toBe(0);
-    expect(stanzaSimilarity(['a b c', 'd e f'], ['d e f', 'q r s'])).toBe(stanzaSimilarity(['d e f', 'q r s'], ['a b c', 'd e f']));
+    expect(stanzaSimilarity(['a b c', 'd e f'], ['d e f', 'q r s'])).toBe(
+      stanzaSimilarity(['d e f', 'q r s'], ['a b c', 'd e f']),
+    );
   });
 });
 
@@ -241,8 +285,28 @@ describe('structure from lyrics', () => {
   it('sizes sections by lines and syllables at the tempo, adds an intro/outro and a final chorus', () => {
     const l = parseLyricSheet(LABELLED);
     const s = structureFromLyrics(l, { tempo: 120 });
-    expect(s.map((x) => x.kind)).toEqual(['intro', 'verse', 'pre-chorus', 'chorus', 'verse', 'chorus', 'bridge', 'final-chorus', 'outro']);
-    expect(s.map((x) => x.name)).toEqual(['Intro', 'Verse 1', 'Pre-Chorus', 'Chorus 1', 'Verse 2', 'Chorus 2', 'Bridge', 'Final Chorus', 'Outro']);
+    expect(s.map((x) => x.kind)).toEqual([
+      'intro',
+      'verse',
+      'pre-chorus',
+      'chorus',
+      'verse',
+      'chorus',
+      'bridge',
+      'final-chorus',
+      'outro',
+    ]);
+    expect(s.map((x) => x.name)).toEqual([
+      'Intro',
+      'Verse 1',
+      'Pre-Chorus',
+      'Chorus 1',
+      'Verse 2',
+      'Chorus 2',
+      'Bridge',
+      'Final Chorus',
+      'Outro',
+    ]);
     // Long lines take two bars, short ones one; every section is even and at least 2 bars.
     expect(s[1].bars).toBe(4);
     expect(s[7].bars).toBe(2 * s[3].bars);
@@ -261,7 +325,9 @@ describe('structure from lyrics', () => {
   });
 
   it('keeps a sung intro and instrumental sections from the sheet', () => {
-    const l = parseLyricSheet('[Intro]\nOoh ooh\n\n[Verse]\nHello there my friend\n\n[Guitar Solo]\n\n[Outro]\nGoodbye');
+    const l = parseLyricSheet(
+      '[Intro]\nOoh ooh\n\n[Verse]\nHello there my friend\n\n[Guitar Solo]\n\n[Outro]\nGoodbye',
+    );
     const s = structureFromLyrics(l, { tempo: 100 });
     expect(s.map((x) => x.kind)).toEqual(['intro', 'verse', 'solo', 'outro']);
     expect(s[2].bars).toBe(8);
@@ -306,12 +372,18 @@ describe('stress', () => {
     const meter = meterInfo({ numerator: 4, denominator: 4 });
     const grid = 240;
     // Stressed syllables on the off-beats, unstressed ones on the beats ("a-RISE a-GAIN" sung late).
-    const notes: MotifNote[] = [240, 480, 720, 960].map((offset, i) => ({ offset, duration: 220, degree: i, velocity: 90 }));
+    const notes: MotifNote[] = [240, 480, 720, 960].map((offset, i) => ({
+      offset,
+      duration: 220,
+      degree: i,
+      velocity: 90,
+    }));
     const stress = [1, 0, 1, 0];
     const out = alignStressToMeter(notes, stress, { grid, barOffset: 0, meter, lengthTicks: 1920 });
     expect(out.map((n) => n.offset)).toEqual([0, 240, 480, 720]);
     expect(out.map((n) => n.degree)).toEqual([0, 1, 2, 3]);
-    for (let i = 0; i < out.length - 1; i++) expect(out[i].offset + out[i].duration).toBeLessThanOrEqual(out[i + 1].offset);
+    for (let i = 0; i < out.length - 1; i++)
+      expect(out[i].offset + out[i].duration).toBeLessThanOrEqual(out[i + 1].offset);
     // The phrase still ends where it did.
     expect(out[3].offset + out[3].duration).toBe(960 + 220);
     const w = (n: MotifNote) => metricWeight(n.offset, meter);
@@ -320,19 +392,32 @@ describe('stress', () => {
     expect(out[0].velocity).toBeGreaterThan(out[1].velocity);
     // Deterministic, and a phrase that already fits is left alone.
     expect(alignStressToMeter(notes, stress, { grid, barOffset: 0, meter, lengthTicks: 1920 })).toEqual(out);
-    const fitting: MotifNote[] = [0, 240, 480, 720].map((offset, i) => ({ offset, duration: 220, degree: i, velocity: 90 }));
-    expect(alignStressToMeter(fitting, stress, { grid, barOffset: 0, meter, lengthTicks: 1920 })).toEqual(fitting);
+    const fitting: MotifNote[] = [0, 240, 480, 720].map((offset, i) => ({
+      offset,
+      duration: 220,
+      degree: i,
+      velocity: 90,
+    }));
+    expect(alignStressToMeter(fitting, stress, { grid, barOffset: 0, meter, lengthTicks: 1920 })).toEqual(
+      fitting,
+    );
     // No room: unchanged.
-    expect(alignStressToMeter(notes, stress, { grid, barOffset: 0, meter, lengthTicks: 3 * grid })).toEqual(notes);
+    expect(alignStressToMeter(notes, stress, { grid, barOffset: 0, meter, lengthTicks: 3 * grid })).toEqual(
+      notes,
+    );
   });
 });
 
 describe('mood from lyrics (offline)', () => {
   it('reads valence and arousal and only suggests tags the catalog has', () => {
-    const sad = suggestMoodsFromLyrics('Tears in the rain, alone and cold, I miss you, the night is empty and gone');
+    const sad = suggestMoodsFromLyrics(
+      'Tears in the rain, alone and cold, I miss you, the night is empty and gone',
+    );
     expect(sad.valence).toBeLessThan(-0.3);
     expect(sad.tempoFeel).not.toBe('fast');
-    const happy = suggestMoodsFromLyrics('We dance in the sunshine, smile and laugh, the summer is golden and free, love and joy');
+    const happy = suggestMoodsFromLyrics(
+      'We dance in the sunshine, smile and laugh, the summer is golden and free, love and joy',
+    );
     expect(happy.valence).toBeGreaterThan(0.4);
     for (const r of [sad, happy]) for (const id of r.moods) expect(getTag(id)?.kind).toBe('mood');
     const angry = suggestMoodsFromLyrics('Burn it down, fight, rage and scream, the fire and the war');
@@ -347,7 +432,15 @@ describe('mood from lyrics (offline)', () => {
 describe('composing from lyrics', () => {
   const lyrics = parseLyricSheet(LABELLED);
   const bp = blueprintFromChoices(
-    { genres: [{ genreId: 'pop', weight: 1 }], instruments: [{ instrumentId: 'piano', count: 1 }, { instrumentId: 'drum-kit', count: 1 }, { instrumentId: 'electric-bass', count: 1 }], lyrics },
+    {
+      genres: [{ genreId: 'pop', weight: 1 }],
+      instruments: [
+        { instrumentId: 'piano', count: 1 },
+        { instrumentId: 'drum-kit', count: 1 },
+        { instrumentId: 'electric-bass', count: 1 },
+      ],
+      lyrics,
+    },
     { seed: 11 },
   );
 
@@ -373,7 +466,9 @@ describe('composing from lyrics', () => {
       const notes = vocal.notes.filter((x) => x.tick >= sp.startTick && x.tick < sp.endTick);
       expect(notes.length, n).toBeGreaterThan(4);
       expect(notes.filter((x) => x.syllable && x.syllable !== '_').length, n).toBeGreaterThan(4);
-      expect(new Set(notes.map((x) => x.lyricLineId).filter(Boolean)).size, n).toBe(song.lyrics.filter((l) => l.sectionId === sp.section.id).length);
+      expect(new Set(notes.map((x) => x.lyricLineId).filter(Boolean)).size, n).toBe(
+        song.lyrics.filter((l) => l.sectionId === sp.section.id).length,
+      );
     }
     expect(validityProblems(song)).toEqual([]);
     expect(song.vocals.mode).toBe('ai-singer');

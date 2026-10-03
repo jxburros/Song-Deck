@@ -14,7 +14,10 @@ test('compose a song, edit it with words, and keep control', async ({ page }) =>
 
   // Builder → fine-tune the blueprint → plan → MIDI (the long way round; composeQuickSong is the short one).
   await openComposer(page);
-  await page.getByTestId('compose-builder').getByRole('button', { name: 'Alt-rock band', exact: true }).click();
+  await page
+    .getByTestId('compose-builder')
+    .getByRole('button', { name: 'Alt-rock band', exact: true })
+    .click();
   await expect(page.getByTestId('builder-instrument')).toHaveCount(5);
   await page.getByRole('button', { name: 'Fine-tune first' }).click();
   await expect(page.getByRole('heading', { name: 'Song Blueprint' })).toBeVisible();

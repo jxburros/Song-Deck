@@ -32,7 +32,9 @@ export function useTask<O = unknown>(id: string | null): TaskRecord<unknown, O> 
   const version = useRuntime((s) => {
     if (!id) return '';
     const t = s.tasks.find((x) => x.id === id);
-    return t ? `${t.status}|${t.progress}|${t.message ?? ''}|${t.attempts}|${t.logs.length}|${t.finishedAt ?? ''}` : 'missing';
+    return t
+      ? `${t.status}|${t.progress}|${t.message ?? ''}|${t.attempts}|${t.logs.length}|${t.finishedAt ?? ''}`
+      : 'missing';
   });
   return useMemo(() => {
     if (!id) return null;

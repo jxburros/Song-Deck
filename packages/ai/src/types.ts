@@ -229,7 +229,8 @@ export interface JsonSchema {
 
 export type ChatRole = 'user' | 'assistant';
 
-export type ContentPart = { type: 'text'; text: string } | { type: 'audio'; audio: EncodedAudio; label?: string };
+export type ContentPart =
+  { type: 'text'; text: string } | { type: 'audio'; audio: EncodedAudio; label?: string };
 
 export interface ChatMessage {
   role: ChatRole;

@@ -47,8 +47,17 @@ export function opReplaceNotes(song: Song, op: RawOp, c: OpContext): boolean {
     fresh.push({ id: c.ids.next('n'), ...n });
   });
   const label = `bars ${region.startBar1}–${region.endBar1}`;
-  if (outside) c.warn('region.note-outside', `${name}: ${outside} note(s) outside the requested ${label} were dropped.`, { trackId: track.id, fixed: true });
-  if (trimmed) c.info('region.note-trimmed', `${name}: ${trimmed} note(s) shortened to end at the region boundary.`, { trackId: track.id, fixed: true });
+  if (outside)
+    c.warn(
+      'region.note-outside',
+      `${name}: ${outside} note(s) outside the requested ${label} were dropped.`,
+      { trackId: track.id, fixed: true },
+    );
+  if (trimmed)
+    c.info('region.note-trimmed', `${name}: ${trimmed} note(s) shortened to end at the region boundary.`, {
+      trackId: track.id,
+      fixed: true,
+    });
   const locator = new SectionLocator(song);
   inheritMetadata(
     fresh,
@@ -58,13 +67,20 @@ export function opReplaceNotes(song: Song, op: RawOp, c: OpContext): boolean {
   for (const n of track.notes) {
     if (n.tick >= region.startTick && n.tick < region.endTick) continue;
     // A note sustaining into the replaced region is cut at the region start (unless protected).
-    if (n.tick < region.startTick && n.tick + n.duration > region.startTick && !isProtected(c, locator, track, n)) {
+    if (
+      n.tick < region.startTick &&
+      n.tick + n.duration > region.startTick &&
+      !isProtected(c, locator, track, n)
+    ) {
       keep.push({ ...n, duration: region.startTick - n.tick });
     } else keep.push(n);
   }
   track.notes = keep.concat(fresh);
   for (const n of fresh) c.touch(track.id, n.id);
-  if (!fresh.length) c.info('region.cleared', `${name}: ${label} of "${track.name}" cleared (no valid notes supplied).`, { trackId: track.id });
+  if (!fresh.length)
+    c.info('region.cleared', `${name}: ${label} of "${track.name}" cleared (no valid notes supplied).`, {
+      trackId: track.id,
+    });
   return true;
 }
 
@@ -100,7 +116,8 @@ function inheritMetadata(fresh: Note[], replaced: Note[]): void {
   pass((n, o) => o.tick === n.tick && o.pitch === n.pitch && sameSyllable(n, o));
   pass((n, o) => o.tick === n.tick && sameSyllable(n, o));
   // Same words, new rhythm: walk both lines in time order, matching equal syllables.
-  const sung = (list: Note[], done: Set<Note>) => list.filter((n) => n.syllable && !done.has(n)).sort((a, b) => a.tick - b.tick);
+  const sung = (list: Note[], done: Set<Note>) =>
+    list.filter((n) => n.syllable && !done.has(n)).sort((a, b) => a.tick - b.tick);
   const left = sung(replaced, used);
   let cursor = 0;
   for (const n of sung(fresh, matched)) {
@@ -127,7 +144,11 @@ export function opAddNotes(song: Song, op: RawOp, c: OpContext): boolean {
     const n = parseOpNote(song, op.notes[i], c, name, i, track.id);
     if (!n) continue;
     if (isProtected(c, locator, track, { tick: n.tick, locked: false })) {
-      c.error('lock.violated', `${name}: "${track.name}" is locked at ${barsLabel(song, n.tick, n.tick + 1)}.`, { trackId: track.id });
+      c.error(
+        'lock.violated',
+        `${name}: "${track.name}" is locked at ${barsLabel(song, n.tick, n.tick + 1)}.`,
+        { trackId: track.id },
+      );
       return false;
     }
     fresh.push({ id: c.ids.next('n'), ...n });
@@ -163,7 +184,9 @@ export function opDeleteNotes(song: Song, op: RawOp, c: OpContext): boolean {
   if (region === null) return false;
   const range = parsePitchRange(op.pitch_range);
   if (range === null) {
-    c.error('op.malformed', `${name}: "pitch_range" must be [low, high] (MIDI numbers or note names).`, { trackId: track.id });
+    c.error('op.malformed', `${name}: "pitch_range" must be [low, high] (MIDI numbers or note names).`, {
+      trackId: track.id,
+    });
     return false;
   }
   const sel = selectNotes(track, region, op.note_ids, c, name);
@@ -196,7 +219,11 @@ export function opTransformNotes(song: Song, op: RawOp, c: OpContext): boolean {
     if (t[key] === undefined || t[key] === null) return undefined;
     const v = toNumber(t[key]);
     if (v === undefined || !check(v)) {
-      c.warn('transform.invalid', `${name}: transform.${key} = ${JSON.stringify(t[key])} is invalid; ignored.`, { trackId: track.id });
+      c.warn(
+        'transform.invalid',
+        `${name}: transform.${key} = ${JSON.stringify(t[key])} is invalid; ignored.`,
+        { trackId: track.id },
+      );
       return undefined;
     }
     return v;
@@ -205,7 +232,9 @@ export function opTransformNotes(song: Song, op: RawOp, c: OpContext): boolean {
   let transpose = num('transpose', (v) => Math.abs(v) <= 48);
   let diatonic = num('transpose_diatonic', (v) => Math.abs(v) <= 28);
   if (drums && (transpose || diatonic)) {
-    c.info('transform.drums-skipped', `${name}: pitch transposition skipped on drum track "${track.name}".`, { trackId: track.id });
+    c.info('transform.drums-skipped', `${name}: pitch transposition skipped on drum track "${track.name}".`, {
+      trackId: track.id,
+    });
     transpose = undefined;
     diatonic = undefined;
   }
@@ -219,7 +248,10 @@ export function opTransformNotes(song: Song, op: RawOp, c: OpContext): boolean {
   let articulation = undefined as Note['articulation'] | undefined;
   if (t.articulation !== undefined) {
     articulation = oneOf(t.articulation, ARTICULATIONS);
-    if (!articulation) c.warn('transform.invalid', `${name}: unknown articulation "${String(t.articulation)}"; ignored.`, { trackId: track.id });
+    if (!articulation)
+      c.warn('transform.invalid', `${name}: unknown articulation "${String(t.articulation)}"; ignored.`, {
+        trackId: track.id,
+      });
   }
   const sel = selectNotes(track, region, op.note_ids, c, name);
   if (!sel) return false;
@@ -268,7 +300,12 @@ export function opTransformNotes(song: Song, op: RawOp, c: OpContext): boolean {
     c.touch(track.id, n.id);
     return n;
   });
-  if (clampedStart) c.warn('note.past-start', `${name}: ${clampedStart} note(s) shifted before the song start were placed at bar 1.`, { trackId: track.id, fixed: true });
+  if (clampedStart)
+    c.warn(
+      'note.past-start',
+      `${name}: ${clampedStart} note(s) shifted before the song start were placed at bar 1.`,
+      { trackId: track.id, fixed: true },
+    );
   return true;
 }
 

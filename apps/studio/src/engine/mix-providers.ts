@@ -25,7 +25,13 @@ export interface ExternalMasteringProvider {
   id: string;
   name: string;
   cloud: boolean;
-  master(req: { wav: Uint8Array; sampleRate: number; durationSeconds: number; target: MasteringTarget; signal?: AbortSignal }): Promise<{
+  master(req: {
+    wav: Uint8Array;
+    sampleRate: number;
+    durationSeconds: number;
+    target: MasteringTarget;
+    signal?: AbortSignal;
+  }): Promise<{
     audio: AudioData;
     report?: Record<string, unknown>;
     model?: string;
@@ -52,23 +58,36 @@ export function masteringCandidates(method: Method): MasteringCandidate[] {
   try {
     initAi();
     return getRegistry()
-      .findCompatible(['MASTERING'], { interface: 'mastering', includeUnavailable: true, locations: locationsFor(method) })
+      .findCompatible(['MASTERING'], {
+        interface: 'mastering',
+        includeUnavailable: true,
+        locations: locationsFor(method),
+      })
       .filter((c) => c.location !== 'internal')
-      .map((c) => ({ id: c.providerId, name: c.providerName, location: c.location, ready: c.status === 'ready' }));
+      .map((c) => ({
+        id: c.providerId,
+        name: c.providerName,
+        location: c.location,
+        ready: c.status === 'ready',
+      }));
   } catch {
     return [];
   }
 }
 
 /** Pick the provider for a mastering method (or explain why there is none). */
-export async function resolveExternalMastering(method: Method, choice?: string): Promise<{ provider?: ExternalMasteringProvider; reason: string }> {
+export async function resolveExternalMastering(
+  method: Method,
+  choice?: string,
+): Promise<{ provider?: ExternalMasteringProvider; reason: string }> {
   if (choice === 'internal') return { reason: 'The on-device engine was chosen as the mastering provider.' };
   const all = masteringCandidates(method);
   const ready = all.filter((c) => c.ready);
   let pick = choice && choice !== 'auto' ? ready.find((c) => c.id === choice) : undefined;
   if (choice && choice !== 'auto' && !pick) {
     const named = all.find((c) => c.id === choice);
-    if (named) return { reason: `${named.name} is not ready (check its configuration in Settings → Providers).` };
+    if (named)
+      return { reason: `${named.name} is not ready (check its configuration in Settings → Providers).` };
   }
   pick ??= ready[0];
   if (!pick) {
@@ -91,7 +110,12 @@ export async function resolveExternalMastering(method: Method, choice?: string):
           { providerChoice: chosen.id, signal, quality: 'final' },
         );
         const audio = await decodeAudioBytes(r.result.audio.data);
-        return { audio, report: r.result.report, model: r.result.model ?? r.provenance.modelId, provenance: r.provenance };
+        return {
+          audio,
+          report: r.result.report,
+          model: r.result.model ?? r.provenance.modelId,
+          provenance: r.provenance,
+        };
       },
     },
   };

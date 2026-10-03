@@ -22,7 +22,15 @@ import { assetStore } from '../state/assets';
 import { jobs } from './jobs';
 import { player } from './player';
 import { insertOperations } from './capture-song';
-import { VOCAL_TAKES_GENERATOR, applyVocalMonitoring, artifactVersions, fileStem, formatBars, takesTrackFor, withRights } from './vocal-model';
+import {
+  VOCAL_TAKES_GENERATOR,
+  applyVocalMonitoring,
+  artifactVersions,
+  fileStem,
+  formatBars,
+  takesTrackFor,
+  withRights,
+} from './vocal-model';
 import { proposeVocal } from './vocal-sync';
 import type { VocalJobContext } from './vocal-render';
 
@@ -65,7 +73,17 @@ function audioSeconds(a: AudioData): number {
 }
 
 /** Add a take clip (and the takes track, created next to the vocal MIDI track) and make it active. */
-export function withTake(song: Song, o: { midiTrackId: string; assetId: string; name: string; startTick: number; offsetSeconds: number; durationSeconds: number }): { song: Song; take: VocalTake } {
+export function withTake(
+  song: Song,
+  o: {
+    midiTrackId: string;
+    assetId: string;
+    name: string;
+    startTick: number;
+    offsetSeconds: number;
+    durationSeconds: number;
+  },
+): { song: Song; take: VocalTake } {
   const midi = song.tracks.find((t) => t.id === o.midiTrackId);
   if (!midi) throw new Error('The vocal track no longer exists.');
   let takesTrack = takesTrackFor(song, midi.id);
@@ -90,10 +108,21 @@ export function withTake(song: Song, o: { midiTrackId: string; assetId: string; 
     tracks = [...tracks];
     tracks.splice(idx + 1, 0, takesTrack);
     // Takes go through the vocal's channel strip settings (EQ, compression, sends).
-    const strip = { ...(song.mixer.channels[midi.id] ? channelFor(song, midi.id) : defaultChannelStrip()), mute: false, solo: false };
+    const strip = {
+      ...(song.mixer.channels[midi.id] ? channelFor(song, midi.id) : defaultChannelStrip()),
+      mute: false,
+      solo: false,
+    };
     channels = { ...channels, [takesTrack.id]: strip };
   }
-  const take: VocalTake = { id: randomId('take'), assetId: o.assetId, trackId: takesTrack.id, createdAt: new Date().toISOString(), name: o.name, active: true };
+  const take: VocalTake = {
+    id: randomId('take'),
+    assetId: o.assetId,
+    trackId: takesTrack.id,
+    createdAt: new Date().toISOString(),
+    name: o.name,
+    active: true,
+  };
   const clip: AudioClip = {
     id: randomId('clip'),
     assetId: o.assetId,
@@ -142,9 +171,25 @@ export function activateTake(song: Song, takeId: string): Song {
   return {
     ...song,
     tracks: song.tracks.map((t) =>
-      t.id === track.id ? { ...t, clips: t.clips.map((c) => (c.takeId === takeId ? { ...c, muted: false } : c.takeId && overlapping.has(c.takeId) ? { ...c, muted: true } : c)) } : t,
+      t.id === track.id
+        ? {
+            ...t,
+            clips: t.clips.map((c) =>
+              c.takeId === takeId
+                ? { ...c, muted: false }
+                : c.takeId && overlapping.has(c.takeId)
+                  ? { ...c, muted: true }
+                  : c,
+            ),
+          }
+        : t,
     ),
-    vocals: { ...song.vocals, takes: song.vocals.takes.map((t) => (t.id === takeId ? { ...t, active: true } : overlapping.has(t.id) ? { ...t, active: false } : t)) },
+    vocals: {
+      ...song.vocals,
+      takes: song.vocals.takes.map((t) =>
+        t.id === takeId ? { ...t, active: true } : overlapping.has(t.id) ? { ...t, active: false } : t,
+      ),
+    },
   };
 }
 
@@ -153,8 +198,15 @@ export function deactivateTake(song: Song, takeId: string): Song {
   if (!take) return song;
   return {
     ...song,
-    tracks: song.tracks.map((t) => (t.id === take.trackId ? { ...t, clips: t.clips.map((c) => (c.takeId === takeId ? { ...c, muted: true } : c)) } : t)),
-    vocals: { ...song.vocals, takes: song.vocals.takes.map((t) => (t.id === takeId ? { ...t, active: false } : t)) },
+    tracks: song.tracks.map((t) =>
+      t.id === take.trackId
+        ? { ...t, clips: t.clips.map((c) => (c.takeId === takeId ? { ...c, muted: true } : c)) }
+        : t,
+    ),
+    vocals: {
+      ...song.vocals,
+      takes: song.vocals.takes.map((t) => (t.id === takeId ? { ...t, active: false } : t)),
+    },
   };
 }
 
@@ -164,7 +216,9 @@ export function removeTake(song: Song, takeId: string): Song {
   if (!take) return song;
   return {
     ...song,
-    tracks: song.tracks.map((t) => (t.id === take.trackId ? { ...t, clips: t.clips.filter((c) => c.takeId !== takeId) } : t)),
+    tracks: song.tracks.map((t) =>
+      t.id === take.trackId ? { ...t, clips: t.clips.filter((c) => c.takeId !== takeId) } : t,
+    ),
     vocals: { ...song.vocals, takes: song.vocals.takes.filter((t) => t.id !== takeId) },
   };
 }
@@ -190,7 +244,9 @@ export async function saveTake(o: SaveTakeInput): Promise<{ takeId: string; asse
   const id = randomId('asset');
   const provenanceId = randomId('prov');
   const fileName = `${fileStem(midi.name)}-take-${n}-${fileStem(where, '-')}.wav`;
-  const path = project.meta.assets.some((a) => a.path === assetPathFor('recording', fileName)) ? assetPathFor('recording', fileName.replace(/\.wav$/, `-${id.slice(-6)}.wav`)) : assetPathFor('recording', fileName);
+  const path = project.meta.assets.some((a) => a.path === assetPathFor('recording', fileName))
+    ? assetPathFor('recording', fileName.replace(/\.wav$/, `-${id.slice(-6)}.wav`))
+    : assetPathFor('recording', fileName);
   const duration = audioSeconds(o.audio);
   const meta: AudioAssetMeta = {
     id,
@@ -236,7 +292,14 @@ export async function saveTake(o: SaveTakeInput): Promise<{ takeId: string; asse
   });
   player.provideAsset(id, o.audio);
   const latest = useStudio.getState().project!.song;
-  const { song: withIt, take } = withTake(latest, { midiTrackId: midi.id, assetId: id, name, startTick: o.startTick, offsetSeconds: o.offsetSeconds, durationSeconds: Math.max(0.05, duration - o.offsetSeconds) });
+  const { song: withIt, take } = withTake(latest, {
+    midiTrackId: midi.id,
+    assetId: id,
+    name,
+    startTick: o.startTick,
+    offsetSeconds: o.offsetSeconds,
+    durationSeconds: Math.max(0.05, duration - o.offsetSeconds),
+  });
   const mon = applyVocalMonitoring({ ...withIt, vocals: { ...withIt.vocals, mode: 'recorded' } }, midi.id);
   useStudio.getState().commit(mon.song, `Recorded ${name} (${duration.toFixed(1)} s)`, 'vocals');
   useStudio.getState().updateProject((p) => withRights(p, { performers: [userName] }));
@@ -244,9 +307,13 @@ export async function saveTake(o: SaveTakeInput): Promise<{ takeId: string; asse
 }
 
 /** Transcribe a take (jobs 'transcribe', source 'singing') into a proposal that replaces the vocal MIDI in the take's bars. */
-export async function transcribeTake(input: TranscribeTakeInput, ctx: VocalJobContext): Promise<TranscribeTakeOutput> {
+export async function transcribeTake(
+  input: TranscribeTakeInput,
+  ctx: VocalJobContext,
+): Promise<TranscribeTakeOutput> {
   const project = useStudio.getState().project;
-  if (!project || project.meta.id !== input.projectId) throw new Error('The project for this task is not open.');
+  if (!project || project.meta.id !== input.projectId)
+    throw new Error('The project for this task is not open.');
   const song = project.song;
   const take = song.vocals.takes.find((t) => t.id === input.takeId);
   if (!take) throw new Error('The take no longer exists.');
@@ -261,9 +328,24 @@ export async function transcribeTake(input: TranscribeTakeInput, ctx: VocalJobCo
   if (!audio) throw new Error('The take audio could not be decoded.');
   const bpm = bpmAtTick(song, tc.clip.tick);
   const key = keyAtTick(song, tc.clip.tick);
-  ctx.log('info', `Transcribing ${take.name} as singing at ${Math.round(bpm)} BPM (tick 0 = ${tc.clip.offsetSeconds.toFixed(3)} s into the recording)`);
+  ctx.log(
+    'info',
+    `Transcribing ${take.name} as singing at ${Math.round(bpm)} BPM (tick 0 = ${tc.clip.offsetSeconds.toFixed(3)} s into the recording)`,
+  );
   ctx.progress(0.15, 'Tracking pitch…');
-  const result = await jobs.call<TranscribeAudioResult>('transcribe', { audio, source: 'singing', bpm, key, quantizeBeats: 0.25, snapToKey: true, offsetSeconds: tc.clip.offsetSeconds }, { signal: ctx.signal });
+  const result = await jobs.call<TranscribeAudioResult>(
+    'transcribe',
+    {
+      audio,
+      source: 'singing',
+      bpm,
+      key,
+      quantizeBeats: 0.25,
+      snapToKey: true,
+      offsetSeconds: tc.clip.offsetSeconds,
+    },
+    { signal: ctx.signal },
+  );
   if (ctx.signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
   const tm = createTimeMap(song);
   const startSec = tm.tickToSeconds(tc.clip.tick);
@@ -303,5 +385,10 @@ export async function transcribeTake(input: TranscribeTakeInput, ctx: VocalJobCo
   );
   ctx.progress(1, 'Done');
   if ('error' in p) return { notes: notes.length, confidence: result.confidence, summary: p.error };
-  return { proposalId: p.id, notes: notes.length, confidence: result.confidence, summary: `${notes.length} notes · confidence ${Math.round(result.confidence * 100)}% · review the proposal` };
+  return {
+    proposalId: p.id,
+    notes: notes.length,
+    confidence: result.confidence,
+    summary: `${notes.length} notes · confidence ${Math.round(result.confidence * 100)}% · review the proposal`,
+  };
 }

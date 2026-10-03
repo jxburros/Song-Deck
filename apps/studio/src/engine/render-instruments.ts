@@ -14,7 +14,9 @@ import type { RenderInstrumentConfig } from './render-config';
 export function currentRenderInstruments(): RenderInstrumentConfig {
   const sampleInstruments = useExtensions.getState().sampleInstruments;
   const instruments = allCustomInstruments(useStudio.getState().project?.meta.customInstruments).map((p) =>
-    p.patchId.startsWith('sfz:') && !sampleInstruments[p.patchId] ? { ...p, patchId: patchIdForGmProgram(p.gmProgram, p.isDrumKit) } : p,
+    p.patchId.startsWith('sfz:') && !sampleInstruments[p.patchId]
+      ? { ...p, patchId: patchIdForGmProgram(p.gmProgram, p.isDrumKit) }
+      : p,
   );
   return { instruments, sampleInstruments };
 }

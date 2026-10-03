@@ -28,7 +28,13 @@ import {
   type Song,
 } from '@songdeck/core';
 import { assetStore } from './assets';
-import { deleteProject as dbDeleteProject, listProjectSummaries, loadProject, saveProject, type ProjectSummary } from './persistence';
+import {
+  deleteProject as dbDeleteProject,
+  listProjectSummaries,
+  loadProject,
+  saveProject,
+  type ProjectSummary,
+} from './persistence';
 import { player } from '../engine/player';
 import { allCustomGenres, allCustomInstruments } from '../engine/plugins';
 import { bundleCustomProfiles } from './profiles';
@@ -37,7 +43,8 @@ import { bundleCustomProfiles } from './profiles';
 export function proposalScope(p: Proposal): Set<string> {
   const d = p.diff;
   const scope = new Set<string>();
-  for (const t of d.tracks) if (t.added.length || t.removed.length || t.modified.length) scope.add(`track:${t.trackId}`);
+  for (const t of d.tracks)
+    if (t.added.length || t.removed.length || t.modified.length) scope.add(`track:${t.trackId}`);
   for (const id of [...d.tracksAdded, ...d.tracksRemoved]) scope.add(`track:${id}`);
   if (d.chords.added.length || d.chords.removed.length) scope.add('chords');
   if (d.sectionsChanged) scope.add('sections');
@@ -65,7 +72,8 @@ export type Mode =
 
 export type WorkbenchView = 'arrangement' | 'piano-roll' | 'pattern' | 'chords' | 'structure' | 'theory';
 
-export type RightPanel = 'ai-edit' | 'assistant' | 'proposals' | 'macros' | 'locks' | 'variation' | 'history' | 'inspector';
+export type RightPanel =
+  'ai-edit' | 'assistant' | 'proposals' | 'macros' | 'locks' | 'variation' | 'history' | 'inspector';
 
 export interface Selection extends EditSelection {
   noteIds: string[];
@@ -115,7 +123,12 @@ interface StudioState {
   toasts: Toast[];
   taskDrawerOpen: boolean;
   confirm: PendingConfirm | null;
-  transport: { playing: boolean; loop: { enabled: boolean; startTick: number; endTick: number }; metronome: boolean; follow: boolean };
+  transport: {
+    playing: boolean;
+    loop: { enabled: boolean; startTick: number; endTick: number };
+    metronome: boolean;
+    follow: boolean;
+  };
 
   // project lifecycle
   refreshProjects(): Promise<void>;
@@ -138,7 +151,11 @@ interface StudioState {
   renameBranch(branchId: string, name: string): void;
   deleteBranch(branchId: string): void;
   restoreRevision(revisionId: string): void;
-  mergeSelected(fromRevisionId: string, selection: Parameters<typeof coreMergeSelected>[2], message?: string): void;
+  mergeSelected(
+    fromRevisionId: string,
+    selection: Parameters<typeof coreMergeSelected>[2],
+    message?: string,
+  ): void;
   toggleLock(key: string, message?: string): void;
 
   // proposals (spec §21)
@@ -228,7 +245,11 @@ let linearHistoryProbe: () => boolean = () => false;
 export function setLinearHistoryProbe(fn: () => boolean): void {
   linearHistoryProbe = fn;
 }
-const linear: { projectId: string | null; cursor: string | null; redo: string[] } = { projectId: null, cursor: null, redo: [] };
+const linear: { projectId: string | null; cursor: string | null; redo: string[] } = {
+  projectId: null,
+  cursor: null,
+  redo: [],
+};
 function resetLinear(projectId: string | null = null) {
   linear.projectId = projectId;
   linear.cursor = null;
@@ -275,7 +296,12 @@ export const useStudio = create<StudioState>((set, get) => {
     toasts: [],
     taskDrawerOpen: false,
     confirm: null,
-    transport: { playing: false, loop: { enabled: false, startTick: 0, endTick: 0 }, metronome: false, follow: true },
+    transport: {
+      playing: false,
+      loop: { enabled: false, startTick: 0, endTick: 0 },
+      metronome: false,
+      follow: true,
+    },
 
     async refreshProjects() {
       set({ projects: await listProjectSummaries() });
@@ -284,7 +310,13 @@ export const useStudio = create<StudioState>((set, get) => {
     async newProject(name, song) {
       const project = createProject(name, song);
       assetStore.reset(project.meta.id);
-      set({ proposals: [], activeProposalId: null, chat: [], selectedTrackId: song?.tracks[0]?.id ?? null, selection: { noteIds: [] } });
+      set({
+        proposals: [],
+        activeProposalId: null,
+        chat: [],
+        selectedTrackId: song?.tracks[0]?.id ?? null,
+        selection: { noteIds: [] },
+      });
       applyProject(project);
       await saveProject(project, summarize(project));
       await get().refreshProjects();
@@ -313,7 +345,14 @@ export const useStudio = create<StudioState>((set, get) => {
     closeProject() {
       player.stop();
       assetStore.reset(null);
-      set({ project: null, proposals: [], activeProposalId: null, chat: [], mode: 'home', selectedTrackId: null });
+      set({
+        project: null,
+        proposals: [],
+        activeProposalId: null,
+        chat: [],
+        mode: 'home',
+        selectedTrackId: null,
+      });
       void get().refreshProjects();
     },
 
@@ -330,7 +369,13 @@ export const useStudio = create<StudioState>((set, get) => {
         const b = assets.get(meta.id);
         if (b) await assetStore.add(meta, b);
       }
-      set({ proposals: [], activeProposalId: null, chat: [], mode: 'workbench', selectedTrackId: project.song.tracks[0]?.id ?? null });
+      set({
+        proposals: [],
+        activeProposalId: null,
+        chat: [],
+        mode: 'workbench',
+        selectedTrackId: project.song.tracks[0]?.id ?? null,
+      });
       applyProject(project, false);
       await saveProject(project, summarize(project));
       await get().refreshProjects();
@@ -352,7 +397,12 @@ export const useStudio = create<StudioState>((set, get) => {
       if (!p) return;
       resetLinear(p.meta.id); // a new edit ends any linear undo/redo sequence
       // Bundle the custom genre/instrument profiles the song uses so the project stays portable.
-      const next = bundleCustomProfiles(commitRevision(p, song, message, kind, currentAuthor()), song, allCustomGenres(), allCustomInstruments());
+      const next = bundleCustomProfiles(
+        commitRevision(p, song, message, kind, currentAuthor()),
+        song,
+        allCustomGenres(),
+        allCustomInstruments(),
+      );
       applyProject(next);
       notifyHeadCommit(next);
     },
@@ -363,12 +413,21 @@ export const useStudio = create<StudioState>((set, get) => {
       // Fast-forward when the collaborator built on our branch head; otherwise fork onto a
       // collaborator branch so concurrent work never overwrites local edits (merge later, spec §52).
       let history = p.history;
-      let branch = history.branches.find((b) => b.id === revision.branchId) ?? history.branches.find((b) => b.name === branchName);
+      let branch =
+        history.branches.find((b) => b.id === revision.branchId) ??
+        history.branches.find((b) => b.name === branchName);
       const parentIsHead = !!branch && revision.parents[0] === branch.headRevisionId;
       if (!branch || !parentIsHead) {
         const name = branch ? `${branchName} — ${revision.author ?? 'collaborator'}` : branchName;
         const existing = history.branches.find((b) => b.name === name);
-        branch = existing ?? { id: `br_remote_${revision.id}`, name, headRevisionId: revision.id, baseRevisionId: revision.parents[0], createdAt: revision.createdAt, description: 'Collaborator branch' };
+        branch = existing ?? {
+          id: `br_remote_${revision.id}`,
+          name,
+          headRevisionId: revision.id,
+          baseRevisionId: revision.parents[0],
+          createdAt: revision.createdAt,
+          description: 'Collaborator branch',
+        };
         if (!existing) history = { ...history, branches: [...history.branches, branch] };
       }
       const number = Math.max(0, ...history.revisions.map((r) => r.number)) + 1;
@@ -381,7 +440,11 @@ export const useStudio = create<StudioState>((set, get) => {
       };
       const onCurrent = targetId === p.history.currentBranchId;
       applyProject({ ...p, history, song: onCurrent ? rev.snapshot : p.song });
-      if (!onCurrent) get().toast('info', `${revision.author ?? 'A collaborator'} committed “${revision.message}” on branch ${branch.name}`);
+      if (!onCurrent)
+        get().toast(
+          'info',
+          `${revision.author ?? 'A collaborator'} committed “${revision.message}” on branch ${branch.name}`,
+        );
     },
 
     undo() {
@@ -489,7 +552,9 @@ export const useStudio = create<StudioState>((set, get) => {
         const other = proposalScope(x);
         return !scope.size || !other.size || [...other].some((k) => scope.has(k));
       };
-      const others = get().proposals.map((x) => (x.status === 'pending' && overlaps(x) ? { ...x, status: 'superseded' as const } : x));
+      const others = get().proposals.map((x) =>
+        x.status === 'pending' && overlaps(x) ? { ...x, status: 'superseded' as const } : x,
+      );
       set({ proposals: [proposal, ...others].slice(0, 30), activeProposalId: proposal.id });
     },
 
@@ -509,7 +574,10 @@ export const useStudio = create<StudioState>((set, get) => {
       }
       get().commit(song, prop.title, 'ai-proposal');
       if (conflicts.length) {
-        get().toast('warning', `Accepted “${prop.title}”. It replaced changes made since it was proposed: ${conflicts.slice(0, 4).join('; ')}${conflicts.length > 4 ? '…' : ''}. Undo restores them.`);
+        get().toast(
+          'warning',
+          `Accepted “${prop.title}”. It replaced changes made since it was proposed: ${conflicts.slice(0, 4).join('; ')}${conflicts.length > 4 ? '…' : ''}. Undo restores them.`,
+        );
       }
       set({
         proposals: get().proposals.map((x) => (x.id === id ? { ...x, status: 'accepted' as const } : x)),
@@ -545,7 +613,9 @@ export const useStudio = create<StudioState>((set, get) => {
     },
 
     addProvenance(record) {
-      get().updateProject((p) => recordProviderUse(coreAddProvenance(p, record), record.providerId, record.providerName));
+      get().updateProject((p) =>
+        recordProviderUse(coreAddProvenance(p, record), record.providerId, record.providerName),
+      );
     },
 
     setMode(mode) {
@@ -635,7 +705,8 @@ function currentAuthor(): string | undefined {
 /** Keep transport.playing in sync with the player (end of song, errors). */
 player.subscribe(() => {
   const s = useStudio.getState();
-  if (s.transport.playing !== player.playing) useStudio.setState({ transport: { ...s.transport, playing: player.playing } });
+  if (s.transport.playing !== player.playing)
+    useStudio.setState({ transport: { ...s.transport, playing: player.playing } });
 });
 
 /** Convenience selector: the working song (or null). */

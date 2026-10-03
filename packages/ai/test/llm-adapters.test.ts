@@ -33,10 +33,22 @@ function everyObject(s: JsonSchema, visit: (n: JsonSchema) => void): void {
 
 describe('OpenAI-compatible adapter', () => {
   it('sends strict json_schema response_format with all properties required', async () => {
-    const m = mockFetch(() => jsonResponse(chatCompletion('{"explanation":"x","confidence":0.8,"operations":[]}')));
-    const cfg = configFromPreset('openai', { defaultModel: 'gpt-5-mini', organization: 'org_123', project: 'proj_456' });
+    const m = mockFetch(() =>
+      jsonResponse(chatCompletion('{"explanation":"x","confidence":0.8,"operations":[]}')),
+    );
+    const cfg = configFromPreset('openai', {
+      defaultModel: 'gpt-5-mini',
+      organization: 'org_123',
+      project: 'proj_456',
+    });
     const inst = createProvider(cfg, depsWith(m.fetch, { 'provider:openai': OPENAI_KEY }));
-    const res = await inst.llm!.complete({ system: 'You are helpful', messages: [{ role: 'user', content: 'go' }], responseSchema: OPERATIONS_SCHEMA, schemaName: 'operations', maxTokens: 2048 });
+    const res = await inst.llm!.complete({
+      system: 'You are helpful',
+      messages: [{ role: 'user', content: 'go' }],
+      responseSchema: OPERATIONS_SCHEMA,
+      schemaName: 'operations',
+      maxTokens: 2048,
+    });
 
     const call = m.calls[0];
     expect(call.url).toBe('https://api.openai.com/v1/chat/completions');
@@ -68,10 +80,21 @@ describe('OpenAI-compatible adapter', () => {
   });
 
   it('uses json_object mode with the schema described in the prompt', async () => {
-    const m = mockFetch(() => jsonResponse(chatCompletion('{"answer":"hi","suggestions":[],"operations":[],"confidence":1}')));
+    const m = mockFetch(() =>
+      jsonResponse(chatCompletion('{"answer":"hi","suggestions":[],"operations":[],"confidence":1}')),
+    );
     const cfg = configFromPreset('moonshot', { defaultModel: 'kimi-k2-0905-preview' });
-    const inst = createProvider(cfg, depsWith(m.fetch, { 'provider:moonshot': 'sk-moonshot-0123456789abcdef' }));
-    await inst.llm!.complete({ system: 'base', messages: [{ role: 'user', content: 'q' }], responseSchema: CANONICAL_SCHEMAS.chat_answer, schemaName: 'chat_answer', maxTokens: 500 });
+    const inst = createProvider(
+      cfg,
+      depsWith(m.fetch, { 'provider:moonshot': 'sk-moonshot-0123456789abcdef' }),
+    );
+    await inst.llm!.complete({
+      system: 'base',
+      messages: [{ role: 'user', content: 'q' }],
+      responseSchema: CANONICAL_SCHEMAS.chat_answer,
+      schemaName: 'chat_answer',
+      maxTokens: 500,
+    });
     const body = bodyJson(m.calls[0]) as Record<string, any>;
     expect(m.calls[0].url).toBe('https://api.moonshot.ai/v1/chat/completions');
     expect(body.response_format).toEqual({ type: 'json_object' });
@@ -85,12 +108,18 @@ describe('OpenAI-compatible adapter', () => {
   it('downgrades json_schema → json_object when the endpoint rejects response_format', async () => {
     const m = mockFetch((call) => {
       const body = bodyJson(call) as Record<string, any>;
-      if (body.response_format?.type === 'json_schema') return jsonResponse({ error: { message: "response_format 'json_schema' is not supported" } }, 400);
-      return jsonResponse(chatCompletion('```json\n{"explanation":"ok","confidence":0.5,"operations":[]}\n```'));
+      if (body.response_format?.type === 'json_schema')
+        return jsonResponse({ error: { message: "response_format 'json_schema' is not supported" } }, 400);
+      return jsonResponse(
+        chatCompletion('```json\n{"explanation":"ok","confidence":0.5,"operations":[]}\n```'),
+      );
     });
     const cfg = configFromPreset('vllm', { defaultModel: 'qwen' });
     const inst = createProvider(cfg, depsWith(m.fetch));
-    const res = await inst.llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA });
+    const res = await inst.llm!.complete({
+      messages: [{ role: 'user', content: 'x' }],
+      responseSchema: OPERATIONS_SCHEMA,
+    });
     expect(m.calls).toHaveLength(2);
     expect((bodyJson(m.calls[1]) as Record<string, any>).response_format).toEqual({ type: 'json_object' });
     expect(res.json).toEqual({ explanation: 'ok', confidence: 0.5, operations: [] });
@@ -101,9 +130,15 @@ describe('OpenAI-compatible adapter', () => {
   });
 
   it('local servers get the plain json-schema dialect (non-strict)', async () => {
-    const m = mockFetch(() => jsonResponse(chatCompletion('{"explanation":"ok","confidence":0.5,"operations":[]}')));
+    const m = mockFetch(() =>
+      jsonResponse(chatCompletion('{"explanation":"ok","confidence":0.5,"operations":[]}')),
+    );
     const inst = createProvider(configFromPreset('llama-cpp', { defaultModel: 'local' }), depsWith(m.fetch));
-    await inst.llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA, schemaName: 'operations' });
+    await inst.llm!.complete({
+      messages: [{ role: 'user', content: 'x' }],
+      responseSchema: OPERATIONS_SCHEMA,
+      schemaName: 'operations',
+    });
     const rf = (bodyJson(m.calls[0]) as Record<string, any>).response_format;
     expect(rf.type).toBe('json_schema');
     expect(rf.json_schema.strict).toBe(false);
@@ -113,13 +148,32 @@ describe('OpenAI-compatible adapter', () => {
   });
 
   it('maps refusals, content filters and truncation', async () => {
-    const refusal = mockFetch(() => jsonResponse({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: null, refusal: 'I cannot help with that' } }] }));
-    const inst = createProvider(configFromPreset('openai', { defaultModel: 'gpt-4.1' }), depsWith(refusal.fetch, { 'provider:openai': OPENAI_KEY }));
-    const e1 = (await inst.llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA }).catch((e) => e)) as ProviderError;
+    const refusal = mockFetch(() =>
+      jsonResponse({
+        choices: [
+          {
+            finish_reason: 'stop',
+            message: { role: 'assistant', content: null, refusal: 'I cannot help with that' },
+          },
+        ],
+      }),
+    );
+    const inst = createProvider(
+      configFromPreset('openai', { defaultModel: 'gpt-4.1' }),
+      depsWith(refusal.fetch, { 'provider:openai': OPENAI_KEY }),
+    );
+    const e1 = (await inst
+      .llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA })
+      .catch((e) => e)) as ProviderError;
     expect(e1.kind).toBe('refusal');
     const trunc = mockFetch(() => jsonResponse(chatCompletion('{"operations":[', 'length')));
-    const inst2 = createProvider(configFromPreset('openai', { defaultModel: 'gpt-4.1' }), depsWith(trunc.fetch, { 'provider:openai': OPENAI_KEY }));
-    const e2 = (await inst2.llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA }).catch((e) => e)) as ProviderError;
+    const inst2 = createProvider(
+      configFromPreset('openai', { defaultModel: 'gpt-4.1' }),
+      depsWith(trunc.fetch, { 'provider:openai': OPENAI_KEY }),
+    );
+    const e2 = (await inst2
+      .llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA })
+      .catch((e) => e)) as ProviderError;
     expect(e2.kind).toBe('truncated');
   });
 
@@ -135,21 +189,40 @@ describe('OpenAI-compatible adapter', () => {
         ],
       }),
     );
-    const inst = createProvider(configFromPreset('openai'), depsWith(m.fetch, { 'provider:openai': OPENAI_KEY }));
+    const inst = createProvider(
+      configFromPreset('openai'),
+      depsWith(m.fetch, { 'provider:openai': OPENAI_KEY }),
+    );
     const models = await inst.llm!.listModels();
     expect(m.calls[0].url).toBe('https://api.openai.com/v1/models');
     expect(m.calls[0].method).toBe('GET');
     expect(models.map((x) => x.id)).toEqual(['gpt-4o-audio-preview', 'gpt-5']);
     const gpt5 = models.find((x) => x.id === 'gpt-5')!;
     expect(gpt5.capabilitiesInferred).toBe(true);
-    expect(gpt5.capabilities).toEqual(expect.arrayContaining(['TEXT_REASONING', 'STRUCTURED_JSON', 'TOOL_CALLING', 'LONG_CONTEXT', 'MIDI_EDITING']));
+    expect(gpt5.capabilities).toEqual(
+      expect.arrayContaining([
+        'TEXT_REASONING',
+        'STRUCTURED_JSON',
+        'TOOL_CALLING',
+        'LONG_CONTEXT',
+        'MIDI_EDITING',
+      ]),
+    );
     expect(gpt5.qualityTier).toBe(5);
     expect(models.find((x) => x.id === 'gpt-4o-audio-preview')!.capabilities).toContain('AUDIO_INPUT');
   });
 
   it('reads Groq/Together style model metadata (context window)', async () => {
-    const m = mockFetch(() => jsonResponse([{ id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', type: 'chat', context_length: 131072 }, { id: 'some-image-model', type: 'image' }]));
-    const inst = createProvider(configFromPreset('together'), depsWith(m.fetch, { 'provider:together': 'tgp_v1_0123456789abcdef' }));
+    const m = mockFetch(() =>
+      jsonResponse([
+        { id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', type: 'chat', context_length: 131072 },
+        { id: 'some-image-model', type: 'image' },
+      ]),
+    );
+    const inst = createProvider(
+      configFromPreset('together'),
+      depsWith(m.fetch, { 'provider:together': 'tgp_v1_0123456789abcdef' }),
+    );
     const models = await inst.llm!.listModels();
     expect(models).toHaveLength(1);
     expect(models[0].contextLength).toBe(131072);
@@ -161,17 +234,35 @@ describe('OpenAI-compatible adapter', () => {
 describe('Gemini adapter', () => {
   const GEMINI_KEY = 'AIzaSyTestKey0123456789abcdefghijklmnop';
   const geminiReply = (text: string, finishReason = 'STOP') => ({
-    candidates: [{ content: { role: 'model', parts: [{ text: 'thinking...', thought: true }, { text }] }, finishReason }],
+    candidates: [
+      { content: { role: 'model', parts: [{ text: 'thinking...', thought: true }, { text }] }, finishReason },
+    ],
     usageMetadata: { promptTokenCount: 500, candidatesTokenCount: 100, thoughtsTokenCount: 20 },
     modelVersion: 'gemini-2.5-pro',
   });
 
   it('posts generateContent with x-goog-api-key, systemInstruction and responseSchema (OpenAPI subset)', async () => {
-    const m = mockFetch(() => jsonResponse(geminiReply('{"explanation":"done","confidence":0.7,"operations":[]}')));
-    const inst = createProvider(configFromPreset('gemini', { defaultModel: 'gemini-2.5-pro' }), depsWith(m.fetch, { 'provider:gemini': GEMINI_KEY }));
-    const res = await inst.llm!.complete({ system: 'sys', messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'prev' }, { role: 'user', content: 'again' }], responseSchema: OPERATIONS_SCHEMA, maxTokens: 999 });
+    const m = mockFetch(() =>
+      jsonResponse(geminiReply('{"explanation":"done","confidence":0.7,"operations":[]}')),
+    );
+    const inst = createProvider(
+      configFromPreset('gemini', { defaultModel: 'gemini-2.5-pro' }),
+      depsWith(m.fetch, { 'provider:gemini': GEMINI_KEY }),
+    );
+    const res = await inst.llm!.complete({
+      system: 'sys',
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'prev' },
+        { role: 'user', content: 'again' },
+      ],
+      responseSchema: OPERATIONS_SCHEMA,
+      maxTokens: 999,
+    });
     const call = m.calls[0];
-    expect(call.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent');
+    expect(call.url).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
+    );
     expect(call.headers.get('x-goog-api-key')).toBe(GEMINI_KEY);
     const body = bodyJson(call) as Record<string, any>;
     expect(body.systemInstruction).toEqual({ parts: [{ text: 'sys' }] });
@@ -192,9 +283,21 @@ describe('Gemini adapter', () => {
   });
 
   it('sends audio inline (AUDIO_UNDERSTANDING) for music analysis', async () => {
-    const m = mockFetch(() => jsonResponse(geminiReply('{"summary":"Upbeat pop-punk in E minor","observations":[{"topic":"tempo","detail":"~120 BPM"}],"key":"E minor","tempo":120,"confidence":0.8}')));
-    const inst = createProvider(configFromPreset('gemini', { defaultModel: 'gemini-2.5-flash' }), depsWith(m.fetch, { 'provider:gemini': GEMINI_KEY }));
-    const out = await inst.composition!.analyzeMusic({ audio: { mimeType: 'audio/wav', data: FAKE_WAV }, question: 'What key and tempo?' });
+    const m = mockFetch(() =>
+      jsonResponse(
+        geminiReply(
+          '{"summary":"Upbeat pop-punk in E minor","observations":[{"topic":"tempo","detail":"~120 BPM"}],"key":"E minor","tempo":120,"confidence":0.8}',
+        ),
+      ),
+    );
+    const inst = createProvider(
+      configFromPreset('gemini', { defaultModel: 'gemini-2.5-flash' }),
+      depsWith(m.fetch, { 'provider:gemini': GEMINI_KEY }),
+    );
+    const out = await inst.composition!.analyzeMusic({
+      audio: { mimeType: 'audio/wav', data: FAKE_WAV },
+      question: 'What key and tempo?',
+    });
     const body = bodyJson(m.calls[0]) as Record<string, any>;
     const parts = body.contents[0].parts;
     expect(parts[0].inline_data.mime_type).toBe('audio/wav');
@@ -207,43 +310,90 @@ describe('Gemini adapter', () => {
 
   it('treats SAFETY / blocked prompts as refusals and lists generateContent models', async () => {
     const m = mockFetch(() => jsonResponse(geminiReply('', 'SAFETY')));
-    const inst = createProvider(configFromPreset('gemini', { defaultModel: 'gemini-2.5-pro' }), depsWith(m.fetch, { 'provider:gemini': GEMINI_KEY }));
-    const err = (await inst.llm!.complete({ messages: [{ role: 'user', content: 'x' }] }).catch((e) => e)) as ProviderError;
+    const inst = createProvider(
+      configFromPreset('gemini', { defaultModel: 'gemini-2.5-pro' }),
+      depsWith(m.fetch, { 'provider:gemini': GEMINI_KEY }),
+    );
+    const err = (await inst
+      .llm!.complete({ messages: [{ role: 'user', content: 'x' }] })
+      .catch((e) => e)) as ProviderError;
     expect(err.kind).toBe('refusal');
 
     const list = mockFetch(() =>
       jsonResponse({
         models: [
-          { name: 'models/gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', inputTokenLimit: 1048576, outputTokenLimit: 65536, supportedGenerationMethods: ['generateContent', 'countTokens'] },
+          {
+            name: 'models/gemini-2.5-pro',
+            displayName: 'Gemini 2.5 Pro',
+            inputTokenLimit: 1048576,
+            outputTokenLimit: 65536,
+            supportedGenerationMethods: ['generateContent', 'countTokens'],
+          },
           { name: 'models/text-embedding-004', supportedGenerationMethods: ['embedContent'] },
           { name: 'models/gemini-2.5-flash-preview-tts', supportedGenerationMethods: ['generateContent'] },
         ],
       }),
     );
-    const inst2 = createProvider(configFromPreset('gemini'), depsWith(list.fetch, { 'provider:gemini': GEMINI_KEY }));
+    const inst2 = createProvider(
+      configFromPreset('gemini'),
+      depsWith(list.fetch, { 'provider:gemini': GEMINI_KEY }),
+    );
     const models = await inst2.llm!.listModels();
-    expect(list.calls[0].url).toContain('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000');
+    expect(list.calls[0].url).toContain(
+      'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000',
+    );
     expect(models.map((x) => x.id)).toEqual(['gemini-2.5-pro']);
-    expect(models[0].capabilities).toEqual(expect.arrayContaining(['AUDIO_INPUT', 'AUDIO_UNDERSTANDING', 'LONG_CONTEXT', 'STRUCTURED_JSON']));
+    expect(models[0].capabilities).toEqual(
+      expect.arrayContaining(['AUDIO_INPUT', 'AUDIO_UNDERSTANDING', 'LONG_CONTEXT', 'STRUCTURED_JSON']),
+    );
   });
 });
 
 describe('Ollama adapter', () => {
   it('lists /api/tags (+ /api/show) and chats with format = JSON schema', async () => {
     const m = mockFetch((call) => {
-      if (call.url.endsWith('/api/tags')) return jsonResponse({ models: [{ name: 'llama3.1:8b', size: 4_900_000_000, details: { family: 'llama', parameter_size: '8.0B', quantization_level: 'Q4_K_M' } }, { name: 'nomic-embed-text:latest', details: { parameter_size: '137M' } }] });
+      if (call.url.endsWith('/api/tags'))
+        return jsonResponse({
+          models: [
+            {
+              name: 'llama3.1:8b',
+              size: 4_900_000_000,
+              details: { family: 'llama', parameter_size: '8.0B', quantization_level: 'Q4_K_M' },
+            },
+            { name: 'nomic-embed-text:latest', details: { parameter_size: '137M' } },
+          ],
+        });
       if (call.url.endsWith('/api/show')) {
         const model = (bodyJson(call) as { model: string }).model;
-        return jsonResponse(model.startsWith('nomic') ? { capabilities: ['embedding'] } : { model_info: { 'llama.context_length': 131072 }, capabilities: ['completion', 'tools'] });
+        return jsonResponse(
+          model.startsWith('nomic')
+            ? { capabilities: ['embedding'] }
+            : { model_info: { 'llama.context_length': 131072 }, capabilities: ['completion', 'tools'] },
+        );
       }
-      return jsonResponse({ model: 'llama3.1:8b', message: { role: 'assistant', content: '<think>hmm</think>{"explanation":"e","confidence":0.6,"operations":[]}' }, done: true, done_reason: 'stop', prompt_eval_count: 321, eval_count: 54 });
+      return jsonResponse({
+        model: 'llama3.1:8b',
+        message: {
+          role: 'assistant',
+          content: '<think>hmm</think>{"explanation":"e","confidence":0.6,"operations":[]}',
+        },
+        done: true,
+        done_reason: 'stop',
+        prompt_eval_count: 321,
+        eval_count: 54,
+      });
     });
     const inst = createProvider(configFromPreset('ollama'), depsWith(m.fetch));
     const models = await inst.llm!.listModels();
     expect(models.map((x) => x.id)).toEqual(['llama3.1:8b']);
     expect(models[0].capabilities).toEqual(expect.arrayContaining(['TOOL_CALLING', 'LONG_CONTEXT']));
     expect(models[0].qualityTier).toBe(2);
-    const res = await inst.llm!.complete({ system: 'sys', messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA, maxTokens: 777 });
+    const res = await inst.llm!.complete({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'x' }],
+      responseSchema: OPERATIONS_SCHEMA,
+      maxTokens: 777,
+    });
     const chat = m.calls.find((c) => c.url.endsWith('/api/chat'))!;
     expect(chat.url).toBe('http://localhost:11434/api/chat');
     const body = bodyJson(chat) as Record<string, any>;
@@ -261,7 +411,12 @@ describe('Ollama adapter', () => {
 
 describe('Custom HTTP LLM adapter', () => {
   it('renders the request template and reads the response text path', async () => {
-    const m = mockFetch(() => jsonResponse({ results: [{ text: '{"answer":"ok","suggestions":[],"operations":[],"confidence":0.9}' }], usage: { in: 10, out: 5 } }));
+    const m = mockFetch(() =>
+      jsonResponse({
+        results: [{ text: '{"answer":"ok","suggestions":[],"operations":[],"confidence":0.9}' }],
+        usage: { in: 10, out: 5 },
+      }),
+    );
     const cfg = configFromPreset('custom-llm-http', {
       baseUrl: 'http://localhost:9000/api/{{model}}/generate',
       defaultModel: 'my model',
@@ -277,7 +432,12 @@ describe('Custom HTTP LLM adapter', () => {
       },
     });
     const inst = createProvider(cfg, depsWith(m.fetch));
-    const res = await inst.llm!.complete({ system: 'Say "hi"\nnow', messages: [{ role: 'user', content: 'Line "one"' }], responseSchema: CANONICAL_SCHEMAS.chat_answer, maxTokens: 64 });
+    const res = await inst.llm!.complete({
+      system: 'Say "hi"\nnow',
+      messages: [{ role: 'user', content: 'Line "one"' }],
+      responseSchema: CANONICAL_SCHEMAS.chat_answer,
+      maxTokens: 64,
+    });
     const call = m.calls[0];
     expect(call.url).toBe('http://localhost:9000/api/my%20model/generate');
     expect(call.headers.get('x-client')).toBe('songdeck');
@@ -292,13 +452,22 @@ describe('Custom HTTP LLM adapter', () => {
   });
 
   it('renderTemplate escapes strings and inserts raw JSON', () => {
-    const out = renderTemplate('{"p":"{{prompt}}","m":{{messages_json}},"t":{{temperature}}}', { system: '', prompt: 'a"b\\c', model: 'm', messages: [{ role: 'user', content: 'x' }], maxTokens: 1 });
+    const out = renderTemplate('{"p":"{{prompt}}","m":{{messages_json}},"t":{{temperature}}}', {
+      system: '',
+      prompt: 'a"b\\c',
+      model: 'm',
+      messages: [{ role: 'user', content: 'x' }],
+      maxTokens: 1,
+    });
     expect(JSON.parse(out)).toEqual({ p: 'a"b\\c', m: [{ role: 'user', content: 'x' }], t: null });
     expect(new CustomHttpLLM(configFromPreset('custom-llm-http'), {} as never)).toBeTruthy();
   });
 
   it('LLM providers get a composition provider auto-derived', () => {
-    const inst = createProvider(configFromPreset('custom-llm-http'), depsWith(mockFetch(() => jsonResponse({})).fetch));
+    const inst = createProvider(
+      configFromPreset('custom-llm-http'),
+      depsWith(mockFetch(() => jsonResponse({})).fetch),
+    );
     expect(inst.composition).toBeInstanceOf(LLMCompositionProvider);
   });
 });

@@ -1,9 +1,22 @@
 import { keyName, type AudioAssetMeta } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { jobs } from '../../engine/jobs';
-import { makeAnalysisRecord, makeAssetMeta, makeProvenance, pushAnalysis, type InsertRequest } from '../../engine/capture-song';
+import {
+  makeAnalysisRecord,
+  makeAssetMeta,
+  makeProvenance,
+  pushAnalysis,
+  type InsertRequest,
+} from '../../engine/capture-song';
 import { recordAttestation } from '../../engine/rights';
-import { GRID_BEATS, lowConfidenceRegions, SOURCES, type Capture, type TranscribeOptions, type TranscriptionView } from './model';
+import {
+  GRID_BEATS,
+  lowConfidenceRegions,
+  SOURCES,
+  type Capture,
+  type TranscribeOptions,
+  type TranscriptionView,
+} from './model';
 
 /** Asset ids of captures already stored, per project (a capture is stored once per project). */
 const stored = new Map<string, string>();
@@ -40,7 +53,8 @@ export async function storeCaptureAsset(capture: Capture): Promise<AudioAssetMet
   });
   await st.addAsset(meta, bytes);
   stored.set(key, meta.id);
-  if (capture.origin === 'upload' && capture.attestation) recordAttestation(capture.attestation, { assetId: meta.id });
+  if (capture.origin === 'upload' && capture.attestation)
+    recordAttestation(capture.attestation, { assetId: meta.id });
   return meta;
 }
 
@@ -73,14 +87,23 @@ export function recordTranscriptionInProject(o: {
     snapToKey: options.snapToKey,
     method: view.method,
     proposalId: o.proposalId,
-    insert: o.insert ? { mode: o.insert.mode, targetBar: o.insert.targetBar, endBar: o.insert.endBar, transpose: o.insert.transpose } : undefined,
+    insert: o.insert
+      ? {
+          mode: o.insert.mode,
+          targetBar: o.insert.targetBar,
+          endBar: o.insert.endBar,
+          transpose: o.insert.transpose,
+        }
+      : undefined,
   };
   st.addProvenance(
     makeProvenance({
       artifactId: o.trackId ?? o.proposalId ?? capture.id,
       artifactName: `${(o.trackName ?? 'transcription').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.mid`,
       artifactKind: 'midi',
-      sources: asset ? [{ kind: 'audio', ref: asset.id }] : [{ kind: capture.origin === 'taps' ? 'taps' : 'audio', ref: capture.name }],
+      sources: asset
+        ? [{ kind: 'audio', ref: asset.id }]
+        : [{ kind: capture.origin === 'taps' ? 'taps' : 'audio', ref: capture.name }],
       run: view.provenance,
       parameters,
       taskId: o.taskId,

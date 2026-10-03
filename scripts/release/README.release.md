@@ -29,15 +29,15 @@ kept in an encrypted file in the data directory.
 
 ## What is in this folder
 
-| Path | What it is |
-| --- | --- |
-| `server/` | The local server and its render worker, bundled into plain JavaScript |
-| `studio/` | The built studio. Any static web server can also host it on its own, at the root of a site (it runs fully in the browser); the features above need the local server |
-| `plugins/` | Example plugins: a genre profile, an ABC-notation exporter and an SFZ sampled instrument. Enable them under Settings → Plugins |
-| `bridges/` | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC, Matchering) and a dependency-free mock: `python3 bridges/mock_bridge.py --role all` |
-| `docs/` | Architecture, phase coverage (with honest limitations) and the plugin guide |
-| `CHANGELOG.md` | What changed in each release |
-| `THIRD_PARTY_NOTICES.txt` | Licenses of the open-source software included in this download |
+| Path                      | What it is                                                                                                                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server/`                 | The local server and its render worker, bundled into plain JavaScript                                                                                                        |
+| `studio/`                 | The built studio. Any static web server can also host it on its own, at the root of a site (it runs fully in the browser); the features above need the local server          |
+| `plugins/`                | Example plugins: a genre profile, an ABC-notation exporter and an SFZ sampled instrument. Enable them under Settings → Plugins                                               |
+| `bridges/`                | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC, Matchering) and a dependency-free mock: `python3 bridges/mock_bridge.py --role all` |
+| `docs/`                   | Architecture, phase coverage (with honest limitations) and the plugin guide                                                                                                  |
+| `CHANGELOG.md`            | What changed in each release                                                                                                                                                 |
+| `THIRD_PARTY_NOTICES.txt` | Licenses of the open-source software included in this download                                                                                                               |
 
 ## AI providers
 

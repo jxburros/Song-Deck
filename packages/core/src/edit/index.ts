@@ -9,7 +9,16 @@ export type { ApplyOptions, ApplyResult, RegenerateOperation } from './apply';
 export { validateSong, validateChange } from './validate';
 export type { ValidateOptions, ValidateChangeOptions } from './validate';
 export { diffSongs, diffTrackNotes } from './diff';
-export { createProposal, proposalFromSongs, modifyProposal, acceptProposal, acceptProposalOnto, rejectProposal, setProposalStatus, repairInvalidNotes } from './proposal';
+export {
+  createProposal,
+  proposalFromSongs,
+  modifyProposal,
+  acceptProposal,
+  acceptProposalOnto,
+  rejectProposal,
+  setProposalStatus,
+  repairInvalidNotes,
+} from './proposal';
 export { rebaseProposal } from './rebase';
 export type { RebaseResult } from './rebase';
 export type { ProposalMeta } from './proposal';

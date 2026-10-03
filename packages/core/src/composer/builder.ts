@@ -103,7 +103,10 @@ export interface BuilderOptions {
 // ---------------------------------------------------------------------------------------------
 
 /** Chosen genres → a normalised blend (unknown genres and zero weights dropped; weights sum to 1). */
-export function normalizeGenreWeights(genres: readonly BuilderGenre[] | undefined, custom?: GenreProfile[]): GenreWeight[] {
+export function normalizeGenreWeights(
+  genres: readonly BuilderGenre[] | undefined,
+  custom?: GenreProfile[],
+): GenreWeight[] {
   const seen = new Map<string, number>();
   for (const g of genres ?? []) {
     const p = getGenre(g.genreId, custom);
@@ -129,14 +132,20 @@ function moodTags(choices: BuilderChoices): { tag: StyleTag; section?: SectionKi
   const out: { tag: StyleTag; section?: SectionKind }[] = [];
   for (const m of choices.moods ?? []) {
     const tag = getTag(m.tagId);
-    if (tag && !out.some((o) => o.tag.id === tag.id && o.section === m.section)) out.push(m.section ? { tag, section: m.section } : { tag });
+    if (tag && !out.some((o) => o.tag.id === tag.id && o.section === m.section))
+      out.push(m.section ? { tag, section: m.section } : { tag });
   }
   return out;
 }
 
 /** All tag ids a set of choices puts on the blueprint: the chosen tags plus whole-song moods. */
 export function builderTagIds(choices: BuilderChoices): string[] {
-  return resolveTagIds([...(choices.tags ?? []), ...moodTags(choices).filter((m) => !m.section).map((m) => m.tag.id)]);
+  return resolveTagIds([
+    ...(choices.tags ?? []),
+    ...moodTags(choices)
+      .filter((m) => !m.section)
+      .map((m) => m.tag.id),
+  ]);
 }
 
 /** The genre blend the choices compose with (chosen genres, else style tags' parents, else pop). */
@@ -144,7 +153,9 @@ export function builderBlend(choices: BuilderChoices, custom?: GenreProfile[]): 
   const blend = normalizeGenreWeights(choices.genres, custom);
   if (blend.length) return blend;
   const parents = normalizeGenreWeights(
-    builderTagIds(choices).flatMap((id) => getTag(id)?.parents ?? []).map((p) => ({ genreId: p.genreId, weight: p.weight })),
+    builderTagIds(choices)
+      .flatMap((id) => getTag(id)?.parents ?? [])
+      .map((p) => ({ genreId: p.genreId, weight: p.weight })),
     custom,
   );
   return parents.length ? parents : [{ genreId: 'pop', weight: 1 }];
@@ -152,13 +163,21 @@ export function builderBlend(choices: BuilderChoices, custom?: GenreProfile[]): 
 
 /** The blended, tag-adjusted genre profile the builder fills defaults from. */
 export function builderGenre(choices: BuilderChoices, custom?: GenreProfile[]): GenreProfile {
-  return genreForBlueprint({ genreBlend: builderBlend(choices, custom), tags: builderTagIds(choices) }, custom);
+  return genreForBlueprint(
+    { genreBlend: builderBlend(choices, custom), tags: builderTagIds(choices) },
+    custom,
+  );
 }
 
 /** A tempo feel resolved against a genre's tempo range. */
 export function tempoForFeel(feel: TempoFeel, genre: GenreProfile): number {
   const t = genre.tempo;
-  const bpm = feel === 'slow' ? lerp(t.typical, t.min, 0.7) : feel === 'fast' ? lerp(t.typical, t.max, 0.75) : t.typical;
+  const bpm =
+    feel === 'slow'
+      ? lerp(t.typical, t.min, 0.7)
+      : feel === 'fast'
+        ? lerp(t.typical, t.max, 0.75)
+        : t.typical;
   return clamp(Math.round(bpm), 30, 300);
 }
 
@@ -194,7 +213,13 @@ export function suggestInstruments(genre: GenreProfile, max = 7): BuilderInstrum
     if (!(i.essential || i.weight >= 0.55)) continue;
     const prev = out.find((o) => o.instrumentId === i.instrumentId && o.role === i.role);
     if (prev) prev.count++;
-    else if (out.length < max) out.push({ instrumentId: i.instrumentId, count: 1, role: i.role, ...(i.function ? { function: i.function } : {}) });
+    else if (out.length < max)
+      out.push({
+        instrumentId: i.instrumentId,
+        count: 1,
+        role: i.role,
+        ...(i.function ? { function: i.function } : {}),
+      });
   }
   return out;
 }
@@ -202,20 +227,35 @@ export function suggestInstruments(genre: GenreProfile, max = 7): BuilderInstrum
 /** A working title from lyrics: the first line of the first chorus (else the first line), up to six words. */
 export function titleFromLyrics(lyrics: Pick<BlueprintLyrics, 'sections'> | undefined): string | undefined {
   const sections = lyrics?.sections ?? [];
-  const src = sections.find((s) => (s.kind === 'chorus' || s.kind === 'final-chorus') && s.lines.length) ?? sections.find((s) => s.lines.length);
-  const line = src?.lines[0]?.replace(/[^\p{L}\p{N}'’\s-]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const src =
+    sections.find((s) => (s.kind === 'chorus' || s.kind === 'final-chorus') && s.lines.length) ??
+    sections.find((s) => s.lines.length);
+  const line = src?.lines[0]
+    ?.replace(/[^\p{L}\p{N}'’\s-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!line) return undefined;
   const words = line.split(' ').slice(0, 6);
   return words
-    .map((w, i) => (i > 0 && /^(a|an|the|of|in|on|and|to|for|at|by|or)$/i.test(w) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .map((w, i) =>
+      i > 0 && /^(a|an|the|of|in|on|and|to|for|at|by|or)$/i.test(w)
+        ? w.toLowerCase()
+        : w.charAt(0).toUpperCase() + w.slice(1),
+    )
     .join(' ');
 }
 
 // Preferred tonics (pitch class → weight) by instrument family of the genre.
-const TONIC_PREFS: Record<'guitar' | 'electronic' | 'keys', { major: Record<number, number>; minor: Record<number, number> }> = {
+const TONIC_PREFS: Record<
+  'guitar' | 'electronic' | 'keys',
+  { major: Record<number, number>; minor: Record<number, number> }
+> = {
   guitar: { major: { 7: 4, 4: 3, 9: 3, 2: 3, 0: 2 }, minor: { 4: 6, 9: 3, 11: 2, 2: 2, 7: 1 } },
   electronic: { major: { 0: 2, 5: 2, 7: 2, 2: 1.5 }, minor: { 9: 3, 5: 2.5, 7: 2, 0: 2, 2: 2 } },
-  keys: { major: { 0: 3, 7: 3, 2: 2, 5: 2, 9: 2, 10: 2, 3: 1.5 }, minor: { 9: 4, 4: 2, 2: 2, 0: 2, 7: 1.5, 11: 1.5 } },
+  keys: {
+    major: { 0: 3, 7: 3, 2: 2, 5: 2, 9: 2, 10: 2, 3: 1.5 },
+    minor: { 9: 4, 4: 2, 2: 2, 0: 2, 7: 1.5, 11: 1.5 },
+  },
 };
 
 function tonicFamily(genre: GenreProfile): keyof typeof TONIC_PREFS {
@@ -256,23 +296,54 @@ function topMeter(genre: GenreProfile): { numerator: number; denominator: number
 
 function templateStructure(genre: GenreProfile, name: string | undefined): BlueprintSection[] {
   const templates = genre.structure.templates;
-  const pick = (name ? templates.find((t) => t.name.toLowerCase() === name.toLowerCase()) : undefined) ?? [...templates].sort((a, b) => b.weight - a.weight)[0];
+  const pick =
+    (name ? templates.find((t) => t.name.toLowerCase() === name.toLowerCase()) : undefined) ??
+    [...templates].sort((a, b) => b.weight - a.weight)[0];
   if (!pick) {
     return nameSections(
-      (['intro', 'verse', 'chorus', 'verse', 'chorus', 'bridge', 'final-chorus', 'outro'] as SectionKind[]).map((kind) => ({ kind, bars: kind === 'intro' || kind === 'outro' ? 4 : 8 })),
+      (
+        ['intro', 'verse', 'chorus', 'verse', 'chorus', 'bridge', 'final-chorus', 'outro'] as SectionKind[]
+      ).map((kind) => ({ kind, bars: kind === 'intro' || kind === 'outro' ? 4 : 8 })),
     );
   }
-  return nameSections(pick.sections.map((s) => ({ kind: s.kind, bars: s.bars, ...(s.name ? { name: s.name } : {}) })));
+  return nameSections(
+    pick.sections.map((s) => ({ kind: s.kind, bars: s.bars, ...(s.name ? { name: s.name } : {}) })),
+  );
 }
 
-const sectionMatches = (target: SectionKind, kind: SectionKind) => target === kind || (target === 'chorus' && (kind === 'final-chorus' || kind === 'post-chorus'));
+const sectionMatches = (target: SectionKind, kind: SectionKind) =>
+  target === kind || (target === 'chorus' && (kind === 'final-chorus' || kind === 'post-chorus'));
 
-const MELODY_ORDER = ['violin', 'flute', 'saxophone', 'trumpet', 'synth-lead', 'electric-guitar-lead', 'clarinet', 'french-horn', 'cello', 'electric-guitar-clean', 'piano', 'electric-piano', 'marimba', 'acoustic-guitar'];
+const MELODY_ORDER = [
+  'violin',
+  'flute',
+  'saxophone',
+  'trumpet',
+  'synth-lead',
+  'electric-guitar-lead',
+  'clarinet',
+  'french-horn',
+  'cello',
+  'electric-guitar-clean',
+  'piano',
+  'electric-piano',
+  'marimba',
+  'acoustic-guitar',
+];
 
-type Item = { instrumentId: string; role: TrackRole; function?: MusicalFunction; constraints?: InstrumentConstraints };
+type Item = {
+  instrumentId: string;
+  role: TrackRole;
+  function?: MusicalFunction;
+  constraints?: InstrumentConstraints;
+};
 
 /** Exact tracks for the chosen instruments (count × each), with vocal and melody duties settled. */
-function instrumentItems(list: readonly BuilderInstrument[], vocal: BuilderVocal | undefined, custom?: InstrumentProfile[]): Item[] {
+function instrumentItems(
+  list: readonly BuilderInstrument[],
+  vocal: BuilderVocal | undefined,
+  custom?: InstrumentProfile[],
+): Item[] {
   const items: Item[] = [];
   for (const entry of list) {
     const inst = findInstrumentProfile(entry.instrumentId, custom);
@@ -283,14 +354,17 @@ function instrumentItems(list: readonly BuilderInstrument[], vocal: BuilderVocal
       const it: Item = { instrumentId: inst.id, role };
       let fn = entry.function;
       // Extra copies of a melodic instrument harmonise instead of doubling the line.
-      if (!fn && k > 0 && ['melody', 'hook', 'counter-melody', 'solo'].includes(inst.defaultFunction)) fn = 'harmony';
+      if (!fn && k > 0 && ['melody', 'hook', 'counter-melody', 'solo'].includes(inst.defaultFunction))
+        fn = 'harmony';
       if (!fn && inst.id === 'lead-vocal') fn = k === 0 ? 'melody' : 'harmony';
       if (fn) it.function = fn;
       items.push(it);
     }
   }
-  const fnOf = (it: Item) => it.function ?? findInstrumentProfile(it.instrumentId, custom)?.defaultFunction ?? 'accompaniment';
-  if (vocal && !items.some((i) => i.role === 'vocal' && fnOf(i) === 'melody' && i.instrumentId !== 'choir')) items.unshift({ instrumentId: 'lead-vocal', role: 'vocal', function: 'melody' });
+  const fnOf = (it: Item) =>
+    it.function ?? findInstrumentProfile(it.instrumentId, custom)?.defaultFunction ?? 'accompaniment';
+  if (vocal && !items.some((i) => i.role === 'vocal' && fnOf(i) === 'melody' && i.instrumentId !== 'choir'))
+    items.unshift({ instrumentId: 'lead-vocal', role: 'vocal', function: 'melody' });
   // Cello is the bass when nothing else is.
   const hasBass = items.some((i) => i.role === 'bass' || fnOf(i) === 'bass-line');
   if (!hasBass) {
@@ -301,7 +375,12 @@ function instrumentItems(list: readonly BuilderInstrument[], vocal: BuilderVocal
   if (!items.some((i) => fnOf(i) === 'melody')) {
     const band = items.some((i) => i.role === 'drums' || i.role === 'rhythm-guitar');
     for (const id of MELODY_ORDER) {
-      const it = items.find((i) => i.instrumentId === id && !(i.function && i.function !== 'counter-melody' && i.function !== 'hook') && (i.role !== 'keys' || !band || items.length <= 2));
+      const it = items.find(
+        (i) =>
+          i.instrumentId === id &&
+          !(i.function && i.function !== 'counter-melody' && i.function !== 'hook') &&
+          (i.role !== 'keys' || !band || items.length <= 2),
+      );
       if (it) {
         it.function = 'melody';
         break;
@@ -316,11 +395,17 @@ function resolveVocal(choices: BuilderChoices, genre: GenreProfile): BuilderVoca
   if (choices.vocal) return { ...choices.vocal };
   const lyrics = Boolean(choices.lyrics?.sections.some((s) => s.lines.length));
   const listed = (choices.instruments ?? []).some((i) => i.instrumentId === 'lead-vocal');
-  if (lyrics || listed || genreExpectsVocal(genre)) return { voiceType: 'tenor', mode: lyrics ? 'ai-singer' : 'melody-only' };
+  if (lyrics || listed || genreExpectsVocal(genre))
+    return { voiceType: 'tenor', mode: lyrics ? 'ai-singer' : 'melody-only' };
   return undefined;
 }
 
-function targetBarsFor(length: BuilderChoices['length'], structure: readonly BlueprintSection[], tempo: number, meter: { numerator: number; denominator: number }): number | null {
+function targetBarsFor(
+  length: BuilderChoices['length'],
+  structure: readonly BlueprintSection[],
+  tempo: number,
+  meter: { numerator: number; denominator: number },
+): number | null {
   if (!length || length === 'standard') return null;
   const total = structure.reduce((n, s) => n + s.bars, 0);
   if (length === 'short') return Math.round(total * 0.6);
@@ -348,9 +433,13 @@ function applyMoods(structure: BlueprintSection[], choices: BuilderChoices): Blu
     if (words.length) out.mood = [...new Set(words)];
     if (mine.length) {
       // A section mood nudges that section's energy by the tag's energy character.
-      const delta = mine.reduce((t, m) => t + (m.tag.effect.energyShift ?? Math.round((m.tag.effect.macros?.energy ?? 0) * 40)), 0);
+      const delta = mine.reduce(
+        (t, m) => t + (m.tag.effect.energyShift ?? Math.round((m.tag.effect.macros?.energy ?? 0) * 40)),
+        0,
+      );
       if (delta && out.energy !== undefined) out.energy = Math.round(clamp(out.energy + delta, 5, 100));
-      if (delta && out.energyEnd !== undefined) out.energyEnd = Math.round(clamp(out.energyEnd + delta, 5, 100));
+      if (delta && out.energyEnd !== undefined)
+        out.energyEnd = Math.round(clamp(out.energyEnd + delta, 5, 100));
     }
     return out;
   });
@@ -368,28 +457,41 @@ export function describeChoices(choices: BuilderChoices, opts: Omit<BuilderOptio
     .map((i) => {
       const p = findInstrumentProfile(i.instrumentId, opts.customInstruments);
       if (!p || !(i.count > 0)) return '';
-      const extra = [i.role ? `role ${i.role}` : '', i.function ? `plays ${i.function}` : ''].filter(Boolean).join(', ');
+      const extra = [i.role ? `role ${i.role}` : '', i.function ? `plays ${i.function}` : '']
+        .filter(Boolean)
+        .join(', ');
       return `${p.name} (${p.id}) × ${Math.round(i.count)}${extra ? ` [${extra}]` : ''}`;
     })
     .filter(Boolean);
   if (inst.length) out.push(`Instruments, exactly these tracks and counts: ${inst.join('; ')}`);
   const blend = normalizeGenreWeights(choices.genres, opts.customGenres);
-  if (blend.length) out.push(`Genre blend: ${blend.map((g) => `${g.genreId} ${Math.round(g.weight * 100)}%`).join(', ')}`);
+  if (blend.length)
+    out.push(`Genre blend: ${blend.map((g) => `${g.genreId} ${Math.round(g.weight * 100)}%`).join(', ')}`);
   const moods = moodTags(choices);
-  if (moods.length) out.push(`Moods: ${moods.map((m) => (m.section ? `${m.tag.id} (${m.section} only)` : m.tag.id)).join(', ')}`);
+  if (moods.length)
+    out.push(
+      `Moods: ${moods.map((m) => (m.section ? `${m.tag.id} (${m.section} only)` : m.tag.id)).join(', ')}`,
+    );
   const tags = resolveTagIds(choices.tags);
   if (tags.length) out.push(`Tags: ${tags.join(', ')}`);
   if (typeof choices.tempo === 'number') out.push(`Tempo: ${Math.round(choices.tempo)} BPM`);
   else if (choices.tempo) out.push(`Tempo feel: ${choices.tempo}`);
-  if (choices.key?.tonic !== undefined || choices.key?.mode) out.push(`Key: ${choices.key.tonic !== undefined ? PC_NAMES[choices.key.tonic] ?? '' : 'any tonic'} ${choices.key.mode ?? ''}`.trim());
+  if (choices.key?.tonic !== undefined || choices.key?.mode)
+    out.push(
+      `Key: ${choices.key.tonic !== undefined ? (PC_NAMES[choices.key.tonic] ?? '') : 'any tonic'} ${choices.key.mode ?? ''}`.trim(),
+    );
   if (choices.meter) out.push(`Meter: ${choices.meter.numerator}/${choices.meter.denominator}`);
-  if (choices.length && choices.length !== 'standard') out.push(`Length: ${typeof choices.length === 'string' ? choices.length : `${choices.length.minutes} minutes`}`);
+  if (choices.length && choices.length !== 'standard')
+    out.push(
+      `Length: ${typeof choices.length === 'string' ? choices.length : `${choices.length.minutes} minutes`}`,
+    );
   if (choices.structure) out.push(`Structure template: ${choices.structure}`);
   if (choices.vocal === 'none') out.push('Vocal: none (instrumental)');
   else if (choices.vocal) out.push(`Vocal: ${choices.vocal.voiceType}, ${choices.vocal.mode}`);
   if (choices.title?.trim()) out.push(`Title: ${choices.title.trim()}`);
   if (choices.lyricsTheme?.trim()) out.push(`Lyrics theme: ${choices.lyricsTheme.trim()}`);
-  if (choices.lyrics?.sections.length) out.push(`Structure follows the user's lyrics: ${choices.lyrics.sections.map((s) => s.name).join(', ')}`);
+  if (choices.lyrics?.sections.length)
+    out.push(`Structure follows the user's lyrics: ${choices.lyrics.sections.map((s) => s.name).join(', ')}`);
   return out;
 }
 
@@ -410,15 +512,21 @@ export function blueprintFromChoices(choices: BuilderChoices, opts: BuilderOptio
 
   // Tempo, meter, key.
   let tempo: number;
-  if (typeof choices.tempo === 'number' && Number.isFinite(choices.tempo)) tempo = clamp(Math.round(choices.tempo), 30, 300);
+  if (typeof choices.tempo === 'number' && Number.isFinite(choices.tempo))
+    tempo = clamp(Math.round(choices.tempo), 30, 300);
   else if (typeof choices.tempo === 'string') tempo = tempoForFeel(choices.tempo, genre);
   else tempo = clamp(Math.round(genre.tempo.typical), 30, 300);
-  const meter = choices.meter && choices.meter.numerator > 0 && [2, 4, 8, 16].includes(choices.meter.denominator) ? { numerator: Math.round(choices.meter.numerator), denominator: choices.meter.denominator } : topMeter(genre);
+  const meter =
+    choices.meter && choices.meter.numerator > 0 && [2, 4, 8, 16].includes(choices.meter.denominator)
+      ? { numerator: Math.round(choices.meter.numerator), denominator: choices.meter.denominator }
+      : topMeter(genre);
   const key = chooseKey(choices, genre, seed);
 
   // Vocal and instrumentation.
   const vocal = resolveVocal(choices, genre);
-  const chosen = (choices.instruments ?? []).filter((i) => findInstrumentProfile(i.instrumentId, opts.customInstruments) && i.count > 0);
+  const chosen = (choices.instruments ?? []).filter(
+    (i) => findInstrumentProfile(i.instrumentId, opts.customInstruments) && i.count > 0,
+  );
   const lineup = chosen.length ? chosen : suggestInstruments(genre);
   const instrumentation = nameBlueprintTracks(instrumentItems(lineup, vocal, opts.customInstruments));
 
@@ -435,11 +543,25 @@ export function blueprintFromChoices(choices: BuilderChoices, opts: BuilderOptio
 
   // Moods, styles, macros.
   const moods = moodTags(choices);
-  const statements = [...new Set([...moods.filter((m) => !m.section).map((m) => moodStatement(m.tag)), ...moods.filter((m) => m.section).map((m) => moodStatement(m.tag, m.section))])];
-  const styleNames = tags.map((id) => getTag(id)!).filter((t) => t.kind === 'style').map((t) => t.name);
-  const genreNames = [...blend].sort((a, b) => b.weight - a.weight).map((g) => getGenre(g.genreId, custom)?.name ?? g.genreId);
+  const statements = [
+    ...new Set([
+      ...moods.filter((m) => !m.section).map((m) => moodStatement(m.tag)),
+      ...moods.filter((m) => m.section).map((m) => moodStatement(m.tag, m.section)),
+    ]),
+  ];
+  const styleNames = tags
+    .map((id) => getTag(id)!)
+    .filter((t) => t.kind === 'style')
+    .map((t) => t.name);
+  const genreNames = [...blend]
+    .sort((a, b) => b.weight - a.weight)
+    .map((g) => getGenre(g.genreId, custom)?.name ?? g.genreId);
   // Tag macro nudges are applied where the song is composed (genreForBlueprint / applyTagsToMacros), not baked in here.
-  const macros: MacroSettings = { ...defaultMacros(), ...(genreForBlend(blend, custom).macros ?? {}), ...(choices.macros ?? {}) };
+  const macros: MacroSettings = {
+    ...defaultMacros(),
+    ...(genreForBlend(blend, custom).macros ?? {}),
+    ...(choices.macros ?? {}),
+  };
 
   const bp: Blueprint = {
     title: choices.title?.trim() || titleFromLyrics(lyrics) || 'Untitled',
@@ -457,7 +579,12 @@ export function blueprintFromChoices(choices: BuilderChoices, opts: BuilderOptio
   };
   if (vocal) bp.vocal = vocal;
   if (choices.lyricsTheme?.trim()) bp.lyricsTheme = choices.lyricsTheme.trim();
-  if (lyrics) bp.lyrics = { text: lyrics.text, sections: lyrics.sections.map((s) => ({ name: s.name, kind: s.kind, lines: [...s.lines] })), ...(lyrics.lock === false ? { lock: false } : {}) };
+  if (lyrics)
+    bp.lyrics = {
+      text: lyrics.text,
+      sections: lyrics.sections.map((s) => ({ name: s.name, kind: s.kind, lines: [...s.lines] })),
+      ...(lyrics.lock === false ? { lock: false } : {}),
+    };
   return bp;
 }
 
@@ -466,12 +593,20 @@ export function blueprintFromChoices(choices: BuilderChoices, opts: BuilderOptio
  * instruments/counts, genres, tags (the model's unknown tags are dropped, known ones kept), moods,
  * tempo (or tempo feel), key, meter, structure/length/lyrics, vocal, title and theme.
  */
-export function applyBuilderConstraints(bp: Blueprint, choices: BuilderChoices, opts: BuilderOptions): Blueprint {
+export function applyBuilderConstraints(
+  bp: Blueprint,
+  choices: BuilderChoices,
+  opts: BuilderOptions,
+): Blueprint {
   const base = blueprintFromChoices(choices, opts);
   const out: Blueprint = { ...bp, seed: base.seed };
   const custom = opts.customGenres;
 
-  if ((choices.instruments ?? []).some((i) => i.count > 0 && findInstrumentProfile(i.instrumentId, opts.customInstruments))) {
+  if (
+    (choices.instruments ?? []).some(
+      (i) => i.count > 0 && findInstrumentProfile(i.instrumentId, opts.customInstruments),
+    )
+  ) {
     // Keep the model's per-track detail (ranges, complexity…) where it chose the same instrument.
     const pool = [...(bp.instrumentation ?? [])];
     out.instrumentation = base.instrumentation.map((t) => {
@@ -479,19 +614,32 @@ export function applyBuilderConstraints(bp: Blueprint, choices: BuilderChoices, 
       if (j < 0) return t;
       const m = pool.splice(j, 1)[0];
       const merged: BlueprintTrack = { ...t };
-      if (m.constraints) merged.constraints = { ...m.constraints, ...(t.function ? { function: t.function } : {}) };
+      if (m.constraints)
+        merged.constraints = { ...m.constraints, ...(t.function ? { function: t.function } : {}) };
       return merged;
     });
   } else if (choices.vocal === 'none') {
-    out.instrumentation = (bp.instrumentation ?? []).filter((t) => !(t.role === 'vocal' && t.instrumentId === 'lead-vocal'));
+    out.instrumentation = (bp.instrumentation ?? []).filter(
+      (t) => !(t.role === 'vocal' && t.instrumentId === 'lead-vocal'),
+    );
     if (!out.instrumentation.length) out.instrumentation = base.instrumentation;
   } else if (choices.vocal && !(bp.instrumentation ?? []).some((t) => t.instrumentId === 'lead-vocal')) {
-    out.instrumentation = nameBlueprintTracks([{ instrumentId: 'lead-vocal', role: 'vocal', function: 'melody' }, ...(bp.instrumentation ?? [])]);
+    out.instrumentation = nameBlueprintTracks([
+      { instrumentId: 'lead-vocal', role: 'vocal', function: 'melody' },
+      ...(bp.instrumentation ?? []),
+    ]);
   }
 
   if (normalizeGenreWeights(choices.genres, custom).length) {
     out.genreBlend = base.genreBlend;
-    out.styles = [...new Set([...base.styles, ...(bp.styles ?? []).filter((s) => !(bp.genreBlend ?? []).some((g) => getGenre(g.genreId, custom)?.name === s))])];
+    out.styles = [
+      ...new Set([
+        ...base.styles,
+        ...(bp.styles ?? []).filter(
+          (s) => !(bp.genreBlend ?? []).some((g) => getGenre(g.genreId, custom)?.name === s),
+        ),
+      ]),
+    ];
   } else if (!out.genreBlend?.length) out.genreBlend = base.genreBlend;
 
   out.tags = resolveTagIds([...(base.tags ?? []), ...(bp.tags ?? [])]);
@@ -502,17 +650,31 @@ export function applyBuilderConstraints(bp: Blueprint, choices: BuilderChoices, 
     if (!(out.tempo >= lo && out.tempo <= hi)) out.tempo = base.tempo;
   }
   if (choices.key?.tonic !== undefined || choices.key?.mode) {
-    out.key = { tonic: choices.key.tonic ?? bp.key?.tonic ?? base.key.tonic, mode: choices.key.mode ?? bp.key?.mode ?? base.key.mode };
+    out.key = {
+      tonic: choices.key.tonic ?? bp.key?.tonic ?? base.key.tonic,
+      mode: choices.key.mode ?? bp.key?.mode ?? base.key.mode,
+    };
   }
   if (choices.meter) out.meter = base.meter;
 
-  if (choices.lyrics?.sections.length || choices.structure || (choices.length && choices.length !== 'standard') || !out.structure?.length) out.structure = base.structure;
+  if (
+    choices.lyrics?.sections.length ||
+    choices.structure ||
+    (choices.length && choices.length !== 'standard') ||
+    !out.structure?.length
+  )
+    out.structure = base.structure;
   else if (moodTags(choices).length) out.structure = applyMoods(out.structure, choices);
   if (base.lyrics) out.lyrics = base.lyrics;
   else delete out.lyrics;
 
   const userMoods = base.moods;
-  out.moods = [...new Set([...userMoods, ...(bp.moods ?? []).filter((m) => !userMoods.some((u) => u.toLowerCase() === m.toLowerCase()))])];
+  out.moods = [
+    ...new Set([
+      ...userMoods,
+      ...(bp.moods ?? []).filter((m) => !userMoods.some((u) => u.toLowerCase() === m.toLowerCase())),
+    ]),
+  ];
 
   if (choices.vocal === 'none') delete out.vocal;
   else if (choices.vocal || (base.vocal && !out.vocal)) out.vocal = base.vocal;

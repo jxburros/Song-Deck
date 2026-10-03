@@ -23,9 +23,22 @@ test('records a MIDI keyboard take into the selected track as one undoable revis
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.addInitScript(() => {
-    const input = Object.assign(new EventTarget(), { id: 'fake-keys', name: 'Fake Keys', manufacturer: 'Song Deck', type: 'input', state: 'connected' });
-    const access = Object.assign(new EventTarget(), { inputs: new Map([[input.id, input]]), outputs: new Map(), sysexEnabled: false });
-    Object.defineProperty(navigator, 'requestMIDIAccess', { configurable: true, value: () => Promise.resolve(access) });
+    const input = Object.assign(new EventTarget(), {
+      id: 'fake-keys',
+      name: 'Fake Keys',
+      manufacturer: 'Song Deck',
+      type: 'input',
+      state: 'connected',
+    });
+    const access = Object.assign(new EventTarget(), {
+      inputs: new Map([[input.id, input]]),
+      outputs: new Map(),
+      sysexEnabled: false,
+    });
+    Object.defineProperty(navigator, 'requestMIDIAccess', {
+      configurable: true,
+      value: () => Promise.resolve(access),
+    });
     window.__midi = (bytes: number[]) => {
       const e = new Event('midimessage');
       Object.defineProperty(e, 'data', { value: new Uint8Array(bytes) });

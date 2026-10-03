@@ -34,7 +34,14 @@ export { syllabify, syllabifyText, countSyllables, lyricTokens } from './lyrics/
 export { textToPhonemes, syllableToPhonemes, wordsToPhonemes, wordStress, lyricStress } from './lyrics/g2p';
 export { alignLyrics, validateLyricAlignment } from './lyrics/align';
 export { generatePlaceholderLyrics } from './lyrics/placeholder';
-export { parseLyricSheet, parseSectionHeader, isChordLine, stanzaSimilarity, lyricLineCount, type LyricSheetSection } from './lyrics/sheet';
+export {
+  parseLyricSheet,
+  parseSectionHeader,
+  isChordLine,
+  stanzaSimilarity,
+  lyricLineCount,
+  type LyricSheetSection,
+} from './lyrics/sheet';
 export { suggestMoodsFromLyrics, type LyricMoodReading } from './lyrics/mood';
 
 // §37 vocal regeneration commands

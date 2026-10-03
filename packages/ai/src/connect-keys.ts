@@ -36,7 +36,17 @@ export interface KeyDetection {
 }
 
 /** Cloud presets the connect flow can validate with a pasted key. */
-export const CONNECTABLE_PRESET_IDS: readonly string[] = ['openai', 'anthropic', 'gemini', 'groq', 'together', 'moonshot', 'llama-api', 'elevenlabs-music', 'stability-audio'];
+export const CONNECTABLE_PRESET_IDS: readonly string[] = [
+  'openai',
+  'anthropic',
+  'gemini',
+  'groq',
+  'together',
+  'moonshot',
+  'llama-api',
+  'elevenlabs-music',
+  'stability-audio',
+];
 
 const UNSUPPORTED: { re: RegExp; name: string }[] = [
   { re: /^xai-/, name: 'xAI' },
@@ -62,16 +72,21 @@ export function detectKeyProvider(raw: string): KeyDetection {
   if (!key) return { ...out, problem: 'Paste an API key' };
   if (/\s/.test(key)) return { ...out, problem: 'That looks like more than one value — paste just the key' };
   if (key.length < 16) return { ...out, problem: 'That is too short to be an API key' };
-  const certain = (presetId: string): KeyDetection => ({ ...out, matches: [{ presetId, confidence: 'certain' }] });
+  const certain = (presetId: string): KeyDetection => ({
+    ...out,
+    matches: [{ presetId, confidence: 'certain' }],
+  });
 
   if (key.startsWith('sk-ant-')) return certain('anthropic');
   if (/^AIza[0-9A-Za-z_-]{35}$/.test(key)) return certain('gemini');
   if (key.startsWith('AIza')) return { ...out, matches: [{ presetId: 'gemini', confidence: 'likely' }] };
   if (key.startsWith('gsk_')) return certain('groq');
-  if (/^sk-(proj|svcacct|admin)-/.test(key) || (key.startsWith('sk-') && key.includes('T3BlbkFJ'))) return certain('openai');
+  if (/^sk-(proj|svcacct|admin)-/.test(key) || (key.startsWith('sk-') && key.includes('T3BlbkFJ')))
+    return certain('openai');
   if (key.startsWith('tgp_v1_')) return certain('together');
   if (/^sk_[0-9a-f]{40,}$/i.test(key)) return certain('elevenlabs-music');
-  if (key.startsWith('sk_')) return { ...out, matches: [{ presetId: 'elevenlabs-music', confidence: 'likely' }] };
+  if (key.startsWith('sk_'))
+    return { ...out, matches: [{ presetId: 'elevenlabs-music', confidence: 'likely' }] };
   for (const u of UNSUPPORTED) if (u.re.test(key)) return { ...out, unsupported: u.name };
   if (key.startsWith('sk-')) {
     return {
@@ -83,7 +98,9 @@ export function detectKeyProvider(raw: string): KeyDetection {
       ],
     };
   }
-  if (/^[0-9a-f]{32}$/i.test(key)) return { ...out, matches: [{ presetId: 'elevenlabs-music', confidence: 'possible' }] };
-  if (/^[0-9a-f]{64}$/i.test(key)) return { ...out, matches: [{ presetId: 'together', confidence: 'possible' }] };
+  if (/^[0-9a-f]{32}$/i.test(key))
+    return { ...out, matches: [{ presetId: 'elevenlabs-music', confidence: 'possible' }] };
+  if (/^[0-9a-f]{64}$/i.test(key))
+    return { ...out, matches: [{ presetId: 'together', confidence: 'possible' }] };
   return out;
 }

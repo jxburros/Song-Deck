@@ -23,7 +23,11 @@ import { TRACK_ROLES } from '../compose/BlueprintEditor';
 /** Track colours live in @songdeck/core (ir/palette.ts) so composed, imported and rebuilt tracks agree. */
 export { colorForRole };
 
-export function setChannel(song: Song, trackId: string, patch: Partial<ReturnType<typeof defaultChannelStrip>>): Song {
+export function setChannel(
+  song: Song,
+  trackId: string,
+  patch: Partial<ReturnType<typeof defaultChannelStrip>>,
+): Song {
   const ch = { ...channelFor(song, trackId), ...patch };
   return { ...song, mixer: { ...song.mixer, channels: { ...song.mixer.channels, [trackId]: ch } } };
 }
@@ -35,12 +39,17 @@ function TrackRow({ song, track, selected }: { song: Song; track: Track; selecte
   const customInstruments = useCustomInstruments();
   const inst = getInstrument(track.instrumentId, customInstruments);
   return (
-    <div className={`track-row ${selected ? 'selected' : ''}`} onClick={() => st.selectTrack(track.id)} onDoubleClick={() => st.setWorkbenchView('piano-roll')}>
+    <div
+      className={`track-row ${selected ? 'selected' : ''}`}
+      onClick={() => st.selectTrack(track.id)}
+      onDoubleClick={() => st.setWorkbenchView('piano-roll')}
+    >
       <div className="track-color" style={{ background: track.color || colorForRole(track.role) }} />
       <div className="grow" style={{ minWidth: 0 }}>
         <div className="track-name ellipsis">{track.name}</div>
         <div className="track-meta ellipsis">
-          {track.kind === 'audio' ? 'Audio' : inst.name} · {track.notes.length || track.clips.length} {track.kind === 'audio' ? 'clips' : 'notes'}
+          {track.kind === 'audio' ? 'Audio' : inst.name} · {track.notes.length || track.clips.length}{' '}
+          {track.kind === 'audio' ? 'clips' : 'notes'}
         </div>
       </div>
       <button
@@ -48,7 +57,11 @@ function TrackRow({ song, track, selected }: { song: Song; track: Track; selecte
         title="Mute"
         onClick={(e) => {
           e.stopPropagation();
-          st.commit(setChannel(song, track.id, { mute: !ch.mute }), `${ch.mute ? 'Unmuted' : 'Muted'} ${track.name}`, 'mix');
+          st.commit(
+            setChannel(song, track.id, { mute: !ch.mute }),
+            `${ch.mute ? 'Unmuted' : 'Muted'} ${track.name}`,
+            'mix',
+          );
         }}
       >
         M
@@ -58,12 +71,21 @@ function TrackRow({ song, track, selected }: { song: Song; track: Track; selecte
         title="Solo"
         onClick={(e) => {
           e.stopPropagation();
-          st.commit(setChannel(song, track.id, { solo: !ch.solo }), `${ch.solo ? 'Unsoloed' : 'Soloed'} ${track.name}`, 'mix');
+          st.commit(
+            setChannel(song, track.id, { solo: !ch.solo }),
+            `${ch.solo ? 'Unsoloed' : 'Soloed'} ${track.name}`,
+            'mix',
+          );
         }}
       >
         S
       </button>
-      <LockButton locked={locked} onToggle={() => st.toggleLock(LockKeys.track(track.id), `${locked ? 'Unlocked' : 'Locked'} ${track.name}`)} />
+      <LockButton
+        locked={locked}
+        onToggle={() =>
+          st.toggleLock(LockKeys.track(track.id), `${locked ? 'Unlocked' : 'Locked'} ${track.name}`)
+        }
+      />
     </div>
   );
 }
@@ -93,7 +115,11 @@ function AddTrackModal({ onClose }: { onClose: () => void }) {
       stemGroup: inst.stemGroup,
       midiChannel: inst.isDrumKit ? 9 : undefined,
     };
-    let next: Song = { ...song, tracks: [...song.tracks, track], mixer: { ...song.mixer, channels: { ...song.mixer.channels, [id]: defaultChannelStrip() } } };
+    let next: Song = {
+      ...song,
+      tracks: [...song.tracks, track],
+      mixer: { ...song.mixer, channels: { ...song.mixer.channels, [id]: defaultChannelStrip() } },
+    };
     if (generate) {
       next = regenerateUnlocked(next, { seed: randomSeed(), trackIds: [id], customInstruments }).song;
     }
@@ -135,7 +161,11 @@ function AddTrackModal({ onClose }: { onClose: () => void }) {
             <Select value={role} onChange={setRole} options={TRACK_ROLES} />
           </Field>
         </div>
-        <Toggle on={generate} onChange={setGenerate} label="Generate a part for it now (respects the arrangement and locks)" />
+        <Toggle
+          on={generate}
+          onChange={setGenerate}
+          label="Generate a part for it now (respects the arrangement and locks)"
+        />
       </div>
     </Modal>
   );
@@ -176,7 +206,14 @@ export function SidePanel() {
               key={s.id}
               className={`track-row ${active ? 'selected' : ''}`}
               style={{ height: 34, paddingLeft: 10 }}
-              onClick={() => st.setSelection({ startTick: span.startTick, endTick: span.endTick, sectionIds: [s.id], noteIds: [] })}
+              onClick={() =>
+                st.setSelection({
+                  startTick: span.startTick,
+                  endTick: span.endTick,
+                  sectionIds: [s.id],
+                  noteIds: [],
+                })
+              }
               title="Select section (scope for regeneration and AI edits)"
             >
               <div className="grow ellipsis">
@@ -186,13 +223,25 @@ export function SidePanel() {
                   {s.energyEnd !== undefined && s.energyEnd !== s.energy ? `→${Math.round(s.energyEnd)}` : ''}
                 </span>
               </div>
-              <LockButton locked={locked} onToggle={() => st.toggleLock(LockKeys.section(s.id), `${locked ? 'Unlocked' : 'Locked'} section ${s.name}`)} />
+              <LockButton
+                locked={locked}
+                onToggle={() =>
+                  st.toggleLock(LockKeys.section(s.id), `${locked ? 'Unlocked' : 'Locked'} section ${s.name}`)
+                }
+              />
             </div>
           );
         })}
         {selection.sectionIds?.length ? (
           <div style={{ padding: 8 }}>
-            <Button size="sm" variant="ghost" icon="close" onClick={() => st.setSelection({ startTick: undefined, endTick: undefined, sectionIds: [], noteIds: [] })}>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon="close"
+              onClick={() =>
+                st.setSelection({ startTick: undefined, endTick: undefined, sectionIds: [], noteIds: [] })
+              }
+            >
               Clear selection
             </Button>
           </div>

@@ -1,5 +1,11 @@
 import { useMemo, useState } from 'react';
-import { applyTheoryControl, explainSection, explainSong, randomSeed, type TheoryControl } from '@songdeck/core';
+import {
+  applyTheoryControl,
+  explainSection,
+  explainSong,
+  randomSeed,
+  type TheoryControl,
+} from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { Badge, Button, Spinner } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
@@ -10,7 +16,11 @@ import { ProviderPicker } from '../shared/ProviderPicker';
 const CONTROLS: { id: TheoryControl; label: string; hint: string }[] = [
   { id: 'darker', label: 'Make darker', hint: 'Modal interchange toward the parallel minor' },
   { id: 'more-tension', label: 'Increase tension', hint: 'Extensions, suspensions, dominant pull' },
-  { id: 'less-conventional', label: 'Make less conventional', hint: 'Unexpected but voice-led substitutions' },
+  {
+    id: 'less-conventional',
+    label: 'Make less conventional',
+    hint: 'Unexpected but voice-led substitutions',
+  },
   { id: 'modal', label: 'Try modal harmony', hint: 'Re-colour with a mode (Dorian, Mixolydian, Lydian…)' },
   { id: 'brighter', label: 'Make brighter', hint: 'Borrow from the parallel major / Lydian' },
   { id: 'simplify', label: 'Simplify', hint: 'Back to strong diatonic functions' },
@@ -26,13 +36,20 @@ export default function TheoryView() {
   const [explainer, setExplainer] = useState('auto');
   const overview = useMemo(() => (song ? explainSong(song) : null), [song]);
   if (!song || !overview) return null;
-  const current = song.sections.find((s) => s.id === sectionId) ?? song.sections.find((s) => s.kind === 'chorus') ?? song.sections[0];
+  const current =
+    song.sections.find((s) => s.id === sectionId) ??
+    song.sections.find((s) => s.kind === 'chorus') ??
+    song.sections[0];
   const ex = explainSection(song, current.id);
 
   const control = (c: TheoryControl) => {
     const res = applyTheoryControl(song, current.id, c, { seed: randomSeed() });
     if (!res.understood || !res.operations.length) return st.toast('info', res.explanation);
-    propose(song, res.operations, { title: `${CONTROLS.find((x) => x.id === c)?.label} — ${current.name}`, source: 'internal', explanation: res.explanation });
+    propose(song, res.operations, {
+      title: `${CONTROLS.find((x) => x.id === c)?.label} — ${current.name}`,
+      source: 'internal',
+      explanation: res.explanation,
+    });
   };
 
   const askAi = async () => {
@@ -51,7 +68,11 @@ export default function TheoryView() {
     <div className="scroll" style={{ position: 'absolute', inset: 0, padding: 16 }} data-testid="theory-view">
       <div className="row wrap" style={{ marginBottom: 12 }}>
         {song.sections.map((s) => (
-          <button key={s.id} className={`chip ${s.id === current.id ? 'on' : ''}`} onClick={() => setSectionId(s.id)}>
+          <button
+            key={s.id}
+            className={`chip ${s.id === current.id ? 'on' : ''}`}
+            onClick={() => setSectionId(s.id)}
+          >
             {s.name}
           </button>
         ))}
@@ -64,7 +85,9 @@ export default function TheoryView() {
             <Badge>{ex.keyName}</Badge>
           </div>
           <div className="panel-body">
-            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>{ex.chords.map((c) => c.symbol).join(' – ')}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>
+              {ex.chords.map((c) => c.symbol).join(' – ')}
+            </div>
             <div className="muted" style={{ marginBottom: 12 }}>
               {ex.romanSummary}
             </div>
@@ -109,7 +132,17 @@ export default function TheoryView() {
                     <td>{c.function}</td>
                     <td style={{ width: 120 }}>
                       <div className="progress">
-                        <div style={{ width: `${Math.round(c.tension * 100)}%`, background: c.tension > 0.6 ? 'var(--danger)' : c.tension > 0.35 ? 'var(--warning)' : 'var(--success)' }} />
+                        <div
+                          style={{
+                            width: `${Math.round(c.tension * 100)}%`,
+                            background:
+                              c.tension > 0.6
+                                ? 'var(--danger)'
+                                : c.tension > 0.35
+                                  ? 'var(--warning)'
+                                  : 'var(--success)',
+                          }}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -130,7 +163,8 @@ export default function TheoryView() {
               <div style={{ marginTop: 10 }}>
                 <h4>Melody</h4>
                 <div className="small muted">
-                  Range {ex.melody.lowest}–{ex.melody.highest} ({ex.melody.range}) · contour {ex.melody.contour} · {Math.round(ex.melody.chordToneRatio * 100)}% chord tones ·{' '}
+                  Range {ex.melody.lowest}–{ex.melody.highest} ({ex.melody.range}) · contour{' '}
+                  {ex.melody.contour} · {Math.round(ex.melody.chordToneRatio * 100)}% chord tones ·{' '}
                   {Math.round(ex.melody.stepwiseRatio * 100)}% stepwise
                 </div>
               </div>
@@ -152,7 +186,18 @@ export default function TheoryView() {
             </div>
             <div className="panel-body grid-2">
               {CONTROLS.map((c) => (
-                <Button key={c.id} onClick={() => control(c.id)} title={c.hint} style={{ justifyContent: 'flex-start', height: 'auto', padding: '8px 10px', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <Button
+                  key={c.id}
+                  onClick={() => control(c.id)}
+                  title={c.hint}
+                  style={{
+                    justifyContent: 'flex-start',
+                    height: 'auto',
+                    padding: '8px 10px',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                  }}
+                >
                   <strong>{c.label}</strong>
                   <span className="small dim" style={{ whiteSpace: 'normal', textAlign: 'left' }}>
                     {c.hint}

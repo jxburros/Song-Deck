@@ -46,7 +46,9 @@ function makeChangingSong(): Song {
 }
 
 function noteSig(t: Track) {
-  return t.notes.map((n) => [n.pitch, n.tick, n.duration, n.velocity, n.syllable ?? null]).sort((a, b) => (a[1] as number) - (b[1] as number) || (a[0] as number) - (b[0] as number));
+  return t.notes
+    .map((n) => [n.pitch, n.tick, n.duration, n.velocity, n.syllable ?? null])
+    .sort((a, b) => (a[1] as number) - (b[1] as number) || (a[0] as number) - (b[0] as number));
 }
 
 describe('MIDI low level', () => {
@@ -58,7 +60,14 @@ describe('MIDI low level', () => {
         events: [
           { tick: 0, type: 'text', metaType: 3, text: 'Conductor ✓' },
           { tick: 0, type: 'tempo', microsecondsPerQuarter: 500000 },
-          { tick: 0, type: 'timeSignature', numerator: 6, denominator: 8, clocksPerClick: 36, thirtySecondsPerQuarter: 8 },
+          {
+            tick: 0,
+            type: 'timeSignature',
+            numerator: 6,
+            denominator: 8,
+            clocksPerClick: 36,
+            thirtySecondsPerQuarter: 8,
+          },
           { tick: 0, type: 'keySignature', sharps: -3, minor: true },
           { tick: 960, type: 'text', metaType: 6, text: 'Chorus' },
           { tick: 1000, type: 'meta', metaType: 0x7f, data: Uint8Array.of(0x7d, 1, 2, 3) },
@@ -95,10 +104,22 @@ describe('MIDI low level', () => {
     const repeated: MidiFile = {
       format: 0,
       ticksPerQuarter: 480,
-      tracks: [{ events: [60, 64, 67].map((note, i) => ({ tick: i * 10, type: 'noteOn' as const, channel: 0, note, velocity: 90 })) }],
+      tracks: [
+        {
+          events: [60, 64, 67].map((note, i) => ({
+            tick: i * 10,
+            type: 'noteOn' as const,
+            channel: 0,
+            note,
+            velocity: 90,
+          })),
+        },
+      ],
     };
     expect(writeMidiFile(repeated, { runningStatus: true }).length).toBe(writeMidiFile(repeated).length - 2);
-    expect(parseMidiFile(writeMidiFile(repeated, { runningStatus: true })).tracks[0].events).toEqual(repeated.tracks[0].events);
+    expect(parseMidiFile(writeMidiFile(repeated, { runningStatus: true })).tracks[0].events).toEqual(
+      repeated.tracks[0].events,
+    );
   });
 
   it('reads velocity-0 note-offs, tolerates truncation and rejects non-MIDI data', () => {
@@ -120,7 +141,9 @@ describe('MIDI low level', () => {
       [60, 0, 480],
       [64, 480, 240],
     ]);
-    expect(() => parseMidiFile(Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]))).toThrow(/MThd/);
+    expect(() => parseMidiFile(Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]))).toThrow(
+      /MThd/,
+    );
     const good = songToMidi(makeSong());
     expect(() => parseMidiFile(good.slice(0, good.length - 37))).not.toThrow();
     expect(() => midiToSong(good.slice(0, 900))).not.toThrow();
@@ -137,26 +160,61 @@ describe('songToMidi', () => {
     expect(file.tracks).toHaveLength(5);
     const conductor = file.tracks[0].events;
     expect(conductor).toContainEqual({ tick: 0, type: 'tempo', microsecondsPerQuarter: 500000 });
-    expect(conductor).toContainEqual({ tick: 0, type: 'timeSignature', numerator: 4, denominator: 4, clocksPerClick: 24, thirtySecondsPerQuarter: 8 });
+    expect(conductor).toContainEqual({
+      tick: 0,
+      type: 'timeSignature',
+      numerator: 4,
+      denominator: 4,
+      clocksPerClick: 24,
+      thirtySecondsPerQuarter: 8,
+    });
     expect(conductor).toContainEqual({ tick: 0, type: 'keySignature', sharps: 1, minor: true });
-    const markers = conductor.filter((e): e is Extract<MidiEvent, { type: 'text' }> => e.type === 'text' && e.metaType === 6);
+    const markers = conductor.filter(
+      (e): e is Extract<MidiEvent, { type: 'text' }> => e.type === 'text' && e.metaType === 6,
+    );
     expect(markers.map((m) => [m.tick, m.text])).toEqual([
       [0, 'Intro'],
       [4 * BAR, 'Verse'],
       [12 * BAR, 'Chorus'],
     ]);
-    const names = file.tracks.slice(1).map((t) => t.events.find((e) => e.type === 'text' && e.metaType === 3) as { text: string });
+    const names = file.tracks
+      .slice(1)
+      .map((t) => t.events.find((e) => e.type === 'text' && e.metaType === 3) as { text: string });
     expect(names.map((n) => n.text)).toEqual(['Bass', 'Drums', 'Vocal', 'Piano']);
-    const programs = file.tracks.slice(1).map((t) => t.events.find((e) => e.type === 'programChange') as { program: number; channel: number } | undefined);
+    const programs = file.tracks
+      .slice(1)
+      .map(
+        (t) =>
+          t.events.find((e) => e.type === 'programChange') as
+            { program: number; channel: number } | undefined,
+      );
     expect(programs.map((p) => p && [p.channel, p.program])).toEqual([[0, 33], undefined, [1, 53], [2, 0]]);
-    const drumChannels = new Set(file.tracks[2].events.filter((e) => e.type === 'noteOn').map((e) => (e as { channel: number }).channel));
+    const drumChannels = new Set(
+      file.tracks[2].events.filter((e) => e.type === 'noteOn').map((e) => (e as { channel: number }).channel),
+    );
     expect([...drumChannels]).toEqual([9]);
   });
 
   it('writes matched note on/off pairs, lyrics before their notes', () => {
     const vocal = file.tracks[3].events;
-    const lyrics = vocal.filter((e) => e.type === 'text' && e.metaType === 5) as { tick: number; text: string }[];
-    expect(lyrics.map((l) => l.text)).toEqual(['Hold', 'on', 'to', 'the', 'light-', 'ning', 'Hold', 'on', 'to', 'the', 'light-', 'ning']);
+    const lyrics = vocal.filter((e) => e.type === 'text' && e.metaType === 5) as {
+      tick: number;
+      text: string;
+    }[];
+    expect(lyrics.map((l) => l.text)).toEqual([
+      'Hold',
+      'on',
+      'to',
+      'the',
+      'light-',
+      'ning',
+      'Hold',
+      'on',
+      'to',
+      'the',
+      'light-',
+      'ning',
+    ]);
     const firstLyric = vocal.findIndex((e) => e.type === 'text' && e.metaType === 5);
     const firstOn = vocal.findIndex((e) => e.type === 'noteOn');
     expect(firstLyric).toBeLessThan(firstOn);
@@ -169,7 +227,9 @@ describe('songToMidi', () => {
   });
 
   it('exports selected tracks and single-track type-0 files', () => {
-    const only = parseMidiFile(songToMidi(song, { trackIds: ['trk_vocal'], includeMarkers: false, includeLyrics: false }));
+    const only = parseMidiFile(
+      songToMidi(song, { trackIds: ['trk_vocal'], includeMarkers: false, includeLyrics: false }),
+    );
     expect(only.tracks).toHaveLength(2);
     expect(only.tracks[0].events.some((e) => e.type === 'text' && e.metaType === 6)).toBe(false);
     expect(only.tracks[1].events.some((e) => e.type === 'text' && e.metaType === 5)).toBe(false);
@@ -177,7 +237,11 @@ describe('songToMidi', () => {
     expect(single.format).toBe(0);
     expect(single.tracks).toHaveLength(1);
     expect(single.tracks[0].events.filter((e) => e.type === 'noteOn')).toHaveLength(80);
-    expect(single.tracks[0].events).toContainEqual({ tick: 0, type: 'tempo', microsecondsPerQuarter: 500000 });
+    expect(single.tracks[0].events).toContainEqual({
+      tick: 0,
+      type: 'tempo',
+      microsecondsPerQuarter: 500000,
+    });
     const back = midiToSong(trackToMidi(song, 'trk_bass'));
     expect(back.tracks).toHaveLength(1);
     expect(noteSig(back.tracks[0])).toEqual(noteSig(song.tracks[0]));
@@ -198,12 +262,16 @@ describe('MIDI round trip (songToMidi → midiToSong)', () => {
       expect(back.tempoMap).toEqual(song.tempoMap);
       expect(back.meterMap).toEqual(song.meterMap);
       expect(back.keyMap).toEqual(song.keyMap);
-      expect(back.sections.map((s) => [s.name, s.kind, s.bars, s.energy])).toEqual(song.sections.map((s) => [s.name, s.kind, s.bars, s.energy]));
+      expect(back.sections.map((s) => [s.name, s.kind, s.bars, s.energy])).toEqual(
+        song.sections.map((s) => [s.name, s.kind, s.bars, s.energy]),
+      );
       expect(back.tracks.map((t) => [t.name, t.instrumentId, t.role, t.midiChannel, t.stemGroup])).toEqual(
         song.tracks.map((t) => [t.name, t.instrumentId, t.role, t.midiChannel, t.stemGroup]),
       );
       back.tracks.forEach((t, i) => expect(noteSig(t)).toEqual(noteSig(song.tracks[i])));
-      expect(back.chords.map((c) => [c.tick, c.duration, c.symbol, c.root, c.quality])).toEqual(song.chords.map((c) => [c.tick, c.duration, c.symbol, c.root, c.quality]));
+      expect(back.chords.map((c) => [c.tick, c.duration, c.symbol, c.root, c.quality])).toEqual(
+        song.chords.map((c) => [c.tick, c.duration, c.symbol, c.root, c.quality]),
+      );
       expect(back.lyrics.map((l) => l.text)).toEqual(song.lyrics.map((l) => l.text));
       const vocal = back.tracks.find((t) => t.role === 'vocal')!;
       const lineOfFirst = back.lyrics.find((l) => l.id === vocal.notes[0].lyricLineId);
@@ -235,7 +303,8 @@ describe('MIDI round trip (songToMidi → midiToSong)', () => {
   it('prefers markers edited in a DAW over stale embedded sections', () => {
     const bytes = songToMidi(makeSong());
     const file = parseMidiFile(bytes);
-    for (const e of file.tracks[0].events) if (e.type === 'text' && e.metaType === 6 && e.text === 'Chorus') e.tick = 8 * BAR;
+    for (const e of file.tracks[0].events)
+      if (e.type === 'text' && e.metaType === 6 && e.text === 'Chorus') e.tick = 8 * BAR;
     const back = midiToSong(writeMidiFile(file));
     expect(back.sections.map((s) => [s.name, s.kind, s.bars])).toEqual([
       ['Intro', 'intro', 4],
@@ -270,18 +339,44 @@ describe('MIDI round trip (songToMidi → midiToSong)', () => {
       ['Section 2', 8],
       ['Section 3', 4],
     ]);
-    expect(estimateKeyFromNotes([{ pitch: 64, duration: 2 }, { pitch: 67, duration: 1 }, { pitch: 71, duration: 1 }, { pitch: 66, duration: 1 }])).toEqual({ tonic: 4, mode: 'minor' });
+    expect(
+      estimateKeyFromNotes([
+        { pitch: 64, duration: 2 },
+        { pitch: 67, duration: 1 },
+        { pitch: 71, duration: 1 },
+        { pitch: 66, duration: 1 },
+      ]),
+    ).toEqual({ tonic: 4, mode: 'minor' });
   });
 
   it('treats embedded metadata as untrusted and survives corrupted files', () => {
     const file = parseMidiFile(songToMidi(makeSong()));
-    const enc = (o: unknown) => Uint8Array.from([0x7d, ...new TextEncoder().encode('SongDeck:' + JSON.stringify(o))]);
+    const enc = (o: unknown) =>
+      Uint8Array.from([0x7d, ...new TextEncoder().encode('SongDeck:' + JSON.stringify(o))]);
     for (const t of file.tracks) {
       t.events = t.events.map((e) => {
         if (e.type !== 'meta' || e.metaType !== 0x7f) return e;
         return t === file.tracks[0]
-          ? { ...e, data: enc({ v: 1, keys: [{ bar: 0, tonic: 4, mode: 'sad' }], sections: [{ name: 'Intro', kind: 'nope', bars: 4 }, 'x'], chords: [{ tick: -5, duration: 1, symbol: 'Em' }, null], lyrics: [{ section: 'a', text: 1 }] }) }
-          : { ...e, data: enc({ instrumentId: '../../etc', role: 'boss', stemGroup: 1, color: 'red;', function: 'x' }) };
+          ? {
+              ...e,
+              data: enc({
+                v: 1,
+                keys: [{ bar: 0, tonic: 4, mode: 'sad' }],
+                sections: [{ name: 'Intro', kind: 'nope', bars: 4 }, 'x'],
+                chords: [{ tick: -5, duration: 1, symbol: 'Em' }, null],
+                lyrics: [{ section: 'a', text: 1 }],
+              }),
+            }
+          : {
+              ...e,
+              data: enc({
+                instrumentId: '../../etc',
+                role: 'boss',
+                stemGroup: 1,
+                color: 'red;',
+                function: 'x',
+              }),
+            };
       });
     }
     const song = midiToSong(writeMidiFile(file));
@@ -316,11 +411,23 @@ describe('MIDI round trip (songToMidi → midiToSong)', () => {
       melody.push({ tick: i * 480 + 400, type: 'noteOff', channel: 0, note: 60 + i, velocity: 0 });
       lyrics.push({ tick: i * 480, type: 'text', metaType: 5, text });
     });
-    const bytes = writeMidiFile({ format: 1, ticksPerQuarter: 480, tracks: [{ events: lyrics }, { events: melody }] });
+    const bytes = writeMidiFile({
+      format: 1,
+      ticksPerQuarter: 480,
+      tracks: [{ events: lyrics }, { events: melody }],
+    });
     const song = midiToSong(bytes);
     expect(song.tracks).toHaveLength(1);
     expect(song.tracks[0].role).toBe('vocal');
-    expect(song.tracks[0].notes.map((n) => n.syllable)).toEqual(['Twin-', 'kle', 'twin-', 'kle', 'lit-', 'tle', 'star']);
+    expect(song.tracks[0].notes.map((n) => n.syllable)).toEqual([
+      'Twin-',
+      'kle',
+      'twin-',
+      'kle',
+      'lit-',
+      'tle',
+      'star',
+    ]);
     expect(song.lyrics.map((l) => l.text)).toEqual(['Twinkle twinkle', 'little star']);
   });
 });
@@ -367,7 +474,12 @@ describe('songToMusicXML', () => {
     expect(child(child(root, 'work')!, 'work-title')!.text).toBe('Fixture Song');
     const parts = children(root, 'part');
     expect(parts).toHaveLength(4);
-    expect(descendants(child(root, 'part-list')!, 'part-name').map((n) => n.text)).toEqual(['Bass', 'Drums', 'Vocal', 'Piano']);
+    expect(descendants(child(root, 'part-list')!, 'part-name').map((n) => n.text)).toEqual([
+      'Bass',
+      'Drums',
+      'Vocal',
+      'Piano',
+    ]);
     for (const p of parts) expect(children(p, 'measure')).toHaveLength(20);
   });
 
@@ -406,7 +518,11 @@ describe('songToMusicXML', () => {
     expect(descendants(drums, 'sign')[0].text).toBe('percussion');
     expect(descendants(drums, 'unpitched').length).toBeGreaterThan(0);
     expect(descendants(drums, 'pitch')).toHaveLength(0);
-    expect(descendants(child(root, 'part-list')!, 'midi-unpitched').map((n) => n.text)).toEqual(['37', '39', '43']);
+    expect(descendants(child(root, 'part-list')!, 'midi-unpitched').map((n) => n.text)).toEqual([
+      '37',
+      '39',
+      '43',
+    ]);
     // piano: grand staff
     expect(descendants(piano, 'staves')[0].text).toBe('2');
     expect(descendants(piano, 'clef')).toHaveLength(2);
@@ -421,7 +537,10 @@ describe('songToMusicXML', () => {
     expect(child(harmonies[0], 'kind')!.text).toBe('minor');
     expect(descendants(vocal, 'harmony')).toHaveLength(0);
     // lyrics with syllabic
-    const lyrics = descendants(vocal, 'lyric').map((l) => [child(l, 'syllabic')!.text, child(l, 'text')!.text]);
+    const lyrics = descendants(vocal, 'lyric').map((l) => [
+      child(l, 'syllabic')!.text,
+      child(l, 'text')!.text,
+    ]);
     expect(lyrics.slice(0, 6)).toEqual([
       ['single', 'Hold'],
       ['single', 'on'],
@@ -434,7 +553,15 @@ describe('songToMusicXML', () => {
 
   it('ties notes across barlines, marks accidentals and chords', () => {
     const s = edit(makeSong(), [
-      { op: 'replace_notes', track: 'vocal', region: { start_bar: 13, end_bar: 14 }, notes: [{ pitch: 'F4', bar: 13, beat: 4, duration_beats: 2 }, { pitch: 'F#4', bar: 14, beat: 3, duration_beats: 1 }] },
+      {
+        op: 'replace_notes',
+        track: 'vocal',
+        region: { start_bar: 13, end_bar: 14 },
+        notes: [
+          { pitch: 'F4', bar: 13, beat: 4, duration_beats: 2 },
+          { pitch: 'F#4', bar: 14, beat: 3, duration_beats: 1 },
+        ],
+      },
       { op: 'add_notes', track: 'piano', notes: [{ pitch: 'C5', bar: 1, beat: 1, duration_beats: 4 }] },
     ]);
     const r = parseXml(songToMusicXML(s, { trackIds: ['trk_vocal', 'trk_piano'] }));
@@ -476,10 +603,14 @@ describe('chord & lyric sheets, tempo map and markers', () => {
 
   it('lyric sheet lists section lyrics, falling back to sung syllables', () => {
     const song = makeSong();
-    expect(songToLyricSheet(song)).toBe('Fixture Song\n============\n\n[Chorus]\nHold on to the lightning\nHold on to the lightning\n');
+    expect(songToLyricSheet(song)).toBe(
+      'Fixture Song\n============\n\n[Chorus]\nHold on to the lightning\nHold on to the lightning\n',
+    );
     const noLines = cloneSong(song);
     noLines.lyrics = [];
-    expect(songToLyricSheet(noLines)).toContain('[Chorus]\nHold on to the lightning\nHold on to the lightning\n');
+    expect(songToLyricSheet(noLines)).toContain(
+      '[Chorus]\nHold on to the lightning\nHold on to the lightning\n',
+    );
     noLines.tracks[2].notes = [];
     expect(songToLyricSheet(noLines)).toContain('(no lyrics)');
   });
@@ -488,7 +619,12 @@ describe('chord & lyric sheets, tempo map and markers', () => {
     const song = makeChangingSong();
     const tempo = tempoMapCsv(song).trim().split('\n');
     expect(tempo[0]).toBe('bar,beat,tick,seconds,bpm,numerator,denominator');
-    expect(tempo.slice(1)).toEqual(['1,1,0,0.000000,120,4,4', '5,1,7680,8.000000,140,4,4', '13,1,23040,21.714286,90.5,4,4', '17,1,30720,32.322021,90.5,6,8']);
+    expect(tempo.slice(1)).toEqual([
+      '1,1,0,0.000000,120,4,4',
+      '5,1,7680,8.000000,140,4,4',
+      '13,1,23040,21.714286,90.5,4,4',
+      '17,1,30720,32.322021,90.5,6,8',
+    ]);
     const markers = markersCsv(song).trim().split('\n');
     expect(markers).toEqual([
       '#,Name,Kind,Start Bar,End Bar,Start (s),End (s),Length (s)',
@@ -496,7 +632,9 @@ describe('chord & lyric sheets, tempo map and markers', () => {
       '2,Verse,verse,5,12,8.000,21.714,13.714',
       '3,Chorus,chorus,13,20,21.714,40.278,18.564',
     ]);
-    expect(audacityLabels(makeSong())).toBe('0.000000\t8.000000\tIntro\n8.000000\t24.000000\tVerse\n24.000000\t40.000000\tChorus\n');
+    expect(audacityLabels(makeSong())).toBe(
+      '0.000000\t8.000000\tIntro\n8.000000\t24.000000\tVerse\n24.000000\t40.000000\tChorus\n',
+    );
   });
 });
 
@@ -546,7 +684,9 @@ function checkPdf(bytes: Uint8Array): PdfCheck {
   expect(objects.get(Number(trailer[2]))).toContain('/Type /Catalog');
   const pagesObj = [...objects.values()].find((o) => o.includes('/Type /Pages'))!;
   const pageCount = Number(/\/Count (\d+)/.exec(pagesObj)![1]);
-  const pageObjs = [...objects.values()].filter((o) => /\/Type \/Page\b/.test(o) && !o.includes('/Type /Pages'));
+  const pageObjs = [...objects.values()].filter(
+    (o) => /\/Type \/Page\b/.test(o) && !o.includes('/Type /Pages'),
+  );
   expect(pageObjs).toHaveLength(pageCount);
   const contents: string[] = [];
   for (const p of pageObjs) {
@@ -568,17 +708,31 @@ describe('songToNotationPdf', () => {
     const pdf = checkPdf(songToNotationPdf(song));
     expect(pdf.pageCount).toBe(1);
     const content = pdf.contents[0];
-    for (const t of ['(Fixture Song) Tj', '(Hold) Tj', '(light) Tj', '(ning) Tj', '(-) Tj', '(Em) Tj', '(Chorus) Tj', '(= 120) Tj']) expect(content).toContain(t);
+    for (const t of [
+      '(Fixture Song) Tj',
+      '(Hold) Tj',
+      '(light) Tj',
+      '(ning) Tj',
+      '(-) Tj',
+      '(Em) Tj',
+      '(Chorus) Tj',
+      '(= 120) Tj',
+    ])
+      expect(content).toContain(t);
     expect(content).toMatch(/ c\n/); // Bézier glyphs
     expect(content).toMatch(/ re\n/); // rests / boxes
-    const fonts = [...pdf.objects.values()].filter((o) => o.includes('/Type /Font')).map((o) => /\/BaseFont \/([\w-]+)/.exec(o)![1]);
+    const fonts = [...pdf.objects.values()]
+      .filter((o) => o.includes('/Type /Font'))
+      .map((o) => /\/BaseFont \/([\w-]+)/.exec(o)![1]);
     expect(fonts).toEqual(['Helvetica', 'Helvetica-Bold', 'Helvetica-Oblique']);
   });
 
   it('is deterministic, supports uncompressed output, other tracks and multiple pages', () => {
     const song = makeSong();
     expect(songToNotationPdf(song)).toEqual(songToNotationPdf(song));
-    const raw = checkPdf(songToNotationPdf(song, { compress: false, trackId: 'trk_bass', title: 'Bass Part', pageSize: 'a4' }));
+    const raw = checkPdf(
+      songToNotationPdf(song, { compress: false, trackId: 'trk_bass', title: 'Bass Part', pageSize: 'a4' }),
+    );
     expect(raw.contents[0]).toContain('(Bass Part) Tj');
     expect([...raw.objects.values()].some((o) => o.includes('/MediaBox [0 0 595.28 841.89]'))).toBe(true);
     const long = edit(makeSong(), [
@@ -595,7 +749,15 @@ describe('songToNotationPdf', () => {
     song.tracks = [];
     const pdf = checkPdf(songToNotationPdf(song));
     expect(pdf.contents[0]).toContain('(D) Tj');
-    const empty = checkPdf(songToNotationPdf({ ...makeSong(), sections: [], chords: [], tracks: [], title: 'Ünïcødé “quotes” (parens) \\' }));
+    const empty = checkPdf(
+      songToNotationPdf({
+        ...makeSong(),
+        sections: [],
+        chords: [],
+        tracks: [],
+        title: 'Ünïcødé “quotes” (parens) \\',
+      }),
+    );
     expect(empty.pageCount).toBe(1);
     expect(empty.contents[0]).toContain('\\(parens\\) \\\\) Tj');
   });
@@ -631,7 +793,9 @@ describe('songToDawProject', () => {
     const song = makeChangingSong();
     song.mixer.channels.trk_bass = { ...song.mixer.channels.trk_bass, volumeDb: 0, pan: -1, mute: true };
     const audio = wav(2.5);
-    const zip = unzipSync(songToDawProject(song, { audio: [{ trackId: 'trk_vocal', path: 'audio/vocal.wav', data: audio }] }));
+    const zip = unzipSync(
+      songToDawProject(song, { audio: [{ trackId: 'trk_vocal', path: 'audio/vocal.wav', data: audio }] }),
+    );
     expect(Object.keys(zip).sort()).toEqual(['audio/vocal.wav', 'metadata.xml', 'project.xml']);
     expect(zip['audio/vocal.wav']).toEqual(audio);
     const project = parseXml(strFromU8(zip['project.xml']));
@@ -670,7 +834,11 @@ describe('songToDawProject', () => {
       ['16.0', '140.0'],
       ['48.0', '90.5'],
     ]);
-    expect(children(child(arrangement, 'TimeSignatureAutomation')!, 'TimeSignaturePoint').map((p) => p.attrs.numerator)).toEqual(['4', '6']);
+    expect(
+      children(child(arrangement, 'TimeSignatureAutomation')!, 'TimeSignaturePoint').map(
+        (p) => p.attrs.numerator,
+      ),
+    ).toEqual(['4', '6']);
     const lanes = children(child(arrangement, 'Lanes')!, 'Lanes');
     expect(lanes.map((l) => l.attrs.track)).toEqual(tracks.slice(0, 5).map((t) => t.attrs.id));
     const bassNotes = descendants(lanes[0], 'Note');
@@ -691,7 +859,9 @@ describe('songToDawProject', () => {
 describe('songToReaperProject', () => {
   it('writes balanced RPP blocks with tempo, markers, tracks and in-project MIDI', () => {
     const song = makeChangingSong();
-    const rpp = songToReaperProject(song, { audio: [{ trackId: 'trk_vocal', path: 'audio/vocal.wav', durationSeconds: 12 }] });
+    const rpp = songToReaperProject(song, {
+      audio: [{ trackId: 'trk_vocal', path: 'audio/vocal.wav', durationSeconds: 12 }],
+    });
     const lines = rpp.trim().split('\n');
     expect(lines[0]).toMatch(/^<REAPER_PROJECT 0\.1 /);
     let depth = 0;
@@ -703,8 +873,17 @@ describe('songToReaperProject', () => {
     expect(depth).toBe(0);
     expect(rpp).toContain('  TEMPO 120 4 4');
     expect(rpp).toContain('<TEMPOENVEX');
-    expect(lines.filter((l) => l.trim().startsWith('PT '))).toEqual(['    PT 0 120 1 262148', '    PT 8 140 1', '    PT 21.714285714 90.5 1', '    PT 32.322020521 90.5 1 524294']);
-    expect(lines.filter((l) => l.startsWith('  MARKER'))).toEqual(['  MARKER 1 0 "Intro" 0 0 1', '  MARKER 2 8 "Verse" 0 0 1', '  MARKER 3 21.714285714 "Chorus" 0 0 1']);
+    expect(lines.filter((l) => l.trim().startsWith('PT '))).toEqual([
+      '    PT 0 120 1 262148',
+      '    PT 8 140 1',
+      '    PT 21.714285714 90.5 1',
+      '    PT 32.322020521 90.5 1 524294',
+    ]);
+    expect(lines.filter((l) => l.startsWith('  MARKER'))).toEqual([
+      '  MARKER 1 0 "Intro" 0 0 1',
+      '  MARKER 2 8 "Verse" 0 0 1',
+      '  MARKER 3 21.714285714 "Chorus" 0 0 1',
+    ]);
     expect(lines.filter((l) => l.startsWith('  <TRACK'))).toHaveLength(5);
     expect(lines.filter((l) => l.trim() === '<SOURCE MIDI')).toHaveLength(4);
     expect(lines.filter((l) => l.trim() === 'HASDATA 1 480 QN')).toHaveLength(4);
@@ -713,7 +892,8 @@ describe('songToReaperProject', () => {
     // Bass: program change + 80 on/off pairs + end-of-item marker; deltas add up to the song length.
     const bassStart = lines.indexOf('    NAME "Bass"');
     const events: string[] = [];
-    for (let i = bassStart; !lines[i].startsWith('  >'); i++) if (lines[i].trim().startsWith('E ')) events.push(lines[i].trim());
+    for (let i = bassStart; !lines[i].startsWith('  >'); i++)
+      if (lines[i].trim().startsWith('E ')) events.push(lines[i].trim());
     expect(events).toHaveLength(1 + 2 * song.tracks[0].notes.length + 1);
     expect(events[0]).toBe('E 0 c0 21 00');
     expect(events[1]).toBe('E 0 90 28 60');

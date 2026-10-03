@@ -93,7 +93,9 @@ export const useComposeSession = create<ComposeSession>((set) => ({
 }));
 
 /** Parsed lyrics with the user's section-kind overrides applied (undefined when there are none). */
-export function draftLyrics(d: Pick<ComposeDraft, 'lyricsText' | 'lyricKinds' | 'lockLyrics'>): BlueprintLyrics | undefined {
+export function draftLyrics(
+  d: Pick<ComposeDraft, 'lyricsText' | 'lyricKinds' | 'lockLyrics'>,
+): BlueprintLyrics | undefined {
   if (!d.lyricsText.trim()) return undefined;
   const parsed = parseLyricSheet(d.lyricsText);
   if (!parsed.sections.some((s) => s.lines.length)) return undefined;
@@ -114,7 +116,11 @@ export function choicesFromDraft(d: ComposeDraft, lyrics = draftLyrics(d)): Buil
   };
   if (d.tempo === 'bpm') c.tempo = d.bpm;
   else if (d.tempo !== 'auto') c.tempo = d.tempo;
-  if (d.tonic !== 'auto' || d.mode !== 'auto') c.key = { ...(d.tonic !== 'auto' ? { tonic: d.tonic } : {}), ...(d.mode !== 'auto' ? { mode: d.mode } : {}) };
+  if (d.tonic !== 'auto' || d.mode !== 'auto')
+    c.key = {
+      ...(d.tonic !== 'auto' ? { tonic: d.tonic } : {}),
+      ...(d.mode !== 'auto' ? { mode: d.mode } : {}),
+    };
   if (d.meter !== 'auto') {
     const [n, den] = d.meter.split('/').map(Number);
     if (n > 0 && den > 0) c.meter = { numerator: n, denominator: den };
@@ -152,7 +158,10 @@ export const STARTERS: Starter[] = [
         { instrumentId: 'piano', count: 1 },
         { instrumentId: 'violin', count: 1 },
       ],
-      moods: [{ tagId: 'melancholy', section: 'verse' }, { tagId: 'cathartic', section: 'chorus' }],
+      moods: [
+        { tagId: 'melancholy', section: 'verse' },
+        { tagId: 'cathartic', section: 'chorus' },
+      ],
       tempo: 'fast',
       vocal: 'tenor',
       vocalMode: 'melody-only',
@@ -162,7 +171,10 @@ export const STARTERS: Starter[] = [
     id: 'emo-pop-punk',
     label: 'Emo pop-punk',
     draft: {
-      genres: [{ genreId: 'emo', weight: 0.6 }, { genreId: 'pop-punk', weight: 0.4 }],
+      genres: [
+        { genreId: 'emo', weight: 0.6 },
+        { genreId: 'pop-punk', weight: 0.4 },
+      ],
       instruments: [
         { instrumentId: 'drum-kit', count: 1 },
         { instrumentId: 'electric-bass', count: 1 },
@@ -170,7 +182,10 @@ export const STARTERS: Starter[] = [
         { instrumentId: 'electric-guitar-lead', count: 1 },
         { instrumentId: 'piano', count: 1 },
       ],
-      moods: [{ tagId: 'melancholy', section: 'verse' }, { tagId: 'cathartic', section: 'chorus' }],
+      moods: [
+        { tagId: 'melancholy', section: 'verse' },
+        { tagId: 'cathartic', section: 'chorus' },
+      ],
       tempo: 'bpm',
       bpm: 164,
       tonic: 4,
@@ -203,7 +218,10 @@ export const STARTERS: Starter[] = [
     id: 'cinematic',
     label: 'Cinematic orchestral',
     draft: {
-      genres: [{ genreId: 'orchestral', weight: 0.6 }, { genreId: 'cinematic', weight: 0.4 }],
+      genres: [
+        { genreId: 'orchestral', weight: 0.6 },
+        { genreId: 'cinematic', weight: 0.4 },
+      ],
       instruments: [
         { instrumentId: 'string-ensemble', count: 1 },
         { instrumentId: 'brass-section', count: 1 },
@@ -238,7 +256,11 @@ export const STARTERS: Starter[] = [
     id: 'folk-country',
     label: 'Folk & country',
     draft: {
-      genres: [{ genreId: 'folk', weight: 0.5 }, { genreId: 'country', weight: 0.3 }, { genreId: 'indie-rock', weight: 0.2 }],
+      genres: [
+        { genreId: 'folk', weight: 0.5 },
+        { genreId: 'country', weight: 0.3 },
+        { genreId: 'indie-rock', weight: 0.2 },
+      ],
       instruments: [
         { instrumentId: 'acoustic-guitar', count: 2 },
         { instrumentId: 'upright-bass', count: 1 },

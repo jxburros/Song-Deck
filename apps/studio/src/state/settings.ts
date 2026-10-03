@@ -82,7 +82,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
     persist(get());
   },
   upsertProvider(config) {
-    const providers = get().providers.filter((p) => p.id !== config.id).concat(config);
+    const providers = get()
+      .providers.filter((p) => p.id !== config.id)
+      .concat(config);
     set({ providers });
     persist(get());
   },

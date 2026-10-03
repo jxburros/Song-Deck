@@ -7,30 +7,30 @@ Song Deck never depends on a specific AI engine (spec §2.2). Local engines, suc
 [Basic Pitch](https://github.com/spotify/basic-pitch) for transcription,
 [RVC](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) for voice conversion and
 [Matchering](https://github.com/sergree/matchering) for mastering, sit behind **generic JSON/HTTP
-contracts** defined in [`packages/ai/src/contracts.ts`](../packages/ai/src/contracts.ts). A *bridge* is a
+contracts** defined in [`packages/ai/src/contracts.ts`](../packages/ai/src/contracts.ts). A _bridge_ is a
 small server that speaks one contract and drives one engine. Song Deck's adapters (`local-music`,
 `singing-http`, `transcription-http`, `separation-http`, `voice-conversion-http`, `mastering-http`)
 only know the contract, so you can:
 
-* swap engines (or engine versions) without touching Song Deck,
-* run any model that implements a contract, including your own,
-* keep everything on your machine, with no keys or cloud involved.
+- swap engines (or engine versions) without touching Song Deck,
+- run any model that implements a contract, including your own,
+- keep everything on your machine, with no keys or cloud involved.
 
 This folder holds the **mock bridge**, which implements every contract with simple deterministic
 DSP and lets you check a Song Deck setup end to end without ML models. It also holds **reference
 bridges** for the real engines and `songdeck_bridge`, a tiny standard-library toolkit that they all
 share.
 
-| File | What it is |
-| --- | --- |
-| `mock_bridge.py` | Every contract, deterministic stdlib DSP, no ML. One role per process, or all six roles at once. |
-| `acestep_bridge.py` | Music (ACE-Step v1 pipeline): generate, transform, inpaint, extend, cancel. |
-| `diffsinger_bridge.py` | Singing (OpenVPI DiffSinger): contract notes → `.ds` project → inference command. |
-| `demucs_bridge.py` | Separation (Demucs CLI). |
-| `basic_pitch_bridge.py` | Transcription (Basic Pitch). |
-| `rvc_bridge.py` | Voice conversion (any RVC command line, through a template). |
-| `mastering_bridge.py` | Mastering (Matchering with a reference; otherwise pyloudnorm or the stdlib loudness path). |
-| `songdeck_bridge/` | Shared toolkit: `server.py` (HTTP app), `wav.py` (WAV/base64/resampling), `cli.py` (common flags, serve loop), `dsp.py` (stdlib DSP), `singing.py` (singing-request parsing). |
+| File                    | What it is                                                                                                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mock_bridge.py`        | Every contract, deterministic stdlib DSP, no ML. One role per process, or all six roles at once.                                                                              |
+| `acestep_bridge.py`     | Music (ACE-Step v1 pipeline): generate, transform, inpaint, extend, cancel.                                                                                                   |
+| `diffsinger_bridge.py`  | Singing (OpenVPI DiffSinger): contract notes → `.ds` project → inference command.                                                                                             |
+| `demucs_bridge.py`      | Separation (Demucs CLI).                                                                                                                                                      |
+| `basic_pitch_bridge.py` | Transcription (Basic Pitch).                                                                                                                                                  |
+| `rvc_bridge.py`         | Voice conversion (any RVC command line, through a template).                                                                                                                  |
+| `mastering_bridge.py`   | Mastering (Matchering with a reference; otherwise pyloudnorm or the stdlib loudness path).                                                                                    |
+| `songdeck_bridge/`      | Shared toolkit: `server.py` (HTTP app), `wav.py` (WAV/base64/resampling), `cli.py` (common flags, serve loop), `dsp.py` (stdlib DSP), `singing.py` (singing-request parsing). |
 
 Everything needs **Python 3.9+**. The mock bridge and `songdeck_bridge` use only the standard
 library. Engine bridges import their engine lazily and stop with an install hint when it is missing.
@@ -42,7 +42,7 @@ python3 bridges/mock_bridge.py --role all          # six bridges on 127.0.0.1:88
 ```
 
 In Song Deck, open **Settings → Providers → Add provider**. Pick the local preset of a category,
-for example *Music generation → ACE-Step (local)*. Its endpoint URL already points at the right port.
+for example _Music generation → ACE-Step (local)_. Its endpoint URL already points at the right port.
 Save, then click **Test connection** or **Discover models**. Generations, vocals, transcriptions,
 stems, conversions and masters now come from the mock: real WAV files, audibly simple.
 
@@ -50,53 +50,53 @@ stems, conversions and masters now come from the mock: real WAV files, audibly s
 
 ### Rules shared by every bridge
 
-| Topic | Rule |
-| --- | --- |
-| Transport | HTTP/1.1 on a configurable base URL; paths are relative to it. Requests are `application/json` (UTF-8). |
-| Audio in JSON | Base64 (standard alphabet, no `data:` prefix) of a **complete WAV file**: PCM 16/24-bit or 32-bit float, any sample rate, mono or stereo. The toolkit also reads 8/32-bit PCM, 64-bit float, WAVE_FORMAT_EXTENSIBLE and RF64. |
-| Audio responses | `200`, `Content-Type: audio/wav`, the WAV bytes. Optional `X-Seed: <int>` (the seed actually used, also when the request had none) and `X-Model: <id>`. |
-| Errors | Non-2xx with `{"error": "<message>"}`. See the table below. |
-| Auth | Optional. A bridge started with `--token` (or `$SONGDECK_BRIDGE_TOKEN`) requires `Authorization: Bearer <token>` on everything except `GET /health`. |
-| Long jobs | Requests may take minutes. When Song Deck cancels, it aborts the HTTP request, and the bridge notices the disconnect and stops the job. It may also call `POST /cancel`. |
-| Idempotency | Song Deck retries 429/5xx up to twice, so handlers have no side effects. With the same seed, the result is the same. |
-| Units | Times are seconds (floats), pitches are MIDI numbers (60 = C4), velocities run 1–127 and expression values 0–1. |
+| Topic           | Rule                                                                                                                                                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Transport       | HTTP/1.1 on a configurable base URL; paths are relative to it. Requests are `application/json` (UTF-8).                                                                                                                       |
+| Audio in JSON   | Base64 (standard alphabet, no `data:` prefix) of a **complete WAV file**: PCM 16/24-bit or 32-bit float, any sample rate, mono or stereo. The toolkit also reads 8/32-bit PCM, 64-bit float, WAVE_FORMAT_EXTENSIBLE and RF64. |
+| Audio responses | `200`, `Content-Type: audio/wav`, the WAV bytes. Optional `X-Seed: <int>` (the seed actually used, also when the request had none) and `X-Model: <id>`.                                                                       |
+| Errors          | Non-2xx with `{"error": "<message>"}`. See the table below.                                                                                                                                                                   |
+| Auth            | Optional. A bridge started with `--token` (or `$SONGDECK_BRIDGE_TOKEN`) requires `Authorization: Bearer <token>` on everything except `GET /health`.                                                                          |
+| Long jobs       | Requests may take minutes. When Song Deck cancels, it aborts the HTTP request, and the bridge notices the disconnect and stops the job. It may also call `POST /cancel`.                                                      |
+| Idempotency     | Song Deck retries 429/5xx up to twice, so handlers have no side effects. With the same seed, the result is the same.                                                                                                          |
+| Units           | Times are seconds (floats), pitches are MIDI numbers (60 = C4), velocities run 1–127 and expression values 0–1.                                                                                                               |
 
-| Status | When | Song Deck sees |
-| --- | --- | --- |
-| 400 | Invalid input: bad JSON, missing/ill-typed field, unreadable WAV, out-of-range value | `bad-request` (not retried) |
-| 401 | Missing or wrong bearer token | `auth` |
-| 403 | Browser origin or `Host` header not allowed (see Security) | `auth` |
-| 404 | Unknown endpoint, **voice id or model id** | `bad-request` |
-| 405 | Wrong method (an `Allow` header lists the right ones) | `bad-request` |
-| 409 | **Busy and not queueing** (queue full); also the answer to a request cancelled by `POST /cancel` | `bad-request` |
-| 413 | Body larger than `--max-body-mb` | `bad-request` |
-| 500 | The engine failed (the message includes the last lines of its output) | `unavailable`, retried ≤ 2 |
-| 501 | **Operation not supported** (e.g. drums in Basic Pitch) | `unavailable` |
-| 503 | **Model still loading** (`Retry-After`), or the bridge is shutting down | `unavailable`, retried ≤ 2 |
+| Status | When                                                                                             | Song Deck sees              |
+| ------ | ------------------------------------------------------------------------------------------------ | --------------------------- |
+| 400    | Invalid input: bad JSON, missing/ill-typed field, unreadable WAV, out-of-range value             | `bad-request` (not retried) |
+| 401    | Missing or wrong bearer token                                                                    | `auth`                      |
+| 403    | Browser origin or `Host` header not allowed (see Security)                                       | `auth`                      |
+| 404    | Unknown endpoint, **voice id or model id**                                                       | `bad-request`               |
+| 405    | Wrong method (an `Allow` header lists the right ones)                                            | `bad-request`               |
+| 409    | **Busy and not queueing** (queue full); also the answer to a request cancelled by `POST /cancel` | `bad-request`               |
+| 413    | Body larger than `--max-body-mb`                                                                 | `bad-request`               |
+| 500    | The engine failed (the message includes the last lines of its output)                            | `unavailable`, retried ≤ 2  |
+| 501    | **Operation not supported** (e.g. drums in Basic Pitch)                                          | `unavailable`               |
+| 503    | **Model still loading** (`Retry-After`), or the bridge is shutting down                          | `unavailable`, retried ≤ 2  |
 
-Every bridge also answers `GET /info` (Song Deck's *Test connection* and model manager probe it),
+Every bridge also answers `GET /info` (Song Deck's _Test connection_ and model manager probe it),
 `GET /health` (status, job counters, model-loading state; no auth) and `POST /cancel` (`{"job_id"?}`
 → `204`; without `job_id` it cancels every running or queued job). Job responses carry `X-Job-Id`. A
 client may choose the id by sending an `X-Job-Id` request header.
 
 ### Endpoints
 
-| Bridge (preset, port) | Endpoint | Request | Response |
-| --- | --- | --- | --- |
-| Music (`ace-step-local` 8810, `custom-audio-http` 8820) | `GET /info` | – | `{name, version, models: [{id, name}], capabilities: ["TEXT_TO_MUSIC", …], hardware?: {min_vram_gb}}` |
-| | `POST /generate` | `{prompt, duration_seconds, seed?, bpm?, key?, lyrics?, sections?: [{name, start_seconds, end_seconds, prompt?}], negative_prompt?, reference_audio_base64?, guide_audio_base64?, strength?, instrumental?, model?}` | WAV |
-| | `POST /transform` | `{audio_base64, prompt, strength, seed?, model?}` | WAV (audio-to-audio) |
-| | `POST /inpaint` | `{audio_base64, start_seconds, end_seconds, prompt, seed?, model?}` | WAV; only the range changes |
-| | `POST /extend` | `{audio_base64, prompt, duration_seconds, seed?, model?}` | WAV; only if `OUTPAINTING` is advertised |
-| | `POST /cancel` | `{job_id?}` | `204` |
-| Singing (`diffsinger-local` 8811) | `GET /voices` | – | `[{id, name, voice_type, language, kind}]` |
-| | `POST /synthesize` | `{voice_id, tempo_bpm, sample_rate, seed, notes: [{pitch, start_seconds, duration_seconds, lyric, phonemes?, velocity, expression?}], language?}` | WAV covering **0 … end of the last note** |
-| | `POST /regenerate_phrase` | the same + `start_seconds, end_seconds` | WAV covering **only [start, end]** |
-| Separation (`demucs-local` 8812) | `POST /separate` | `{audio_base64, stems: ["drums", "bass", "vocals", "other"]}` (`guitar`, `piano` with 6-stem models) | `{stems: {name: wav_base64}, model}` |
-| Transcription (`basic-pitch-local` 8813) | `POST /transcribe` | `{audio_base64, source: mix\|vocals\|bass\|drums\|piano\|guitar\|melody\|other}` | `{notes: [{pitch, start, end, velocity, confidence}], tempo?, key?, chords?}` |
-| Voice conversion (`rvc-local` 8814) | `POST /convert` | `{audio_base64, target_voice_id, pitch_shift?}` | WAV |
-| | `GET /voices` | – | `[{id, name, voice_type, language, kind}]` (optional in the contract) |
-| Mastering (`mastering-local` 8815) | `POST /master` | `{audio_base64, target: streaming\|cd\|loud-rock\|dynamic\|podcast\|demo, reference_audio_base64?}` | WAV |
+| Bridge (preset, port)                                   | Endpoint                  | Request                                                                                                                                                                                                              | Response                                                                                              |
+| ------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Music (`ace-step-local` 8810, `custom-audio-http` 8820) | `GET /info`               | –                                                                                                                                                                                                                    | `{name, version, models: [{id, name}], capabilities: ["TEXT_TO_MUSIC", …], hardware?: {min_vram_gb}}` |
+|                                                         | `POST /generate`          | `{prompt, duration_seconds, seed?, bpm?, key?, lyrics?, sections?: [{name, start_seconds, end_seconds, prompt?}], negative_prompt?, reference_audio_base64?, guide_audio_base64?, strength?, instrumental?, model?}` | WAV                                                                                                   |
+|                                                         | `POST /transform`         | `{audio_base64, prompt, strength, seed?, model?}`                                                                                                                                                                    | WAV (audio-to-audio)                                                                                  |
+|                                                         | `POST /inpaint`           | `{audio_base64, start_seconds, end_seconds, prompt, seed?, model?}`                                                                                                                                                  | WAV; only the range changes                                                                           |
+|                                                         | `POST /extend`            | `{audio_base64, prompt, duration_seconds, seed?, model?}`                                                                                                                                                            | WAV; only if `OUTPAINTING` is advertised                                                              |
+|                                                         | `POST /cancel`            | `{job_id?}`                                                                                                                                                                                                          | `204`                                                                                                 |
+| Singing (`diffsinger-local` 8811)                       | `GET /voices`             | –                                                                                                                                                                                                                    | `[{id, name, voice_type, language, kind}]`                                                            |
+|                                                         | `POST /synthesize`        | `{voice_id, tempo_bpm, sample_rate, seed, notes: [{pitch, start_seconds, duration_seconds, lyric, phonemes?, velocity, expression?}], language?}`                                                                    | WAV covering **0 … end of the last note**                                                             |
+|                                                         | `POST /regenerate_phrase` | the same + `start_seconds, end_seconds`                                                                                                                                                                              | WAV covering **only [start, end]**                                                                    |
+| Separation (`demucs-local` 8812)                        | `POST /separate`          | `{audio_base64, stems: ["drums", "bass", "vocals", "other"]}` (`guitar`, `piano` with 6-stem models)                                                                                                                 | `{stems: {name: wav_base64}, model}`                                                                  |
+| Transcription (`basic-pitch-local` 8813)                | `POST /transcribe`        | `{audio_base64, source: mix\|vocals\|bass\|drums\|piano\|guitar\|melody\|other}`                                                                                                                                     | `{notes: [{pitch, start, end, velocity, confidence}], tempo?, key?, chords?}`                         |
+| Voice conversion (`rvc-local` 8814)                     | `POST /convert`           | `{audio_base64, target_voice_id, pitch_shift?}`                                                                                                                                                                      | WAV                                                                                                   |
+|                                                         | `GET /voices`             | –                                                                                                                                                                                                                    | `[{id, name, voice_type, language, kind}]` (optional in the contract)                                 |
+| Mastering (`mastering-local` 8815)                      | `POST /master`            | `{audio_base64, target: streaming\|cd\|loud-rock\|dynamic\|podcast\|demo, reference_audio_base64?}`                                                                                                                  | WAV                                                                                                   |
 
 Lyrics may carry section tags (`[verse]\nline…\n\n[chorus]\n…`). In singing notes, a syllable ending
 in `-` continues a word (`a-`, `lone`), and `_` sustains the previous vowel (melisma). Song Deck
@@ -105,15 +105,15 @@ convert freely, while any other `kind` needs a recorded attestation.
 
 ## Status
 
-| Bridge | Engine | Status |
-| --- | --- | --- |
-| `mock_bridge.py` + `songdeck_bridge/` | none (stdlib DSP) | **Tested end to end.** `packages/ai/test/bridges.integration.test.ts` drives the real Song Deck adapters against it for every contract: errors, bearer auth, abort → job cancellation and consent. |
-| `acestep_bridge.py` | ACE-Step v1 | **Reference code, not exercised in CI.** The engine call follows ACE-Step v1's `ACEStepPipeline` and must be verified against your checkout. ACE-Step 1.5 needs `AceStepEngine.run()` adapted. |
-| `diffsinger_bridge.py` | OpenVPI DiffSinger | **Reference code, not exercised in CI.** The `.ds` builder can be inspected offline (`--print-ds`). The G2P is a tiny English heuristic. |
-| `demucs_bridge.py` | Demucs 4 CLI | **Reference code, not exercised in CI.** |
-| `basic_pitch_bridge.py` | basic-pitch 0.3/0.4 | **Reference code, not exercised in CI.** |
-| `rvc_bridge.py` | any RVC CLI (template) | **Reference code, not exercised in CI.** The command template must match your fork. |
-| `mastering_bridge.py` | Matchering 2 / pyloudnorm / stdlib | **Reference code.** The stdlib path is the mock's tested code. The Matchering and pyloudnorm paths are not exercised in CI. |
+| Bridge                                | Engine                             | Status                                                                                                                                                                                             |
+| ------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mock_bridge.py` + `songdeck_bridge/` | none (stdlib DSP)                  | **Tested end to end.** `packages/ai/test/bridges.integration.test.ts` drives the real Song Deck adapters against it for every contract: errors, bearer auth, abort → job cancellation and consent. |
+| `acestep_bridge.py`                   | ACE-Step v1                        | **Reference code, not exercised in CI.** The engine call follows ACE-Step v1's `ACEStepPipeline` and must be verified against your checkout. ACE-Step 1.5 needs `AceStepEngine.run()` adapted.     |
+| `diffsinger_bridge.py`                | OpenVPI DiffSinger                 | **Reference code, not exercised in CI.** The `.ds` builder can be inspected offline (`--print-ds`). The G2P is a tiny English heuristic.                                                           |
+| `demucs_bridge.py`                    | Demucs 4 CLI                       | **Reference code, not exercised in CI.**                                                                                                                                                           |
+| `basic_pitch_bridge.py`               | basic-pitch 0.3/0.4                | **Reference code, not exercised in CI.**                                                                                                                                                           |
+| `rvc_bridge.py`                       | any RVC CLI (template)             | **Reference code, not exercised in CI.** The command template must match your fork.                                                                                                                |
+| `mastering_bridge.py`                 | Matchering 2 / pyloudnorm / stdlib | **Reference code.** The stdlib path is the mock's tested code. The Matchering and pyloudnorm paths are not exercised in CI.                                                                        |
 
 While these bridges were developed, their HTTP and command plumbing (temp files, command templates,
 output lookup, trimming, splicing, cancellation) was smoke-tested against stand-in engines. The engine
@@ -126,18 +126,18 @@ versions. Each bridge therefore isolates them in one or two clearly marked funct
 
 ### Common flags (every bridge)
 
-| Flag | Default | Notes |
-| --- | --- | --- |
-| `--host` | `127.0.0.1` | This machine only. A non-loopback host **requires** `--token`; `--allow-remote-without-token` overrides that (not recommended). |
-| `--port` | preset port | `0` picks a free port. The bridge prints a `songdeck-bridge ready {json}` line with the URLs once it listens. |
-| `--token` | `$SONGDECK_BRIDGE_TOKEN` | Requires `Authorization: Bearer <token>`. Prefer the environment variable, which keeps the token out of `ps`. |
-| `--model`, `--device` | per bridge, `auto` | Model to load/report; `auto`/`cpu`/`cuda`/`cuda:N`/`mps`. Ignored where meaningless. |
-| `--allow-origin URL` | studio + server origins | CORS allow-list (repeatable, replaces the defaults `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:7788`, `http://127.0.0.1:7788`); `*` allows any origin. |
-| `--allow-host NAME` | – | Extra `Host` name accepted while bound to loopback. |
-| `--max-body-mb` | `512` | Request size limit (`413` beyond it). |
-| `--max-jobs` / `--max-queue` | `1` / `8` | Concurrent jobs and waiting requests. A request beyond the queue gets `409`. `--max-queue 0` never queues. |
-| `--no-disconnect-detection` | off | Keep running jobs whose client disconnected (only `POST /cancel` stops them). |
-| `--log-level` / `--quiet` | `info` | One line per request (never bodies or tokens). |
+| Flag                         | Default                  | Notes                                                                                                                                                                          |
+| ---------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--host`                     | `127.0.0.1`              | This machine only. A non-loopback host **requires** `--token`; `--allow-remote-without-token` overrides that (not recommended).                                                |
+| `--port`                     | preset port              | `0` picks a free port. The bridge prints a `songdeck-bridge ready {json}` line with the URLs once it listens.                                                                  |
+| `--token`                    | `$SONGDECK_BRIDGE_TOKEN` | Requires `Authorization: Bearer <token>`. Prefer the environment variable, which keeps the token out of `ps`.                                                                  |
+| `--model`, `--device`        | per bridge, `auto`       | Model to load/report; `auto`/`cpu`/`cuda`/`cuda:N`/`mps`. Ignored where meaningless.                                                                                           |
+| `--allow-origin URL`         | studio + server origins  | CORS allow-list (repeatable, replaces the defaults `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:7788`, `http://127.0.0.1:7788`); `*` allows any origin. |
+| `--allow-host NAME`          | –                        | Extra `Host` name accepted while bound to loopback.                                                                                                                            |
+| `--max-body-mb`              | `512`                    | Request size limit (`413` beyond it).                                                                                                                                          |
+| `--max-jobs` / `--max-queue` | `1` / `8`                | Concurrent jobs and waiting requests. A request beyond the queue gets `409`. `--max-queue 0` never queues.                                                                     |
+| `--no-disconnect-detection`  | off                      | Keep running jobs whose client disconnected (only `POST /cancel` stops them).                                                                                                  |
+| `--log-level` / `--quiet`    | `info`                   | One line per request (never bodies or tokens).                                                                                                                                 |
 
 Stop a bridge with Ctrl+C or SIGTERM. It refuses new jobs (`503`), cancels running ones, closes its
 port and exits. A second Ctrl+C exits immediately.
@@ -157,29 +157,29 @@ for testing Song Deck's cancel and queue UI) and `--model mock-additive|mock-add
 
 What each role does:
 
-* **music**: `/generate` renders a seeded additive-synth arrangement at the requested bpm, key and
+- **music**: `/generate` renders a seeded additive-synth arrangement at the requested bpm, key and
   duration. The pad chords, bass and drums use one progression and energy per section (intro quiet,
-  chorus loud; prompt words such as *calm* or *energetic* move the energy). A hummed line follows the
+  chorus loud; prompt words such as _calm_ or _energetic_ move the energy). A hummed line follows the
   syllables of the section's lyric lines. Guide audio is blended by `strength`, and reference audio sets
   the level. `/transform` blends the input with a re-synthesis (`strength` 0 = input, 1 = new).
   `/inpaint` replaces only the range, with crossfades inside it, so everything outside it stays
   bit-identical. `/extend` appends a continuation. The role advertises the ACE-Step preset's
   capabilities, including `INPAINTING` and `OUTPAINTING`. Two models: `mock-additive` and
   `mock-additive-lofi`.
-* **singing**: two stock voices (`mock-soprano` sine, `mock-tenor` sawtooth). Each note becomes a
+- **singing**: two stock voices (`mock-soprano` sine, `mock-tenor` sawtooth). Each note becomes a
   tone at its pitch and time with vibrato (`vibrato`/`vibrato_rate`), onset/release shapes,
   `breathiness` noise and `velocity`/`energy` loudness. `_` glides from the previous note. The output
   covers exactly the contract range, and a phrase render equals the matching slice of a full render
   with the same seed.
-* **transcription**: an autocorrelation (McLeod NSDF) pitch tracker for **monophonic** input turns
+- **transcription**: an autocorrelation (McLeod NSDF) pitch tracker for **monophonic** input turns
   audio into notes with confidence. It reports `key` when there are enough notes and `tempo` from onsets.
   `source: "drums"` runs an onset detector instead (kick 36, snare 38, hat 42).
-* **separation**: complementary frequency bands (plus mid/side) as "stems" whose sum equals the
+- **separation**: complementary frequency bands (plus mid/side) as "stems" whose sum equals the
   input. One requested stem also returns `no_<stem>`, as Demucs `--two-stems` does.
-* **voice-conversion**: a duration-preserving pitch shift (resampling + WSOLA) plus a per-voice tone
+- **voice-conversion**: a duration-preserving pitch shift (resampling + WSOLA) plus a per-voice tone
   colour. Voices: `mock-alto`, `mock-baritone` (stock) and `mock-user-voice` (`user-trained`, to
   exercise Song Deck's consent flow). Unknown ids get `404`.
-* **mastering**: BS.1770 integrated loudness normalized to the target (or to the reference's loudness)
+- **mastering**: BS.1770 integrated loudness normalized to the target (or to the reference's loudness)
   and a look-ahead peak limiter. The output is 24-bit, or 16-bit with dither for `cd`. `X-Integrated-LUFS` reports the result.
 
 All audio responses carry `X-Seed` and `X-Model`. Everything is plain Python and is meant for short
@@ -277,21 +277,21 @@ With a reference track and Matchering installed, Matchering 2 runs in a killable
 Otherwise the bridge normalizes loudness to the target with pyloudnorm, or with the pure-Python
 BS.1770 path when pyloudnorm is not installed, and then applies the limiter.
 
-| Target | Loudness | Ceiling | Output |
-| --- | --- | --- | --- |
-| streaming | −14 LUFS | −1.0 dBFS | 24-bit |
-| cd | −9 LUFS | −0.3 dBFS | 16-bit + TPDF dither |
-| loud-rock | −8 LUFS | −0.3 dBFS | 24-bit |
-| dynamic | −18 LUFS | −1.0 dBFS | 24-bit |
-| podcast | −16 LUFS | −1.0 dBFS | 24-bit |
-| demo | −12 LUFS | −1.0 dBFS | 24-bit |
+| Target    | Loudness | Ceiling   | Output               |
+| --------- | -------- | --------- | -------------------- |
+| streaming | −14 LUFS | −1.0 dBFS | 24-bit               |
+| cd        | −9 LUFS  | −0.3 dBFS | 16-bit + TPDF dither |
+| loud-rock | −8 LUFS  | −0.3 dBFS | 24-bit               |
+| dynamic   | −18 LUFS | −1.0 dBFS | 24-bit               |
+| podcast   | −16 LUFS | −1.0 dBFS | 24-bit               |
+| demo      | −12 LUFS | −1.0 dBFS | 24-bit               |
 
 ## Connecting a bridge in Song Deck
 
 1. Start the bridge. Its log shows `… listening on http://127.0.0.1:<port>`.
-2. **Settings → Providers → Add provider** and pick the matching local preset: *ACE-Step (local)*,
-   *DiffSinger (local)*, *Demucs (local)*, *Basic Pitch (local)*, *RVC voice conversion (local)*,
-   *Local mastering engine*, or *Custom audio model (HTTP)* for any other music model on the music
+2. **Settings → Providers → Add provider** and pick the matching local preset: _ACE-Step (local)_,
+   _DiffSinger (local)_, _Demucs (local)_, _Basic Pitch (local)_, _RVC voice conversion (local)_,
+   _Local mastering engine_, or _Custom audio model (HTTP)_ for any other music model on the music
    contract.
 3. Set **Endpoint URL** to the bridge's base URL if you changed host or port (for example
    `http://127.0.0.1:8810`, with no path).
@@ -306,18 +306,18 @@ admits the studio's origin (see `--allow-origin`).
 
 ## Security
 
-* **Bind to `127.0.0.1`** (the default). A bridge runs heavy jobs and reads/writes temporary files.
+- **Bind to `127.0.0.1`** (the default). A bridge runs heavy jobs and reads/writes temporary files.
   Expose it to a network only with a token: `--host 0.0.0.0` refuses to start without `--token`.
   Treat the token as a password and prefer `SONGDECK_BRIDGE_TOKEN` over the command line.
-* **Browsers:** requests carrying an `Origin` header that is not allow-listed get `403`. This stops web
+- **Browsers:** requests carrying an `Origin` header that is not allow-listed get `403`. This stops web
   pages you visit from triggering jobs. Only the Song Deck origins receive CORS headers.
-* **DNS rebinding:** while bound to loopback, a `Host` header other than `localhost`/`127.x`/`::1`
+- **DNS rebinding:** while bound to loopback, a `Host` header other than `localhost`/`127.x`/`::1`
   (or `--allow-host`) gets `403`.
-* Tokens are compared in constant time. Request bodies are size-limited and never logged.
-* Engine commands run **without a shell**. Templates are split into arguments before the
+- Tokens are compared in constant time. Request bodies are size-limited and never logged.
+- Engine commands run **without a shell**. Templates are split into arguments before the
   placeholders are filled, so file names and ids cannot inject commands. RVC voice ids are matched
   against the files in `--models-dir`.
-* Voice conversion: Song Deck checks consent before sending audio. Install only voices you have the
+- Voice conversion: Song Deck checks consent before sending audio. Install only voices you have the
   right to use.
 
 ## Writing your own bridge

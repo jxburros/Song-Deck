@@ -23,8 +23,19 @@ async function statFile(file: string): Promise<import('node:fs').Stats | undefin
   }
 }
 
-function send(req: IncomingMessage, res: ServerResponse, file: string, size: number, cache: string): Promise<void> {
-  res.writeHead(200, { 'content-type': mimeFor(file), 'content-length': String(size), 'cache-control': cache, ...SECURITY_HEADERS });
+function send(
+  req: IncomingMessage,
+  res: ServerResponse,
+  file: string,
+  size: number,
+  cache: string,
+): Promise<void> {
+  res.writeHead(200, {
+    'content-type': mimeFor(file),
+    'content-length': String(size),
+    'cache-control': cache,
+    ...SECURITY_HEADERS,
+  });
   if (req.method === 'HEAD') {
     res.end();
     return Promise.resolve();
@@ -48,7 +59,9 @@ function notFound(res: ServerResponse): void {
   sendJson(res, 404, { error: 'Not found', code: 'not-found' });
 }
 
-export function createStaticHandler(root: string): (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<void> {
+export function createStaticHandler(
+  root: string,
+): (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<void> {
   const rootResolved = path.resolve(root);
   let realRoot: string | undefined;
   const getRealRoot = async () => (realRoot ??= await fsp.realpath(rootResolved).catch(() => rootResolved));
@@ -67,7 +80,10 @@ export function createStaticHandler(root: string): (req: IncomingMessage, res: S
     }
     let segments: string[];
     try {
-      segments = url.pathname.split('/').filter(Boolean).map((s) => decodeURIComponent(s));
+      segments = url.pathname
+        .split('/')
+        .filter(Boolean)
+        .map((s) => decodeURIComponent(s));
     } catch {
       return notFound(res);
     }
@@ -84,7 +100,12 @@ export function createStaticHandler(root: string): (req: IncomingMessage, res: S
       const real = await fsp.realpath(target).catch(() => undefined);
       if (!real || !isWithin(await getRealRoot(), real)) return notFound(res);
       const immutable = segments[0] === 'assets' && /[.-][A-Za-z0-9_-]{8,}\.[a-z0-9]+$/i.test(target);
-      const cache = path.basename(target) === 'index.html' ? 'no-cache' : immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=300';
+      const cache =
+        path.basename(target) === 'index.html'
+          ? 'no-cache'
+          : immutable
+            ? 'public, max-age=31536000, immutable'
+            : 'public, max-age=300';
       return send(req, res, real, st.size, cache);
     }
     // SPA fallback: client-side routes (no file extension, or an HTML navigation) get index.html.

@@ -5,11 +5,11 @@ How Song Deck stores the API keys you give it, what that protects against, and h
 
 ## Where keys live
 
-| Situation | Where the key is stored | Who can read it back |
-| --- | --- | --- |
+| Situation                                                                    | Where the key is stored                                                                                | Who can read it back                                                                                                                                          |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Local server running, "use the server's keychain vault & proxy" on (default) | Server vault: the OS keychain, or an encrypted file where no keychain exists (`apps/server/README.md`) | Only the server. The browser can set and delete keys but never read them; requests go through the server proxy, which injects the key for that provider only. |
-| No local server (browser-only mode), or the proxy turned off | This browser, encrypted (see below) | Song Deck's page in this browser profile |
-| Browser cannot store it (some private windows, non-secure origins) | This tab's memory | Song Deck's page, until the tab is closed or reloaded |
+| No local server (browser-only mode), or the proxy turned off                 | This browser, encrypted (see below)                                                                    | Song Deck's page in this browser profile                                                                                                                      |
+| Browser cannot store it (some private windows, non-secure origins)           | This tab's memory                                                                                      | Song Deck's page, until the tab is closed or reloaded                                                                                                         |
 
 Keys are never written to settings (`localStorage`), project files, exports, provenance records or
 logs. Provider configs only hold a reference (`credentialRef`, e.g. `provider:gemini`).

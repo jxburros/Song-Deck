@@ -33,8 +33,15 @@ export class Drive {
   }
 
   process(L: Float64Array, R: Float64Array, start: number, end: number): void {
-    const pre = this.pre, post = this.post, bias = this.bias, bo = this.biasOut, r = this.dcR;
-    let xl = this.dcxL, yl = this.dcyL, xr = this.dcxR, yr = this.dcyR;
+    const pre = this.pre,
+      post = this.post,
+      bias = this.bias,
+      bo = this.biasOut,
+      r = this.dcR;
+    let xl = this.dcxL,
+      yl = this.dcyL,
+      xr = this.dcxR,
+      yr = this.dcyR;
     for (let i = start; i < end; i++) {
       const a = (softClip(L[i] * pre + bias) - bo) * post;
       const b = (softClip(R[i] * pre + bias) - bo) * post;
@@ -68,7 +75,8 @@ const HB_TAPS = (() => {
   const h = new Float64Array(N);
   const beta = 6.5;
   const i0 = (x: number) => {
-    let s = 1, t = 1;
+    let s = 1,
+      t = 1;
     for (let k = 1; k < 40; k++) {
       t *= (x * x) / (4 * k * k);
       s += t;
@@ -122,7 +130,9 @@ export class OversampledShaper {
     const hist2 = this.hist2;
     const center = this.center;
     const shape = this.shape;
-    let hp = this.hpos, h2 = this.h2pos, cp = this.cpos;
+    let hp = this.hpos,
+      h2 = this.h2pos,
+      cp = this.cpos;
     for (let i = start; i < end; i++) {
       // upsample: write input, produce two oversampled values
       hp = (hp + 1) & 31;

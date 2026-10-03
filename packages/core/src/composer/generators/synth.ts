@@ -16,14 +16,24 @@ type ArpMode = 'up' | 'down' | 'updown' | 'converge' | 'random' | 'pinky';
 function arpRate(c: Cell, m: Cell['meter']): number {
   const d = c.g.drumStyle;
   if (m.compound || m.denominator >= 8) return m.unitTicks / (c.intensity > 0.7 ? 2 : 1);
-  const electronic = d === 'trance' || d === 'four-on-floor' || d === 'synth-pop' || d === 'trap' || (drumStyleInfo(d).electronic && d !== 'hip-hop');
+  const electronic =
+    d === 'trance' ||
+    d === 'four-on-floor' ||
+    d === 'synth-pop' ||
+    d === 'trap' ||
+    (drumStyleInfo(d).electronic && d !== 'hip-hop');
   let rate = electronic || (c.bpm < 110 && c.macros.density > 0.5) ? PPQ / 4 : PPQ / 2;
   if (c.intensity < 0.3) rate *= 2;
   if (c.bpm > 160 && rate < PPQ / 2) rate = PPQ / 2;
   return rate;
 }
 
-function tonesFor(c: Cell, chord: { root: number; quality: ChordQuality }, octaves: number, center: number): number[] {
+function tonesFor(
+  c: Cell,
+  chord: { root: number; quality: ChordQuality },
+  octaves: number,
+  center: number,
+): number[] {
   const base = voiceChord(chord, { low: center - 7, high: center + 9, voices: 3, center });
   const out: number[] = [];
   for (let o = 0; o < octaves; o++) for (const p of base) out.push(p + 12 * o);
@@ -57,7 +67,9 @@ export function generateArp(c: Cell): RawNote[] {
   const out: RawNote[] = [];
   const mode = c.rng.pick(['up', 'updown', 'up', 'down', 'converge', 'pinky', 'random'] as ArpMode[]);
   const octaves = c.intensity > 0.65 ? 2 : 1;
-  const center = Math.round(c.range.comfortableLow + (c.range.comfortableHigh - c.range.comfortableLow) * 0.45);
+  const center = Math.round(
+    c.range.comfortableLow + (c.range.comfortableHigh - c.range.comfortableLow) * 0.45,
+  );
   const gate = 0.5 + (1 - c.intensity) * 0.3;
   let i = 0;
   for (const bar of c.bars) {
@@ -70,10 +82,20 @@ export function generateArp(c: Cell): RawNote[] {
       const idx = arpIndex(mode, i, tones.length, () => barRng.next());
       const onBeat = bar.meter.beats.includes(t - bar.tick);
       const e = c.energyAt(t);
-      out.push({ pitch: tones[idx], tick: t, duration: Math.max(30, Math.round(rate * gate)), velocity: toVelocity((onBeat ? 92 : 74) * (0.7 + 0.35 * e)) });
+      out.push({
+        pitch: tones[idx],
+        tick: t,
+        duration: Math.max(30, Math.round(rate * gate)),
+        velocity: toVelocity((onBeat ? 92 : 74) * (0.7 + 0.35 * e)),
+      });
     }
   }
-  humanize(out, c.macros.humanization * 0.15, c.vrng.fork('humanize'), { start: c.span.startTick, end: c.span.endTick, maxTicks: 4, maxVelocity: 5 });
+  humanize(out, c.macros.humanization * 0.15, c.vrng.fork('humanize'), {
+    start: c.span.startTick,
+    end: c.span.endTick,
+    maxTicks: 4,
+    maxVelocity: 5,
+  });
   return out;
 }
 
@@ -89,7 +111,12 @@ export function generateSeq(c: Cell): RawNote[] {
   const low = clamp(c.range.comfortableLow, c.range.low, c.range.high - 12);
   for (const bar of c.bars) {
     const e = c.energyAt(bar.tick);
-    const rate = bar.meter.compound || bar.meter.denominator >= 8 ? bar.meter.unitTicks / 2 : c.bpm > 150 || e < 0.35 ? PPQ / 2 : PPQ / 4;
+    const rate =
+      bar.meter.compound || bar.meter.denominator >= 8
+        ? bar.meter.unitTicks / 2
+        : c.bpm > 150 || e < 0.35
+          ? PPQ / 2
+          : PPQ / 4;
     let k = 0;
     for (let t = bar.tick; t < bar.tick + bar.meter.barTicks; t += rate, k++) {
       const sym = shape[k % shape.length];
@@ -104,7 +131,13 @@ export function generateSeq(c: Cell): RawNote[] {
       else if (sym === 'b') p = root + (pcs.includes(mod12(ch.root + 3)) ? 3 : 4);
       if (p > c.range.high) p -= 12;
       const onBeat = bar.meter.beats.includes(t - bar.tick);
-      out.push({ pitch: p, tick: t, duration: Math.round(rate * 0.6), velocity: toVelocity((onBeat ? 96 : 80) * (0.7 + 0.35 * e)), articulation: 'staccato' });
+      out.push({
+        pitch: p,
+        tick: t,
+        duration: Math.round(rate * 0.6),
+        velocity: toVelocity((onBeat ? 96 : 80) * (0.7 + 0.35 * e)),
+        articulation: 'staccato',
+      });
     }
   }
   return out;

@@ -2,7 +2,13 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { renderSong } from '@songdeck/audio';
-import { createEmptySong, defaultChannelStrip, type InstrumentProfile, type Song, type Track } from '@songdeck/core';
+import {
+  createEmptySong,
+  defaultChannelStrip,
+  type InstrumentProfile,
+  type Song,
+  type Track,
+} from '@songdeck/core';
 import { loadSfzInstrument } from '../src/engine/sfz-loader';
 
 const PLUGIN_DIR = join(__dirname, '../../../plugins/felt-keys-sfz');
@@ -79,14 +85,24 @@ describe('SFZ sampled instruments from plugins', () => {
     const { instrument } = await loadSfzInstrument('felt-keys.sfz', fetchBytes);
     const song = oneNoteSong();
     const sr = 44100;
-    const sampled = renderSong(song, { sampleRate: sr, instruments: [profile], sampleInstruments: { [profile.patchId]: instrument }, tailSeconds: 0.5 });
-    const fallback = renderSong(song, { sampleRate: sr, instruments: [{ ...profile, patchId: 'epiano' }], tailSeconds: 0.5 });
+    const sampled = renderSong(song, {
+      sampleRate: sr,
+      instruments: [profile],
+      sampleInstruments: { [profile.patchId]: instrument },
+      tailSeconds: 0.5,
+    });
+    const fallback = renderSong(song, {
+      sampleRate: sr,
+      instruments: [{ ...profile, patchId: 'epiano' }],
+      tailSeconds: 0.5,
+    });
     const left = sampled.channels[0];
     const peak = left.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
     expect(peak).toBeGreaterThan(0.05);
     expect(Math.abs(1200 * Math.log2(pitchHz(left, sr) / 261.63))).toBeLessThan(30);
     let diff = 0;
-    for (let i = 0; i < Math.min(left.length, fallback.channels[0].length); i++) diff += Math.abs(left[i] - fallback.channels[0][i]);
+    for (let i = 0; i < Math.min(left.length, fallback.channels[0].length); i++)
+      diff += Math.abs(left[i] - fallback.channels[0][i]);
     expect(diff).toBeGreaterThan(1);
   });
 

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BUILTIN_GENRES, BUILTIN_INSTRUMENTS, midiToNoteName, type GenreProfile, type InstrumentProfile } from '@songdeck/core';
+import {
+  BUILTIN_GENRES,
+  BUILTIN_INSTRUMENTS,
+  midiToNoteName,
+  type GenreProfile,
+  type InstrumentProfile,
+} from '@songdeck/core';
 import { useSettings } from '../../state/settings';
 import { useStudio } from '../../state/store';
 import { useRuntime } from '../../engine/runtime';
@@ -41,7 +47,9 @@ let lastSub: Sub = 'plugins';
 
 export default function PluginsTab() {
   const focus = useSettingsNav((s) => s.focus);
-  const [sub, setSub] = useState<Sub>(() => (focus === 'genres' || focus === 'instruments' ? focus : lastSub));
+  const [sub, setSub] = useState<Sub>(() =>
+    focus === 'genres' || focus === 'instruments' ? focus : lastSub,
+  );
   useEffect(() => {
     lastSub = sub;
   }, [sub]);
@@ -107,7 +115,11 @@ function PluginsSection() {
     await loadPlugin(m);
     setBusy(null);
     const st = useExtensions.getState().loaded[m.id];
-    if (st?.status === 'loaded') toast('success', `${m.name} enabled${st.contributions.length ? `: ${st.contributions.join(', ')}` : ''}`);
+    if (st?.status === 'loaded')
+      toast(
+        'success',
+        `${m.name} enabled${st.contributions.length ? `: ${st.contributions.join(', ')}` : ''}`,
+      );
     else toast('error', `${m.name} could not be loaded: ${st?.error ?? 'unknown error'}`);
   };
   const disable = (m: PluginManifest) => {
@@ -120,8 +132,9 @@ function PluginsSection() {
     return (
       <Panel title="Plugins" icon="plug">
         <Empty icon="server">
-          Plugins are discovered by the local server (<code>plugins/</code> in the repository and <code>~/.songdeck/plugins</code>). Start it with{' '}
-          <code>npx tsx apps/server/src/cli.ts</code> to browse and enable them.
+          Plugins are discovered by the local server (<code>plugins/</code> in the repository and{' '}
+          <code>~/.songdeck/plugins</code>). Start it with <code>npx tsx apps/server/src/cli.ts</code> to
+          browse and enable them.
         </Empty>
       </Panel>
     );
@@ -130,8 +143,8 @@ function PluginsSection() {
   return (
     <>
       <div className="callout warning st-trust-callout">
-        <Icon name="alert" size={14} /> Plugin code runs inside the studio with the same access as Song Deck itself. The server only serves plugin files — it never
-        executes them. Enable plugins you trust.
+        <Icon name="alert" size={14} /> Plugin code runs inside the studio with the same access as Song Deck
+        itself. The server only serves plugin files — it never executes them. Enable plugins you trust.
       </div>
       <Panel
         title="Available plugins"
@@ -147,14 +160,21 @@ function PluginsSection() {
         {!scan ? (
           <div className="small muted">Scanning…</div>
         ) : scan.plugins.length === 0 ? (
-          <Empty icon="plug">No plugins found. Put a folder with a songdeck-plugin.json into ~/.songdeck/plugins and rescan.</Empty>
+          <Empty icon="plug">
+            No plugins found. Put a folder with a songdeck-plugin.json into ~/.songdeck/plugins and rescan.
+          </Empty>
         ) : (
           <div className="st-plugin-list">
             {scan.plugins.map((p) => {
               const on = enabled.includes(p.id);
               const st = loaded[p.id];
               return (
-                <article key={p.id} className={`st-plugin ${on ? 'on' : ''}`} data-testid={`plugin-${p.id}`} aria-label={p.name}>
+                <article
+                  key={p.id}
+                  className={`st-plugin ${on ? 'on' : ''}`}
+                  data-testid={`plugin-${p.id}`}
+                  aria-label={p.name}
+                >
                   <div className="row between" style={{ alignItems: 'flex-start' }}>
                     <div style={{ minWidth: 0 }}>
                       <div className="row" style={{ gap: 8 }}>
@@ -163,7 +183,9 @@ function PluginsSection() {
                         <span className="small dim mono">v{p.version}</span>
                       </div>
                       <div className="small dim">
-                        {p.author || 'Unknown author'} · {p.source === 'user' ? 'your plugins folder' : 'bundled'} · <span className="mono">{p.id}</span>
+                        {p.author || 'Unknown author'} ·{' '}
+                        {p.source === 'user' ? 'your plugins folder' : 'bundled'} ·{' '}
+                        <span className="mono">{p.id}</span>
                       </div>
                     </div>
                     <div className="row">
@@ -176,10 +198,18 @@ function PluginsSection() {
                       ) : on ? (
                         <Badge tone="warning">Enabled</Badge>
                       ) : null}
-                      <Toggle on={on} onChange={(v) => (v ? setTrust(p) : disable(p))} title={on ? 'Disable plugin' : 'Enable plugin'} />
+                      <Toggle
+                        on={on}
+                        onChange={(v) => (v ? setTrust(p) : disable(p))}
+                        title={on ? 'Disable plugin' : 'Enable plugin'}
+                      />
                     </div>
                   </div>
-                  {p.description && <p className="small" style={{ margin: 0 }}>{p.description}</p>}
+                  {p.description && (
+                    <p className="small" style={{ margin: 0 }}>
+                      {p.description}
+                    </p>
+                  )}
                   <div className="st-plugin-meta">
                     <div>
                       <span className="field-label">Permissions</span>
@@ -197,7 +227,9 @@ function PluginsSection() {
                     </div>
                     <div>
                       <span className="field-label">Files</span>
-                      <div className="small mono dim">{(p.files ?? (p.entry ? [p.entry] : [])).join(' · ') || '—'}</div>
+                      <div className="small mono dim">
+                        {(p.files ?? (p.entry ? [p.entry] : [])).join(' · ') || '—'}
+                      </div>
                     </div>
                     {st && (
                       <div>
@@ -217,7 +249,9 @@ function PluginsSection() {
                     )}
                   </div>
                   {st?.error && <div className="callout danger small">Load error: {st.error}</div>}
-                  {p.warnings && p.warnings.length > 0 && <div className="small dim">Manifest notes: {p.warnings.join('; ')}</div>}
+                  {p.warnings && p.warnings.length > 0 && (
+                    <div className="small dim">Manifest notes: {p.warnings.join('; ')}</div>
+                  )}
                   {p.homepage && (
                     <a className="small" href={p.homepage} target="_blank" rel="noreferrer noopener">
                       {p.homepage} ↗
@@ -256,8 +290,9 @@ function PluginsSection() {
         >
           <div className="col">
             <p>
-              <strong>Plugin code runs in the studio</strong> with the same access as Song Deck: it can read and change your open project, call your configured
-              providers through the studio, and make network requests. Only enable plugins from authors you trust.
+              <strong>Plugin code runs in the studio</strong> with the same access as Song Deck: it can read
+              and change your open project, call your configured providers through the studio, and make
+              network requests. Only enable plugins from authors you trust.
             </p>
             <dl className="kv">
               <dt>Plugin</dt>
@@ -269,7 +304,11 @@ function PluginsSection() {
               <dt>Entry module</dt>
               <dd className="mono">{trust.entry ?? '— (data only)'}</dd>
               <dt>Permissions</dt>
-              <dd>{trust.permissions?.length ? trust.permissions.map((p) => PERMISSION_INFO[p] ?? p).join(', ') : 'none declared'}</dd>
+              <dd>
+                {trust.permissions?.length
+                  ? trust.permissions.map((p) => PERMISSION_INFO[p] ?? p).join(', ')
+                  : 'none declared'}
+              </dd>
             </dl>
           </div>
         </Modal>
@@ -301,7 +340,11 @@ function GenresSection() {
     [custom, plugin],
   );
   const ids = useMemo(() => new Set(all.map((x) => x.g.id)), [all]);
-  const visible = all.filter(({ g }) => !q.trim() || `${g.name} ${g.id} ${(g.tags ?? []).join(' ')}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const visible = all.filter(
+    ({ g }) =>
+      !q.trim() ||
+      `${g.name} ${g.id} ${(g.tags ?? []).join(' ')}`.toLowerCase().includes(q.trim().toLowerCase()),
+  );
 
   const duplicate = (g: GenreProfile) => {
     let id = `${g.id}-custom`;
@@ -342,8 +385,20 @@ function GenresSection() {
       sub="Genres are editable rule profiles — tempo, meters, harmony, form, instrumentation, rhythm, dynamics, arrangement and production (spec §14). Duplicate a built-in to make your own."
       actions={
         <div className="row">
-          <input className="input sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter…" aria-label="Filter genres" style={{ width: 160 }} />
-          <FileButton accept=".json,application/json" onFile={(f) => void importFiles(f)} icon="upload" multiple>
+          <input
+            className="input sm"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Filter…"
+            aria-label="Filter genres"
+            style={{ width: 160 }}
+          />
+          <FileButton
+            accept=".json,application/json"
+            onFile={(f) => void importFiles(f)}
+            icon="upload"
+            multiple
+          >
             Import JSON
           </FileButton>
           {custom.length > 0 && (
@@ -373,28 +428,69 @@ function GenresSection() {
                   <div style={{ fontWeight: 600 }}>{g.name}</div>
                   <div className="small dim mono">{g.id}</div>
                 </td>
-                <td>{source === 'custom' ? <Badge tone="accent">Custom</Badge> : source === 'plugin' ? <Badge tone="ai">Plugin</Badge> : <Badge>Built-in</Badge>}</td>
+                <td>
+                  {source === 'custom' ? (
+                    <Badge tone="accent">Custom</Badge>
+                  ) : source === 'plugin' ? (
+                    <Badge tone="ai">Plugin</Badge>
+                  ) : (
+                    <Badge>Built-in</Badge>
+                  )}
+                </td>
                 <td className="mono small">
                   {g.tempo.min}–{g.tempo.max} <span className="dim">({g.tempo.typical})</span>
                 </td>
                 <td className="small">
-                  {g.meters.map((m) => `${m.numerator}/${m.denominator}`).join(', ')} · {g.modes.slice(0, 3).map((m) => m.mode).join(', ')}
+                  {g.meters.map((m) => `${m.numerator}/${m.denominator}`).join(', ')} ·{' '}
+                  {g.modes
+                    .slice(0, 3)
+                    .map((m) => m.mode)
+                    .join(', ')}
                 </td>
-                <td className="small mono ellipsis" style={{ maxWidth: 220 }} title={g.harmony.progressions.map((p) => p.roman.join(' ')).join(' | ')}>
+                <td
+                  className="small mono ellipsis"
+                  style={{ maxWidth: 220 }}
+                  title={g.harmony.progressions.map((p) => p.roman.join(' ')).join(' | ')}
+                >
                   {g.harmony.progressions[0]?.roman.join(' ')}
                   {g.harmony.progressions.length > 1 ? ` +${g.harmony.progressions.length - 1}` : ''}
                 </td>
                 <td style={{ textAlign: 'right' }} className="nowrap">
                   {source === 'custom' && (
-                    <Button size="sm" variant="ghost" icon="pencil" onClick={() => setEditing({ genre: g, originalId: g.id })}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon="pencil"
+                      onClick={() => setEditing({ genre: g, originalId: g.id })}
+                    >
                       Edit
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" icon="copy" onClick={() => duplicate(g)} aria-label={`Duplicate ${g.name}`}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon="copy"
+                    onClick={() => duplicate(g)}
+                    aria-label={`Duplicate ${g.name}`}
+                  >
                     Duplicate
                   </Button>
-                  <Button size="sm" variant="ghost" icon="download" onClick={() => downloadJson(`${g.id}.genre.json`, { ...g, builtIn: undefined })} aria-label={`Export ${g.name}`} />
-                  {source === 'custom' && <Button size="sm" variant="ghost" icon="trash" onClick={() => setDel(g)} aria-label={`Delete ${g.name}`} />}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon="download"
+                    onClick={() => downloadJson(`${g.id}.genre.json`, { ...g, builtIn: undefined })}
+                    aria-label={`Export ${g.name}`}
+                  />
+                  {source === 'custom' && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon="trash"
+                      onClick={() => setDel(g)}
+                      aria-label={`Delete ${g.name}`}
+                    />
+                  )}
                 </td>
               </tr>
             ))}
@@ -448,7 +544,9 @@ function InstrumentsSection() {
     [custom, plugin],
   );
   const ids = useMemo(() => new Set(all.map((x) => x.i.id)), [all]);
-  const visible = all.filter(({ i }) => !q.trim() || `${i.name} ${i.id} ${i.family}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const visible = all.filter(
+    ({ i }) => !q.trim() || `${i.name} ${i.id} ${i.family}`.toLowerCase().includes(q.trim().toLowerCase()),
+  );
   const duplicate = (ins: InstrumentProfile) => {
     let id = `${ins.id}-custom`;
     for (let n = 2; ids.has(id); n++) id = `${ins.id}-custom-${n}`;
@@ -482,8 +580,20 @@ function InstrumentsSection() {
       sub="Range, General MIDI program, guide-render patch, role and stem group (spec §17). Custom instruments appear in blueprints and genre profiles."
       actions={
         <div className="row">
-          <input className="input sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter…" aria-label="Filter instruments" style={{ width: 160 }} />
-          <FileButton accept=".json,application/json" onFile={(f) => void importFiles(f)} icon="upload" multiple>
+          <input
+            className="input sm"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Filter…"
+            aria-label="Filter instruments"
+            style={{ width: 160 }}
+          />
+          <FileButton
+            accept=".json,application/json"
+            onFile={(f) => void importFiles(f)}
+            icon="upload"
+            multiple
+          >
             Import JSON
           </FileButton>
           {custom.length > 0 && (
@@ -513,24 +623,59 @@ function InstrumentsSection() {
                   <div style={{ fontWeight: 600 }}>{i.name}</div>
                   <div className="small dim mono">{i.id}</div>
                 </td>
-                <td>{source === 'custom' ? <Badge tone="accent">Custom</Badge> : source === 'plugin' ? <Badge tone="ai">Plugin</Badge> : <Badge>Built-in</Badge>}</td>
+                <td>
+                  {source === 'custom' ? (
+                    <Badge tone="accent">Custom</Badge>
+                  ) : source === 'plugin' ? (
+                    <Badge tone="ai">Plugin</Badge>
+                  ) : (
+                    <Badge>Built-in</Badge>
+                  )}
+                </td>
                 <td className="small">
                   {i.family} · {i.defaultRole}
                 </td>
-                <td className="mono small">{i.isDrumKit ? 'drum kit' : `${midiToNoteName(i.range.low)}–${midiToNoteName(i.range.high)}`}</td>
+                <td className="mono small">
+                  {i.isDrumKit
+                    ? 'drum kit'
+                    : `${midiToNoteName(i.range.low)}–${midiToNoteName(i.range.high)}`}
+                </td>
                 <td className="small">{i.stemGroup}</td>
                 <td style={{ textAlign: 'right' }} className="nowrap">
                   {source === 'custom' && (
-                    <Button size="sm" variant="ghost" icon="pencil" onClick={() => setEditing({ ins: i, originalId: i.id })}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon="pencil"
+                      onClick={() => setEditing({ ins: i, originalId: i.id })}
+                    >
                       Edit
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" icon="copy" onClick={() => duplicate(i)} aria-label={`Duplicate ${i.name}`}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon="copy"
+                    onClick={() => duplicate(i)}
+                    aria-label={`Duplicate ${i.name}`}
+                  >
                     Duplicate
                   </Button>
-                  <Button size="sm" variant="ghost" icon="download" onClick={() => downloadJson(`${i.id}.instrument.json`, i)} aria-label={`Export ${i.name}`} />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon="download"
+                    onClick={() => downloadJson(`${i.id}.instrument.json`, i)}
+                    aria-label={`Export ${i.name}`}
+                  />
                   {source === 'custom' && (
-                    <Button size="sm" variant="ghost" icon="trash" onClick={() => update({ customInstruments: custom.filter((x) => x.id !== i.id) })} aria-label={`Delete ${i.name}`} />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon="trash"
+                      onClick={() => update({ customInstruments: custom.filter((x) => x.id !== i.id) })}
+                      aria-label={`Delete ${i.name}`}
+                    />
                   )}
                 </td>
               </tr>
@@ -544,7 +689,9 @@ function InstrumentsSection() {
           takenIds={new Set([...ids].filter((id) => id !== editing.originalId))}
           onClose={() => setEditing(null)}
           onSave={(ins) => {
-            update({ customInstruments: [...custom.filter((x) => x.id !== (editing.originalId ?? ins.id)), ins] });
+            update({
+              customInstruments: [...custom.filter((x) => x.id !== (editing.originalId ?? ins.id)), ins],
+            });
             setEditing(null);
             toast('success', `Saved instrument “${ins.name}”`);
           }}

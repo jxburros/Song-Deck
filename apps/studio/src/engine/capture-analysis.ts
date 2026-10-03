@@ -65,6 +65,10 @@ export function rebuildWithStems(
       },
       { once: true },
     );
-    w.postMessage({ id, method: 'rebuildWithStems', args: { audio, title, stems } } satisfies CaptureWorkerRequest);
+    w.postMessage({
+      id,
+      method: 'rebuildWithStems',
+      args: { audio, title, stems },
+    } satisfies CaptureWorkerRequest);
   });
 }

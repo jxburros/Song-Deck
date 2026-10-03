@@ -33,11 +33,25 @@ describe('upload attestations', () => {
   it('stores attestations and reflects them in the rights lists', () => {
     let p = createProject('Rights', createEmptySong());
     p = addAttestation(p, att({ assetId: 'asset_1' }), '2026-10-01T10:00:00.000Z');
-    p = addAttestation(p, att({ id: 'att_2', fileName: 'loop.wav', basis: 'open-licence', licence: 'CC BY 4.0', rightsHolder: 'Free Loops' }));
-    p = addAttestation(p, att({ id: 'att_3', fileName: 'kit.wav', basis: 'own-work', context: 'sample-instrument' }));
+    p = addAttestation(
+      p,
+      att({
+        id: 'att_2',
+        fileName: 'loop.wav',
+        basis: 'open-licence',
+        licence: 'CC BY 4.0',
+        rightsHolder: 'Free Loops',
+      }),
+    );
+    p = addAttestation(
+      p,
+      att({ id: 'att_3', fileName: 'kit.wav', basis: 'own-work', context: 'sample-instrument' }),
+    );
     expect(p.meta.attestations?.map((a) => a.id)).toEqual(['att_1', 'att_2', 'att_3']);
     expect(p.meta.rights.sourceReferences).toEqual(['song.wav — own work']);
-    expect(p.meta.rights.licensedAssets).toEqual(['loop.wav — public domain / open licence (Free Loops; CC BY 4.0)']);
+    expect(p.meta.rights.licensedAssets).toEqual([
+      'loop.wav — public domain / open licence (Free Loops; CC BY 4.0)',
+    ]);
     expect(p.meta.rights.samples).toEqual(['kit.wav — own work']);
     // Re-attesting a file replaces its line instead of duplicating it.
     p = addAttestation(p, att({ id: 'att_4', basis: 'personal-study' }));
@@ -61,13 +75,22 @@ describe('upload attestations', () => {
     let p = createProject('Export', createEmptySong());
     p = addAttestation(
       p,
-      att({ flagged: true, signals: [{ kind: 'isrc', label: 'ISRC', value: 'USRC17607839', source: 'ID3 TSRC' }], notes: 'reference only', rightsHolder: 'Some Label' }),
+      att({
+        flagged: true,
+        signals: [{ kind: 'isrc', label: 'ISRC', value: 'USRC17607839', source: 'ID3 TSRC' }],
+        notes: 'reference only',
+        rightsHolder: 'Some Label',
+      }),
     );
     const lines = attestationSummaryLines(p.meta.attestations!);
-    expect(lines.join('\n')).toContain('song.wav [rebuild]: I made this / I own the rights — attested by Jo on 2026-10-01');
+    expect(lines.join('\n')).toContain(
+      'song.wav [rebuild]: I made this / I own the rights — attested by Jo on 2026-10-01',
+    );
     expect(lines.join('\n')).toContain('WARNING: checks suggested a commercial release (ISRC USRC17607839)');
     expect(rightsSummaryText(p.meta)).toContain('Source references: song.wav — own work (Some Label)');
-    expect(attestationRightsLine(att({ basis: 'licensed', licence: 'Sync #42' }))).toBe('song.wav — licensed / permission (Sync #42)');
+    expect(attestationRightsLine(att({ basis: 'licensed', licence: 'Sync #42' }))).toBe(
+      'song.wav — licensed / permission (Sync #42)',
+    );
 
     const files = unzipSync(packProject(p));
     expect(strFromU8(files['rights/RIGHTS.txt'])).toContain('rights attestations');

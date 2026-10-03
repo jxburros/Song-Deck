@@ -45,7 +45,11 @@ function uniqueId(base: string, taken: Set<string>): string {
   for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
 }
 
-type Phase = { kind: 'idle' } | { kind: 'checking' } | { kind: 'ok'; result: ConnectProbeResult } | { kind: 'error'; message: string };
+type Phase =
+  | { kind: 'idle' }
+  | { kind: 'checking' }
+  | { kind: 'ok'; result: ConnectProbeResult }
+  | { kind: 'error'; message: string };
 
 export function ConnectServiceModal({
   onClose,
@@ -67,13 +71,23 @@ export function ConnectServiceModal({
   const offline = useSettings((s) => s.routing.offline);
 
   return (
-    <Modal title={existing ? `Choose models — ${existing.name}` : 'Connect a service'} icon="plug" onClose={close} wide>
+    <Modal
+      title={existing ? `Choose models — ${existing.name}` : 'Connect a service'}
+      icon="plug"
+      onClose={close}
+      wide
+    >
       <div className="col st-connect" data-testid="connect-service">
         {existing ? (
           <ManageModels config={existing} onDone={close} />
         ) : (
           <>
-            <KeyConnect initialPresetId={initialPresetId} onDone={close} onAdvanced={onAdvanced} offline={offline} />
+            <KeyConnect
+              initialPresetId={initialPresetId}
+              onDone={close}
+              onAdvanced={onAdvanced}
+              offline={offline}
+            />
             <section className="st-connect-local">
               <h3>Found on this machine</h3>
               <LocalServicesList compact />
@@ -95,7 +109,17 @@ export function ConnectServiceModal({
 // Paste a key
 // ---------------------------------------------------------------------------
 
-function KeyConnect({ initialPresetId, onDone, onAdvanced, offline }: { initialPresetId?: string; onDone: () => void; onAdvanced: (presetId: string) => void; offline: boolean }) {
+function KeyConnect({
+  initialPresetId,
+  onDone,
+  onAdvanced,
+  offline,
+}: {
+  initialPresetId?: string;
+  onDone: () => void;
+  onAdvanced: (presetId: string) => void;
+  offline: boolean;
+}) {
   const providers = useSettings((s) => s.providers);
   const upsertProvider = useSettings((s) => s.upsertProvider);
   const toast = useStudio((s) => s.toast);
@@ -111,8 +135,13 @@ function KeyConnect({ initialPresetId, onDone, onAdvanced, offline }: { initialP
   const abort = useRef<AbortController | null>(null);
 
   const detection = useMemo(() => detectKeyProvider(raw), [raw]);
-  const certain = detection.matches.length === 1 && detection.matches[0].confidence !== 'possible' ? detection.matches[0].presetId : undefined;
-  const choices = detection.matches.length ? detection.matches.map((m) => m.presetId) : [...CONNECTABLE_PRESET_IDS];
+  const certain =
+    detection.matches.length === 1 && detection.matches[0].confidence !== 'possible'
+      ? detection.matches[0].presetId
+      : undefined;
+  const choices = detection.matches.length
+    ? detection.matches.map((m) => m.presetId)
+    : [...CONNECTABLE_PRESET_IDS];
   const presetId = certain ?? (choices.includes(picked) ? picked : '');
   const preset = getPreset(presetId);
   const existing = providers.find((p) => p.presetId === presetId);
@@ -131,7 +160,11 @@ function KeyConnect({ initialPresetId, onDone, onAdvanced, offline }: { initialP
         setPhase({ kind: 'ok', result });
       } catch (err) {
         if (ctrl.signal.aborted) return;
-        setPhase({ kind: 'error', message: describeConnectError(err, getPreset(id)?.name ?? id, { browserOnly: !serverOnline() }).message });
+        setPhase({
+          kind: 'error',
+          message: describeConnectError(err, getPreset(id)?.name ?? id, { browserOnly: !serverOnline() })
+            .message,
+        });
       }
     },
     [setPhase],
@@ -153,10 +186,19 @@ function KeyConnect({ initialPresetId, onDone, onAdvanced, offline }: { initialP
     setAdding(true);
     try {
       const id = existing?.id ?? uniqueId(preset.id, new Set(providers.map((p) => p.id)));
-      const config = connectedConfig(preset.id, { id, selected: [...selected], probe: phase.result, existing });
+      const config = connectedConfig(preset.id, {
+        id,
+        selected: [...selected],
+        probe: phase.result,
+        existing,
+      });
       upsertProvider(config);
       await syncProvidersNow();
-      const where = await saveCredential(config.credentialRef ?? defaultCredentialRef(id), detection.key, `${preset.name} ${preset.credentialLabel ?? 'API key'}`);
+      const where = await saveCredential(
+        config.credentialRef ?? defaultCredentialRef(id),
+        detection.key,
+        `${preset.name} ${preset.credentialLabel ?? 'API key'}`,
+      );
       // Fill model pickers right away (the registry was rebuilt with the new config).
       void getRegistry()
         .discoverModels(id, { force: true })
@@ -200,12 +242,23 @@ function KeyConnect({ initialPresetId, onDone, onAdvanced, offline }: { initialP
           <Select
             value={presetId}
             onChange={setPicked}
-            options={[{ value: '', label: detection.matches.length ? 'Which service is this?' : 'Choose the service…' }, ...choices.map((id) => ({ value: id, label: getPreset(id)?.name ?? id }))]}
+            options={[
+              {
+                value: '',
+                label: detection.matches.length ? 'Which service is this?' : 'Choose the service…',
+              },
+              ...choices.map((id) => ({ value: id, label: getPreset(id)?.name ?? id })),
+            ]}
             aria-label="Service"
           />
         )}
         {!certain && (
-          <Button variant="primary" icon="check" onClick={() => void check(presetId, detection.key)} disabled={!presetId || !!detection.problem || phase.kind === 'checking' || offline}>
+          <Button
+            variant="primary"
+            icon="check"
+            onClick={() => void check(presetId, detection.key)}
+            disabled={!presetId || !!detection.problem || phase.kind === 'checking' || offline}
+          >
             Check key
           </Button>
         )}
@@ -229,7 +282,8 @@ function KeyConnect({ initialPresetId, onDone, onAdvanced, offline }: { initialP
       </div>
       {offline && (
         <div className="callout warning">
-          <Icon name="shield" size={14} /> Offline mode is on: nothing is sent to cloud services. Turn it off under Privacy to connect one.
+          <Icon name="shield" size={14} /> Offline mode is on: nothing is sent to cloud services. Turn it off
+          under Privacy to connect one.
         </div>
       )}
 
@@ -252,15 +306,29 @@ function KeyConnect({ initialPresetId, onDone, onAdvanced, offline }: { initialP
       )}
       {phase.kind === 'ok' && preset && (
         <>
-          <ModelChooser result={phase.result} selected={selected} onChange={setSelected} showAll={showAll} onShowAll={setShowAll} />
+          <ModelChooser
+            result={phase.result}
+            selected={selected}
+            onChange={setSelected}
+            showAll={showAll}
+            onShowAll={setShowAll}
+          />
           <div className="small dim">
             <Icon name="lock" size={12} /> {storage}
           </div>
           <div className="row">
             {existing && <span className="small muted">Updates your existing {existing.name} provider.</span>}
             <span className="grow" />
-            <Button variant="primary" icon="plus" onClick={() => void add()} disabled={!selected.size || adding} data-testid="connect-add">
-              {adding ? 'Adding…' : `${existing ? 'Update' : 'Add'} ${preset.name}${selected.size ? ` (${selected.size} model${selected.size === 1 ? '' : 's'})` : ''}`}
+            <Button
+              variant="primary"
+              icon="plus"
+              onClick={() => void add()}
+              disabled={!selected.size || adding}
+              data-testid="connect-add"
+            >
+              {adding
+                ? 'Adding…'
+                : `${existing ? 'Update' : 'Add'} ${preset.name}${selected.size ? ` (${selected.size} model${selected.size === 1 ? '' : 's'})` : ''}`}
             </Button>
           </div>
         </>
@@ -296,8 +364,18 @@ function ModelChooser({
   };
   const usable = grouped.groups.reduce((n, g) => n + g.models.length, 0);
   const row = (m: ModelInfo, uses: AppUseId[]) => (
-    <label key={m.id} className={`st-connect-model ${uses.length ? '' : 'unusable'}`} data-testid="connect-model">
-      <input type="checkbox" checked={selected.has(m.id)} disabled={!uses.length} onChange={() => toggle(m.id)} aria-label={m.id} />
+    <label
+      key={m.id}
+      className={`st-connect-model ${uses.length ? '' : 'unusable'}`}
+      data-testid="connect-model"
+    >
+      <input
+        type="checkbox"
+        checked={selected.has(m.id)}
+        disabled={!uses.length}
+        onChange={() => toggle(m.id)}
+        aria-label={m.id}
+      />
       <span className="grow" style={{ minWidth: 0 }}>
         <span className="row" style={{ gap: 6 }}>
           <strong className="ellipsis">{m.name ?? m.id}</strong>
@@ -305,7 +383,15 @@ function ModelChooser({
           {rec.has(m.id) && <Badge tone="accent">Recommended</Badge>}
         </span>
         <span className="st-uses">
-          {uses.length ? uses.map((u) => <span key={u} className="st-use">{USE_LABEL[u]}</span>) : <span className="small dim">Not used by Song Deck</span>}
+          {uses.length ? (
+            uses.map((u) => (
+              <span key={u} className="st-use">
+                {USE_LABEL[u]}
+              </span>
+            ))
+          ) : (
+            <span className="small dim">Not used by Song Deck</span>
+          )}
         </span>
       </span>
     </label>
@@ -314,7 +400,8 @@ function ModelChooser({
     <div className="st-connect-models" data-testid="connect-models">
       <div className="row between">
         <span className="small">
-          <Icon name="check" size={12} /> Key accepted — {usable} model{usable === 1 ? '' : 's'} you can use in Song Deck{result.listed ? '' : ' (known models; this service does not list them)'}.
+          <Icon name="check" size={12} /> Key accepted — {usable} model{usable === 1 ? '' : 's'} you can use
+          in Song Deck{result.listed ? '' : ' (known models; this service does not list them)'}.
           {result.account?.map((a) => (
             <span key={a.label} className="muted">
               {' '}
@@ -333,7 +420,12 @@ function ModelChooser({
       </div>
       {result.note && <div className="small muted">{result.note}</div>}
       {grouped.groups.map((g) => (
-        <section key={g.id} className="st-connect-group" data-testid={`connect-group-${g.id}`} aria-label={g.label}>
+        <section
+          key={g.id}
+          className="st-connect-group"
+          data-testid={`connect-group-${g.id}`}
+          aria-label={g.label}
+        >
           <div className="row between">
             <h4>{g.label}</h4>
             <span className="small dim">{g.description}</span>
@@ -345,7 +437,8 @@ function ModelChooser({
       {grouped.unusable.length > 0 && (
         <label className="row small muted" style={{ gap: 6 }}>
           <input type="checkbox" checked={showAll} onChange={(e) => onShowAll(e.target.checked)} />
-          Show all {result.models.length} models (including {grouped.unusable.length} Song Deck cannot use: embeddings, images, speech…)
+          Show all {result.models.length} models (including {grouped.unusable.length} Song Deck cannot use:
+          embeddings, images, speech…)
         </label>
       )}
       {showAll && grouped.unusable.length > 0 && (
@@ -377,15 +470,33 @@ function ManageModels({ config, onDone }: { config: ProviderConfig; onDone: () =
         } else if (inst?.audioGeneration) {
           // Music services without a model list: Song Deck's known models for the preset.
           const preset = getPreset(config.presetId);
-          const ids = [...new Set([...(config.models ?? []).map((m) => m.id), ...(preset?.suggestedModels ?? []), ...(preset?.defaultModel ? [preset.defaultModel] : [])])];
-          result = { presetId: config.presetId ?? '', models: ids.map((id) => ({ id, capabilities: [...(preset?.capabilities ?? [])] })), listed: false };
+          const ids = [
+            ...new Set([
+              ...(config.models ?? []).map((m) => m.id),
+              ...(preset?.suggestedModels ?? []),
+              ...(preset?.defaultModel ? [preset.defaultModel] : []),
+            ]),
+          ];
+          result = {
+            presetId: config.presetId ?? '',
+            models: ids.map((id) => ({ id, capabilities: [...(preset?.capabilities ?? [])] })),
+            listed: false,
+          };
         } else throw new Error('This provider has no models to choose from');
         if (!alive) return;
-        const current = config.enabledModels?.length ? config.enabledModels : config.models?.length ? config.models.map((m) => m.id) : recommendModels(result.models).selected;
+        const current = config.enabledModels?.length
+          ? config.enabledModels
+          : config.models?.length
+            ? config.models.map((m) => m.id)
+            : recommendModels(result.models).selected;
         setSelected(new Set(current.filter((id) => result.models.some((m) => m.id === id))));
         setPhase({ kind: 'ok', result });
       } catch (err) {
-        if (alive) setPhase({ kind: 'error', message: describeConnectError(err, config.name, { browserOnly: !serverOnline() }).message });
+        if (alive)
+          setPhase({
+            kind: 'error',
+            message: describeConnectError(err, config.name, { browserOnly: !serverOnline() }).message,
+          });
       }
     })();
     return () => {
@@ -395,7 +506,14 @@ function ManageModels({ config, onDone }: { config: ProviderConfig; onDone: () =
 
   const save = async () => {
     if (phase.kind !== 'ok') return;
-    upsertProvider(connectedConfig(config.presetId ?? '', { id: config.id, selected: [...selected], probe: phase.result, existing: config }));
+    upsertProvider(
+      connectedConfig(config.presetId ?? '', {
+        id: config.id,
+        selected: [...selected],
+        probe: phase.result,
+        existing: config,
+      }),
+    );
     await syncProvidersNow();
     void getRegistry()
       .discoverModels(config.id, { force: true })
@@ -414,7 +532,13 @@ function ManageModels({ config, onDone }: { config: ProviderConfig; onDone: () =
       )}
       {phase.kind === 'ok' && (
         <>
-          <ModelChooser result={phase.result} selected={selected} onChange={setSelected} showAll={showAll} onShowAll={setShowAll} />
+          <ModelChooser
+            result={phase.result}
+            selected={selected}
+            onChange={setSelected}
+            showAll={showAll}
+            onShowAll={setShowAll}
+          />
           <div className="row">
             <span className="grow" />
             <Button variant="primary" icon="check" onClick={() => void save()} disabled={!selected.size}>
@@ -489,7 +613,10 @@ export function LocalServicesList({ compact }: { compact?: boolean }) {
     void getRegistry()
       .discoverModels(config.id, { force: true })
       .catch(() => undefined);
-    toast('success', `Added ${s.name}${s.models.length ? ` — ${s.models.length} model${s.models.length === 1 ? '' : 's'}` : ''}`);
+    toast(
+      'success',
+      `Added ${s.name}${s.models.length ? ` — ${s.models.length} model${s.models.length === 1 ? '' : 's'}` : ''}`,
+    );
   };
 
   return (
@@ -512,7 +639,11 @@ export function LocalServicesList({ compact }: { compact?: boolean }) {
       {found.map((s) => {
         const added = providers.find((c) => sameService(c, s));
         return (
-          <div key={`${s.presetId}@${s.baseUrl}`} className="st-local-item" data-testid={`local-${s.presetId}`}>
+          <div
+            key={`${s.presetId}@${s.baseUrl}`}
+            className="st-local-item"
+            data-testid={`local-${s.presetId}`}
+          >
             <div className="grow" style={{ minWidth: 0 }}>
               <div className="row" style={{ gap: 6 }}>
                 <strong className="ellipsis">{s.name}</strong>
@@ -520,13 +651,24 @@ export function LocalServicesList({ compact }: { compact?: boolean }) {
                 <span className="mono small dim">{s.baseUrl}</span>
               </div>
               <div className="small muted ellipsis">
-                {s.models.length ? `${s.models.length} model${s.models.length === 1 ? '' : 's'}: ${s.models.slice(0, compact ? 4 : 8).map((m) => m.name ?? m.id).join(', ')}${s.models.length > (compact ? 4 : 8) ? '…' : ''}` : 'No models loaded yet'}
+                {s.models.length
+                  ? `${s.models.length} model${s.models.length === 1 ? '' : 's'}: ${s.models
+                      .slice(0, compact ? 4 : 8)
+                      .map((m) => m.name ?? m.id)
+                      .join(', ')}${s.models.length > (compact ? 4 : 8) ? '…' : ''}`
+                  : 'No models loaded yet'}
               </div>
             </div>
             {added ? (
               <Badge tone="success">Added</Badge>
             ) : (
-              <Button size="sm" variant="primary" icon="plus" onClick={() => void add(s)} aria-label={`Add ${s.name}`}>
+              <Button
+                size="sm"
+                variant="primary"
+                icon="plus"
+                onClick={() => void add(s)}
+                aria-label={`Add ${s.name}`}
+              >
                 Add
               </Button>
             )}
@@ -539,8 +681,10 @@ export function LocalServicesList({ compact }: { compact?: boolean }) {
             'Nothing running right now. Start Ollama, LM Studio’s server, llama-server or a Song Deck bridge, then scan again.'
           ) : (
             <>
-              Nothing found from this page. Browsers can only reach local servers that allow this page: start the Song Deck server to detect everything (
-              <code>npx tsx apps/server/src/cli.ts</code>), or start Ollama with <code>OLLAMA_ORIGINS={origin}</code> and turn on “Enable CORS” in LM Studio’s server settings.
+              Nothing found from this page. Browsers can only reach local servers that allow this page: start
+              the Song Deck server to detect everything (<code>npx tsx apps/server/src/cli.ts</code>), or
+              start Ollama with <code>OLLAMA_ORIGINS={origin}</code> and turn on “Enable CORS” in LM Studio’s
+              server settings.
             </>
           )}
         </div>

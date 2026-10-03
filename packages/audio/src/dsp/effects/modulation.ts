@@ -63,13 +63,21 @@ export class Chorus {
   process(L: Float64Array, R: Float64Array, start: number, end: number): void {
     const n = end - start;
     if (n <= 0) return;
-    const bl = this.bl, br = this.br, mask = this.mask;
+    const bl = this.bl,
+      br = this.br,
+      mask = this.mask;
     const size = mask + 1;
     let w = this.w;
     const ph0 = this.phase;
-    const inc = this.inc, depth = this.depth, base = this.base, dry = this.dry, wet = this.wet, nv = this.voices;
+    const inc = this.inc,
+      depth = this.depth,
+      base = this.base,
+      dry = this.dry,
+      wet = this.wet,
+      nv = this.voices;
     const ph1 = ph0 + inc * n;
-    const d0 = this.d0, d1 = this.d1;
+    const d0 = this.d0,
+      d1 = this.d1;
     for (let v = 0; v < nv; v++) {
       const off = v / nv;
       d0[v] = base + depth * sin01(ph0 + off);
@@ -79,11 +87,13 @@ export class Chorus {
     }
     const invN = 1 / n;
     for (let i = start; i < end; i++) {
-      const xl = L[i], xr = R[i];
+      const xl = L[i],
+        xr = R[i];
       bl[w] = xl;
       br[w] = xr;
       const t = (i - start + 1) * invN;
-      let sl = 0, sr = 0;
+      let sl = 0,
+        sr = 0;
       for (let v = 0; v < nv; v++) {
         let pos = w - (d0[v] + (d1[v] - d0[v]) * t) + size;
         let ip = pos | 0;
@@ -136,9 +146,15 @@ export class Rotary {
   }
 
   process(L: Float64Array, R: Float64Array, start: number, end: number): void {
-    const buf = this.buf, mask = this.mask;
-    let w = this.w, ph = this.phase;
-    const inc = this.inc, depth = this.depth, am = this.am, mix = this.mix, dry = 1 - mix;
+    const buf = this.buf,
+      mask = this.mask;
+    let w = this.w,
+      ph = this.phase;
+    const inc = this.inc,
+      depth = this.depth,
+      am = this.am,
+      mix = this.mix,
+      dry = 1 - mix;
     const base = depth + 3;
     for (let i = start; i < end; i++) {
       const x = (L[i] + R[i]) * 0.5;
@@ -173,7 +189,8 @@ export class AutoPan {
   }
   process(L: Float64Array, R: Float64Array, start: number, end: number): void {
     let ph = this.phase;
-    const inc = this.inc, d = this.depth;
+    const inc = this.inc,
+      d = this.depth;
     for (let i = start; i < end; i++) {
       const s = sin01(ph) * d;
       L[i] *= 1 + s;

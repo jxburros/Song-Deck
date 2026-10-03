@@ -39,10 +39,15 @@ export default function InspectorPanel() {
 
   const updateTrack = (patch: Partial<Track>, message: string) => {
     if (!track) return;
-    st.commit({ ...song, tracks: song.tracks.map((t) => (t.id === track.id ? { ...t, ...patch } : t)) }, message, 'edit');
+    st.commit(
+      { ...song, tracks: song.tracks.map((t) => (t.id === track.id ? { ...t, ...patch } : t)) },
+      message,
+      'edit',
+    );
   };
   const rights = project.meta.rights;
-  const setRights = (patch: Partial<RightsMetadata>) => st.updateProject((p) => ({ ...p, meta: { ...p.meta, rights: { ...p.meta.rights, ...patch } } }));
+  const setRights = (patch: Partial<RightsMetadata>) =>
+    st.updateProject((p) => ({ ...p, meta: { ...p.meta, rights: { ...p.meta.rights, ...patch } } }));
 
   return (
     <div className="col">
@@ -50,55 +55,98 @@ export default function InspectorPanel() {
         <>
           <h3>Track</h3>
           <Field label="Name">
-            <CommitText value={track.name} onCommit={(name) => updateTrack({ name }, `Renamed track to ${name}`)} />
+            <CommitText
+              value={track.name}
+              onCommit={(name) => updateTrack({ name }, `Renamed track to ${name}`)}
+            />
           </Field>
           <Field label="Instrument">
             <Select
               value={track.instrumentId}
-              onChange={(instrumentId) => updateTrack({ instrumentId, stemGroup: getInstrument(instrumentId, customInstruments).stemGroup }, `${track.name}: instrument → ${instrumentId}`)}
+              onChange={(instrumentId) =>
+                updateTrack(
+                  { instrumentId, stemGroup: getInstrument(instrumentId, customInstruments).stemGroup },
+                  `${track.name}: instrument → ${instrumentId}`,
+                )
+              }
               options={instruments.map((i) => ({ value: i.id, label: i.name }))}
             />
           </Field>
           <div className="grid-2">
             <Field label="Generator role">
-              <Select value={track.role} onChange={(role) => updateTrack({ role }, `${track.name}: role → ${role}`)} options={TRACK_ROLES} />
+              <Select
+                value={track.role}
+                onChange={(role) => updateTrack({ role }, `${track.name}: role → ${role}`)}
+                options={TRACK_ROLES}
+              />
             </Field>
             <Field label="Function">
               <Select
                 value={track.constraints.function ?? 'accompaniment'}
-                onChange={(fn) => updateTrack({ constraints: { ...track.constraints, function: fn } }, `${track.name}: function → ${fn}`)}
+                onChange={(fn) =>
+                  updateTrack(
+                    { constraints: { ...track.constraints, function: fn } },
+                    `${track.name}: function → ${fn}`,
+                  )
+                }
                 options={FUNCTIONS}
               />
             </Field>
-            <Field label="Lowest note" hint={`Instrument: ${midiToNoteName(getInstrument(track.instrumentId, customInstruments).range.low)}`}>
+            <Field
+              label="Lowest note"
+              hint={`Instrument: ${midiToNoteName(getInstrument(track.instrumentId, customInstruments).range.low)}`}
+            >
               <CommitText
                 value={track.constraints.lowest !== undefined ? midiToNoteName(track.constraints.lowest) : ''}
                 placeholder="—"
                 onCommit={(v) => {
                   const m = v.trim() ? noteNameToMidi(v) : undefined;
-                  if (m !== null) updateTrack({ constraints: { ...track.constraints, lowest: m ?? undefined } }, `${track.name}: lowest note ${v || 'cleared'}`);
+                  if (m !== null)
+                    updateTrack(
+                      { constraints: { ...track.constraints, lowest: m ?? undefined } },
+                      `${track.name}: lowest note ${v || 'cleared'}`,
+                    );
                 }}
               />
             </Field>
-            <Field label="Highest note" hint={`Instrument: ${midiToNoteName(getInstrument(track.instrumentId, customInstruments).range.high)}`}>
+            <Field
+              label="Highest note"
+              hint={`Instrument: ${midiToNoteName(getInstrument(track.instrumentId, customInstruments).range.high)}`}
+            >
               <CommitText
-                value={track.constraints.highest !== undefined ? midiToNoteName(track.constraints.highest) : ''}
+                value={
+                  track.constraints.highest !== undefined ? midiToNoteName(track.constraints.highest) : ''
+                }
                 placeholder="—"
                 onCommit={(v) => {
                   const m = v.trim() ? noteNameToMidi(v) : undefined;
-                  if (m !== null) updateTrack({ constraints: { ...track.constraints, highest: m ?? undefined } }, `${track.name}: highest note ${v || 'cleared'}`);
+                  if (m !== null)
+                    updateTrack(
+                      { constraints: { ...track.constraints, highest: m ?? undefined } },
+                      `${track.name}: highest note ${v || 'cleared'}`,
+                    );
                 }}
               />
             </Field>
             <Field label="Complexity">
               <Select
                 value={track.constraints.complexity ?? 'medium'}
-                onChange={(complexity) => updateTrack({ constraints: { ...track.constraints, complexity } }, `${track.name}: complexity ${complexity}`)}
+                onChange={(complexity) =>
+                  updateTrack(
+                    { constraints: { ...track.constraints, complexity } },
+                    `${track.name}: complexity ${complexity}`,
+                  )
+                }
                 options={['low', 'medium', 'high'] as const}
               />
             </Field>
             <Field label="Colour">
-              <input type="color" value={track.color || TRACK_NEUTRAL} onChange={(e) => updateTrack({ color: e.target.value }, `${track.name}: colour`)} style={{ height: 30, width: '100%', background: 'none', border: 'none' }} />
+              <input
+                type="color"
+                value={track.color || TRACK_NEUTRAL}
+                onChange={(e) => updateTrack({ color: e.target.value }, `${track.name}: colour`)}
+                style={{ height: 30, width: '100%', background: 'none', border: 'none' }}
+              />
             </Field>
           </div>
           <Field label="Plays in sections" hint="None selected = arrangement engine decides">
@@ -113,7 +161,10 @@ export default function InspectorPanel() {
                       const ids = new Set(track.constraints.sectionIds ?? []);
                       if (on) ids.delete(s.id);
                       else ids.add(s.id);
-                      updateTrack({ constraints: { ...track.constraints, sectionIds: Array.from(ids) } }, `${track.name}: sections`);
+                      updateTrack(
+                        { constraints: { ...track.constraints, sectionIds: Array.from(ids) } },
+                        `${track.name}: sections`,
+                      );
                     }}
                   >
                     {s.name}
@@ -132,7 +183,14 @@ export default function InspectorPanel() {
                     className={`chip ${on ? 'on' : ''}`}
                     onClick={() =>
                       updateTrack(
-                        { constraints: { ...track.constraints, avoid: on ? (track.constraints.avoid ?? []).filter((x) => x !== a) : [...(track.constraints.avoid ?? []), a] } },
+                        {
+                          constraints: {
+                            ...track.constraints,
+                            avoid: on
+                              ? (track.constraints.avoid ?? []).filter((x) => x !== a)
+                              : [...(track.constraints.avoid ?? []), a],
+                          },
+                        },
                         `${track.name}: avoid ${a}`,
                       )
                     }
@@ -148,8 +206,24 @@ export default function InspectorPanel() {
               size="sm"
               icon="copy"
               onClick={() => {
-                const copy: Track = { ...track, id: randomId('trk'), name: `${track.name} 2`, notes: track.notes.map((n) => ({ ...n, id: randomId('n') })) };
-                st.commit({ ...song, tracks: [...song.tracks, copy], mixer: { ...song.mixer, channels: { ...song.mixer.channels, [copy.id]: song.mixer.channels[track.id] } } }, `Duplicated ${track.name}`, 'edit');
+                const copy: Track = {
+                  ...track,
+                  id: randomId('trk'),
+                  name: `${track.name} 2`,
+                  notes: track.notes.map((n) => ({ ...n, id: randomId('n') })),
+                };
+                st.commit(
+                  {
+                    ...song,
+                    tracks: [...song.tracks, copy],
+                    mixer: {
+                      ...song.mixer,
+                      channels: { ...song.mixer.channels, [copy.id]: song.mixer.channels[track.id] },
+                    },
+                  },
+                  `Duplicated ${track.name}`,
+                  'edit',
+                );
               }}
             >
               Duplicate
@@ -159,7 +233,11 @@ export default function InspectorPanel() {
               variant="danger"
               icon="trash"
               onClick={() => {
-                st.commit({ ...song, tracks: song.tracks.filter((t) => t.id !== track.id) }, `Removed track ${track.name}`, 'edit');
+                st.commit(
+                  { ...song, tracks: song.tracks.filter((t) => t.id !== track.id) },
+                  `Removed track ${track.name}`,
+                  'edit',
+                );
                 st.selectTrack(song.tracks.find((t) => t.id !== track.id)?.id ?? null);
               }}
             >
@@ -179,7 +257,9 @@ export default function InspectorPanel() {
 
       <h3 style={{ marginTop: 12 }}>Provenance</h3>
       {project.meta.provenance.length === 0 ? (
-        <div className="small muted">Generated artifacts (renders, vocals, productions, masters) record how they were made here.</div>
+        <div className="small muted">
+          Generated artifacts (renders, vocals, productions, masters) record how they were made here.
+        </div>
       ) : (
         project.meta.provenance
           .slice()
@@ -196,7 +276,11 @@ export default function InspectorPanel() {
                 {p.modelId ? ` · ${p.modelId}` : ''}
                 {p.seed !== undefined ? ` · seed ${p.seed}` : ''}
               </div>
-              {p.sources.length > 0 && <div className="dim">Source: {p.sources.map((s) => `${s.ref}${s.revision ? ` v${s.revision}` : ''}`).join(', ')}</div>}
+              {p.sources.length > 0 && (
+                <div className="dim">
+                  Source: {p.sources.map((s) => `${s.ref}${s.revision ? ` v${s.revision}` : ''}`).join(', ')}
+                </div>
+              )}
               <div className="dim">{new Date(p.generatedAt).toLocaleString()}</div>
             </div>
           ))
@@ -205,11 +289,25 @@ export default function InspectorPanel() {
       <h3 style={{ marginTop: 12 }}>Rights & attribution</h3>
       {RIGHTS_FIELDS.map((f) => (
         <Field key={f.key} label={f.label}>
-          <CommitText value={(rights[f.key] as string[]).join(', ')} onCommit={(v) => setRights({ [f.key]: v.split(',').map((x) => x.trim()).filter(Boolean) })} />
+          <CommitText
+            value={(rights[f.key] as string[]).join(', ')}
+            onCommit={(v) =>
+              setRights({
+                [f.key]: v
+                  .split(',')
+                  .map((x) => x.trim())
+                  .filter(Boolean),
+              })
+            }
+          />
         </Field>
       ))}
       <Field label="AI assistance (description)">
-        <CommitText value={rights.aiAssistance} onCommit={(aiAssistance) => setRights({ aiAssistance })} placeholder="e.g. Harmony and drums AI-generated, edited by hand" />
+        <CommitText
+          value={rights.aiAssistance}
+          onCommit={(aiAssistance) => setRights({ aiAssistance })}
+          placeholder="e.g. Harmony and drums AI-generated, edited by hand"
+        />
       </Field>
       <AttestationList project={project} />
     </div>

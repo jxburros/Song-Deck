@@ -19,7 +19,22 @@ import { applySwing, chordAtIn, clamp, humanize, toVelocity, type RawNote } from
 import { baseDrumStyle } from '../styles';
 import { melodyGaps } from './lead';
 
-type KeysPattern = 'block' | 'pulse8' | 'arp' | 'ballad' | 'stabs' | 'syncopated' | 'comp' | 'sustain' | 'harp' | 'mallet' | 'skank' | 'clav' | 'montuno' | 'bossa' | 'chop';
+type KeysPattern =
+  | 'block'
+  | 'pulse8'
+  | 'arp'
+  | 'ballad'
+  | 'stabs'
+  | 'syncopated'
+  | 'comp'
+  | 'sustain'
+  | 'harp'
+  | 'mallet'
+  | 'skank'
+  | 'clav'
+  | 'montuno'
+  | 'bossa'
+  | 'chop';
 
 /** 16-step rhythm figures for the idiomatic patterns (two-bar figures are 32 steps). */
 const FIGURES: Partial<Record<KeysPattern, string[]>> = {
@@ -75,14 +90,18 @@ function keysPattern(c: Cell): KeysPattern {
   if (ov === 'stabs') return 'stabs';
   const idiom = idiomPattern(c);
   if (idiom && (e >= 0.3 || idiom === 'bossa' || idiom === 'sustain') && kind !== 'outro') return idiom;
-  if (c.inst.id === 'organ') return e >= 0.7 && ['rock', 'punk', 'pop-punk', 'indie', 'emo'].includes(d) ? 'pulse8' : 'sustain';
+  if (c.inst.id === 'organ')
+    return e >= 0.7 && ['rock', 'punk', 'pop-punk', 'indie', 'emo'].includes(d) ? 'pulse8' : 'sustain';
   if (d === 'jazz-swing') return 'comp';
   if (d === 'four-on-floor') return e < 0.4 ? 'sustain' : 'stabs';
   if (d === 'rnb' || d === 'hip-hop' || d === 'trap') return e < 0.45 ? 'sustain' : 'syncopated';
   if (d === 'orchestral' || d === 'cinematic') return e < 0.7 ? 'arp' : 'block';
   if (e < 0.35 || kind === 'intro' || kind === 'outro' || kind === 'breakdown') return 'ballad';
   const rocky = ['rock', 'punk', 'pop-punk', 'emo', 'metal', 'indie'].includes(d);
-  if (e < 0.6) return kind === 'verse' ? c.rng.pick(['arp', 'block'] as KeysPattern[]) : c.rng.pick(['syncopated', 'block'] as KeysPattern[]);
+  if (e < 0.6)
+    return kind === 'verse'
+      ? c.rng.pick(['arp', 'block'] as KeysPattern[])
+      : c.rng.pick(['syncopated', 'block'] as KeysPattern[]);
   return rocky ? 'pulse8' : c.rng.pick(['block', 'syncopated'] as KeysPattern[]);
 }
 
@@ -90,7 +109,10 @@ function keysPattern(c: Cell): KeysPattern {
 function shellVoicing(ch: ChordEvent, prev: number[] | undefined): number[] {
   const tones = chordTones(ch).filter((t) => t.role !== 'root');
   const pcs = tones.slice(0, 3).map((t) => t.pc);
-  return voiceChord({ root: ch.root, quality: ch.quality }, { low: 52, high: 74, voices: Math.max(2, Math.min(3, pcs.length)), previous: prev, center: 62 }).filter((p, i, a) => a.indexOf(p) === i);
+  return voiceChord(
+    { root: ch.root, quality: ch.quality },
+    { low: 52, high: 74, voices: Math.max(2, Math.min(3, pcs.length)), previous: prev, center: 62 },
+  ).filter((p, i, a) => a.indexOf(p) === i);
 }
 
 function velocityFor(c: Cell, base: number, tick: number): number {
@@ -123,16 +145,32 @@ function keysAccompaniment(c: Cell): RawNote[] {
     if (!v) {
       const pv = pianoVoicing(ch, prevRight, { leftLow, rightLow, rightHigh, octaveBass: !bassPresent });
       // Four-note right hand for seventh chords.
-      if (CHORD_INTERVALS[ch.quality].length >= 4) pv.right = voiceChord({ root: ch.root, quality: ch.quality }, { low: rightLow, high: rightHigh, voices: 4, previous: prevRight, center: 66 });
+      if (CHORD_INTERVALS[ch.quality].length >= 4)
+        pv.right = voiceChord(
+          { root: ch.root, quality: ch.quality },
+          { low: rightLow, high: rightHigh, voices: 4, previous: prevRight, center: 66 },
+        );
       v = pv;
       cache.set(key, v);
     }
     prevRight = v.right;
     return v;
   };
-  const add = (pitch: number, tick: number, duration: number, vel: number, articulation?: RawNote['articulation']) => {
+  const add = (
+    pitch: number,
+    tick: number,
+    duration: number,
+    vel: number,
+    articulation?: RawNote['articulation'],
+  ) => {
     if (pitch < r.low || pitch > r.high) return;
-    out.push({ pitch, tick: swing(c, tick), duration: Math.max(30, duration), velocity: vel, ...(articulation ? { articulation } : {}) });
+    out.push({
+      pitch,
+      tick: swing(c, tick),
+      duration: Math.max(30, duration),
+      velocity: vel,
+      ...(articulation ? { articulation } : {}),
+    });
   };
   for (const bar of c.bars) {
     const m = bar.meter;
@@ -162,7 +200,8 @@ function keysAccompaniment(c: Cell): RawNote[] {
           const accent = t === bar.tick;
           const dur = Math.min(step, segEnd(t) - t) - 20;
           for (const p of v.right) add(p, t, dur, velocityFor(c, accent ? 88 : 78, t));
-          if (m.strong.includes(t - bar.tick)) for (const p of v.left) add(p, t, Math.min(step * 2, segEnd(t) - t) - 20, velocityFor(c, 84, t));
+          if (m.strong.includes(t - bar.tick))
+            for (const p of v.left) add(p, t, Math.min(step * 2, segEnd(t) - t) - 20, velocityFor(c, 84, t));
         }
         break;
       }
@@ -173,7 +212,8 @@ function keysAccompaniment(c: Cell): RawNote[] {
           const v = voicing(ch);
           const onBeat = m.beats.includes(t - bar.tick);
           for (const p of v.right) add(p, t, step - 25, velocityFor(c, onBeat ? 92 : 76, t));
-          if (m.strong.includes(t - bar.tick)) for (const p of v.left) add(p, t, Math.min(bt * 2, segEnd(t) - t) - 20, velocityFor(c, 90, t));
+          if (m.strong.includes(t - bar.tick))
+            for (const p of v.left) add(p, t, Math.min(bt * 2, segEnd(t) - t) - 20, velocityFor(c, 90, t));
         }
         break;
       }
@@ -182,15 +222,31 @@ function keysAccompaniment(c: Cell): RawNote[] {
       case 'mallet': {
         const fast = (c.bpm < 100 && c.macros.density > 0.45) || pattern === 'harp';
         const step = m.denominator >= 8 ? m.unitTicks : fast ? m.unitTicks / 4 : m.unitTicks / 2;
-        const ups = c.rng.pick([[0, 1, 2, 3, 2, 1], [0, 1, 2, 3], [0, 2, 1, 3, 2, 1]]);
+        const ups = c.rng.pick([
+          [0, 1, 2, 3, 2, 1],
+          [0, 1, 2, 3],
+          [0, 2, 1, 3, 2, 1],
+        ]);
         let i = 0;
         for (let t = bar.tick; t < barEnd; t += step, i++) {
           const ch = chordAtIn(c.chords, t);
           const v = voicing(ch);
-          const tones = pattern === 'harp' ? [...v.left, ...v.right, ...v.right.map((p) => p + 12)].filter((p) => p <= r.high).sort((a, b) => a - b) : [...v.right].sort((a, b) => a - b);
-          if (t === bar.tick || t === ch.tick) for (const p of v.left) add(p, t, Math.min(segEnd(t) - t, m.barTicks) - 10, velocityFor(c, 80, t));
+          const tones =
+            pattern === 'harp'
+              ? [...v.left, ...v.right, ...v.right.map((p) => p + 12)]
+                  .filter((p) => p <= r.high)
+                  .sort((a, b) => a - b)
+              : [...v.right].sort((a, b) => a - b);
+          if (t === bar.tick || t === ch.tick)
+            for (const p of v.left)
+              add(p, t, Math.min(segEnd(t) - t, m.barTicks) - 10, velocityFor(c, 80, t));
           const idx = pattern === 'harp' ? i % tones.length : ups[i % ups.length] % tones.length;
-          add(tones[idx], t, pattern === 'mallet' ? step - 10 : step * 2, velocityFor(c, i % ups.length === 0 ? 78 : 66, t));
+          add(
+            tones[idx],
+            t,
+            pattern === 'mallet' ? step - 10 : step * 2,
+            velocityFor(c, i % ups.length === 0 ? 78 : 66, t),
+          );
         }
         break;
       }
@@ -203,7 +259,13 @@ function keysAccompaniment(c: Cell): RawNote[] {
           const v = voicing(ch);
           const root = v.left[0];
           const figure = [root, root + 7, root + 12, root + 7];
-          if (!bassPresent || k % 2 === 0) add(figure[k % 4] <= r.high ? figure[k % 4] : root, t, step * 2 - 10, velocityFor(c, k % 4 === 0 ? 76 : 62, t));
+          if (!bassPresent || k % 2 === 0)
+            add(
+              figure[k % 4] <= r.high ? figure[k % 4] : root,
+              t,
+              step * 2 - 10,
+              velocityFor(c, k % 4 === 0 ? 76 : 62, t),
+            );
           if (t === bar.tick || t === ch.tick) {
             const dur = segEnd(t) - t - 10;
             for (const p of v.right) add(p, t, dur, velocityFor(c, 70, t), 'legato');
@@ -230,12 +292,14 @@ function keysAccompaniment(c: Cell): RawNote[] {
           const ch = chordAtIn(c.chords, t);
           const v = voicing(ch);
           const nextHit = hits.find((h) => h > s);
-          const dur = Math.min(segEnd(t), nextHit !== undefined ? bar.tick + nextHit * eighth : barEnd) - t - 20;
+          const dur =
+            Math.min(segEnd(t), nextHit !== undefined ? bar.tick + nextHit * eighth : barEnd) - t - 20;
           for (const p of v.right) add(p, t, dur, velocityFor(c, s === 0 ? 88 : 80, t));
         }
         for (const s of slots === 8 ? [0, 3] : [0]) {
           const t = bar.tick + s * eighth;
-          for (const p of voicing(chordAtIn(c.chords, t)).left) add(p, t, eighth * 2 - 20, velocityFor(c, 84, t));
+          for (const p of voicing(chordAtIn(c.chords, t)).left)
+            add(p, t, eighth * 2 - 20, velocityFor(c, 84, t));
         }
         break;
       }
@@ -252,7 +316,14 @@ function keysAccompaniment(c: Cell): RawNote[] {
         for (const off of hits) {
           const t = bar.tick + off;
           const v = voicing(chordAtIn(c.chords, t));
-          for (const p of v.right) add(p, t, Math.round(bt * (c.inst.id === 'organ' ? 0.4 : 0.22)), velocityFor(c, c.inst.id === 'organ' ? 72 : 86, t), 'staccato');
+          for (const p of v.right)
+            add(
+              p,
+              t,
+              Math.round(bt * (c.inst.id === 'organ' ? 0.4 : 0.22)),
+              velocityFor(c, c.inst.id === 'organ' ? 72 : 86, t),
+              'staccato',
+            );
         }
         break;
       }
@@ -271,40 +342,66 @@ function keysAccompaniment(c: Cell): RawNote[] {
           if (fig[half + i] !== 'x') continue;
           const t = bar.tick + Math.round(i * step);
           // The montuno and bossa figures anticipate the next chord by an eighth.
-          const ch = chordAtIn(c.chords, pattern === 'montuno' || pattern === 'bossa' ? Math.min(t + Math.round(step * 2), barEnd - 1) : t);
+          const ch = chordAtIn(
+            c.chords,
+            pattern === 'montuno' || pattern === 'bossa' ? Math.min(t + Math.round(step * 2), barEnd - 1) : t,
+          );
           const v = voicing(ch);
           if (pattern === 'montuno') {
             const tones = [...v.right].sort((a, b) => a - b);
             const top = tones[(k++ * 2) % tones.length];
             add(top, t, Math.round(step * 1.6), velocityFor(c, i % 4 === 0 ? 86 : 78, t));
-            if (top + 12 <= r.high) add(top + 12, t, Math.round(step * 1.6), velocityFor(c, i % 4 === 0 ? 82 : 74, t));
+            if (top + 12 <= r.high)
+              add(top + 12, t, Math.round(step * 1.6), velocityFor(c, i % 4 === 0 ? 82 : 74, t));
             if (i % 8 === 0) add(tones[tones.length - 1], t, Math.round(step * 1.6), velocityFor(c, 72, t));
             continue;
           }
-          const dur = pattern === 'bossa' ? Math.round(step * 2.5) : pattern === 'chop' ? Math.round(step * 0.8) : Math.round(step * 0.9);
-          for (const p of v.right) add(p, t, dur, velocityFor(c, i % 4 === 0 ? 88 : 78, t), pattern === 'bossa' ? undefined : 'staccato');
-          if (pattern === 'bossa' && i === half % 16 && !bassPresent) for (const p of v.left) add(p, t, Math.round(step * 6), velocityFor(c, 76, t));
+          const dur =
+            pattern === 'bossa'
+              ? Math.round(step * 2.5)
+              : pattern === 'chop'
+                ? Math.round(step * 0.8)
+                : Math.round(step * 0.9);
+          for (const p of v.right)
+            add(
+              p,
+              t,
+              dur,
+              velocityFor(c, i % 4 === 0 ? 88 : 78, t),
+              pattern === 'bossa' ? undefined : 'staccato',
+            );
+          if (pattern === 'bossa' && i === half % 16 && !bassPresent)
+            for (const p of v.left) add(p, t, Math.round(step * 6), velocityFor(c, 76, t));
         }
         break;
       }
       case 'comp': {
         // Charleston (1, and-of-2) plus random anticipations; short shell voicings.
         const positions = [0, Math.round(bt * 1.5)];
-        if (c.rng.fork('comp', bar.index % c.rootBars).chance(c.macros.syncopation * 0.6)) positions.push(Math.round(bt * 3.5));
+        if (c.rng.fork('comp', bar.index % c.rootBars).chance(c.macros.syncopation * 0.6))
+          positions.push(Math.round(bt * 3.5));
         for (const pos of positions) {
           const t = bar.tick + pos;
           if (t >= barEnd) continue;
           const ch = chordAtIn(c.chords, t + 5);
           const v = shellVoicing(ch, prevShell);
           prevShell = v;
-          for (const p of v) add(p, t, Math.round(bt * 0.6), velocityFor(c, pos === 0 ? 78 : 72, t), 'staccato');
+          for (const p of v)
+            add(p, t, Math.round(bt * 0.6), velocityFor(c, pos === 0 ? 78 : 72, t), 'staccato');
         }
         break;
       }
     }
   }
   // Melodic fills at phrase ends while the vocal rests (complexity).
-  if (c.fn !== 'pad' && pattern !== 'stabs' && pattern !== 'skank' && pattern !== 'montuno' && pattern !== 'clav' && c.macros.complexity > 0.3) {
+  if (
+    c.fn !== 'pad' &&
+    pattern !== 'stabs' &&
+    pattern !== 'skank' &&
+    pattern !== 'montuno' &&
+    pattern !== 'clav' &&
+    c.macros.complexity > 0.3
+  ) {
     const melody: Note[] = c.melodyNotes();
     const gaps = melodyGaps(c, melody, PPQ * 2);
     const scale = scalePitchClasses(c.key);
@@ -328,8 +425,11 @@ function keysAccompaniment(c: Cell): RawNote[] {
         run.push(q);
       }
       run.reverse();
-      for (let i = out.length - 1; i >= 0; i--) if (out[i].tick >= fillStart && out[i].tick < fillEnd && out[i].pitch >= rightLow) out.splice(i, 1);
-      run.forEach((q, k) => add(clamp(q, r.low, r.high), fillStart + k * step, step - 10, velocityFor(c, 70 + k * 4, fillStart)));
+      for (let i = out.length - 1; i >= 0; i--)
+        if (out[i].tick >= fillStart && out[i].tick < fillEnd && out[i].pitch >= rightLow) out.splice(i, 1);
+      run.forEach((q, k) =>
+        add(clamp(q, r.low, r.high), fillStart + k * step, step - 10, velocityFor(c, 70 + k * 4, fillStart)),
+      );
     }
   }
   return out;
@@ -345,8 +445,16 @@ function padChords(c: Cell): RawNote[] {
   const high = clamp(isStrings ? 86 : 82, low + 12, r.high);
   const d = baseDrumStyle(c.g.drumStyle);
   const raw = c.g.drumStyle;
-  const gated = id === 'synth-pad' && (raw === 'trance' || raw === 'four-on-floor' || raw === 'synth-pop' || raw === 'techno') && c.intensity >= 0.82 && (c.kind === 'drop' || c.kind === 'chorus' || c.kind === 'final-chorus');
-  const epic = isStrings && c.intensity >= 0.78 && (d === 'cinematic' || d === 'orchestral' || d === 'rock' || d === 'emo') && c.kind !== 'breakdown';
+  const gated =
+    id === 'synth-pad' &&
+    (raw === 'trance' || raw === 'four-on-floor' || raw === 'synth-pop' || raw === 'techno') &&
+    c.intensity >= 0.82 &&
+    (c.kind === 'drop' || c.kind === 'chorus' || c.kind === 'final-chorus');
+  const epic =
+    isStrings &&
+    c.intensity >= 0.78 &&
+    (d === 'cinematic' || d === 'orchestral' || d === 'rock' || d === 'emo') &&
+    c.kind !== 'breakdown';
   const brassStabs = isBrass && c.intensity >= 0.7;
   const organChops = id === 'organ' && c.intensity >= 0.75 && ['rock', 'punk', 'pop-punk'].includes(d);
   const rising = (c.section.energyEnd ?? c.section.energy) > c.section.energy + 8;
@@ -354,7 +462,17 @@ function padChords(c: Cell): RawNote[] {
   let prev: number[] | undefined;
   const voices = c.inst.polyphony === 'mono' ? 1 : c.intensity > 0.7 ? 5 : 4;
   for (const ch of c.chords) {
-    const v = voiceChord({ root: ch.root, quality: ch.quality }, { low, high, voices, previous: prev, spread: c.intensity > 0.7 ? 'open' : 'close', center: Math.round((low + high) / 2) });
+    const v = voiceChord(
+      { root: ch.root, quality: ch.quality },
+      {
+        low,
+        high,
+        voices,
+        previous: prev,
+        spread: c.intensity > 0.7 ? 'open' : 'close',
+        center: Math.round((low + high) / 2),
+      },
+    );
     prev = v;
     const t0 = ch.tick;
     const t1 = ch.tick + ch.duration;
@@ -365,7 +483,14 @@ function padChords(c: Cell): RawNote[] {
         for (let i = 0; i < 16; i++) {
           const t = bar.tick + Math.round(i * step);
           if (t < t0 || t >= t1 || pattern[i] !== 'x') continue;
-          for (const p of v) out.push({ pitch: p, tick: t, duration: Math.round(step * 0.8), velocity: velocityFor(c, i % 4 === 0 ? 96 : 82, t), articulation: 'staccato' });
+          for (const p of v)
+            out.push({
+              pitch: p,
+              tick: t,
+              duration: Math.round(step * 0.8),
+              velocity: velocityFor(c, i % 4 === 0 ? 96 : 82, t),
+              articulation: 'staccato',
+            });
         }
       }
       continue;
@@ -374,42 +499,110 @@ function padChords(c: Cell): RawNote[] {
       // Hits on the change and on beats; an anticipation stab on the "and" of the last beat.
       const beats: number[] = [];
       for (const bar of c.bars) for (const b of bar.meter.beats) beats.push(bar.tick + b);
-      const hits = organChops ? beats.filter((t) => t >= t0 && t < t1) : [t0, ...beats.filter((t) => t > t0 && t < t1 && c.rng.fork('stab', t - c.span.startTick).chance(0.3))];
-      for (const t of hits) for (const p of v) out.push({ pitch: p, tick: t, duration: Math.round(PPQ * 0.55), velocity: velocityFor(c, t === t0 ? 104 : 90, t), articulation: 'marcato' });
+      const hits = organChops
+        ? beats.filter((t) => t >= t0 && t < t1)
+        : [
+            t0,
+            ...beats.filter((t) => t > t0 && t < t1 && c.rng.fork('stab', t - c.span.startTick).chance(0.3)),
+          ];
+      for (const t of hits)
+        for (const p of v)
+          out.push({
+            pitch: p,
+            tick: t,
+            duration: Math.round(PPQ * 0.55),
+            velocity: velocityFor(c, t === t0 ? 104 : 90, t),
+            articulation: 'marcato',
+          });
       if (brassStabs && t1 - PPQ / 2 > t0 && c.macros.syncopation > 0.35 && t1 < c.span.endTick) {
-        for (const p of v) out.push({ pitch: p, tick: t1 - PPQ / 2, duration: PPQ / 2 - 20, velocity: velocityFor(c, 100, t1), articulation: 'accent' });
+        for (const p of v)
+          out.push({
+            pitch: p,
+            tick: t1 - PPQ / 2,
+            duration: PPQ / 2 - 20,
+            velocity: velocityFor(c, 100, t1),
+            articulation: 'accent',
+          });
       }
       continue;
     }
     if (epic && voices > 1) {
       // Sustained upper voices + low-string eighth-note ostinato on the root.
       const upper = v.slice(1);
-      for (const p of upper) out.push({ pitch: p, tick: t0, duration: t1 - t0 - 15, velocity: velocityFor(c, 92, t0), articulation: build ? 'tremolo' : 'legato' });
+      for (const p of upper)
+        out.push({
+          pitch: p,
+          tick: t0,
+          duration: t1 - t0 - 15,
+          velocity: velocityFor(c, 92, t0),
+          articulation: build ? 'tremolo' : 'legato',
+        });
       let root = low;
       while (mod12(root) !== mod12(ch.bass ?? ch.root)) root++;
-      for (let t = t0; t < t1; t += PPQ / 2) out.push({ pitch: root, tick: t, duration: PPQ / 2 - 40, velocity: velocityFor(c, (t - t0) % PPQ === 0 ? 96 : 82, t), articulation: 'staccato' });
+      for (let t = t0; t < t1; t += PPQ / 2)
+        out.push({
+          pitch: root,
+          tick: t,
+          duration: PPQ / 2 - 40,
+          velocity: velocityFor(c, (t - t0) % PPQ === 0 ? 96 : 82, t),
+          articulation: 'staccato',
+        });
       continue;
     }
-    const articulation: RawNote['articulation'] = isStrings ? (build ? 'tremolo' : 'legato') : id === 'synth-pad' || isBrass ? 'legato' : undefined;
+    const articulation: RawNote['articulation'] = isStrings
+      ? build
+        ? 'tremolo'
+        : 'legato'
+      : id === 'synth-pad' || isBrass
+        ? 'legato'
+        : undefined;
     // Long chords re-articulate every two bars so swells can follow the energy curve.
-    const seg = Math.max(c.meter.barTicks * 2, t1 - t0 > c.meter.barTicks * 4 ? c.meter.barTicks * 2 : t1 - t0);
+    const seg = Math.max(
+      c.meter.barTicks * 2,
+      t1 - t0 > c.meter.barTicks * 4 ? c.meter.barTicks * 2 : t1 - t0,
+    );
     for (let t = t0; t < t1; t += seg) {
       const dur = Math.min(seg, t1 - t) - 15;
-      for (const p of v) out.push({ pitch: p, tick: t, duration: Math.max(60, dur), velocity: velocityFor(c, 70 + (rising ? 10 : 0), t), ...(articulation ? { articulation } : {}) });
+      for (const p of v)
+        out.push({
+          pitch: p,
+          tick: t,
+          duration: Math.max(60, dur),
+          velocity: velocityFor(c, 70 + (rising ? 10 : 0), t),
+          ...(articulation ? { articulation } : {}),
+        });
     }
   }
   return out;
 }
 
 export function generateChordal(c: Cell): RawNote[] {
-  const pad = c.fn === 'pad' || c.fn === 'texture' || c.fn === 'harmony' || c.track.role === 'synth-pad' || c.inst.family === 'brass' || c.inst.id === 'string-ensemble' && c.fn !== 'accompaniment';
-  const notes = pad && c.inst.id !== 'harp' && c.inst.id !== 'marimba' && c.inst.id !== 'piano' && c.inst.id !== 'electric-piano' ? padChords(c) : keysAccompaniment(c);
+  const pad =
+    c.fn === 'pad' ||
+    c.fn === 'texture' ||
+    c.fn === 'harmony' ||
+    c.track.role === 'synth-pad' ||
+    c.inst.family === 'brass' ||
+    (c.inst.id === 'string-ensemble' && c.fn !== 'accompaniment');
+  const notes =
+    pad &&
+    c.inst.id !== 'harp' &&
+    c.inst.id !== 'marimba' &&
+    c.inst.id !== 'piano' &&
+    c.inst.id !== 'electric-piano'
+      ? padChords(c)
+      : keysAccompaniment(c);
   if (c.inst.id === 'pizzicato-strings') {
     for (const n of notes) {
       n.articulation = 'pizzicato';
       n.duration = Math.min(n.duration, PPQ / 2);
     }
   }
-  humanize(notes, c.macros.humanization * (c.inst.family === 'synth' ? 0.2 : 0.8), c.vrng.fork('humanize'), { start: c.span.startTick, end: c.span.endTick, maxTicks: 8, maxVelocity: 7 });
+  humanize(notes, c.macros.humanization * (c.inst.family === 'synth' ? 0.2 : 0.8), c.vrng.fork('humanize'), {
+    start: c.span.startTick,
+    end: c.span.endTick,
+    maxTicks: 8,
+    maxVelocity: 7,
+  });
   return notes;
 }

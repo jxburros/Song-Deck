@@ -5,15 +5,24 @@ import { expect, type Page } from '@playwright/test';
  * shows the AttestationDialog before the audio is used.
  */
 
-export type BasisLabel = 'I made this / I own the rights' | 'I have a licence or written permission' | 'Public domain or open licence' | 'Personal study only, not for release';
+export type BasisLabel =
+  | 'I made this / I own the rights'
+  | 'I have a licence or written permission'
+  | 'Public domain or open licence'
+  | 'Personal study only, not for release';
 
 /** Attest the pending upload (default: own work) and wait for the dialog to close. */
-export async function attestUpload(page: Page, opts: { basis?: BasisLabel; licence?: string; attestedBy?: string; expectWarning?: RegExp | string } = {}): Promise<void> {
+export async function attestUpload(
+  page: Page,
+  opts: { basis?: BasisLabel; licence?: string; attestedBy?: string; expectWarning?: RegExp | string } = {},
+): Promise<void> {
   const dialog = page.getByTestId('attestation-dialog');
   await expect(dialog).toBeVisible({ timeout: 30_000 });
-  if (opts.expectWarning) await expect(dialog.getByTestId('attestation-warning').first()).toContainText(opts.expectWarning);
+  if (opts.expectWarning)
+    await expect(dialog.getByTestId('attestation-warning').first()).toContainText(opts.expectWarning);
   await dialog.getByRole('radio', { name: opts.basis ?? 'I made this / I own the rights' }).check();
-  if (opts.attestedBy !== undefined) await dialog.getByRole('textbox', { name: 'Attested by' }).fill(opts.attestedBy);
+  if (opts.attestedBy !== undefined)
+    await dialog.getByRole('textbox', { name: 'Attested by' }).fill(opts.attestedBy);
   if (opts.licence !== undefined) await dialog.getByRole('textbox', { name: 'Licence' }).fill(opts.licence);
   await page.getByTestId('attest-confirm').click();
   await expect(dialog).toBeHidden();

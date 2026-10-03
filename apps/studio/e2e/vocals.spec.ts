@@ -14,7 +14,13 @@ const SHOTS = '/tmp/claude-0';
 mkdirSync(SHOTS, { recursive: true });
 
 test.use({
-  launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] },
+  launchOptions: {
+    args: [
+      '--use-fake-ui-for-media-stream',
+      '--use-fake-device-for-media-stream',
+      '--autoplay-policy=no-user-gesture-required',
+    ],
+  },
   permissions: ['microphone'],
 });
 test.describe.configure({ timeout: 480_000 });
@@ -25,10 +31,14 @@ async function composeSong(page: Page) {
 }
 
 async function lastTaskSucceeded(page: Page, scope = page.getByTestId('vocals-mode')) {
-  await expect(scope.getByTestId('vocal-task').last()).toHaveAttribute('data-status', 'succeeded', { timeout: 150_000 });
+  await expect(scope.getByTestId('vocal-task').last()).toHaveAttribute('data-status', 'succeeded', {
+    timeout: 150_000,
+  });
 }
 
-test('vocals: lyrics, alignment, singing render, phrase & section regeneration, consent, takes', async ({ page }) => {
+test('vocals: lyrics, alignment, singing render, phrase & section regeneration, consent, takes', async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
@@ -39,7 +49,10 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   await expect(page.getByRole('heading', { name: 'Vocals', exact: true })).toBeVisible();
   const modes = page.getByRole('radiogroup', { name: 'Vocal mode' });
   await expect(modes.getByRole('radio')).toHaveCount(6);
-  await expect(modes.getByRole('radio', { name: /Vocal melody only/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(modes.getByRole('radio', { name: /Vocal melody only/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   await page.screenshot({ path: `${SHOTS}/vocals-overview.png` });
 
   // ---- Lyrics: placeholder lyrics, live syllable counts, alignment (§33-§35, §48) ----------
@@ -49,7 +62,11 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   const verse = page.getByLabel('Lyrics for Verse 1');
   await expect(verse).not.toHaveValue('');
   // Placeholder lines are fitted to the phrases: one syllable per note.
-  const firstCount = page.getByTestId('lyric-section').filter({ hasText: 'Verse 1' }).getByTestId('syllable-count').first();
+  const firstCount = page
+    .getByTestId('lyric-section')
+    .filter({ hasText: 'Verse 1' })
+    .getByTestId('syllable-count')
+    .first();
   await expect(firstCount).toContainText('✓');
   // Live syllable count while typing: shorten line 1 to two syllables.
   await verse.focus();
@@ -65,10 +82,15 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   await expect(page.getByTestId('alignment-report')).toContainText('Syllables');
   // Fit the melody's rhythm to the lyrics (a proposal): the line's notes are merged to two.
   await page.getByRole('button', { name: 'Fit melody rhythm to lyrics' }).click();
-  const fit = page.getByTestId('vocal-proposal').filter({ hasText: 'Fit the vocal rhythm to the lyrics' }).first();
+  const fit = page
+    .getByTestId('vocal-proposal')
+    .filter({ hasText: 'Fit the vocal rhythm to the lyrics' })
+    .first();
   await expect(fit).toBeVisible();
   await fit.getByRole('button', { name: 'Accept proposal' }).click();
-  await expect(page.getByTestId('vocal-proposal').filter({ hasText: 'Fit the vocal rhythm to the lyrics' })).toHaveCount(0);
+  await expect(
+    page.getByTestId('vocal-proposal').filter({ hasText: 'Fit the vocal rhythm to the lyrics' }),
+  ).toHaveCount(0);
   await expect(firstCount).toContainText('2/2');
   await expect(page.getByTestId('lyric-validation')).toContainText('lyrics align with the vocal events');
   await page.screenshot({ path: `${SHOTS}/vocals-lyrics.png` });
@@ -84,7 +106,10 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   await expect(current).toContainText('vocal.mid v');
   await expect(current).toContainText('lyrics.txt v');
   await expect(page.getByTestId('vocal-summary')).toContainText('lead_vocal-v1.wav');
-  await expect(modes.getByRole('radio', { name: /Placeholder vocal/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(modes.getByRole('radio', { name: /Placeholder vocal/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   await page.screenshot({ path: `${SHOTS}/vocals-render.png` });
 
   // ---- §35 expression support is shown for the chosen singer --------------------------------
@@ -117,10 +142,18 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   await expect(page.getByTestId('current-render')).toContainText('In sync');
   await page.screenshot({ path: `${SHOTS}/vocals-render-history.png` });
   // Going back to the first render: it predates both edits, so they show as out of date.
-  await page.getByTestId('render-row').filter({ hasText: 'lead_vocal-v1.wav' }).getByRole('button', { name: 'Use' }).click();
+  await page
+    .getByTestId('render-row')
+    .filter({ hasText: 'lead_vocal-v1.wav' })
+    .getByRole('button', { name: 'Use' })
+    .click();
   await expect(page.getByTestId('current-render')).toContainText('lead_vocal-v1.wav');
   await expect(page.getByTestId('stale-render')).toContainText('Chorus 2');
-  await page.getByTestId('render-row').filter({ hasText: 'lead_vocal-v3.wav' }).getByRole('button', { name: 'Use' }).click();
+  await page
+    .getByTestId('render-row')
+    .filter({ hasText: 'lead_vocal-v3.wav' })
+    .getByRole('button', { name: 'Use' })
+    .click();
   await expect(page.getByTestId('current-render')).toContainText('In sync');
 
   // The render is an ordinary audio track in Mix & Master.
@@ -134,7 +167,9 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   await page.getByLabel('Voice name').fill('Jamie demo');
   await page.getByLabel('Voice kind').selectOption('imported');
   await page.getByRole('button', { name: 'Save without authorization' }).click();
-  await expect(page.getByTestId('voice-row').filter({ hasText: 'Jamie demo' })).toContainText('Consent required');
+  await expect(page.getByTestId('voice-row').filter({ hasText: 'Jamie demo' })).toContainText(
+    'Consent required',
+  );
 
   await page.getByRole('tab', { name: 'Conversion' }).click();
   await expect(page.getByTestId('conversion-target')).toContainText('Jamie demo');
@@ -168,7 +203,9 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   await page.getByRole('tab', { name: 'Conversion' }).click();
   await expect(page.getByTestId('conversion-target')).toContainText('Authorized');
   await page.getByRole('button', { name: 'Render & convert' }).click();
-  await expect(page.getByTestId('conversion-error')).toContainText('No voice-conversion provider is configured');
+  await expect(page.getByTestId('conversion-error')).toContainText(
+    'No voice-conversion provider is configured',
+  );
   await page.screenshot({ path: `${SHOTS}/vocals-voices.png` });
 
   // ---- Recorded vocal (§33): a take with the fake microphone ---------------------------------
@@ -186,7 +223,9 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
-test('vocals: per-section melody, phrase expression, voices, vocal-mode monitoring and take transcription', async ({ page }) => {
+test('vocals: per-section melody, phrase expression, voices, vocal-mode monitoring and take transcription', async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
@@ -222,7 +261,11 @@ test('vocals: per-section melody, phrase expression, voices, vocal-mode monitori
 
   // Another stock voice → the render says it must be rendered again.
   await page.getByRole('tab', { name: 'Voices' }).click();
-  await page.getByTestId('voice-row').filter({ hasText: 'Baritone — deep' }).getByRole('button', { name: 'Sing with this' }).click();
+  await page
+    .getByTestId('voice-row')
+    .filter({ hasText: 'Baritone — deep' })
+    .getByRole('button', { name: 'Sing with this' })
+    .click();
   await page.getByRole('tab', { name: 'Render' }).click();
   await expect(page.getByTestId('current-render')).toContainText('render again');
 
@@ -230,12 +273,21 @@ test('vocals: per-section melody, phrase expression, voices, vocal-mode monitori
   await modes.getByRole('radio', { name: /No vocal/ }).click();
   await expect(modes.getByRole('radio', { name: /No vocal/ })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('button', { name: 'Mix & Master' }).click();
-  await expect(page.getByRole('button', { name: 'Mute Lead Vocal (render)' }).first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Mute Lead Vocal (render)' }).first()).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await page.getByRole('button', { name: 'Vocals', exact: true }).click();
   await modes.getByRole('radio', { name: /AI singer/ }).click();
   await page.getByRole('button', { name: 'Mix & Master' }).click();
-  await expect(page.getByRole('button', { name: 'Mute Lead Vocal (render)' }).first()).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.getByRole('button', { name: 'Mute Lead Vocal', exact: true }).first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Mute Lead Vocal (render)' }).first()).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  await expect(page.getByRole('button', { name: 'Mute Lead Vocal', exact: true }).first()).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await page.getByRole('button', { name: 'Vocals', exact: true }).click();
 
   // Recorded vocal: a take, then transcribe it back into the vocal MIDI (a proposal).
@@ -248,9 +300,12 @@ test('vocals: per-section melody, phrase expression, voices, vocal-mode monitori
   const take = page.getByTestId('vocal-take').first();
   await expect(take).toContainText('active', { timeout: 30_000 });
   await take.getByRole('button', { name: 'Transcribe to vocal MIDI' }).click();
-  await expect(page.getByTestId('recording-panel').getByTestId('vocal-task').last()).toHaveAttribute('data-status', 'succeeded', { timeout: 120_000 });
+  await expect(page.getByTestId('recording-panel').getByTestId('vocal-task').last()).toHaveAttribute(
+    'data-status',
+    'succeeded',
+    { timeout: 120_000 },
+  );
   await page.screenshot({ path: `${SHOTS}/vocals-transcribe.png` });
 
   expect(errors, errors.join('\n')).toEqual([]);
 });
-

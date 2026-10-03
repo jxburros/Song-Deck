@@ -22,33 +22,108 @@ import { sectionLayout, tickToBar, songLengthBars, type SectionSpan } from '../t
 // ---------------------------------------------------------------------------
 
 export const TRACK_ROLES: readonly TrackRole[] = [
-  'drums', 'percussion', 'bass', 'rhythm-guitar', 'lead-guitar', 'keys', 'strings', 'synth-pad', 'synth-arp', 'synth-lead', 'synth-seq', 'vocal', 'custom',
+  'drums',
+  'percussion',
+  'bass',
+  'rhythm-guitar',
+  'lead-guitar',
+  'keys',
+  'strings',
+  'synth-pad',
+  'synth-arp',
+  'synth-lead',
+  'synth-seq',
+  'vocal',
+  'custom',
 ];
 
 export const SECTION_KINDS: readonly SectionKind[] = [
-  'intro', 'verse', 'pre-chorus', 'chorus', 'post-chorus', 'bridge', 'breakdown', 'build', 'drop', 'solo', 'interlude', 'final-chorus', 'outro', 'custom',
+  'intro',
+  'verse',
+  'pre-chorus',
+  'chorus',
+  'post-chorus',
+  'bridge',
+  'breakdown',
+  'build',
+  'drop',
+  'solo',
+  'interlude',
+  'final-chorus',
+  'outro',
+  'custom',
 ];
 
 export const SECTION_FEELS: readonly SectionFeel[] = ['normal', 'half-time', 'double-time'];
 
 export const ARTICULATIONS: readonly Articulation[] = [
-  'normal', 'staccato', 'legato', 'accent', 'marcato', 'tenuto', 'palm-mute', 'pizzicato', 'tremolo', 'ghost', 'slide', 'bend', 'harmonic', 'dead',
+  'normal',
+  'staccato',
+  'legato',
+  'accent',
+  'marcato',
+  'tenuto',
+  'palm-mute',
+  'pizzicato',
+  'tremolo',
+  'ghost',
+  'slide',
+  'bend',
+  'harmonic',
+  'dead',
 ];
 
 export const MUSICAL_FUNCTIONS: readonly MusicalFunction[] = [
-  'melody', 'counter-melody', 'harmony', 'accompaniment', 'bass-line', 'rhythm', 'pad', 'hook', 'fills', 'solo', 'texture',
+  'melody',
+  'counter-melody',
+  'harmony',
+  'accompaniment',
+  'bass-line',
+  'rhythm',
+  'pad',
+  'hook',
+  'fills',
+  'solo',
+  'texture',
 ];
 
 export const MODE_NAMES: readonly ModeName[] = [
-  'major', 'minor', 'dorian', 'phrygian', 'lydian', 'mixolydian', 'locrian', 'harmonic-minor', 'melodic-minor',
+  'major',
+  'minor',
+  'dorian',
+  'phrygian',
+  'lydian',
+  'mixolydian',
+  'locrian',
+  'harmonic-minor',
+  'melodic-minor',
 ];
 
 export const AUTOMATION_PARAMS: readonly AutomationParam[] = [
-  'volumeDb', 'pan', 'reverbSend', 'delaySend', 'width', 'drive', 'eq.lowShelfDb', 'eq.lowMidDb', 'eq.highMidDb', 'eq.highShelfDb', 'eq.lowpassHz', 'eq.highpassHz',
+  'volumeDb',
+  'pan',
+  'reverbSend',
+  'delaySend',
+  'width',
+  'drive',
+  'eq.lowShelfDb',
+  'eq.lowMidDb',
+  'eq.highMidDb',
+  'eq.highShelfDb',
+  'eq.lowpassHz',
+  'eq.highpassHz',
 ];
 
 export const MACRO_KEYS: readonly (keyof MacroSettings)[] = [
-  'complexity', 'energy', 'density', 'humanization', 'melodicMovement', 'harmonicTension', 'repetition', 'syncopation', 'dynamics',
+  'complexity',
+  'energy',
+  'density',
+  'humanization',
+  'melodicMovement',
+  'harmonicTension',
+  'repetition',
+  'syncopation',
+  'dynamics',
 ];
 
 export const VALID_DENOMINATORS = [1, 2, 4, 8, 16, 32] as const;

@@ -53,7 +53,10 @@ export function tapsToTranscription(taps: number[], o: TapOptions): Transcriptio
   const last = notes.reduce((m, n) => Math.max(m, n.tick + n.duration), 0);
   const conf = notes.length ? notes.reduce((a, n) => a + (n.confidence ?? 1), 0) / notes.length : 0;
   const warnings: string[] = [];
-  if (notes.length < taps.length) warnings.push(`${taps.length - notes.length} tap(s) landed on the same grid position and were merged — try a finer grid.`);
+  if (notes.length < taps.length)
+    warnings.push(
+      `${taps.length - notes.length} tap(s) landed on the same grid position and were merged — try a finer grid.`,
+    );
   return {
     notes,
     drums: o.drums,

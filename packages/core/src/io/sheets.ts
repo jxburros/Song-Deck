@@ -1,5 +1,14 @@
 import type { ChordEvent, Note, Song } from '../ir/types';
-import { barLengthTicks, barToTick, bpmAtTick, chordAtTick, keyAtBar, meterAtBar, sectionLayout, ticksPerBeat } from '../timing';
+import {
+  barLengthTicks,
+  barToTick,
+  bpmAtTick,
+  chordAtTick,
+  keyAtBar,
+  meterAtBar,
+  sectionLayout,
+  ticksPerBeat,
+} from '../timing';
 import { keyName } from '../theory/scales';
 import { syllablesToWords } from '../edit/validate';
 import { leadTrack } from './util';
@@ -24,7 +33,9 @@ export function songToChordSheet(song: Song): string {
   lines.push('='.repeat(Math.max(3, title.length)));
   const firstKey = keyAtBar(song, 0);
   const meter = meterAtBar(song, 0);
-  lines.push(`Key: ${keyName(firstKey)} · Tempo: ${formatBpm(bpmAtTick(song, 0))} BPM · Time: ${meter.numerator}/${meter.denominator}`);
+  lines.push(
+    `Key: ${keyName(firstKey)} · Tempo: ${formatBpm(bpmAtTick(song, 0))} BPM · Time: ${meter.numerator}/${meter.denominator}`,
+  );
   lines.push('');
   let prevKey = firstKey;
   let prevMeter = `${meter.numerator}/${meter.denominator}`;
@@ -42,7 +53,9 @@ export function songToChordSheet(song: Song): string {
     prevKey = key;
     prevMeter = `${m.numerator}/${m.denominator}`;
     prevBpm = bpm;
-    lines.push(`[${span.section.name}] (${bars} bar${bars === 1 ? '' : 's'})${notes.length ? ` — ${notes.join(', ')}` : ''}`);
+    lines.push(
+      `[${span.section.name}] (${bars} bar${bars === 1 ? '' : 's'})${notes.length ? ` — ${notes.join(', ')}` : ''}`,
+    );
     // Build slot grids: one slot per beat.
     const barCells: { symbols: string[]; romans: string[] }[] = [];
     let width = 1;
@@ -55,12 +68,16 @@ export function songToChordSheet(song: Song): string {
       const romans: string[] = [];
       for (let k = 0; k < slots; k++) {
         const a = start + k * beat;
-        const starting = song.chords.filter((c) => c.tick >= a && c.tick < a + beat).sort((x, y) => x.tick - y.tick);
+        const starting = song.chords
+          .filter((c) => c.tick >= a && c.tick < a + beat)
+          .sort((x, y) => x.tick - y.tick);
         let chord: ChordEvent | undefined = starting[0];
         if (!chord && k === 0) chord = chordAtTick(song, a);
         if (chord) {
           symbols.push(starting.length > 1 ? starting.map((c) => c.symbol).join(' ') : chord.symbol);
-          romans.push(starting.length > 1 ? starting.map((c) => c.roman ?? '').join(' ') : (chord.roman ?? ''));
+          romans.push(
+            starting.length > 1 ? starting.map((c) => c.roman ?? '').join(' ') : (chord.roman ?? ''),
+          );
         } else {
           symbols.push(k === 0 ? 'N.C.' : '.');
           romans.push('');
@@ -72,7 +89,8 @@ export function songToChordSheet(song: Song): string {
     }
     for (let i = 0; i < barCells.length; i += BARS_PER_LINE) {
       const group = barCells.slice(i, i + BARS_PER_LINE);
-      const chordLine = group.map((b) => `| ${b.symbols.map((s) => s.padEnd(width)).join(' ')} `).join('') + '|';
+      const chordLine =
+        group.map((b) => `| ${b.symbols.map((s) => s.padEnd(width)).join(' ')} `).join('') + '|';
       const romanLine = group.map((b) => `  ${b.romans.map((s) => s.padEnd(width)).join(' ')} `).join('');
       lines.push(chordLine);
       if (romanLine.trim()) lines.push(romanLine.replace(/\s+$/, ''));
@@ -102,7 +120,8 @@ export function lyricLinesBySection(song: Song): Map<string, string[]> {
     let prevEnd = -Infinity;
     let prevLine: string | undefined;
     for (const n of notes) {
-      const newLine = cur.length && ((n.lyricLineId ?? null) !== (prevLine ?? null) || n.tick - prevEnd >= 2 * song.ppq);
+      const newLine =
+        cur.length && ((n.lyricLineId ?? null) !== (prevLine ?? null) || n.tick - prevEnd >= 2 * song.ppq);
       if (newLine) {
         groups.push(cur);
         cur = [];

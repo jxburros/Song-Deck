@@ -8,7 +8,17 @@
 // Usage: node scripts/release/check.mjs [v1.2.3 | 1.2.3] [--github-output]
 // --github-output appends version, tag and prerelease to $GITHUB_OUTPUT (GitHub Actions).
 import { appendFileSync } from 'node:fs';
-import { changelogSection, DEPENDENCY_FIELDS, fail, isPrerelease, manifests, parseVersion, readJson, tagFor, workspaceNames } from './lib.mjs';
+import {
+  changelogSection,
+  DEPENDENCY_FIELDS,
+  fail,
+  isPrerelease,
+  manifests,
+  parseVersion,
+  readJson,
+  tagFor,
+  workspaceNames,
+} from './lib.mjs';
 
 const args = process.argv.slice(2);
 const githubOutput = args.includes('--github-output');
@@ -23,7 +33,9 @@ if (requested !== undefined) {
   const want = parseVersion(requested);
   if (!want) fail(`"${requested}" is not a version or a v-prefixed version tag`);
   if (want !== version) {
-    fail(`${requested} does not match the package version ${version}. Run "node scripts/release/bump.mjs ${want}" and commit first.`);
+    fail(
+      `${requested} does not match the package version ${version}. Run "node scripts/release/bump.mjs ${want}" and commit first.`,
+    );
   }
 }
 
@@ -32,17 +44,22 @@ for (const { file, pkg } of all) {
   if (pkg.version !== version) problems.push(`${file}: version is ${pkg.version}, expected ${version}`);
   for (const field of DEPENDENCY_FIELDS) {
     for (const [dep, range] of Object.entries(pkg[field] ?? {})) {
-      if (names.has(dep) && range !== version) problems.push(`${file}: ${field}.${dep} is "${range}", expected "${version}"`);
+      if (names.has(dep) && range !== version)
+        problems.push(`${file}: ${field}.${dep} is "${range}", expected "${version}"`);
     }
   }
 }
 
 const lock = readJson('package-lock.json');
-if (lock.version !== version) problems.push(`package-lock.json: version is ${lock.version}, expected ${version}`);
+if (lock.version !== version)
+  problems.push(`package-lock.json: version is ${lock.version}, expected ${version}`);
 for (const { dir } of all) {
   const entry = lock.packages?.[dir === '.' ? '' : dir];
   if (!entry) problems.push(`package-lock.json: no entry for ${dir} (run npm install)`);
-  else if (entry.version !== version) problems.push(`package-lock.json: ${dir || '.'} is ${entry.version}, expected ${version} (run npm install)`);
+  else if (entry.version !== version)
+    problems.push(
+      `package-lock.json: ${dir || '.'} is ${entry.version}, expected ${version} (run npm install)`,
+    );
 }
 
 const section = changelogSection(version);
@@ -57,4 +74,6 @@ if (githubOutput) {
   if (!process.env.GITHUB_OUTPUT) fail('--github-output needs $GITHUB_OUTPUT');
   appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\ntag=${tag}\nprerelease=${prerelease}\n`);
 }
-console.log(`Release ${version} (tag ${tag}${prerelease ? ', pre-release' : ''}) is consistent across ${all.length} packages and CHANGELOG.md.`);
+console.log(
+  `Release ${version} (tag ${tag}${prerelease ? ', pre-release' : ''}) is consistent across ${all.length} packages and CHANGELOG.md.`,
+);

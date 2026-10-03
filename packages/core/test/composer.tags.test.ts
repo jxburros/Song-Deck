@@ -23,7 +23,12 @@ import { packProject, unpackProject } from '../src/project';
 import { defaultMacros } from '../src/ir/defaults';
 import type { Blueprint, GenreProfile, Song } from '../src/ir/types';
 
-const norm = (s: string) => s.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 const withoutTags = (g: GenreProfile) => JSON.stringify({ ...g, tags: undefined });
 
 describe('tag catalog', () => {
@@ -31,7 +36,8 @@ describe('tag catalog', () => {
     expect(BUILTIN_TAGS.length).toBeGreaterThanOrEqual(400);
     expect(listTags('style').length).toBeGreaterThanOrEqual(250);
     expect(listTags('mood').length).toBeGreaterThanOrEqual(60);
-    for (const kind of ['era', 'production', 'vocal', 'region', 'rhythm'] as const) expect(listTags(kind).length, kind).toBeGreaterThanOrEqual(10);
+    for (const kind of ['era', 'production', 'vocal', 'region', 'rhythm'] as const)
+      expect(listTags(kind).length, kind).toBeGreaterThanOrEqual(10);
     const ids = BUILTIN_TAGS.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) expect(id).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
@@ -43,7 +49,8 @@ describe('tag catalog', () => {
   });
 
   it('keeps the ids the Compose builder relies on', () => {
-    for (const id of ['warm', 'lo-fi', 'melancholy', 'cathartic', 'dreamy', 'epic', 'chill']) expect(getTag(id)?.id).toBe(id);
+    for (const id of ['warm', 'lo-fi', 'melancholy', 'cathartic', 'dreamy', 'epic', 'chill'])
+      expect(getTag(id)?.id).toBe(id);
   });
 
   it('names, aliases and ids never collide between tags', () => {
@@ -65,8 +72,10 @@ describe('tag catalog', () => {
         expect(getGenre(p.genreId)?.id, `${t.id} → ${p.genreId}`).toBe(p.genreId);
         expect(p.weight).toBeGreaterThan(0);
       }
-      for (const a of t.effect.instruments?.add ?? []) expect(getInstrument(a.instrumentId).id, `${t.id} → ${a.instrumentId}`).toBe(a.instrumentId);
-      for (const r of t.effect.instruments?.remove ?? []) expect(getInstrument(r).id, `${t.id} removes ${r}`).toBe(r);
+      for (const a of t.effect.instruments?.add ?? [])
+        expect(getInstrument(a.instrumentId).id, `${t.id} → ${a.instrumentId}`).toBe(a.instrumentId);
+      for (const r of t.effect.instruments?.remove ?? [])
+        expect(getInstrument(r).id, `${t.id} removes ${r}`).toBe(r);
     }
   });
 
@@ -76,7 +85,16 @@ describe('tag catalog', () => {
     const macros = defaultMacros();
     for (const t of BUILTIN_TAGS) {
       const e = t.effect;
-      const musical = Boolean(e.tempo || e.modes?.length || e.meters?.length || e.rhythm || e.harmony || e.instruments || e.macros || e.energyShift);
+      const musical = Boolean(
+        e.tempo ||
+        e.modes?.length ||
+        e.meters?.length ||
+        e.rhythm ||
+        e.harmony ||
+        e.instruments ||
+        e.macros ||
+        e.energyShift,
+      );
       expect(musical, `${t.id} only changes production keywords`).toBe(true);
       const genreChanged = withoutTags(applyTagsToGenre(pop, [t.id])) !== base;
       const macrosChanged = JSON.stringify(applyTagsToMacros(macros, [t.id])) !== JSON.stringify(macros);
@@ -85,7 +103,9 @@ describe('tag catalog', () => {
   });
 
   it('finds tags in free text, longest names first, and resolves aliases', () => {
-    const ids = findTags('A warm lo-fi soul song with midwest emo guitars, half-time drums and a dreamy chorus').map((t) => t.id);
+    const ids = findTags(
+      'A warm lo-fi soul song with midwest emo guitars, half-time drums and a dreamy chorus',
+    ).map((t) => t.id);
     expect(ids).toEqual(expect.arrayContaining(['warm', 'lo-fi', 'midwest-emo', 'half-time', 'dreamy']));
     expect(ids).not.toContain('emo');
     expect(getTag('lofi')?.id).toBe('lo-fi');
@@ -114,7 +134,13 @@ describe('tag catalog', () => {
     const base = defaultBlueprint({ genreBlend: [{ genreId: 'pop', weight: 1 }], seed: 3 });
     const bp: Blueprint = { ...base, structure: base.structure.slice(0, 4) };
     const musical = (s: Song) =>
-      JSON.stringify({ tempo: s.tempoMap, meter: s.meterMap, key: s.keyMap, chords: s.chords.map((c) => c.symbol), notes: s.tracks.map((t) => t.notes.map((n) => [n.pitch, n.tick, n.duration, n.velocity])) });
+      JSON.stringify({
+        tempo: s.tempoMap,
+        meter: s.meterMap,
+        key: s.keyMap,
+        chords: s.chords.map((c) => c.symbol),
+        notes: s.tracks.map((t) => t.notes.map((n) => [n.pitch, n.tick, n.duration, n.velocity])),
+      });
     const plain = musical(composeSong(bp, undefined, { seed: 3 }));
     for (const t of BUILTIN_TAGS) {
       const tagged = composeSong({ ...bp, tags: [t.id] }, undefined, { seed: 3 });
@@ -124,7 +150,11 @@ describe('tag catalog', () => {
   });
 
   it('tags shape generation, survive regeneration, variations and .songproject round-trips; macros stay the user base', () => {
-    const bp = defaultBlueprint({ genreBlend: [{ genreId: 'pop', weight: 1 }], tags: ['one-drop-test'].concat(['dancehall', 'aggressive']), seed: 4 });
+    const bp = defaultBlueprint({
+      genreBlend: [{ genreId: 'pop', weight: 1 }],
+      tags: ['one-drop-test'].concat(['dancehall', 'aggressive']),
+      seed: 4,
+    });
     expect(bp.tags).toEqual(['dancehall', 'aggressive']);
     const song = composeSong(bp, undefined, { seed: 4 });
     expect(song.tags).toEqual(['dancehall', 'aggressive']);

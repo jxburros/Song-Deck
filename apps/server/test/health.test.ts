@@ -15,8 +15,25 @@ describe('health & routing', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toMatch(/application\/json/);
     const body = await json(res);
-    expect(body).toMatchObject({ name: 'songdeck-server', version: SERVER_VERSION, vault: { backend: 'memory' }, dataDir: srv.dataDir, auth: { required: false } });
-    expect(body.features).toEqual(expect.arrayContaining(['vault', 'proxy', 'providers', 'hardware', 'models', 'collab', 'plugins', 'projects']));
+    expect(body).toMatchObject({
+      name: 'songdeck-server',
+      version: SERVER_VERSION,
+      vault: { backend: 'memory' },
+      dataDir: srv.dataDir,
+      auth: { required: false },
+    });
+    expect(body.features).toEqual(
+      expect.arrayContaining([
+        'vault',
+        'proxy',
+        'providers',
+        'hardware',
+        'models',
+        'collab',
+        'plugins',
+        'projects',
+      ]),
+    );
   });
 
   it('answers unknown routes with a uniform JSON 404 and wrong methods with 405', async () => {
@@ -35,10 +52,18 @@ describe('health & routing', () => {
 
   it('rejects invalid JSON and oversized bodies', async () => {
     srv = await startServer({ limits: { jsonBytes: 1024 } });
-    const bad = await fetch(`${srv.url}/api/vault/x`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: '{nope' });
+    const bad = await fetch(`${srv.url}/api/vault/x`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: '{nope',
+    });
     expect(bad.status).toBe(400);
     expect((await json(bad)).code).toBe('invalid-json');
-    const big = await fetch(`${srv.url}/api/vault/x`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret: 'x'.repeat(5000) }) });
+    const big = await fetch(`${srv.url}/api/vault/x`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ secret: 'x'.repeat(5000) }),
+    });
     expect(big.status).toBe(413);
     expect((await json(big)).code).toBe('payload-too-large');
   });
@@ -49,7 +74,11 @@ describe('CORS', () => {
     srv = await startServer();
     const res = await rawRequest(`${srv.url}/api/vault/provider%3Aopenai`, {
       method: 'OPTIONS',
-      headers: { origin: 'http://localhost:5173', 'access-control-request-method': 'PUT', 'access-control-request-headers': 'content-type, authorization' },
+      headers: {
+        origin: 'http://localhost:5173',
+        'access-control-request-method': 'PUT',
+        'access-control-request-headers': 'content-type, authorization',
+      },
     });
     expect(res.status).toBe(204);
     expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5173');
@@ -68,7 +97,10 @@ describe('CORS', () => {
 
   it('rejects other origins, including their preflights', async () => {
     srv = await startServer();
-    const pre = await rawRequest(`${srv.url}/api/vault`, { method: 'OPTIONS', headers: { origin: 'https://evil.example', 'access-control-request-method': 'GET' } });
+    const pre = await rawRequest(`${srv.url}/api/vault`, {
+      method: 'OPTIONS',
+      headers: { origin: 'https://evil.example', 'access-control-request-method': 'GET' },
+    });
     expect(pre.status).toBe(403);
     expect(pre.headers['access-control-allow-origin']).toBeUndefined();
     const get = await rawRequest(`${srv.url}/api/vault`, { headers: { origin: 'https://evil.example' } });
@@ -80,7 +112,9 @@ describe('CORS', () => {
     srv = await startServer({ allowOrigins: ['https://studio.example'] });
     const same = await rawRequest(`${srv.url}/api/health`, { headers: { origin: srv.url } });
     expect(same.status).toBe(200);
-    const custom = await rawRequest(`${srv.url}/api/health`, { headers: { origin: 'https://studio.example' } });
+    const custom = await rawRequest(`${srv.url}/api/health`, {
+      headers: { origin: 'https://studio.example' },
+    });
     expect(custom.headers['access-control-allow-origin']).toBe('https://studio.example');
     const dflt = await rawRequest(`${srv.url}/api/health`, { headers: { origin: 'http://localhost:5173' } });
     expect(dflt.status).toBe(403);
@@ -112,7 +146,9 @@ describe('token auth', () => {
     expect(ok.status).toBe(200);
     const query = await fetch(`${srv.url}/api/vault?access_token=let-me-in`);
     expect(query.status).toBe(200);
-    const healthAuthed = await json(await fetch(`${srv.url}/api/health`, { headers: { authorization: 'Bearer let-me-in' } }));
+    const healthAuthed = await json(
+      await fetch(`${srv.url}/api/health`, { headers: { authorization: 'Bearer let-me-in' } }),
+    );
     expect(healthAuthed.dataDir).toBe(srv.dataDir);
   });
 

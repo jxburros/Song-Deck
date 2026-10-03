@@ -11,7 +11,10 @@ function frames(buf: AudioData): number {
 }
 
 function emptyLike(sampleRate: number, n: number, nch: number): AudioData {
-  return { sampleRate, channels: Array.from({ length: Math.max(1, nch) }, () => new Float32Array(Math.max(0, n))) };
+  return {
+    sampleRate,
+    channels: Array.from({ length: Math.max(1, nch) }, () => new Float32Array(Math.max(0, n))),
+  };
 }
 
 function clone(buf: AudioData): AudioData {
@@ -166,7 +169,11 @@ export function toMono(buf: AudioData): AudioData {
 }
 
 export function toStereo(buf: AudioData): AudioData {
-  if (buf.channels.length >= 2) return { sampleRate: buf.sampleRate, channels: [new Float32Array(buf.channels[0]), new Float32Array(buf.channels[1])] };
+  if (buf.channels.length >= 2)
+    return {
+      sampleRate: buf.sampleRate,
+      channels: [new Float32Array(buf.channels[0]), new Float32Array(buf.channels[1])],
+    };
   const src = buf.channels[0] ?? new Float32Array(0);
   return { sampleRate: buf.sampleRate, channels: [new Float32Array(src), new Float32Array(src)] };
 }
@@ -180,7 +187,10 @@ function conform(buf: AudioData, sampleRate: number, nch: number): AudioData {
 
 export function gainAudio(buf: AudioData, db: number): AudioData {
   const g = dbToGain(db);
-  return { sampleRate: buf.sampleRate, channels: buf.channels.map((c) => Float32Array.from(c, (v) => v * g)) };
+  return {
+    sampleRate: buf.sampleRate,
+    channels: buf.channels.map((c) => Float32Array.from(c, (v) => v * g)),
+  };
 }
 
 /** Scale so that the sample peak equals `peakDb` dBFS (silence is returned unchanged). */
@@ -189,7 +199,10 @@ export function normalizePeak(buf: AudioData, peakDb = -1): AudioData {
   for (const ch of buf.channels) for (let i = 0; i < ch.length; i++) pk = Math.max(pk, Math.abs(ch[i]));
   if (pk <= 0) return clone(buf);
   const g = dbToGain(peakDb) / pk;
-  return { sampleRate: buf.sampleRate, channels: buf.channels.map((c) => Float32Array.from(c, (v) => v * g)) };
+  return {
+    sampleRate: buf.sampleRate,
+    channels: buf.channels.map((c) => Float32Array.from(c, (v) => v * g)),
+  };
 }
 
 /** Sum buffers (linear gains, default 1). Output: first buffer's rate, max channel count, max length. */
@@ -252,7 +265,12 @@ export function applyFades(buf: AudioData, inSec: number, outSec: number): Audio
  * crossfading `crossfadeSeconds` at both boundaries (the crossfades sit inside the inserted span).
  * The result is extended if the insert runs past the end of `base`.
  */
-export function spliceWithCrossfade(base: AudioData, insert: AudioData, atSeconds: number, crossfadeSeconds = 0.01): AudioData {
+export function spliceWithCrossfade(
+  base: AudioData,
+  insert: AudioData,
+  atSeconds: number,
+  crossfadeSeconds = 0.01,
+): AudioData {
   const sr = base.sampleRate;
   const nch = Math.max(1, Math.min(2, base.channels.length));
   const ins = conform(insert, sr, nch);

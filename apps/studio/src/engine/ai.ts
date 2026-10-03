@@ -78,7 +78,12 @@ export interface AiRuntimeState {
   events: (OrchestratorEvent & { at: string })[];
 }
 
-export const useAiRuntime = create<AiRuntimeState>(() => ({ version: 0, providers: [], transport: 'direct', events: [] }));
+export const useAiRuntime = create<AiRuntimeState>(() => ({
+  version: 0,
+  providers: [],
+  transport: 'direct',
+  events: [],
+}));
 
 /**
  * Secrets held by the browser when the server vault is not in use: encrypted at rest in IndexedDB
@@ -108,7 +113,11 @@ function currentTransport(): Transport {
 
 function bump() {
   const s = useAiRuntime.getState();
-  useAiRuntime.setState({ version: s.version + 1, providers: registry?.list() ?? [], transport: transportKind });
+  useAiRuntime.setState({
+    version: s.version + 1,
+    providers: registry?.list() ?? [],
+    transport: transportKind,
+  });
 }
 
 /** Sync provider configs (no secrets) to the local server: proxy allowlist, credential scope, managed gateway. */
@@ -130,7 +139,11 @@ function configureProviders() {
   const deps = { transport: currentTransport(), credentials: browserCredentials };
   // The managed "Automatic" gateway runs on the local server: an empty base URL means that server.
   const base = serverBase();
-  const providers = useSettings.getState().providers.map((p) => (p.adapter === 'managed' && !p.baseUrl?.trim() && base ? { ...p, baseUrl: base } : p));
+  const providers = useSettings
+    .getState()
+    .providers.map((p) =>
+      p.adapter === 'managed' && !p.baseUrl?.trim() && base ? { ...p, baseUrl: base } : p,
+    );
   const result = registry.configure(providers, deps);
   for (const e of result.errors) console.warn(`[ai] provider ${e.id}: ${e.error}`);
   bump();
@@ -139,7 +152,9 @@ function configureProviders() {
 
 export function initAi(): void {
   if (registry) return;
-  registry = new ProviderRegistry({ deps: { transport: currentTransport(), credentials: browserCredentials } });
+  registry = new ProviderRegistry({
+    deps: { transport: currentTransport(), credentials: browserCredentials },
+  });
   for (const p of createInternalProviders({
     song: () => useStudio.getState().project?.song ?? null,
     selection: () => useStudio.getState().selection,
@@ -147,7 +162,10 @@ export function initAi(): void {
   })) {
     registry.register(p);
   }
-  router = new CapabilityRouter(registry, { settings: routingSettings, profiles: () => useSettings.getState().customProfiles });
+  router = new CapabilityRouter(registry, {
+    settings: routingSettings,
+    profiles: () => useSettings.getState().customProfiles,
+  });
   budget = new BudgetManager(useSettings.getState().budget, {
     load: async () => (await kvGet('spend-ledger')) ?? [],
     save: async (entries) => kvSet('spend-ledger', entries),
@@ -185,7 +203,12 @@ export function initAi(): void {
   // Reconfigure when provider configs, routing, budgets or server connectivity change.
   let prev = useSettings.getState();
   useSettings.subscribe((s) => {
-    if (s.providers !== prev.providers || s.useServerProxy !== prev.useServerProxy || s.serverUrl !== prev.serverUrl) configureProviders();
+    if (
+      s.providers !== prev.providers ||
+      s.useServerProxy !== prev.useServerProxy ||
+      s.serverUrl !== prev.serverUrl
+    )
+      configureProviders();
     if (s.budget !== prev.budget) budget?.setLimits(s.budget);
     if (s.routing !== prev.routing || s.customProfiles !== prev.customProfiles) bump();
     prev = s;
@@ -249,7 +272,11 @@ function vaultInUse(): boolean {
   return useRuntime.getState().server.status === 'online' && useSettings.getState().useServerProxy;
 }
 
-export async function saveCredential(ref: string, secret: string, label?: string): Promise<'vault' | 'browser' | 'session'> {
+export async function saveCredential(
+  ref: string,
+  secret: string,
+  label?: string,
+): Promise<'vault' | 'browser' | 'session'> {
   if (vaultInUse()) {
     await new ServerVaultClient(serverBase()).setSecret(ref, secret, label);
     // One place per key: a copy left in the browser would outlive a vault deletion.
@@ -344,9 +371,12 @@ export function roleOptions(role: TaskRole): RoleOption[] {
   }
   out.push({ value: 'auto', label: `Auto (${routingSettings().mode}) → ${predicted}` });
   const internalId = INTERNAL_FOR_ROLE[role];
-  if (internalId && reg.has(internalId)) out.push({ value: 'internal', label: `${reg.get(internalId)!.descriptor.name}`, location: 'internal' });
+  if (internalId && reg.has(internalId))
+    out.push({ value: 'internal', label: `${reg.get(internalId)!.descriptor.name}`, location: 'internal' });
   const seen = new Set<string>();
-  const compatible = sets.flatMap((capabilities) => reg.findCompatible(capabilities, { interface: info.interface, includeUnavailable: true }));
+  const compatible = sets.flatMap((capabilities) =>
+    reg.findCompatible(capabilities, { interface: info.interface, includeUnavailable: true }),
+  );
   for (const c of compatible) {
     if (c.location === 'internal' || seen.has(c.providerId)) continue;
     seen.add(c.providerId);
@@ -462,7 +492,10 @@ export async function runRole<T>(
 }
 
 /** Convert a run's provenance into a project provenance record and store it (spec §64). */
-export function recordProvenance(p: RunProvenance, artifact: Omit<ArtifactInfo, 'id'> & { id?: string }): void {
+export function recordProvenance(
+  p: RunProvenance,
+  artifact: Omit<ArtifactInfo, 'id'> & { id?: string },
+): void {
   const rec = toProvenanceRecord(p, { id: artifact.id ?? `prov_${Date.now().toString(36)}`, ...artifact });
   if (p.costUsd !== undefined) rec.costUsd = p.costUsd;
   useStudio.getState().addProvenance(rec);
@@ -473,7 +506,11 @@ export function recordProvenance(p: RunProvenance, artifact: Omit<ArtifactInfo, 
 // ---------------------------------------------------------------------------
 
 /** Merge a model-produced blueprint onto the deterministic one so it is always complete and valid. */
-export function sanitizeBlueprint(candidate: Partial<Blueprint> | undefined, prompt: string, seed: number): Blueprint {
+export function sanitizeBlueprint(
+  candidate: Partial<Blueprint> | undefined,
+  prompt: string,
+  seed: number,
+): Blueprint {
   const base = parsePromptToBlueprint(prompt, { seed, customGenres: allCustomGenres() });
   if (!candidate) return base;
   const knownInstruments = new Set([...BUILTIN_INSTRUMENTS, ...allCustomInstruments()].map((i) => i.id));
@@ -481,20 +518,41 @@ export function sanitizeBlueprint(candidate: Partial<Blueprint> | undefined, pro
   const tempo = Number(candidate.tempo);
   const bp: Blueprint = {
     ...base,
-    title: typeof candidate.title === 'string' && candidate.title.trim() ? candidate.title.trim() : base.title,
+    title:
+      typeof candidate.title === 'string' && candidate.title.trim() ? candidate.title.trim() : base.title,
     prompt,
     tempo: Number.isFinite(tempo) && tempo >= 30 && tempo <= 300 ? Math.round(tempo) : base.tempo,
-    meter: candidate.meter && candidate.meter.numerator > 0 && [2, 4, 8, 16].includes(candidate.meter.denominator) ? candidate.meter : base.meter,
-    key: candidate.key && Number.isInteger(candidate.key.tonic) && candidate.key.tonic >= 0 && candidate.key.tonic < 12 ? candidate.key : base.key,
-    styles: Array.isArray(candidate.styles) && candidate.styles.length ? candidate.styles.map(String) : base.styles,
+    meter:
+      candidate.meter && candidate.meter.numerator > 0 && [2, 4, 8, 16].includes(candidate.meter.denominator)
+        ? candidate.meter
+        : base.meter,
+    key:
+      candidate.key &&
+      Number.isInteger(candidate.key.tonic) &&
+      candidate.key.tonic >= 0 &&
+      candidate.key.tonic < 12
+        ? candidate.key
+        : base.key,
+    styles:
+      Array.isArray(candidate.styles) && candidate.styles.length ? candidate.styles.map(String) : base.styles,
     genreBlend: (candidate.genreBlend ?? []).filter((g) => knownGenres.has(g.genreId) && g.weight > 0),
-    moods: Array.isArray(candidate.moods) && candidate.moods.length ? candidate.moods.map(String) : base.moods,
+    moods:
+      Array.isArray(candidate.moods) && candidate.moods.length ? candidate.moods.map(String) : base.moods,
     instrumentation: (candidate.instrumentation ?? [])
       .filter((t) => t && typeof t.name === 'string')
-      .map((t) => ({ ...t, instrumentId: knownInstruments.has(t.instrumentId) ? t.instrumentId : getInstrument(t.instrumentId, allCustomInstruments()).id })),
+      .map((t) => ({
+        ...t,
+        instrumentId: knownInstruments.has(t.instrumentId)
+          ? t.instrumentId
+          : getInstrument(t.instrumentId, allCustomInstruments()).id,
+      })),
     structure: (candidate.structure ?? [])
       .filter((s) => s && typeof s.name === 'string')
-      .map((s) => ({ ...s, bars: Math.max(1, Math.min(64, Math.round(Number(s.bars) || 8))), energy: Math.max(0, Math.min(100, Number(s.energy ?? 50))) })),
+      .map((s) => ({
+        ...s,
+        bars: Math.max(1, Math.min(64, Math.round(Number(s.bars) || 8))),
+        energy: Math.max(0, Math.min(100, Number(s.energy ?? 50))),
+      })),
     vocal: candidate.vocal ?? base.vocal,
     lyricsTheme: candidate.lyricsTheme ?? base.lyricsTheme,
     macros: { ...defaultMacros(), ...base.macros, ...(candidate.macros ?? {}) },
@@ -553,7 +611,11 @@ export async function aiDesignBlueprint(
   const r = await runRole('composition', {
     ...opts,
     dataKinds: lyrics ? ['song-description', 'lyrics'] : ['song-description'],
-    estimateInput: { kind: 'llm', role: 'composition', inputChars: prompt.length + (lyrics?.length ?? 0) + constraints.join('\n').length + 6000 },
+    estimateInput: {
+      kind: 'llm',
+      role: 'composition',
+      inputChars: prompt.length + (lyrics?.length ?? 0) + constraints.join('\n').length + 6000,
+    },
     title: 'Design Song Blueprint',
     execute: async (instance, model, signal) => {
       const res = await instance.composition!.designBlueprint({
@@ -562,12 +624,19 @@ export async function aiDesignBlueprint(
         signal,
         defaults: { seed: opts.seed, macros: defaultMacros() },
         genres: [...BUILTIN_GENRES, ...custom.customGenres].map((g) => ({ id: g.id, name: g.name })),
-        instruments: [...BUILTIN_INSTRUMENTS, ...custom.customInstruments].map((i) => ({ id: i.id, name: i.name, family: i.family })),
+        instruments: [...BUILTIN_INSTRUMENTS, ...custom.customInstruments].map((i) => ({
+          id: i.id,
+          name: i.name,
+          family: i.family,
+        })),
         tags: listTags().map((t) => ({ id: t.id, name: t.name, kind: t.kind })),
         ...(constraints.length ? { constraints } : {}),
         ...(lyrics ? { lyrics } : {}),
       });
-      let blueprint = instance.descriptor.location === 'internal' ? res.blueprint : sanitizeBlueprint(res.blueprint, prompt, opts.seed);
+      let blueprint =
+        instance.descriptor.location === 'internal'
+          ? res.blueprint
+          : sanitizeBlueprint(res.blueprint, prompt, opts.seed);
       if (choices) blueprint = applyBuilderConstraints(blueprint, choices, { seed: opts.seed, ...custom });
       return { ...res, blueprint };
     },
@@ -575,18 +644,29 @@ export async function aiDesignBlueprint(
   return { blueprint: r.result.blueprint, source: sourceLabel(r.provenance), provenance: r.provenance };
 }
 
-export async function aiPlanSong(blueprint: Blueprint, opts: AiCallOptions & { seed: number }): Promise<{ plan: CompositionPlan; source: string; provenance: RunProvenance }> {
+export async function aiPlanSong(
+  blueprint: Blueprint,
+  opts: AiCallOptions & { seed: number },
+): Promise<{ plan: CompositionPlan; source: string; provenance: RunProvenance }> {
   const r = await runRole('composition', {
     ...opts,
     dataKinds: ['song-description', 'chord-progression'],
     estimateInput: { kind: 'llm', role: 'composition', inputChars: JSON.stringify(blueprint).length + 6000 },
     title: 'Plan composition',
     execute: async (instance, model, signal) => {
-      const res = await instance.composition!.planSong({ blueprint: { ...blueprint, seed: opts.seed }, model, signal });
+      const res = await instance.composition!.planSong({
+        blueprint: { ...blueprint, seed: opts.seed },
+        model,
+        signal,
+      });
       return { ...res, plan: sanitizePlan(res.plan, { ...blueprint, seed: opts.seed }) };
     },
   });
-  return { plan: { ...r.result.plan, source: r.provenance.providerName }, source: sourceLabel(r.provenance), provenance: r.provenance };
+  return {
+    plan: { ...r.result.plan, source: r.provenance.providerName },
+    source: sourceLabel(r.provenance),
+    provenance: r.provenance,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -605,18 +685,30 @@ export async function aiEdit(
     dataKinds: contextDataKinds(context) as DataKind[],
     estimateInput: { kind: 'llm', role: 'midi-editing', inputChars: JSON.stringify(context).length },
     title: instruction,
-    execute: (instance, model, signal) => instance.composition!.modifyComposition({ context, instruction, model, signal }),
+    execute: (instance, model, signal) =>
+      instance.composition!.modifyComposition({ context, instruction, model, signal }),
   });
   const res = r.result;
-  const errors = res.errors.length ? `\n(${res.errors.length} invalid operation${res.errors.length > 1 ? 's were' : ' was'} dropped)` : '';
-  const proposal = propose(song, res.operations, {
-    title: instruction,
-    source: r.provenance.location === 'internal' ? 'internal' : r.provenance.providerName,
-    modelId: r.provenance.modelId,
-    instruction,
+  const errors = res.errors.length
+    ? `\n(${res.errors.length} invalid operation${res.errors.length > 1 ? 's were' : ' was'} dropped)`
+    : '';
+  const proposal = propose(
+    song,
+    res.operations,
+    {
+      title: instruction,
+      source: r.provenance.location === 'internal' ? 'internal' : r.provenance.providerName,
+      modelId: r.provenance.modelId,
+      instruction,
+      explanation: `${res.explanation}${errors}`,
+    },
+    { openPianoRoll: true },
+  );
+  return {
     explanation: `${res.explanation}${errors}`,
-  }, { openPianoRoll: true });
-  return { explanation: `${res.explanation}${errors}`, source: sourceLabel(r.provenance), proposalCreated: !!proposal };
+    source: sourceLabel(r.provenance),
+    proposalCreated: !!proposal,
+  };
 }
 
 export async function aiChat(
@@ -635,9 +727,14 @@ export async function aiChat(
   const r = await runRole('chat', {
     ...opts,
     dataKinds: contextDataKinds(context) as DataKind[],
-    estimateInput: { kind: 'llm', role: 'chat', inputChars: JSON.stringify(context).length + question.length },
+    estimateInput: {
+      kind: 'llm',
+      role: 'chat',
+      inputChars: JSON.stringify(context).length + question.length,
+    },
     title: 'Assistant',
-    execute: (instance, model, signal) => instance.composition!.chat({ context, history: prior, question, model, signal }),
+    execute: (instance, model, signal) =>
+      instance.composition!.chat({ context, history: prior, question, model, signal }),
   });
   let proposalId: string | undefined;
   if (r.result.operations.length) {
@@ -650,31 +747,46 @@ export async function aiChat(
     });
     proposalId = p?.id;
   }
-  const suggestions = r.result.suggestions?.length ? `\n\nYou could also ask: ${r.result.suggestions.slice(0, 3).join(' · ')}` : '';
+  const suggestions = r.result.suggestions?.length
+    ? `\n\nYou could also ask: ${r.result.suggestions.slice(0, 3).join(' · ')}`
+    : '';
   return { answer: `${r.result.answer}${suggestions}`, source: sourceLabel(r.provenance), proposalId };
 }
 
-export async function aiExplain(song: Song, sectionId: string, opts: AiCallOptions): Promise<{ text: string; source: string }> {
-  const context = buildMusicContext(song, { instruction: 'Explain the harmony and musical function of this section.', sectionId });
+export async function aiExplain(
+  song: Song,
+  sectionId: string,
+  opts: AiCallOptions,
+): Promise<{ text: string; source: string }> {
+  const context = buildMusicContext(song, {
+    instruction: 'Explain the harmony and musical function of this section.',
+    sectionId,
+  });
   const r = await runRole('analysis', {
     ...opts,
     dataKinds: contextDataKinds(context) as DataKind[],
     estimateInput: { kind: 'llm', role: 'analysis', inputChars: JSON.stringify(context).length },
     title: 'Explain music',
-    execute: (instance, model, signal) => instance.composition!.explainMusic({ context, sectionId, model, signal }),
+    execute: (instance, model, signal) =>
+      instance.composition!.explainMusic({ context, sectionId, model, signal }),
   });
   const s = r.result.suggestions?.length ? `\n\nIdeas:\n• ${r.result.suggestions.join('\n• ')}` : '';
   return { text: `${r.result.explanation}${s}`, source: sourceLabel(r.provenance) };
 }
 
-export async function aiMix(song: Song, instruction: string, opts: AiCallOptions): Promise<{ explanation: string; source: string; proposalCreated: boolean; proposalId?: string }> {
+export async function aiMix(
+  song: Song,
+  instruction: string,
+  opts: AiCallOptions,
+): Promise<{ explanation: string; source: string; proposalCreated: boolean; proposalId?: string }> {
   const context = buildMusicContext(song, { instruction, includeMixer: true });
   const r = await runRole('mixing', {
     ...opts,
     dataKinds: ['song-description', 'project-metadata'],
     estimateInput: { kind: 'llm', role: 'mixing', inputChars: JSON.stringify(context).length },
     title: instruction,
-    execute: (instance, model, signal) => instance.composition!.mixAssist({ context, instruction, model, signal }),
+    execute: (instance, model, signal) =>
+      instance.composition!.mixAssist({ context, instruction, model, signal }),
   });
   const p = propose(song, r.result.operations, {
     title: instruction,
@@ -683,15 +795,35 @@ export async function aiMix(song: Song, instruction: string, opts: AiCallOptions
     instruction,
     explanation: r.result.explanation,
   });
-  return { explanation: r.result.explanation, source: sourceLabel(r.provenance), proposalCreated: !!p, proposalId: p?.id };
+  return {
+    explanation: r.result.explanation,
+    source: sourceLabel(r.provenance),
+    proposalCreated: !!p,
+    proposalId: p?.id,
+  };
 }
 
 export async function aiLyrics(
   song: Song,
-  sections: { sectionId: string; name: string; kind?: Song['sections'][number]['kind']; lines: number; syllables?: number[]; existing?: string[]; locked?: boolean }[],
+  sections: {
+    sectionId: string;
+    name: string;
+    kind?: Song['sections'][number]['kind'];
+    lines: number;
+    syllables?: number[];
+    existing?: string[];
+    locked?: boolean;
+  }[],
   opts: AiCallOptions & { theme?: string; style?: string; instruction?: string },
-): Promise<{ sections: { sectionId: string; lines: string[] }[]; source: string; provenance: RunProvenance; notes?: string }> {
-  const context = buildMusicContext(song, { instruction: opts.instruction ?? 'Write lyrics that fit these sections.' });
+): Promise<{
+  sections: { sectionId: string; lines: string[] }[];
+  source: string;
+  provenance: RunProvenance;
+  notes?: string;
+}> {
+  const context = buildMusicContext(song, {
+    instruction: opts.instruction ?? 'Write lyrics that fit these sections.',
+  });
   const r = await runRole('lyrics', {
     ...opts,
     dataKinds: ['song-description', 'lyrics'],
@@ -704,7 +836,14 @@ export async function aiLyrics(
         style: opts.style ?? song.blueprint?.moods.join(', '),
         language: song.vocals.language,
         instruction: opts.instruction,
-        sections: sections.map((s) => ({ name: s.name, kind: s.kind, lines: s.lines, syllables: s.syllables, existing: s.existing, locked: s.locked })),
+        sections: sections.map((s) => ({
+          name: s.name,
+          kind: s.kind,
+          lines: s.lines,
+          syllables: s.syllables,
+          existing: s.existing,
+          locked: s.locked,
+        })),
         model,
         signal,
       }),
@@ -713,7 +852,12 @@ export async function aiLyrics(
     sectionId: s.sectionId,
     lines: (r.result.sections.find((x) => x.section === s.name) ?? r.result.sections[i])?.lines ?? [],
   }));
-  return { sections: out, source: sourceLabel(r.provenance), provenance: r.provenance, notes: r.result.notes };
+  return {
+    sections: out,
+    source: sourceLabel(r.provenance),
+    provenance: r.provenance,
+    notes: r.result.notes,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -721,18 +865,31 @@ export async function aiLyrics(
 // ---------------------------------------------------------------------------
 
 function runOpts(role: TaskRole, opts: AiCallOptions) {
-  return { providerId: providerIdFor(role, opts.providerChoice), signal: opts.signal, quality: opts.quality, neverUpload: projectNeverUpload() };
+  return {
+    providerId: providerIdFor(role, opts.providerChoice),
+    signal: opts.signal,
+    quality: opts.quality,
+    neverUpload: projectNeverUpload(),
+  };
 }
 
 export const aiAudio = {
-  generateMusic: (req: Parameters<Orchestrator['generateMusic']>[0], opts: AiCallOptions = {}) => getOrchestrator().generateMusic(req, runOpts('production', opts)),
-  transformAudio: (req: Parameters<Orchestrator['transformAudio']>[0], opts: AiCallOptions = {}) => getOrchestrator().transformAudio(req, runOpts('production', opts)),
-  synthesizeSinging: (req: Parameters<Orchestrator['synthesizeSinging']>[0], opts: AiCallOptions = {}) => getOrchestrator().synthesizeSinging(req, runOpts('vocals', opts)),
-  regeneratePhrase: (req: Parameters<Orchestrator['regeneratePhrase']>[0], opts: AiCallOptions = {}) => getOrchestrator().regeneratePhrase(req, runOpts('vocals', opts)),
-  transcribe: (req: Parameters<Orchestrator['transcribe']>[0], opts: AiCallOptions = {}) => getOrchestrator().transcribe(req, runOpts('transcription', opts)),
-  separate: (req: Parameters<Orchestrator['separate']>[0], opts: AiCallOptions = {}) => getOrchestrator().separate(req, runOpts('separation', opts)),
-  master: (req: Parameters<Orchestrator['master']>[0], opts: AiCallOptions = {}) => getOrchestrator().master(req, runOpts('mastering', opts)),
-  convertVoice: (req: Parameters<Orchestrator['convertVoice']>[0], opts: AiCallOptions = {}) => getOrchestrator().convertVoice(req, runOpts('voice-conversion', opts)),
+  generateMusic: (req: Parameters<Orchestrator['generateMusic']>[0], opts: AiCallOptions = {}) =>
+    getOrchestrator().generateMusic(req, runOpts('production', opts)),
+  transformAudio: (req: Parameters<Orchestrator['transformAudio']>[0], opts: AiCallOptions = {}) =>
+    getOrchestrator().transformAudio(req, runOpts('production', opts)),
+  synthesizeSinging: (req: Parameters<Orchestrator['synthesizeSinging']>[0], opts: AiCallOptions = {}) =>
+    getOrchestrator().synthesizeSinging(req, runOpts('vocals', opts)),
+  regeneratePhrase: (req: Parameters<Orchestrator['regeneratePhrase']>[0], opts: AiCallOptions = {}) =>
+    getOrchestrator().regeneratePhrase(req, runOpts('vocals', opts)),
+  transcribe: (req: Parameters<Orchestrator['transcribe']>[0], opts: AiCallOptions = {}) =>
+    getOrchestrator().transcribe(req, runOpts('transcription', opts)),
+  separate: (req: Parameters<Orchestrator['separate']>[0], opts: AiCallOptions = {}) =>
+    getOrchestrator().separate(req, runOpts('separation', opts)),
+  master: (req: Parameters<Orchestrator['master']>[0], opts: AiCallOptions = {}) =>
+    getOrchestrator().master(req, runOpts('mastering', opts)),
+  convertVoice: (req: Parameters<Orchestrator['convertVoice']>[0], opts: AiCallOptions = {}) =>
+    getOrchestrator().convertVoice(req, runOpts('voice-conversion', opts)),
 };
 
 // The provider registry, router and orchestrator are page-wide singletons: reload instead of hot-swapping.

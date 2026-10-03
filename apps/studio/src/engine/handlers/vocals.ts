@@ -27,7 +27,8 @@ import { transcribeTake, type TranscribeTakeInput, type TranscribeTakeOutput } f
 const render: TaskHandler<RenderInput, RenderOutput> = (ctx) => renderVocal(ctx.input, ctx);
 const resing: TaskHandler<ResingInput, ResingOutput> = (ctx) => resingRange(ctx.input, ctx);
 const convert: TaskHandler<ConvertInput, ConvertOutput> = (ctx) => convertVocal(ctx.input, ctx);
-const transcribe: TaskHandler<TranscribeTakeInput, TranscribeTakeOutput> = (ctx) => transcribeTake(ctx.input, ctx);
+const transcribe: TaskHandler<TranscribeTakeInput, TranscribeTakeOutput> = (ctx) =>
+  transcribeTake(ctx.input, ctx);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const handlers: Record<string, TaskHandler<any, any>> = {

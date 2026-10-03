@@ -59,7 +59,15 @@ import type {
   VoiceInfo,
 } from '../types';
 import { isPlainObject, joinUrl } from '../util';
-import { audioFromJson, audioFromResponse, audioToJson, buildDescriptor, createHttpClient, type CreateProviderDeps, type EncodedAudioJson } from './common';
+import {
+  audioFromJson,
+  audioFromResponse,
+  audioToJson,
+  buildDescriptor,
+  createHttpClient,
+  type CreateProviderDeps,
+  type EncodedAudioJson,
+} from './common';
 
 export const MANAGED_PATHS = {
   llm: '/api/managed/llm',
@@ -74,7 +82,8 @@ export interface ManagedPrivacy {
   localOnly?: boolean;
 }
 
-export type SerializedContentPart = { type: 'text'; text: string } | { type: 'audio'; audio: EncodedAudioJson; label?: string };
+export type SerializedContentPart =
+  { type: 'text'; text: string } | { type: 'audio'; audio: EncodedAudioJson; label?: string };
 
 export interface SerializedLLMRequest {
   model?: string;
@@ -131,7 +140,18 @@ export function serializeLLMRequest(req: LLMRequest): SerializedLLMRequest {
   const out: SerializedLLMRequest = {
     messages: req.messages.map((m) => ({
       role: m.role,
-      content: typeof m.content === 'string' ? m.content : m.content.map((p) => (p.type === 'text' ? p : { type: 'audio' as const, audio: audioToJson(p.audio), ...(p.label ? { label: p.label } : {}) })),
+      content:
+        typeof m.content === 'string'
+          ? m.content
+          : m.content.map((p) =>
+              p.type === 'text'
+                ? p
+                : {
+                    type: 'audio' as const,
+                    audio: audioToJson(p.audio),
+                    ...(p.label ? { label: p.label } : {}),
+                  },
+            ),
     })),
   };
   if (req.model) out.model = req.model;
@@ -146,7 +166,18 @@ export function serializeLLMRequest(req: LLMRequest): SerializedLLMRequest {
 export function deserializeLLMRequest(s: SerializedLLMRequest): LLMRequest {
   const messages: ChatMessage[] = (s.messages ?? []).map((m) => ({
     role: m.role === 'assistant' ? 'assistant' : 'user',
-    content: typeof m.content === 'string' ? m.content : m.content.map((p) => (p.type === 'audio' ? { type: 'audio' as const, audio: audioFromJson(p.audio), ...(p.label ? { label: p.label } : {}) } : { type: 'text' as const, text: String(p.text ?? '') })),
+    content:
+      typeof m.content === 'string'
+        ? m.content
+        : m.content.map((p) =>
+            p.type === 'audio'
+              ? {
+                  type: 'audio' as const,
+                  audio: audioFromJson(p.audio),
+                  ...(p.label ? { label: p.label } : {}),
+                }
+              : { type: 'text' as const, text: String(p.text ?? '') },
+          ),
   }));
   const req: LLMRequest = { messages };
   if (s.model) req.model = s.model;
@@ -166,7 +197,8 @@ export function serializeAudioParams(params: object): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined || DROP_KEYS.has(k)) continue;
-    if (AUDIO_KEYS.has(k) && v && typeof v === 'object' && (v as EncodedAudio).data instanceof Uint8Array) out[k] = audioToJson(v as EncodedAudio);
+    if (AUDIO_KEYS.has(k) && v && typeof v === 'object' && (v as EncodedAudio).data instanceof Uint8Array)
+      out[k] = audioToJson(v as EncodedAudio);
     else out[k] = v;
   }
   return out;
@@ -175,14 +207,18 @@ export function serializeAudioParams(params: object): Record<string, unknown> {
 export function deserializeAudioParams(params: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(params ?? {})) {
-    if (AUDIO_KEYS.has(k) && isPlainObject(v) && typeof v.data === 'string') out[k] = audioFromJson(v as unknown as EncodedAudioJson);
+    if (AUDIO_KEYS.has(k) && isPlainObject(v) && typeof v.data === 'string')
+      out[k] = audioFromJson(v as unknown as EncodedAudioJson);
     else out[k] = v;
   }
   return out;
 }
 
 function privacyFrom(hints: RequestHints | undefined, fallbackKinds: DataKind[]): ManagedPrivacy {
-  return { neverUpload: [...(hints?.neverUpload ?? [])], dataKinds: [...(hints?.dataKinds ?? fallbackKinds)] };
+  return {
+    neverUpload: [...(hints?.neverUpload ?? [])],
+    dataKinds: [...(hints?.dataKinds ?? fallbackKinds)],
+  };
 }
 
 class ManagedClient {
@@ -202,9 +238,18 @@ class ManagedClient {
       request: serializeLLMRequest(req),
       privacy: privacyFrom(req.hints, ['song-description']),
     };
-    const json = await this.http.json<LLMResponse & { provenance?: { modelId?: string; costUsd?: number } }>({ url: this.url(MANAGED_PATHS.llm), json: body, signal: req.signal });
-    if (!json || typeof json.text !== 'string') throw new ProviderError('parse', 'Managed gateway returned no text', { providerId: this.config.id });
-    const res: LLMResponse = { text: json.text, model: json.model ?? json.provenance?.modelId ?? 'auto', stopReason: json.stopReason ?? 'end_turn' };
+    const json = await this.http.json<LLMResponse & { provenance?: { modelId?: string; costUsd?: number } }>({
+      url: this.url(MANAGED_PATHS.llm),
+      json: body,
+      signal: req.signal,
+    });
+    if (!json || typeof json.text !== 'string')
+      throw new ProviderError('parse', 'Managed gateway returned no text', { providerId: this.config.id });
+    const res: LLMResponse = {
+      text: json.text,
+      model: json.model ?? json.provenance?.modelId ?? 'auto',
+      stopReason: json.stopReason ?? 'end_turn',
+    };
     if (json.json !== undefined) res.json = json.json;
     if (json.usage) res.usage = json.usage;
     const cost = json.costUsd ?? json.provenance?.costUsd;
@@ -213,22 +258,41 @@ class ManagedClient {
     return res;
   }
 
-  async audioOp(op: ManagedAudioOp, params: { signal?: AbortSignal; hints?: RequestHints } & object, dataKinds: DataKind[]): Promise<{ audio?: EncodedAudio; json?: unknown; headers: Headers }> {
+  async audioOp(
+    op: ManagedAudioOp,
+    params: { signal?: AbortSignal; hints?: RequestHints } & object,
+    dataKinds: DataKind[],
+  ): Promise<{ audio?: EncodedAudio; json?: unknown; headers: Headers }> {
     const body: ManagedAudioBody = {
       role: params.hints?.role ?? MANAGED_OP_ROLES[op],
       quality: params.hints?.quality ?? 'standard',
       request: { op, params: serializeAudioParams(params) },
       privacy: privacyFrom(params.hints, dataKinds),
     };
-    return this.http.send({ url: this.url(MANAGED_PATHS.audio), json: body, signal: params.signal, accept: 'audio/*, application/json' }, async (res) => {
-      const ct = res.headers.get('content-type') ?? '';
-      if (/json/i.test(ct)) return { json: await res.json(), headers: res.headers };
-      return { audio: audioFromResponse(new Uint8Array(await res.arrayBuffer()), ct, 'wav'), headers: res.headers };
-    });
+    return this.http.send(
+      {
+        url: this.url(MANAGED_PATHS.audio),
+        json: body,
+        signal: params.signal,
+        accept: 'audio/*, application/json',
+      },
+      async (res) => {
+        const ct = res.headers.get('content-type') ?? '';
+        if (/json/i.test(ct)) return { json: await res.json(), headers: res.headers };
+        return {
+          audio: audioFromResponse(new Uint8Array(await res.arrayBuffer()), ct, 'wav'),
+          headers: res.headers,
+        };
+      },
+    );
   }
 
   async models(signal?: AbortSignal): Promise<{ capabilities: Capability[] }> {
-    const json = await this.http.json<{ capabilities?: string[] }>({ url: this.url(MANAGED_PATHS.models), json: {}, signal });
+    const json = await this.http.json<{ capabilities?: string[] }>({
+      url: this.url(MANAGED_PATHS.models),
+      json: {},
+      signal,
+    });
     return { capabilities: normalizeCapabilities(json?.capabilities ?? []) };
   }
 }
@@ -264,13 +328,32 @@ export function createManagedProvider(config: ProviderConfig, deps: CreateProvid
       } catch {
         /* gateway may not expose /models */
       }
-      const model: ModelInfo = { id: 'auto', name: 'Automatic', capabilities: caps.filter((c) => !['TEXT_TO_MUSIC', 'AUDIO_TO_AUDIO', 'SINGING_SYNTHESIS', 'SOURCE_SEPARATION', 'MASTERING', 'AUDIO_TRANSCRIPTION'].includes(c)) };
+      const model: ModelInfo = {
+        id: 'auto',
+        name: 'Automatic',
+        capabilities: caps.filter(
+          (c) =>
+            ![
+              'TEXT_TO_MUSIC',
+              'AUDIO_TO_AUDIO',
+              'SINGING_SYNTHESIS',
+              'SOURCE_SEPARATION',
+              'MASTERING',
+              'AUDIO_TRANSCRIPTION',
+            ].includes(c),
+        ),
+      };
       return [model];
     },
     complete: (req) => client.llm(req),
   };
 
-  const audioResult = async (op: ManagedAudioOp, req: { signal?: AbortSignal; hints?: RequestHints; seed?: number } & object, kinds: DataKind[], durationSeconds?: number): Promise<AudioGenerationResult> => {
+  const audioResult = async (
+    op: ManagedAudioOp,
+    req: { signal?: AbortSignal; hints?: RequestHints; seed?: number } & object,
+    kinds: DataKind[],
+    durationSeconds?: number,
+  ): Promise<AudioGenerationResult> => {
     const r = await client.audioOp(op, req, kinds);
     const meta = audioMeta(r.headers);
     const res: AudioGenerationResult = { audio: requireAudio(r, id), ...meta };
@@ -280,18 +363,43 @@ export function createManagedProvider(config: ProviderConfig, deps: CreateProvid
   };
 
   const audioGeneration: AudioGenerationProvider = {
-    discoverModels: async () => [{ id: 'auto', name: 'Automatic', capabilities: descriptor.capabilities.filter((c) => !['TEXT_REASONING', 'MUSIC_THEORY_REASONING'].includes(c)) }],
+    discoverModels: async () => [
+      {
+        id: 'auto',
+        name: 'Automatic',
+        capabilities: descriptor.capabilities.filter(
+          (c) => !['TEXT_REASONING', 'MUSIC_THEORY_REASONING'].includes(c),
+        ),
+      },
+    ],
     getCapabilities: async () => [...descriptor.capabilities],
-    generateMusic: (req: MusicGenerationRequest) => audioResult('generateMusic', req, ['song-description', 'chord-progression', ...(req.lyrics ? (['lyrics'] as DataKind[]) : []), ...(req.guideAudio ? (['guide-audio'] as DataKind[]) : []), ...(req.referenceAudio ? (['reference-audio'] as DataKind[]) : [])], req.durationSeconds),
-    transformAudio: (req: AudioTransformRequest) => audioResult('transformAudio', req, ['guide-audio'], req.durationSeconds),
-    extendAudio: (req: AudioExtendRequest) => audioResult('extendAudio', req, ['guide-audio'], req.durationSeconds),
-    inpaintAudio: (req: AudioInpaintRequest) => audioResult('inpaintAudio', req, ['guide-audio'], req.endSeconds - req.startSeconds),
+    generateMusic: (req: MusicGenerationRequest) =>
+      audioResult(
+        'generateMusic',
+        req,
+        [
+          'song-description',
+          'chord-progression',
+          ...(req.lyrics ? (['lyrics'] as DataKind[]) : []),
+          ...(req.guideAudio ? (['guide-audio'] as DataKind[]) : []),
+          ...(req.referenceAudio ? (['reference-audio'] as DataKind[]) : []),
+        ],
+        req.durationSeconds,
+      ),
+    transformAudio: (req: AudioTransformRequest) =>
+      audioResult('transformAudio', req, ['guide-audio'], req.durationSeconds),
+    extendAudio: (req: AudioExtendRequest) =>
+      audioResult('extendAudio', req, ['guide-audio'], req.durationSeconds),
+    inpaintAudio: (req: AudioInpaintRequest) =>
+      audioResult('inpaintAudio', req, ['guide-audio'], req.endSeconds - req.startSeconds),
   };
 
   const singing: SingingProvider = {
     async listVoices(signal) {
       const r = await client.audioOp('listVoices', { signal }, []);
-      const list = Array.isArray(r.json) ? r.json : ((r.json as { voices?: unknown[] } | undefined)?.voices ?? []);
+      const list = Array.isArray(r.json)
+        ? r.json
+        : ((r.json as { voices?: unknown[] } | undefined)?.voices ?? []);
       return list as VoiceInfo[];
     },
     async synthesizeSinging(req: SingingRequest): Promise<SingingResult> {
@@ -308,7 +416,8 @@ export function createManagedProvider(config: ProviderConfig, deps: CreateProvid
     async transcribeNotes(req: TranscriptionRequest): Promise<TranscriptionResult> {
       const r = await client.audioOp('transcribeNotes', req, ['reference-audio']);
       const json = r.json as TranscriptionResult | undefined;
-      if (!json || !Array.isArray(json.notes)) throw new ProviderError('parse', 'Managed gateway returned no transcription', { providerId: id });
+      if (!json || !Array.isArray(json.notes))
+        throw new ProviderError('parse', 'Managed gateway returned no transcription', { providerId: id });
       return json;
     },
   };
@@ -317,7 +426,8 @@ export function createManagedProvider(config: ProviderConfig, deps: CreateProvid
     async separateStems(req: SeparationRequest): Promise<SeparationResult> {
       const r = await client.audioOp('separateStems', req, ['reference-audio']);
       const json = r.json as { stems?: Record<string, EncodedAudioJson>; model?: string } | undefined;
-      if (!json?.stems) throw new ProviderError('parse', 'Managed gateway returned no stems', { providerId: id });
+      if (!json?.stems)
+        throw new ProviderError('parse', 'Managed gateway returned no stems', { providerId: id });
       const stems: Record<string, EncodedAudio> = {};
       for (const [k, v] of Object.entries(json.stems)) stems[k] = audioFromJson(v);
       return { stems, ...(json.model ? { model: json.model } : {}) };
@@ -337,9 +447,23 @@ export function createManagedProvider(config: ProviderConfig, deps: CreateProvid
       assertVoiceConsent(req.targetVoice, req.consent);
       const r = await client.audioOp('convertVoice', req, ['recorded-vocals']);
       const meta = audioMeta(r.headers);
-      return { audio: requireAudio(r, id), voiceId: req.targetVoice.id, ...(meta.model ? { model: meta.model } : {}) };
+      return {
+        audio: requireAudio(r, id),
+        voiceId: req.targetVoice.id,
+        ...(meta.model ? { model: meta.model } : {}),
+      };
     },
   };
 
-  return { descriptor, config, llm, audioGeneration, singing, transcription, separation, mastering, voiceConversion };
+  return {
+    descriptor,
+    config,
+    llm,
+    audioGeneration,
+    singing,
+    transcription,
+    separation,
+    mastering,
+    voiceConversion,
+  };
 }

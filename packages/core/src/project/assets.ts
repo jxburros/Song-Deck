@@ -1,4 +1,12 @@
-import type { AnalysisRecord, AssetKind, AudioAssetMeta, GenerationRecord, Project, ProvenanceRecord, RightsMetadata } from '../ir/types';
+import type {
+  AnalysisRecord,
+  AssetKind,
+  AudioAssetMeta,
+  GenerationRecord,
+  Project,
+  ProvenanceRecord,
+  RightsMetadata,
+} from '../ir/types';
 
 /** Folder of each asset kind inside a .songproject package (spec §9 layout). */
 export const ASSET_FOLDERS: Record<AssetKind, string> = {
@@ -54,17 +62,26 @@ function upsert<T extends { id: string }>(list: readonly T[], item: T): T[] {
 /** Register (or replace) an audio asset's metadata. Bytes live in the caller's asset store. */
 export function addAsset(project: Project, meta: AudioAssetMeta, now?: string): Project {
   const path = safePackagePath(meta.path) || assetPathFor(meta.kind, meta.name || meta.id);
-  return { ...project, meta: { ...touch(project, now), assets: upsert(project.meta.assets, { ...meta, path }) } };
+  return {
+    ...project,
+    meta: { ...touch(project, now), assets: upsert(project.meta.assets, { ...meta, path }) },
+  };
 }
 
 export function removeAsset(project: Project, assetId: string, now?: string): Project {
   if (!project.meta.assets.some((a) => a.id === assetId)) return project;
-  return { ...project, meta: { ...touch(project, now), assets: project.meta.assets.filter((a) => a.id !== assetId) } };
+  return {
+    ...project,
+    meta: { ...touch(project, now), assets: project.meta.assets.filter((a) => a.id !== assetId) },
+  };
 }
 
 /** Record how an artifact was created (spec §64). */
 export function addProvenance(project: Project, record: ProvenanceRecord, now?: string): Project {
-  return { ...project, meta: { ...touch(project, now), provenance: upsert(project.meta.provenance, record) } };
+  return {
+    ...project,
+    meta: { ...touch(project, now), provenance: upsert(project.meta.provenance, record) },
+  };
 }
 
 /** Provenance records for an artifact (asset id, revision id, …). */
@@ -73,7 +90,12 @@ export function provenanceFor(project: Project, artifactId: string): ProvenanceR
 }
 
 /** Note that a provider produced something for this project (informational; projects never depend on providers). */
-export function recordProviderUse(project: Project, providerId: string, providerName: string, at?: string): Project {
+export function recordProviderUse(
+  project: Project,
+  providerId: string,
+  providerName: string,
+  at?: string,
+): Project {
   const when = at ?? new Date().toISOString();
   const list = project.meta.providersUsed.filter((p) => p.providerId !== providerId);
   list.push({ providerId, providerName, lastUsedAt: when });

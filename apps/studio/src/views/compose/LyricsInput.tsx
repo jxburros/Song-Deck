@@ -36,16 +36,41 @@ const KIND_OPTIONS = SECTION_KINDS.filter((k) => k !== 'custom').map((k) => ({ v
  * sections with their syllables and bars, correct a section's kind, and take mood suggestions.
  * The words are never changed; they are sung and locked in the composed song.
  */
-export function LyricsInput({ onSuggest, route, busy }: { onSuggest?: () => void; route: RoleRoute | null; busy: string | null }) {
+export function LyricsInput({
+  onSuggest,
+  route,
+  busy,
+}: {
+  onSuggest?: () => void;
+  route: RoleRoute | null;
+  busy: string | null;
+}) {
   const session = useComposeSession();
   const { draft, patch } = session;
   const customGenres = useCustomGenres();
-  const parsed = useMemo(() => (draft.lyricsText.trim() ? parseLyricSheet(draft.lyricsText) : null), [draft.lyricsText]);
+  const parsed = useMemo(
+    () => (draft.lyricsText.trim() ? parseLyricSheet(draft.lyricsText) : null),
+    [draft.lyricsText],
+  );
   const lyrics = useMemo(() => draftLyrics(draft), [draft]);
-  const genre = useMemo(() => builderGenre(choicesFromDraft(draft, lyrics), customGenres), [draft, lyrics, customGenres]);
-  const tempo = draft.tempo === 'bpm' ? draft.bpm : draft.tempo === 'auto' ? Math.round(genre.tempo.typical) : tempoForFeel(draft.tempo, genre);
-  const meter = draft.meter === 'auto' ? undefined : { numerator: Number(draft.meter.split('/')[0]), denominator: Number(draft.meter.split('/')[1]) };
-  const mood = useMemo(() => (draft.lyricsText.trim() ? suggestMoodsFromLyrics(draft.lyricsText, 4) : null), [draft.lyricsText]);
+  const genre = useMemo(
+    () => builderGenre(choicesFromDraft(draft, lyrics), customGenres),
+    [draft, lyrics, customGenres],
+  );
+  const tempo =
+    draft.tempo === 'bpm'
+      ? draft.bpm
+      : draft.tempo === 'auto'
+        ? Math.round(genre.tempo.typical)
+        : tempoForFeel(draft.tempo, genre);
+  const meter =
+    draft.meter === 'auto'
+      ? undefined
+      : { numerator: Number(draft.meter.split('/')[0]), denominator: Number(draft.meter.split('/')[1]) };
+  const mood = useMemo(
+    () => (draft.lyricsText.trim() ? suggestMoodsFromLyrics(draft.lyricsText, 4) : null),
+    [draft.lyricsText],
+  );
   const newMoods = mood?.moods.filter((id) => !draft.moods.some((m) => m.tagId === id)) ?? [];
 
   return (
@@ -54,7 +79,12 @@ export function LyricsInput({ onSuggest, route, busy }: { onSuggest?: () => void
         <div className="panel-header">
           <Icon name="book" />
           <h3 className="grow">Your lyrics</h3>
-          <Toggle on={draft.lockLyrics} onChange={(lockLyrics) => patch({ lockLyrics })} label="Lock my lyrics" title="Locked lyrics are never rewritten by AI or regeneration" />
+          <Toggle
+            on={draft.lockLyrics}
+            onChange={(lockLyrics) => patch({ lockLyrics })}
+            label="Lock my lyrics"
+            title="Locked lyrics are never rewritten by AI or regeneration"
+          />
         </div>
         <div className="panel-body col">
           <TextArea
@@ -67,8 +97,9 @@ export function LyricsInput({ onSuggest, route, busy }: { onSuggest?: () => void
             className="textarea cb-lyrics-text"
           />
           <div className="small muted">
-            <Icon name="info" size={12} /> Paste the whole song. Headers like [Verse 1], [Chorus], Chorus x2 or (Bridge) are understood; without them, repeated stanzas become the chorus. Chord lines
-            and stage directions are ignored — your words are never changed.
+            <Icon name="info" size={12} /> Paste the whole song. Headers like [Verse 1], [Chorus], Chorus x2
+            or (Bridge) are understood; without them, repeated stanzas become the chorus. Chord lines and
+            stage directions are ignored — your words are never changed.
           </div>
         </div>
       </div>
@@ -97,7 +128,9 @@ export function LyricsInput({ onSuggest, route, busy }: { onSuggest?: () => void
                   <div className="cb-lyric-meta">
                     <strong>{s.name}</strong>
                     <span className="small muted">
-                      {s.lines.length ? `${s.lines.length} line${s.lines.length > 1 ? 's' : ''} · ${syl} syllables · ${bars} bars` : 'instrumental'}
+                      {s.lines.length
+                        ? `${s.lines.length} line${s.lines.length > 1 ? 's' : ''} · ${syl} syllables · ${bars} bars`
+                        : 'instrumental'}
                     </span>
                   </div>
                   <div className="cb-lyric-first small dim ellipsis" title={s.lines.join('\n')}>
@@ -127,15 +160,28 @@ export function LyricsInput({ onSuggest, route, busy }: { onSuggest?: () => void
             ) : (
               <div className="row wrap small">
                 <span className="muted">
-                  {mood.valence < -0.2 ? 'Darker' : mood.valence > 0.2 ? 'Brighter' : 'Mixed'} · {mood.arousal < 0.35 ? 'calm' : mood.arousal > 0.65 ? 'intense' : 'moderate'} (from “{mood.keywords.slice(0, 4).join('”, “')}”)
+                  {mood.valence < -0.2 ? 'Darker' : mood.valence > 0.2 ? 'Brighter' : 'Mixed'} ·{' '}
+                  {mood.arousal < 0.35 ? 'calm' : mood.arousal > 0.65 ? 'intense' : 'moderate'} (from “
+                  {mood.keywords.slice(0, 4).join('”, “')}”)
                 </span>
                 {newMoods.map((id) => (
-                  <button key={id} type="button" className="chip" onClick={() => patch({ moods: [...draft.moods, { tagId: id }] })} title="Add this mood">
+                  <button
+                    key={id}
+                    type="button"
+                    className="chip"
+                    onClick={() => patch({ moods: [...draft.moods, { tagId: id }] })}
+                    title="Add this mood"
+                  >
                     <Icon name="plus" size={10} /> {getTag(id)?.name ?? id}
                   </button>
                 ))}
                 {draft.tempo === 'auto' && (
-                  <button type="button" className="chip" onClick={() => patch({ tempo: mood.tempoFeel })} title="Use this tempo feel">
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() => patch({ tempo: mood.tempoFeel })}
+                    title="Use this tempo feel"
+                  >
                     <Icon name="metronome" size={10} /> {mood.tempoFeel} tempo
                   </button>
                 )}

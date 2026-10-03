@@ -36,7 +36,13 @@ export interface SeparationResult {
 }
 
 /** Median filter along time for every bin (rows = frames), cache-friendly (all bins advance together). */
-export function medianFilterTime(src: Float32Array, frames: number, bins: number, radius: number, dst = new Float32Array(src.length)): Float32Array {
+export function medianFilterTime(
+  src: Float32Array,
+  frames: number,
+  bins: number,
+  radius: number,
+  dst = new Float32Array(src.length),
+): Float32Array {
   if (frames === 0) return dst;
   const width = 2 * radius + 1;
   const win = new Float32Array(bins * width);
@@ -91,7 +97,15 @@ export function medianFilterTime(src: Float32Array, frames: number, bins: number
 }
 
 /** Median filter along frequency within one frame row. */
-export function medianFilterFreqRow(src: Float32Array, offset: number, bins: number, radius: number, dst: Float32Array, dstOffset = 0, scratch?: { buf: Float32Array; win: Float32Array }): void {
+export function medianFilterFreqRow(
+  src: Float32Array,
+  offset: number,
+  bins: number,
+  radius: number,
+  dst: Float32Array,
+  dstOffset = 0,
+  scratch?: { buf: Float32Array; win: Float32Array },
+): void {
   if (dstOffset === offset && dst === src) {
     slidingMedianStrided(src, offset, 1, bins, radius, dst, scratch);
     return;
@@ -104,7 +118,13 @@ export function medianFilterFreqRow(src: Float32Array, offset: number, bins: num
 }
 
 /** Median filter along frequency for every frame. */
-export function medianFilterFreq(src: Float32Array, frames: number, bins: number, radius: number, dst = new Float32Array(src.length)): Float32Array {
+export function medianFilterFreq(
+  src: Float32Array,
+  frames: number,
+  bins: number,
+  radius: number,
+  dst = new Float32Array(src.length),
+): Float32Array {
   const scratch = { buf: new Float32Array(bins), win: new Float32Array(2 * radius + 1) };
   if (dst !== src) dst.set(src);
   for (let t = 0; t < frames; t++) slidingMedianStrided(dst, t * bins, 1, bins, radius, dst, scratch);
@@ -132,7 +152,13 @@ function vocalBandWeight(f: number): number {
 /** Split a mix into drums / bass / vocals / other stems (same rate and channel count as the input). */
 export function separateSources(buf: AudioData, opts: SeparationOptions = {}): SeparationResult {
   const sr = buf.sampleRate;
-  const chans = (buf.channels.length >= 2 ? [buf.channels[0], buf.channels[1]] : buf.channels.length === 1 ? [buf.channels[0]] : [new Float32Array(0)]).map(sanitizeSignal);
+  const chans = (
+    buf.channels.length >= 2
+      ? [buf.channels[0], buf.channels[1]]
+      : buf.channels.length === 1
+        ? [buf.channels[0]]
+        : [new Float32Array(0)]
+  ).map(sanitizeSignal);
   const stereo = chans.length === 2;
   const len = chans[0].length;
   const fftSize = pow2ForDuration(opts.windowSeconds ?? 0.093, sr, 512, 16384);
@@ -204,7 +230,9 @@ export function separateSources(buf: AudioData, opts: SeparationOptions = {}): S
   const names: StemName[] = ['drums', 'bass', 'vocals', 'other'];
   // drums, bass and vocals are resynthesised; "other" = input − (drums + bass + vocals), which equals
   // the masked resynthesis exactly (masks partition unity, the WOLA inverse is linear and exact)
-  const ola = names.slice(0, 3).map(() => chans.map(() => new OverlapAdd(len, fftSize, hop, win, true, wsum)));
+  const ola = names
+    .slice(0, 3)
+    .map(() => chans.map(() => new OverlapAdd(len, fftSize, hop, win, true, wsum)));
   const specs = chans.map(() => ({ re: new Float64Array(nb), im: new Float64Array(nb) }));
   const outRe = new Float64Array(nb);
   const outIm = new Float64Array(nb);
@@ -229,7 +257,8 @@ export function separateSources(buf: AudioData, opts: SeparationOptions = {}): S
     // recompute stage-1 harmonic mask for this frame from the channel spectra
     for (let k = 0; k < nb; k++) {
       let p = 0;
-      for (let c = 0; c < chans.length; c++) p += specs[c].re[k] * specs[c].re[k] + specs[c].im[k] * specs[c].im[k];
+      for (let c = 0; c < chans.length; c++)
+        p += specs[c].re[k] * specs[c].re[k] + specs[c].im[k] * specs[c].im[k];
       pRow[k] = Math.sqrt(p * g);
       mono[k] = pRow[k];
     }
@@ -241,7 +270,7 @@ export function separateSources(buf: AudioData, opts: SeparationOptions = {}): S
       const hm = mono[k] * mh;
       const h2 = H2[o + k];
       const ex = hm > h2 ? hm - h2 : 0;
-      const fluct = hm > 1e-12 ? clamp01((ex * ex) / (hm * hm) * 1.6) : 0;
+      const fluct = hm > 1e-12 ? clamp01(((ex * ex) / (hm * hm)) * 1.6) : 0;
       let centre = 1;
       let centreSoft = 1;
       if (stereo) {
@@ -338,7 +367,12 @@ export function separateSources(buf: AudioData, opts: SeparationOptions = {}): S
  * Bass f0 per frame by harmonic summation (35–260 Hz candidates, 8 partials) on a magnitude
  * spectrogram, with a confidence = share of the low/mid harmonic energy on that comb.
  */
-export function bassPitchTrack(mag: Float32Array, frames: number, bins: number, binHz: number): { f0: Float32Array; conf: Float32Array; amp: Float32Array } {
+export function bassPitchTrack(
+  mag: Float32Array,
+  frames: number,
+  bins: number,
+  binHz: number,
+): { f0: Float32Array; conf: Float32Array; amp: Float32Array } {
   const f0 = new Float32Array(frames);
   const conf = new Float32Array(frames);
   const amp = new Float32Array(frames);

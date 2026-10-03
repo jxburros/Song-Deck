@@ -45,7 +45,10 @@ export const BUILTIN_SINGER_ID = 'internal-singer';
 // ---------------------------------------------------------------------------------------------
 
 export function isVocalMidiTrack(t: Track): boolean {
-  return t.kind === 'midi' && (t.role === 'vocal' || t.instrumentId === 'lead-vocal' || t.instrumentId === 'backing-vocal');
+  return (
+    t.kind === 'midi' &&
+    (t.role === 'vocal' || t.instrumentId === 'lead-vocal' || t.instrumentId === 'backing-vocal')
+  );
 }
 
 export function vocalMidiTracks(song: Song): Track[] {
@@ -64,11 +67,16 @@ export function defaultVocalTrack(song: Song): Track | undefined {
 }
 
 export function renderTrackFor(song: Song, midiTrackId: string): Track | undefined {
-  return song.tracks.find((t) => t.kind === 'audio' && t.generator?.id === VOCAL_RENDER_GENERATOR && t.sourceTrackId === midiTrackId);
+  return song.tracks.find(
+    (t) =>
+      t.kind === 'audio' && t.generator?.id === VOCAL_RENDER_GENERATOR && t.sourceTrackId === midiTrackId,
+  );
 }
 
 export function takesTrackFor(song: Song, midiTrackId: string): Track | undefined {
-  return song.tracks.find((t) => t.kind === 'audio' && t.generator?.id === VOCAL_TAKES_GENERATOR && t.sourceTrackId === midiTrackId);
+  return song.tracks.find(
+    (t) => t.kind === 'audio' && t.generator?.id === VOCAL_TAKES_GENERATOR && t.sourceTrackId === midiTrackId,
+  );
 }
 
 /** "Lead Vocal" → "lead_vocal" (spec §34 output `lead_vocal.wav`). */
@@ -103,7 +111,8 @@ export function beatTicksAt(song: Song): number {
 // Modes (spec §33)
 // ---------------------------------------------------------------------------------------------
 
-export type VocalTab = 'lyrics' | 'melody' | 'expression' | 'render' | 'regenerate' | 'voices' | 'conversion' | 'recording';
+export type VocalTab =
+  'lyrics' | 'melody' | 'expression' | 'render' | 'regenerate' | 'voices' | 'conversion' | 'recording';
 
 export interface VocalModeInfo {
   mode: VocalMode;
@@ -179,7 +188,8 @@ export function applyVocalMonitoring(song: Song, midiTrackId: string): { song: S
   const hasRender = !!render?.clips.some((c) => !c.muted);
   const hasTake = !!takes?.clips.some((c) => !c.muted);
   const want = new Map<string, boolean>(); // track id → muted
-  const renderAudible = (mode === 'placeholder' || mode === 'ai-singer' || mode === 'voice-conversion') && hasRender;
+  const renderAudible =
+    (mode === 'placeholder' || mode === 'ai-singer' || mode === 'voice-conversion') && hasRender;
   const takeAudible = mode === 'recorded' && hasTake;
   // 'none' silences the vocal MIDI through its track vocal mode (renderer); its channel mute is only
   // managed while a vocal audio track (render / takes) exists to take over from it.
@@ -200,7 +210,9 @@ export function applyVocalMonitoring(song: Song, midiTrackId: string): { song: S
     changed = true;
   }
   // Keep the track-level vocal mode in step with the song (the renderer silences 'none').
-  const tracks = song.tracks.map((t) => (t.id === midi.id && t.vocal?.mode !== mode ? { ...t, vocal: { ...(t.vocal ?? {}), mode } } : t));
+  const tracks = song.tracks.map((t) =>
+    t.id === midi.id && t.vocal?.mode !== mode ? { ...t, vocal: { ...(t.vocal ?? {}), mode } } : t,
+  );
   const tracksChanged = tracks.some((t, i) => t !== song.tracks[i]);
   if (!changed && !tracksChanged) return { song, skipped };
   return { song: { ...song, tracks, mixer: changed ? { ...song.mixer, channels } : song.mixer }, skipped };
@@ -250,7 +262,9 @@ export function vocalPhrases(song: Song, track: Track): VocalPhrase[] {
   if (!notes.length) return [];
   const beat = beatTicksAt(song);
   const tol = beat / 4;
-  const records = song.phrases.filter((p) => p.trackId === track.id).sort((a, b) => a.startTick - b.startTick);
+  const records = song.phrases
+    .filter((p) => p.trackId === track.id)
+    .sort((a, b) => a.startTick - b.startTick);
   const out: VocalPhrase[] = [];
   for (const span of sectionLayout(song)) {
     const secNotes = notes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick);
@@ -259,7 +273,9 @@ export function vocalPhrases(song: Song, track: Track): VocalPhrase[] {
     const byRecord = new Map<string, Note[]>();
     const loose: Note[] = [];
     for (const n of secNotes) {
-      const inside = records.find((r) => n.tick >= r.startTick && n.tick < r.endTick) ?? records.find((r) => n.tick >= r.startTick - tol && n.tick < r.endTick);
+      const inside =
+        records.find((r) => n.tick >= r.startTick && n.tick < r.endTick) ??
+        records.find((r) => n.tick >= r.startTick - tol && n.tick < r.endTick);
       if (inside) byRecord.set(inside.id, [...(byRecord.get(inside.id) ?? []), n]);
       else loose.push(n);
     }
@@ -299,7 +315,12 @@ export function vocalPhrases(song: Song, track: Track): VocalPhrase[] {
  * Grow a tick range to the surrounding rests so a re-sung range starts and ends in silence
  * (legato lines are never cut mid-phrase; the splice crossfade sits in the gap).
  */
-export function expandToRests(song: Song, track: Track, startTick: number, endTick: number): { startTick: number; endTick: number } {
+export function expandToRests(
+  song: Song,
+  track: Track,
+  startTick: number,
+  endTick: number,
+): { startTick: number; endTick: number } {
   const notes = [...track.notes].sort((a, b) => a.tick - b.tick);
   const inRange = notes.map((n, i) => ({ n, i })).filter(({ n }) => n.tick >= startTick && n.tick < endTick);
   if (!inRange.length) return { startTick, endTick };
@@ -313,26 +334,53 @@ export function expandToRests(song: Song, track: Track, startTick: number, endTi
     j++;
     end = Math.max(end, endOf(j));
   }
-  return { startTick: Math.min(startTick, notes[i].tick), endTick: Math.max(endTick, notes[j].tick + 1, end) };
+  return {
+    startTick: Math.min(startTick, notes[i].tick),
+    endTick: Math.max(endTick, notes[j].tick + 1, end),
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
 // Expression (spec §35)
 // ---------------------------------------------------------------------------------------------
 
-export type ExpressionKey = 'breathiness' | 'tension' | 'vibrato' | 'vibratoRate' | 'energy' | 'onset' | 'release';
+export type ExpressionKey =
+  'breathiness' | 'tension' | 'vibrato' | 'vibratoRate' | 'energy' | 'onset' | 'release';
 
-export const EXPRESSION_FIELDS: { key: ExpressionKey; label: string; kind: 'amount' | 'rate' | 'choice'; hint: string; options?: string[] }[] = [
+export const EXPRESSION_FIELDS: {
+  key: ExpressionKey;
+  label: string;
+  kind: 'amount' | 'rate' | 'choice';
+  hint: string;
+  options?: string[];
+}[] = [
   { key: 'breathiness', label: 'Breathiness', kind: 'amount', hint: 'Air in the tone' },
   { key: 'tension', label: 'Tension', kind: 'amount', hint: 'Vocal effort / brightness' },
   { key: 'vibrato', label: 'Vibrato', kind: 'amount', hint: 'Vibrato depth' },
   { key: 'vibratoRate', label: 'Vibrato rate', kind: 'rate', hint: 'Hz' },
   { key: 'energy', label: 'Energy', kind: 'amount', hint: 'Projection / loudness' },
-  { key: 'onset', label: 'Onset', kind: 'choice', hint: 'How notes start', options: ['soft', 'normal', 'hard', 'scoop'] },
-  { key: 'release', label: 'Release', kind: 'choice', hint: 'How phrases end', options: ['normal', 'falling', 'rising', 'breathy', 'cut'] },
+  {
+    key: 'onset',
+    label: 'Onset',
+    kind: 'choice',
+    hint: 'How notes start',
+    options: ['soft', 'normal', 'hard', 'scoop'],
+  },
+  {
+    key: 'release',
+    label: 'Release',
+    kind: 'choice',
+    hint: 'How phrases end',
+    options: ['normal', 'falling', 'rising', 'breathy', 'cut'],
+  },
 ];
 
-export const EXPRESSION_FALLBACK: Required<Pick<VocalExpression, 'breathiness' | 'tension' | 'vibrato' | 'vibratoRate' | 'energy' | 'onset' | 'release'>> = {
+export const EXPRESSION_FALLBACK: Required<
+  Pick<
+    VocalExpression,
+    'breathiness' | 'tension' | 'vibrato' | 'vibratoRate' | 'energy' | 'onset' | 'release'
+  >
+> = {
   breathiness: 0.2,
   tension: 0.4,
   vibrato: 0.3,
@@ -357,13 +405,23 @@ export interface ExpressionSupport {
 const ALL_EXPRESSION: ExpressionKey[] = EXPRESSION_FIELDS.map((f) => f.key);
 
 /** Which expression parameters a singing provider honors; the rest are ignored (spec §35). */
-export function expressionSupport(providerId: string | undefined, adapter?: string, declared?: unknown): ExpressionSupport {
+export function expressionSupport(
+  providerId: string | undefined,
+  adapter?: string,
+  declared?: unknown,
+): ExpressionSupport {
   if (Array.isArray(declared) && declared.length) {
-    const keys = declared.map(String).filter((k): k is ExpressionKey => (ALL_EXPRESSION as string[]).includes(k));
+    const keys = declared
+      .map(String)
+      .filter((k): k is ExpressionKey => (ALL_EXPRESSION as string[]).includes(k));
     return { supported: keys, unknown: false, note: 'As declared in the provider configuration.' };
   }
   if (!providerId || providerId === BUILTIN_SINGER_ID || adapter === 'internal') {
-    return { supported: ALL_EXPRESSION, unknown: false, note: 'The built-in formant singer models every parameter (glottal tension, aspiration, delayed vibrato, onset and release gestures).' };
+    return {
+      supported: ALL_EXPRESSION,
+      unknown: false,
+      note: 'The built-in formant singer models every parameter (glottal tension, aspiration, delayed vibrato, onset and release gestures).',
+    };
   }
   if (adapter === 'singing-http') {
     return {
@@ -372,7 +430,11 @@ export function expressionSupport(providerId: string | undefined, adapter?: stri
       note: 'DiffSinger / OpenVPI variance controls. Onset and release are sent to the bridge but most voicebanks ignore them.',
     };
   }
-  return { supported: ALL_EXPRESSION, unknown: true, note: 'This provider does not declare its expression controls — every parameter is sent and unsupported ones are ignored.' };
+  return {
+    supported: ALL_EXPRESSION,
+    unknown: true,
+    note: 'This provider does not declare its expression controls — every parameter is sent and unsupported ones are ignored.',
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -392,7 +454,10 @@ export function fnv1a(s: string): string {
 export function renderSignature(song: Song, track: Track): string[] {
   return [...track.notes]
     .sort((a, b) => a.tick - b.tick || a.pitch - b.pitch)
-    .map((n) => `${n.tick}:${fnv1a(stableStringify([n.pitch, n.duration, n.velocity, n.syllable ?? '', n.phonemes ?? [], effectiveExpression(song, n), n.articulation ?? '']))}`);
+    .map(
+      (n) =>
+        `${n.tick}:${fnv1a(stableStringify([n.pitch, n.duration, n.velocity, n.syllable ?? '', n.phonemes ?? [], effectiveExpression(song, n), n.articulation ?? '']))}`,
+    );
 }
 
 export function timingKey(song: Song): string {
@@ -411,8 +476,15 @@ export interface Staleness {
 }
 
 /** Sections whose vocal changed since the render (notes, syllables, expression), or everything after a voice/tempo change. */
-export function staleSections(song: Song, track: Track, rendered: RenderedState | undefined, voiceKey: string): Staleness {
-  const spans = sectionLayout(song).filter((s) => track.notes.some((n) => n.tick >= s.startTick && n.tick < s.endTick));
+export function staleSections(
+  song: Song,
+  track: Track,
+  rendered: RenderedState | undefined,
+  voiceKey: string,
+): Staleness {
+  const spans = sectionLayout(song).filter((s) =>
+    track.notes.some((n) => n.tick >= s.startTick && n.tick < s.endTick),
+  );
   if (!rendered) return { sections: spans, reason: 'unknown' };
   if (rendered.timing !== timingKey(song)) return { sections: spans, reason: 'timing' };
   if (rendered.voiceKey !== voiceKey) return { sections: spans, reason: 'voice' };
@@ -421,14 +493,21 @@ export function staleSections(song: Song, track: Track, rendered: RenderedState 
   const all = sectionLayout(song);
   const stale = all.filter((span) => {
     const a = current.filter((s) => tickOf(s) >= span.startTick && tickOf(s) < span.endTick).join('|');
-    const b = rendered.signature.filter((s) => tickOf(s) >= span.startTick && tickOf(s) < span.endTick).join('|');
+    const b = rendered.signature
+      .filter((s) => tickOf(s) >= span.startTick && tickOf(s) < span.endTick)
+      .join('|');
     return a !== b;
   });
   return { sections: stale, reason: stale.length ? 'notes' : 'none' };
 }
 
 /** Signature after splicing a re-sung range into a render. */
-export function spliceSignature(base: string[], current: string[], startTick: number, endTick: number): string[] {
+export function spliceSignature(
+  base: string[],
+  current: string[],
+  startTick: number,
+  endTick: number,
+): string[] {
   const tickOf = (s: string) => Number(s.slice(0, s.indexOf(':')));
   const inR = (s: string) => tickOf(s) >= startTick && tickOf(s) < endTick;
   return [...base.filter((s) => !inR(s)), ...current.filter(inR)].sort((a, b) => tickOf(a) - tickOf(b));
@@ -448,14 +527,21 @@ export interface ActiveRender {
   version?: number;
 }
 
-export function provenanceOf(project: Project, asset: AudioAssetMeta | undefined): ProvenanceRecord | undefined {
+export function provenanceOf(
+  project: Project,
+  asset: AudioAssetMeta | undefined,
+): ProvenanceRecord | undefined {
   if (!asset) return undefined;
-  return project.meta.provenance.find((p) => p.id === asset.provenanceId) ?? project.meta.provenance.find((p) => p.artifactId === asset.id);
+  return (
+    project.meta.provenance.find((p) => p.id === asset.provenanceId) ??
+    project.meta.provenance.find((p) => p.artifactId === asset.id)
+  );
 }
 
 export function renderedStateOf(prov: ProvenanceRecord | undefined): RenderedState | undefined {
   const p = prov?.parameters as { signature?: unknown; timing?: unknown; voiceKey?: unknown } | undefined;
-  if (!p || !Array.isArray(p.signature) || typeof p.timing !== 'string' || typeof p.voiceKey !== 'string') return undefined;
+  if (!p || !Array.isArray(p.signature) || typeof p.timing !== 'string' || typeof p.voiceKey !== 'string')
+    return undefined;
   return { signature: p.signature.map(String), timing: p.timing, voiceKey: p.voiceKey };
 }
 
@@ -468,7 +554,15 @@ export function activeRender(project: Project, midiTrackId: string): ActiveRende
   const render = song.vocals.renders.find((r) => r.assetId === clip.assetId);
   const provenance = provenanceOf(project, asset);
   const version = (provenance?.parameters as { version?: unknown } | undefined)?.version;
-  return { track, clip, render, asset, provenance, rendered: renderedStateOf(provenance), version: typeof version === 'number' ? version : undefined };
+  return {
+    track,
+    clip,
+    render,
+    asset,
+    provenance,
+    rendered: renderedStateOf(provenance),
+    version: typeof version === 'number' ? version : undefined,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -480,7 +574,10 @@ export function lyricsOfTrack(song: Song, trackId: string) {
 }
 
 /** Version numbers of the vocal MIDI and the lyrics: how many times each changed along the branch history. */
-export function artifactVersions(project: Project, trackId: string): { midi: number; lyrics: number; revision?: number } {
+export function artifactVersions(
+  project: Project,
+  trackId: string,
+): { midi: number; lyrics: number; revision?: number } {
   let chain: Song[] = [];
   let revision: number | undefined;
   try {
@@ -497,7 +594,21 @@ export function artifactVersions(project: Project, trackId: string): { midi: num
   let pl = '';
   for (const s of chain) {
     const t = s.tracks.find((x) => x.id === trackId);
-    const m = t && t.notes.length ? fnv1a(stableStringify(t.notes.map((n) => [n.tick, n.pitch, n.duration, n.velocity, n.syllable ?? '', n.expression ?? {}]))) : '';
+    const m =
+      t && t.notes.length
+        ? fnv1a(
+            stableStringify(
+              t.notes.map((n) => [
+                n.tick,
+                n.pitch,
+                n.duration,
+                n.velocity,
+                n.syllable ?? '',
+                n.expression ?? {},
+              ]),
+            ),
+          )
+        : '';
     const lines = s.lyrics.filter((l) => !l.trackId || l.trackId === trackId);
     const l = lines.length ? fnv1a(stableStringify(lines.map((x) => [x.sectionId, x.text]))) : '';
     if (m && m !== pm) midi++;
@@ -584,7 +695,11 @@ export function providerVoiceKey(providerId: string, voiceId: string): string {
 }
 
 /** Voices a provider reported (spec §36 "provider voices"), unless the project already holds a record for them. */
-export function providerVoiceChoices(project: Project | null, providerId: string, voices: VoiceInfo[]): VoiceChoice[] {
+export function providerVoiceChoices(
+  project: Project | null,
+  providerId: string,
+  voices: VoiceInfo[],
+): VoiceChoice[] {
   const records = project?.meta.voices ?? [];
   return voices.map((v) => {
     const rec = records.find((r) => r.providerId === providerId && r.modelRef === v.id);
@@ -608,7 +723,11 @@ export function projectVoiceChoices(project: Project | null): VoiceChoice[] {
 }
 
 /** The voice to sing with: explicit key → project record → the track's voice type on the built-in singer. */
-export function resolveVoice(project: Project | null, key: string | undefined, track: Track | undefined): VoiceChoice {
+export function resolveVoice(
+  project: Project | null,
+  key: string | undefined,
+  track: Track | undefined,
+): VoiceChoice {
   const builtIns = builtInVoices();
   if (key) {
     const b = builtIns.find((v) => v.key === key);
@@ -633,10 +752,14 @@ export function consentSummary(c: VoiceConsent | undefined): string {
 // Rights (spec §65)
 // ---------------------------------------------------------------------------------------------
 
-type ListKey = 'lyricWriters' | 'performers' | 'voiceModels' | 'modelProviders' | 'humanComposers' | 'sourceReferences';
+type ListKey =
+  'lyricWriters' | 'performers' | 'voiceModels' | 'modelProviders' | 'humanComposers' | 'sourceReferences';
 
 /** Add (never remove) attribution entries. */
-export function withRights(project: Project, add: Partial<Record<ListKey, (string | undefined | null)[]>>): Project {
+export function withRights(
+  project: Project,
+  add: Partial<Record<ListKey, (string | undefined | null)[]>>,
+): Project {
   const rights: RightsMetadata = { ...project.meta.rights };
   let changed = false;
   for (const [k, values] of Object.entries(add) as [ListKey, (string | undefined | null)[]][]) {

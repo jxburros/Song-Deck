@@ -42,21 +42,27 @@ export const GUIDE_RENDERER_ID = 'song-deck-guide-renderer';
 
 export type GuideRenderer = 'builtin' | 'external' | 'sampled';
 
-export const GUIDE_RENDERERS: Record<GuideRenderer, { label: string; providerName: string; description: string }> = {
+export const GUIDE_RENDERERS: Record<
+  GuideRenderer,
+  { label: string; providerName: string; description: string }
+> = {
   builtin: {
     label: 'Built-in instrument library',
     providerName: 'Built-in instrument library (guide renderer)',
-    description: 'Song Deck’s deterministic synth & drum patches — the same engine as playback. Works offline, instantly.',
+    description:
+      'Song Deck’s deterministic synth & drum patches — the same engine as playback. Works offline, instantly.',
   },
   external: {
     label: 'External DAW rendering',
     providerName: 'External DAW rendering (imported stems)',
-    description: 'Export per-stem MIDI, render it with your own instruments (VST, Kontakt, a hardware rig…), then import the WAVs.',
+    description:
+      'Export per-stem MIDI, render it with your own instruments (VST, Kontakt, a hardware rig…), then import the WAVs.',
   },
   sampled: {
     label: 'User sample instruments',
     providerName: 'User sample instruments (SFZ / plugin instruments)',
-    description: 'Render chosen tracks with sample instruments (SFZ sample libraries, plugin instruments); the rest uses built-in patches.',
+    description:
+      'Render chosen tracks with sample instruments (SFZ sample libraries, plugin instruments); the rest uses built-in patches.',
   },
 };
 
@@ -73,7 +79,15 @@ export const GUIDE_STEM_FILES: Record<StemGroup, { file: string; label: string }
   others: { file: 'other_reference.wav', label: 'Other (synths, brass, FX)' },
 };
 
-export const STEM_GROUP_ORDER: StemGroup[] = ['drums', 'bass', 'guitars', 'keys', 'strings', 'vocals', 'others'];
+export const STEM_GROUP_ORDER: StemGroup[] = [
+  'drums',
+  'bass',
+  'guitars',
+  'keys',
+  'strings',
+  'vocals',
+  'others',
+];
 
 /** Parameters stored on produced audio tracks (Track.generator.params). */
 export interface ProducedTrackParams {
@@ -86,7 +100,10 @@ export interface ProducedTrackParams {
 }
 
 export function isProducedTrack(t: Pick<Track, 'kind' | 'generator'>): boolean {
-  return t.kind === 'audio' && (t.generator?.id === PRODUCED_STEM_GENERATOR || t.generator?.id === PRODUCED_MIX_GENERATOR);
+  return (
+    t.kind === 'audio' &&
+    (t.generator?.id === PRODUCED_STEM_GENERATOR || t.generator?.id === PRODUCED_MIX_GENERATOR)
+  );
 }
 
 /**
@@ -100,8 +117,10 @@ export function productionSourceSong(song: Song): Song {
   const unmute = new Set<string>();
   for (const t of produced) {
     const params = (t.generator?.params ?? {}) as ProducedTrackParams;
-    if (t.generator?.id === PRODUCED_STEM_GENERATOR && t.sourceTrackId && params.sourceMuted === false) unmute.add(t.sourceTrackId);
-    if (t.generator?.id === PRODUCED_MIX_GENERATOR) for (const id of params.mutedTrackIds ?? []) unmute.add(id);
+    if (t.generator?.id === PRODUCED_STEM_GENERATOR && t.sourceTrackId && params.sourceMuted === false)
+      unmute.add(t.sourceTrackId);
+    if (t.generator?.id === PRODUCED_MIX_GENERATOR)
+      for (const id of params.mutedTrackIds ?? []) unmute.add(id);
   }
   const ids = new Set(produced.map((t) => t.id));
   const channels = { ...song.mixer.channels };
@@ -130,7 +149,10 @@ function silencedVocal(song: Song, t: Track): boolean {
 
 /** Tracks that sound in the composition (not muted, with notes or clips). */
 export function audibleSourceTracks(song: Song): Track[] {
-  return song.tracks.filter((t) => !isProducedTrack(t) && hasContent(t) && !song.mixer.channels[t.id]?.mute && !silencedVocal(song, t));
+  return song.tracks.filter(
+    (t) =>
+      !isProducedTrack(t) && hasContent(t) && !song.mixer.channels[t.id]?.mute && !silencedVocal(song, t),
+  );
 }
 
 /** The song has a sung lead vocal: a vocal track with notes plus lyrics (or syllables). */
@@ -163,7 +185,14 @@ export function compositionHash(song: Song): string {
           kind: t.kind,
           instrumentId: t.instrumentId,
           notes: t.notes.map((n) => [n.tick, n.duration, n.pitch, n.velocity, n.syllable ?? '']),
-          clips: t.clips.map((c) => [c.assetId, c.tick, c.offsetSeconds, c.durationSeconds, c.gainDb, c.muted ? 1 : 0]),
+          clips: t.clips.map((c) => [
+            c.assetId,
+            c.tick,
+            c.offsetSeconds,
+            c.durationSeconds,
+            c.gainDb,
+            c.muted ? 1 : 0,
+          ]),
         })),
       }),
     ),
@@ -199,7 +228,8 @@ export const STRATEGIES: StrategyInfo[] = [
       { label: 'Fastest', tone: 'success' },
       { label: 'Least precise', tone: 'warning' },
     ],
-    description: 'One generation per candidate from the whole guide mix. The model may reinterpret parts; you cannot fix one instrument without regenerating everything.',
+    description:
+      'One generation per candidate from the whole guide mix. The model may reinterpret parts; you cannot fix one instrument without regenerating everything.',
   },
   {
     id: 'stems',
@@ -210,7 +240,8 @@ export const STRATEGIES: StrategyInfo[] = [
       { label: 'Much more controllable', tone: 'success' },
       { label: 'One generation per stem', tone: 'accent' },
     ],
-    description: 'Each instrument reference is transformed separately, then the produced stems are mixed with your mixer settings. Stems can be adopted into Mix & Master.',
+    description:
+      'Each instrument reference is transformed separately, then the produced stems are mixed with your mixer settings. Stems can be adopted into Mix & Master.',
   },
   {
     id: 'hybrid',
@@ -221,7 +252,8 @@ export const STRATEGIES: StrategyInfo[] = [
       { label: 'Most professional workflow', tone: 'success' },
       { label: 'Per-track method', tone: 'ai' },
     ],
-    description: 'Choose per track: conventional instruments (built-in, sampled, external), generative AI, singing synthesis or recorded audio.',
+    description:
+      'Choose per track: conventional instruments (built-in, sampled, external), generative AI, singing synthesis or recorded audio.',
   },
 ];
 
@@ -229,23 +261,60 @@ export function strategyInfo(id: ProductionStrategy): StrategyInfo {
   return STRATEGIES.find((s) => s.id === id) ?? STRATEGIES[1];
 }
 
-export const METHOD_INFO: Record<TrackProductionMethod, { label: string; short: string; description: string }> = {
-  guide: { label: 'Built-in instrument', short: 'Built-in', description: 'Rendered by the built-in instrument library (conventional virtual instrument).' },
-  sampled: { label: 'Sample instrument', short: 'Sampled', description: 'Rendered with an assigned sample instrument (SFZ / plugin library); built-in patch when none is assigned.' },
-  external: { label: 'External render', short: 'External', description: 'Uses the stem you rendered in your DAW (imported in Guide render).' },
-  ai: { label: 'Generative AI', short: 'AI', description: 'The production provider transforms this track’s reference into a produced stem.' },
-  singing: { label: 'Singing synthesis', short: 'Singing', description: 'The singing engine performs the vocal MIDI with lyrics and expression.' },
-  recorded: { label: 'Recorded audio', short: 'Recorded', description: 'Uses recorded audio (audio-track clips or the active vocal take) as-is.' },
+export const METHOD_INFO: Record<
+  TrackProductionMethod,
+  { label: string; short: string; description: string }
+> = {
+  guide: {
+    label: 'Built-in instrument',
+    short: 'Built-in',
+    description: 'Rendered by the built-in instrument library (conventional virtual instrument).',
+  },
+  sampled: {
+    label: 'Sample instrument',
+    short: 'Sampled',
+    description:
+      'Rendered with an assigned sample instrument (SFZ / plugin library); built-in patch when none is assigned.',
+  },
+  external: {
+    label: 'External render',
+    short: 'External',
+    description: 'Uses the stem you rendered in your DAW (imported in Guide render).',
+  },
+  ai: {
+    label: 'Generative AI',
+    short: 'AI',
+    description: 'The production provider transforms this track’s reference into a produced stem.',
+  },
+  singing: {
+    label: 'Singing synthesis',
+    short: 'Singing',
+    description: 'The singing engine performs the vocal MIDI with lyrics and expression.',
+  },
+  recorded: {
+    label: 'Recorded audio',
+    short: 'Recorded',
+    description: 'Uses recorded audio (audio-track clips or the active vocal take) as-is.',
+  },
   off: { label: 'Off', short: 'Off', description: 'Excluded from production.' },
 };
 
-export const METHOD_ORDER: TrackProductionMethod[] = ['guide', 'sampled', 'external', 'ai', 'singing', 'recorded', 'off'];
+export const METHOD_ORDER: TrackProductionMethod[] = [
+  'guide',
+  'sampled',
+  'external',
+  'ai',
+  'singing',
+  'recorded',
+  'off',
+];
 
 /** Spec §38 Strategy C example: sampled/VST rhythm section, AI guitars, sung vocal. */
 export function defaultHybridMethod(track: Track): TrackProductionMethod {
   if (track.kind === 'audio') return 'recorded';
   if (track.role === 'vocal' || track.stemGroup === 'vocals') return 'singing';
-  if (track.role === 'rhythm-guitar' || track.role === 'lead-guitar' || track.stemGroup === 'guitars') return 'ai';
+  if (track.role === 'rhythm-guitar' || track.role === 'lead-guitar' || track.stemGroup === 'guitars')
+    return 'ai';
   return 'guide';
 }
 
@@ -257,11 +326,16 @@ export function methodsFor(track: Track): TrackProductionMethod[] {
 }
 
 /** How a track is produced under a strategy (B: AI for MIDI tracks; C: the per-track table). */
-export function methodFor(track: Track, strategy: ProductionStrategy, methods: Record<string, TrackProductionMethod>): TrackProductionMethod {
+export function methodFor(
+  track: Track,
+  strategy: ProductionStrategy,
+  methods: Record<string, TrackProductionMethod>,
+): TrackProductionMethod {
   const stored = methods[track.id];
   if (stored === 'off') return 'off';
   if (track.kind === 'audio') return 'recorded';
-  if (strategy === 'hybrid') return stored && methodsFor(track).includes(stored) ? stored : defaultHybridMethod(track);
+  if (strategy === 'hybrid')
+    return stored && methodsFor(track).includes(stored) ? stored : defaultHybridMethod(track);
   return 'ai';
 }
 
@@ -271,7 +345,11 @@ export interface ProductionUnit {
 }
 
 /** Production units of a (source) song: one per audible track, in track order. */
-export function productionUnits(song: Song, strategy: ProductionStrategy, methods: Record<string, TrackProductionMethod>): ProductionUnit[] {
+export function productionUnits(
+  song: Song,
+  strategy: ProductionStrategy,
+  methods: Record<string, TrackProductionMethod>,
+): ProductionUnit[] {
   return audibleSourceTracks(song)
     .map((track) => ({ track, method: methodFor(track, strategy, methods) }))
     .filter((u) => u.method !== 'off');
@@ -306,7 +384,10 @@ export function nextLabels(candidates: Pick<ProductionCandidate, 'label'>[], n: 
   return out;
 }
 
-export function nextVersionLabel(candidates: Pick<ProductionCandidate, 'label'>[], parentLabel: string): string {
+export function nextVersionLabel(
+  candidates: Pick<ProductionCandidate, 'label'>[],
+  parentLabel: string,
+): string {
   const base = baseLabel(parentLabel);
   let max = 1;
   for (const c of candidates) {
@@ -342,7 +423,9 @@ export function performSong(song: Song, seed: number, amount: number): Song {
       .map((n) => {
         const dt = Math.round(feel + rng.gaussian(0, sigma));
         const tick = Math.max(0, n.tick + dt);
-        const velocity = Math.round(Math.min(127, Math.max(1, n.velocity * dynamics + rng.gaussian(0, 7 * a))));
+        const velocity = Math.round(
+          Math.min(127, Math.max(1, n.velocity * dynamics + rng.gaussian(0, 7 * a))),
+        );
         return { ...n, tick, velocity };
       })
       .sort((x, y) => x.tick - y.tick || x.pitch - y.pitch);
@@ -371,7 +454,14 @@ export function regionSpan(song: Song, startBar: number, endBar: number): Region
   const tm = createTimeMap(song);
   const startTick = barToTick(song, s - 1);
   const endTick = barToTick(song, e);
-  return { startBar: s, endBar: e, startTick, endTick, startSeconds: tm.tickToSeconds(startTick), endSeconds: tm.tickToSeconds(endTick) };
+  return {
+    startBar: s,
+    endBar: e,
+    startTick,
+    endTick,
+    startSeconds: tm.tickToSeconds(startTick),
+    endSeconds: tm.tickToSeconds(endTick),
+  };
 }
 
 export function regionLabel(r: Pick<RegionSpan, 'startBar' | 'endBar'>): string {
@@ -397,7 +487,10 @@ export function revisionById(project: Project, id: string | undefined): Revision
 }
 
 /** The composition a candidate was produced from (its source revision), or the working copy. */
-export function candidateSourceSong(project: Project, candidate: Pick<ProductionCandidate, 'sourceRevisionId'>): Song {
+export function candidateSourceSong(
+  project: Project,
+  candidate: Pick<ProductionCandidate, 'sourceRevisionId'>,
+): Song {
   return revisionById(project, candidate.sourceRevisionId)?.snapshot ?? project.song;
 }
 
@@ -472,11 +565,16 @@ export interface PlanContext {
   hasInpaint: boolean;
 }
 
-export function planStrategy(strategy: ProductionStrategy, caps: readonly Capability[], ctx: PlanContext): StrategyPlan {
+export function planStrategy(
+  strategy: ProductionStrategy,
+  caps: readonly Capability[],
+  ctx: PlanContext,
+): StrategyPlan {
   const has = (c: Capability) => caps.includes(c);
   const warnings: PlanWarning[] = [];
   const wanted: WantedCapability[] = [];
-  const want = (cap: Capability, why: string, required = false) => wanted.push({ cap, why, have: has(cap), required });
+  const want = (cap: Capability, why: string, required = false) =>
+    wanted.push({ cap, why, have: has(cap), required });
   let plan: OpPlan | undefined;
 
   if (strategy === 'full') {
@@ -488,20 +586,35 @@ export function planStrategy(strategy: ProductionStrategy, caps: readonly Capabi
       want('VOCAL_GENERATION', 'generate the lead vocal');
     }
     if (ctx.reference) want('REFERENCE_AUDIO', 'use your reference audio for sound/style');
-    if (has('MIDI_CONDITIONING') && !has('TEXT_TO_MUSIC') && !has('AUDIO_TO_AUDIO')) plan = { op: 'render-song', caps: ['MIDI_CONDITIONING'], sing: false, reference: false };
-    else if (has('TEXT_TO_MUSIC') && (has('AUDIO_TO_AUDIO') || has('STEM_CONDITIONING'))) plan = { op: 'generate-guided', caps: ['TEXT_TO_MUSIC', has('AUDIO_TO_AUDIO') ? 'AUDIO_TO_AUDIO' : 'STEM_CONDITIONING'], sing: false, reference: false };
-    else if (has('AUDIO_TO_AUDIO')) plan = { op: 'transform', caps: ['AUDIO_TO_AUDIO'], sing: false, reference: false };
+    if (has('MIDI_CONDITIONING') && !has('TEXT_TO_MUSIC') && !has('AUDIO_TO_AUDIO'))
+      plan = { op: 'render-song', caps: ['MIDI_CONDITIONING'], sing: false, reference: false };
+    else if (has('TEXT_TO_MUSIC') && (has('AUDIO_TO_AUDIO') || has('STEM_CONDITIONING')))
+      plan = {
+        op: 'generate-guided',
+        caps: ['TEXT_TO_MUSIC', has('AUDIO_TO_AUDIO') ? 'AUDIO_TO_AUDIO' : 'STEM_CONDITIONING'],
+        sing: false,
+        reference: false,
+      };
+    else if (has('AUDIO_TO_AUDIO'))
+      plan = { op: 'transform', caps: ['AUDIO_TO_AUDIO'], sing: false, reference: false };
     else if (has('TEXT_TO_MUSIC')) {
       plan = { op: 'generate-text', caps: ['TEXT_TO_MUSIC'], sing: false, reference: false };
-      warnings.push({ level: 'danger', text: 'Text-to-music only: the result follows tempo, key, structure and lyrics, but not your exact notes — expect a reinterpretation of the song.' });
-    } else if (has('MIDI_CONDITIONING')) plan = { op: 'render-song', caps: ['MIDI_CONDITIONING'], sing: false, reference: false };
+      warnings.push({
+        level: 'danger',
+        text: 'Text-to-music only: the result follows tempo, key, structure and lyrics, but not your exact notes — expect a reinterpretation of the song.',
+      });
+    } else if (has('MIDI_CONDITIONING'))
+      plan = { op: 'render-song', caps: ['MIDI_CONDITIONING'], sing: false, reference: false };
     if (plan && plan.op !== 'render-song' && plan.op !== 'transform') {
       if (ctx.vocals) {
         if (has('LYRIC_CONDITIONING') && has('VOCAL_GENERATION')) {
           plan.sing = true;
           plan.caps.push('LYRIC_CONDITIONING', 'VOCAL_GENERATION');
         } else {
-          warnings.push({ level: 'warning', text: 'This provider cannot sing lyrics — the vocal will be left out. Use Hybrid (C) with singing synthesis for the vocal.' });
+          warnings.push({
+            level: 'warning',
+            text: 'This provider cannot sing lyrics — the vocal will be left out. Use Hybrid (C) with singing synthesis for the vocal.',
+          });
           if (has('INSTRUMENTAL_ONLY')) plan.caps.push('INSTRUMENTAL_ONLY');
         }
       } else if (has('INSTRUMENTAL_ONLY')) plan.caps.push('INSTRUMENTAL_ONLY');
@@ -509,32 +622,69 @@ export function planStrategy(strategy: ProductionStrategy, caps: readonly Capabi
         if (has('REFERENCE_AUDIO')) {
           plan.reference = true;
           plan.caps.push('REFERENCE_AUDIO');
-        } else warnings.push({ level: 'info', text: 'Reference audio is attached but this provider cannot use it.' });
+        } else
+          warnings.push({
+            level: 'info',
+            text: 'Reference audio is attached but this provider cannot use it.',
+          });
       }
-      if (!has('SECTION_GENERATION')) warnings.push({ level: 'info', text: 'No section awareness: section prompts are folded into the global prompt.' });
+      if (!has('SECTION_GENERATION'))
+        warnings.push({
+          level: 'info',
+          text: 'No section awareness: section prompts are folded into the global prompt.',
+        });
     }
     if (plan?.op === 'render-song') {
-      warnings.push({ level: 'info', text: 'Non-neural: performs your exact MIDI with production presets. Candidates differ by seeded performance (timing, dynamics, per-note variation).' });
-      if (ctx.reference) warnings.push({ level: 'info', text: 'Reference audio is not used by the on-device producer.' });
+      warnings.push({
+        level: 'info',
+        text: 'Non-neural: performs your exact MIDI with production presets. Candidates differ by seeded performance (timing, dynamics, per-note variation).',
+      });
+      if (ctx.reference)
+        warnings.push({ level: 'info', text: 'Reference audio is not used by the on-device producer.' });
     }
     if (plan?.op === 'transform') {
-      if (ctx.vocals && !has('VOCAL_GENERATION')) warnings.push({ level: 'warning', text: 'Audio-to-audio without vocal generation: the guide vocal is a placeholder and may come out unsung.' });
-      if (ctx.reference) warnings.push({ level: 'info', text: 'Audio-to-audio transforms the guide; the reference audio is not sent.' });
+      if (ctx.vocals && !has('VOCAL_GENERATION'))
+        warnings.push({
+          level: 'warning',
+          text: 'Audio-to-audio without vocal generation: the guide vocal is a placeholder and may come out unsung.',
+        });
+      if (ctx.reference)
+        warnings.push({
+          level: 'info',
+          text: 'Audio-to-audio transforms the guide; the reference audio is not sent.',
+        });
     }
   } else {
     const units = ctx.aiUnits;
     want('AUDIO_TO_AUDIO', 'transform each instrument reference into a produced stem', units > 0);
     want('STEM_CONDITIONING', 'condition each stem on its reference render');
     want('INSTRUMENTAL_ONLY', 'keep instrument stems free of vocals');
-    if (ctx.aiVocalUnits > 0) want('VOCAL_GENERATION', 'produce the vocal stem (or use singing synthesis in Hybrid)');
+    if (ctx.aiVocalUnits > 0)
+      want('VOCAL_GENERATION', 'produce the vocal stem (or use singing synthesis in Hybrid)');
     if (ctx.reference) want('REFERENCE_AUDIO', 'use your reference audio for sound/style');
     if (units > 0) {
-      if (has('AUDIO_TO_AUDIO')) plan = { op: 'transform', caps: ['AUDIO_TO_AUDIO'], sing: false, reference: false };
-      else if (has('TEXT_TO_MUSIC') && has('STEM_CONDITIONING')) plan = { op: 'generate-guided', caps: ['TEXT_TO_MUSIC', 'STEM_CONDITIONING'], sing: false, reference: false };
-      else if (has('STEM_CONDITIONING') || has('STEM_GENERATION')) plan = { op: 'transform', caps: [has('STEM_CONDITIONING') ? 'STEM_CONDITIONING' : 'STEM_GENERATION'], sing: false, reference: false };
+      if (has('AUDIO_TO_AUDIO'))
+        plan = { op: 'transform', caps: ['AUDIO_TO_AUDIO'], sing: false, reference: false };
+      else if (has('TEXT_TO_MUSIC') && has('STEM_CONDITIONING'))
+        plan = {
+          op: 'generate-guided',
+          caps: ['TEXT_TO_MUSIC', 'STEM_CONDITIONING'],
+          sing: false,
+          reference: false,
+        };
+      else if (has('STEM_CONDITIONING') || has('STEM_GENERATION'))
+        plan = {
+          op: 'transform',
+          caps: [has('STEM_CONDITIONING') ? 'STEM_CONDITIONING' : 'STEM_GENERATION'],
+          sing: false,
+          reference: false,
+        };
       else if (has('TEXT_TO_MUSIC')) {
         plan = { op: 'generate-text', caps: ['TEXT_TO_MUSIC'], sing: false, reference: false };
-        warnings.push({ level: 'danger', text: 'Text-to-music only: each stem is generated from a description and will not follow your notes. Prefer an audio-to-audio provider for stem production.' });
+        warnings.push({
+          level: 'danger',
+          text: 'Text-to-music only: each stem is generated from a description and will not follow your notes. Prefer an audio-to-audio provider for stem production.',
+        });
       }
       if (plan && (plan.op === 'generate-guided' || plan.op === 'generate-text')) {
         if (has('INSTRUMENTAL_ONLY')) plan.caps.push('INSTRUMENTAL_ONLY');
@@ -544,14 +694,27 @@ export function planStrategy(strategy: ProductionStrategy, caps: readonly Capabi
         }
       }
       if (plan && ctx.aiVocalUnits > 0 && !has('VOCAL_GENERATION')) {
-        warnings.push({ level: 'warning', text: `The vocal is transformed by a provider without vocal generation — use Hybrid (C) with singing synthesis for a sung vocal.` });
+        warnings.push({
+          level: 'warning',
+          text: `The vocal is transformed by a provider without vocal generation — use Hybrid (C) with singing synthesis for a sung vocal.`,
+        });
       }
-      if (plan && ctx.reference && !plan.reference) warnings.push({ level: 'info', text: 'Reference audio is not used for stem transforms by this provider.' });
+      if (plan && ctx.reference && !plan.reference)
+        warnings.push({
+          level: 'info',
+          text: 'Reference audio is not used for stem transforms by this provider.',
+        });
       if (plan?.op === 'transform' && !has('AUDIO_TO_AUDIO')) {
-        warnings.push({ level: 'info', text: 'Non-neural DSP production chain (glue compression, tone, width) per stem. Candidates differ by seeded performance; stems are level-matched to keep your mix balance.' });
+        warnings.push({
+          level: 'info',
+          text: 'Non-neural DSP production chain (glue compression, tone, width) per stem. Candidates differ by seeded performance; stems are level-matched to keep your mix balance.',
+        });
       }
     } else {
-      warnings.push({ level: 'info', text: 'No track uses generative AI — the production provider will not be called.' });
+      warnings.push({
+        level: 'info',
+        text: 'No track uses generative AI — the production provider will not be called.',
+      });
     }
   }
   want('INPAINTING', 'regenerate a bar range in place (selective regeneration)');
@@ -578,7 +741,8 @@ export function opDataKinds(plan: OpPlan, scope: 'mix' | 'stem' | 'region'): Dat
     kinds.add('lyrics');
   }
   if (plan.op === 'generate-guided' || plan.op === 'generate-text') kinds.add('chord-progression');
-  if (plan.op === 'generate-guided' || plan.op === 'transform') kinds.add(scope === 'region' ? 'stems' : 'guide-audio');
+  if (plan.op === 'generate-guided' || plan.op === 'transform')
+    kinds.add(scope === 'region' ? 'stems' : 'guide-audio');
   if (plan.sing) kinds.add('lyrics');
   if (plan.reference) kinds.add('reference-audio');
   return [...kinds];
@@ -591,9 +755,18 @@ export function opDataKinds(plan: OpPlan, scope: 'mix' | 'stem' | 'region'): Dat
 /** Seconds of processing per second of audio, measured on a mid-range laptop CPU. */
 const ON_DEVICE_RATE = { render: 0.016, transform: 0.035, mix: 0.03 };
 
-export function estimateOnDeviceSeconds(strategy: ProductionStrategy, songSeconds: number, units: number, aiUnits: number, candidates: number): number {
+export function estimateOnDeviceSeconds(
+  strategy: ProductionStrategy,
+  songSeconds: number,
+  units: number,
+  aiUnits: number,
+  candidates: number,
+): number {
   const perCandidate =
-    strategy === 'full' ? songSeconds * (ON_DEVICE_RATE.render * 4 + ON_DEVICE_RATE.mix) : songSeconds * (units * ON_DEVICE_RATE.render + aiUnits * ON_DEVICE_RATE.transform + ON_DEVICE_RATE.mix);
+    strategy === 'full'
+      ? songSeconds * (ON_DEVICE_RATE.render * 4 + ON_DEVICE_RATE.mix)
+      : songSeconds *
+        (units * ON_DEVICE_RATE.render + aiUnits * ON_DEVICE_RATE.transform + ON_DEVICE_RATE.mix);
   const parallel = Math.min(2, Math.max(1, candidates));
   return (perCandidate * candidates) / parallel + 2;
 }

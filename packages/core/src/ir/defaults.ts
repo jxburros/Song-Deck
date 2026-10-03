@@ -79,7 +79,15 @@ export function defaultMasterBus(): MasterBus {
   return {
     volumeDb: 0,
     eq: defaultEq(),
-    compressor: { enabled: true, thresholdDb: -14, ratio: 2, attackMs: 25, releaseMs: 200, kneeDb: 6, makeupDb: 1 },
+    compressor: {
+      enabled: true,
+      thresholdDb: -14,
+      ratio: 2,
+      attackMs: 25,
+      releaseMs: 200,
+      kneeDb: 6,
+      makeupDb: 1,
+    },
     limiter: { enabled: true, ceilingDb: -1, releaseMs: 80 },
     width: 1,
   };
@@ -113,7 +121,14 @@ export function defaultVocals(): VocalSettings {
     language: 'en',
     renders: [],
     takes: [],
-    defaultExpression: { breathiness: 0.2, tension: 0.4, vibrato: 0.3, vibratoRate: 5.5, onset: 'normal', release: 'normal' },
+    defaultExpression: {
+      breathiness: 0.2,
+      tension: 0.4,
+      vibrato: 0.3,
+      vibratoRate: 5.5,
+      onset: 'normal',
+      release: 'normal',
+    },
   };
 }
 
@@ -198,7 +213,18 @@ export function createProject(name: string, song: Song = createEmptySong({ title
   const revId = randomId('rev');
   const now = meta.createdAt;
   const history: HistoryState = {
-    revisions: [{ id: revId, number: 1, parents: [], branchId, message: 'Project created', kind: 'create', createdAt: now, snapshot: song }],
+    revisions: [
+      {
+        id: revId,
+        number: 1,
+        parents: [],
+        branchId,
+        message: 'Project created',
+        kind: 'create',
+        createdAt: now,
+        snapshot: song,
+      },
+    ],
     branches: [{ id: branchId, name: 'Main', headRevisionId: revId, createdAt: now }],
     currentBranchId: branchId,
   };

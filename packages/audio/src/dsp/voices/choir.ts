@@ -40,7 +40,11 @@ export class ChoirVoice extends Voice {
   private readonly pg = new Float64Array(2);
   private readonly sr: number;
 
-  constructor(host: VoiceHost, private readonly p: ChoirParams, private readonly stereo: boolean) {
+  constructor(
+    host: VoiceHost,
+    private readonly p: ChoirParams,
+    private readonly stereo: boolean,
+  ) {
     super(host);
     this.sr = host.sampleRate;
     this.n = Math.max(1, Math.min(MAXS, p.singers));
@@ -86,7 +90,8 @@ export class ChoirVoice extends Voice {
   render(L: Float64Array, R: Float64Array, start: number, end: number): void {
     const env = this.host.scratch;
     const alive = this.env.process(env, start, end);
-    const n = this.n, sr = this.sr;
+    const n = this.n,
+      sr = this.sr;
     const blk = end - start;
     for (let k = 0; k < n; k++) {
       this.vph[k] += (this.vrate[k] * blk) / sr;
@@ -94,13 +99,15 @@ export class ChoirVoice extends Voice {
       const vib = (this.p.vibratoCents / 1200) * sin01(this.vph[k]);
       this.incs[k] = Math.min(0.45, ((this.f0 * this.ratio[k]) / sr) * Math.pow(2, vib));
     }
-    const ph = this.ph, incs = this.incs;
+    const ph = this.ph,
+      incs = this.incs;
     let lp = this.lp;
     const a = this.lpA;
     const vg = this.vg;
     const br = this.p.breath;
     let ns = this.noise;
-    const gl = this.stereo ? this.pg[0] : 1, gr = this.pg[1];
+    const gl = this.stereo ? this.pg[0] : 1,
+      gr = this.pg[1];
     for (let i = start; i < end; i++) {
       let s = 0;
       for (let k = 0; k < n; k++) {
@@ -135,7 +142,10 @@ export class FormantBank {
   private readonly accR: Float64Array;
   private dry = 0.12;
 
-  constructor(private readonly sampleRate: number, blockSize: number) {
+  constructor(
+    private readonly sampleRate: number,
+    blockSize: number,
+  ) {
     this.tmpL = new Float64Array(blockSize);
     this.tmpR = new Float64Array(blockSize);
     this.accL = new Float64Array(blockSize);
@@ -158,7 +168,10 @@ export class FormantBank {
   }
 
   process(L: Float64Array, R: Float64Array, start: number, end: number): void {
-    const tL = this.tmpL, tR = this.tmpR, aL = this.accL, aR = this.accR;
+    const tL = this.tmpL,
+      tR = this.tmpR,
+      aL = this.accL,
+      aR = this.accR;
     for (let i = start; i < end; i++) {
       aL[i] = L[i] * this.dry;
       aR[i] = R[i] * this.dry;

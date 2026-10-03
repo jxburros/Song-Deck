@@ -43,7 +43,15 @@ const NUM_BANDS = 12;
 const FILTER_COEFFICIENTS = [0.25, 0.75, 1.0, 0.75, 0.25];
 
 /** Classifier = Haar-like filter (type, y, height, width) + quantizer thresholds (t0, t1, t2). */
-type Classifier = readonly [type: number, y: number, height: number, width: number, t0: number, t1: number, t2: number];
+type Classifier = readonly [
+  type: number,
+  y: number,
+  height: number,
+  width: number,
+  t0: number,
+  t1: number,
+  t2: number,
+];
 
 // kClassifiersTest2 from fingerprinter_configuration.cpp.
 const CLASSIFIERS: readonly Classifier[] = [
@@ -72,7 +80,10 @@ const GRAY_CODE = [0, 1, 3, 2];
 // ---------------------------------------------------------------------------------------------
 
 /** Chroma band (0..11) of every FFT bin in [minIndex, maxIndex). */
-function prepareNotes(frameSize: number, sampleRate: number): { minIndex: number; maxIndex: number; notes: Int8Array } {
+function prepareNotes(
+  frameSize: number,
+  sampleRate: number,
+): { minIndex: number; maxIndex: number; notes: Int8Array } {
   const freqToIndex = (f: number) => {
     const x = (frameSize * f) / sampleRate;
     return x >= 0 ? Math.floor(x + 0.5) : Math.ceil(x - 0.5);
@@ -130,7 +141,14 @@ class RollingIntegralImage {
 const subtractLog = (a: number, b: number) => Math.log((1 + a) / (1 + b));
 
 /** filter_utils.h Filter0..Filter5 (x = time row, y = chroma band, w = width in rows, h = height in bands). */
-function applyFilter(img: RollingIntegralImage, type: number, x: number, y: number, w: number, h: number): number {
+function applyFilter(
+  img: RollingIntegralImage,
+  type: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): number {
   switch (type) {
     case 0:
       return subtractLog(img.area(x, y, x + w, y + h), 0);
@@ -180,7 +198,8 @@ export function chromaprintRaw(samples: ArrayLike<number>): Uint32Array {
   const hop = frameSize - CHROMAPRINT_FRAME_OVERLAP;
   const { minIndex, maxIndex, notes } = prepareNotes(frameSize, CHROMAPRINT_SAMPLE_RATE);
   const window = new Float64Array(frameSize);
-  for (let i = 0; i < frameSize; i++) window[i] = (0.54 - 0.46 * Math.cos((i * 2 * Math.PI) / (frameSize - 1))) / 32767;
+  for (let i = 0; i < frameSize; i++)
+    window[i] = (0.54 - 0.46 * Math.cos((i * 2 * Math.PI) / (frameSize - 1))) / 32767;
   const fft = getFFT(frameSize);
   const re = new Float64Array(frameSize / 2 + 1);
   const im = new Float64Array(frameSize / 2 + 1);
@@ -208,7 +227,8 @@ export function chromaprintRaw(samples: ArrayLike<number>): Uint32Array {
     const offset = (ringOffset + 8 - FILTER_COEFFICIENTS.length) % 8;
     filtered.fill(0);
     for (let b = 0; b < NUM_BANDS; b++) {
-      for (let j = 0; j < FILTER_COEFFICIENTS.length; j++) filtered[b] += ring[(offset + j) % 8][b] * FILTER_COEFFICIENTS[j];
+      for (let j = 0; j < FILTER_COEFFICIENTS.length; j++)
+        filtered[b] += ring[(offset + j) % 8][b] * FILTER_COEFFICIENTS[j];
     }
     // ChromaNormalizer (Euclidean norm, threshold 0.01)
     let sq = 0;
@@ -292,7 +312,11 @@ export function chromaprintBase64(bytes: Uint8Array): string {
     const s0 = bytes[i];
     const s1 = bytes[i + 1];
     const s2 = bytes[i + 2];
-    s += B64[(s0 >> 2) & 63] + B64[((s0 << 4) | (s1 >> 4)) & 63] + B64[((s1 << 2) | (s2 >> 6)) & 63] + B64[s2 & 63];
+    s +=
+      B64[(s0 >> 2) & 63] +
+      B64[((s0 << 4) | (s1 >> 4)) & 63] +
+      B64[((s1 << 2) | (s2 >> 6)) & 63] +
+      B64[s2 & 63];
   }
   const rest = bytes.length - i;
   if (rest === 2) {
@@ -331,7 +355,12 @@ function besselI0(x: number): number {
  * Band-limited resampler (Kaiser-windowed sinc, β = 9, cutoff 0.97 × Nyquist of the lower rate,
  * 16 zero crossings) close to FFmpeg swresample's defaults. Returns at most `maxOut` samples.
  */
-export function resampleForFingerprint(x: Float32Array, fromRate: number, toRate: number, maxOut = Infinity): Float32Array {
+export function resampleForFingerprint(
+  x: Float32Array,
+  fromRate: number,
+  toRate: number,
+  maxOut = Infinity,
+): Float32Array {
   const outLen = Math.max(0, Math.min(maxOut, Math.floor((x.length * toRate) / fromRate)));
   if (fromRate === toRate) return x.length > outLen ? x.subarray(0, outLen) : x;
   const out = new Float32Array(outLen);
@@ -389,7 +418,13 @@ export function chromaprintFingerprint(audio: AudioData, opts: ChromaprintOption
   const frames = audio.channels[0]?.length ?? 0;
   const durationSeconds = audio.sampleRate > 0 ? frames / audio.sampleRate : 0;
   const maxSeconds = opts.maxSeconds ?? CHROMAPRINT_MAX_SECONDS;
-  if (!frames || !(audio.sampleRate > 1000)) return { fingerprint: encodeChromaprint([]), raw: new Uint32Array(0), durationSeconds, algorithm: CHROMAPRINT_ALGORITHM };
+  if (!frames || !(audio.sampleRate > 1000))
+    return {
+      fingerprint: encodeChromaprint([]),
+      raw: new Uint32Array(0),
+      durationSeconds,
+      algorithm: CHROMAPRINT_ALGORITHM,
+    };
   // Only read what the fingerprint needs (+ filter margin).
   const inFrames = Math.min(frames, Math.ceil(maxSeconds * audio.sampleRate) + 64);
   const mono = new Float32Array(inFrames);

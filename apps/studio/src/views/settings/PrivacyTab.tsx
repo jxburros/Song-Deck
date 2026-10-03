@@ -25,7 +25,11 @@ import { ContentCheckPanel } from './ContentCheckPanel';
 
 /** Privacy controls (spec §50) and offline mode (spec §51). */
 
-const DATA_OPTIONS = DATA_KINDS.map((k) => ({ value: k, label: DATA_KIND_INFO[k].label, title: DATA_KIND_INFO[k].description }));
+const DATA_OPTIONS = DATA_KINDS.map((k) => ({
+  value: k,
+  label: DATA_KIND_INFO[k].label,
+  title: DATA_KIND_INFO[k].description,
+}));
 
 export function DataFlowCard({ flow }: { flow: DataFlowDescriptor }) {
   return (
@@ -40,7 +44,11 @@ export function DataFlowCard({ flow }: { flow: DataFlowDescriptor }) {
           {flow.modelId && <div className="small mono dim">{flow.modelId}</div>}
         </div>
         <Badge tone={flow.leavesDevice ? 'warning' : 'success'}>
-          {flow.location === 'cloud' ? 'Cloud — leaves this device' : flow.location === 'local' ? 'Local model — stays on this machine' : 'On-device engine'}
+          {flow.location === 'cloud'
+            ? 'Cloud — leaves this device'
+            : flow.location === 'local'
+              ? 'Local model — stays on this machine'
+              : 'On-device engine'}
         </Badge>
       </div>
       <div className="field-label" style={{ marginBottom: 6 }}>
@@ -67,7 +75,9 @@ export default function PrivacyTab() {
   const cloud = providers.filter((p) => p.enabled && p.location === 'cloud');
   const local = summaries.filter((s) => s.enabled && s.location !== 'cloud');
   const projectNever = (project?.meta.settings.neverUpload ?? []) as DataKind[];
-  const ruleNever = routing.rules.flatMap((r) => (r.kind === 'never-upload' && r.enabled !== false ? r.dataKinds : []));
+  const ruleNever = routing.rules.flatMap((r) =>
+    r.kind === 'never-upload' && r.enabled !== false ? r.dataKinds : [],
+  );
 
   return (
     <>
@@ -82,16 +92,23 @@ export default function PrivacyTab() {
         <div className={`st-offline ${routing.offline ? 'on' : ''}`}>
           <div className="grow">
             <div className="row" style={{ gap: 10 }}>
-              <Toggle on={routing.offline} onChange={(offline) => setRouting({ offline })} label={<strong>Offline mode — nothing leaves this device</strong>} />
+              <Toggle
+                on={routing.offline}
+                onChange={(offline) => setRouting({ offline })}
+                label={<strong>Offline mode — nothing leaves this device</strong>}
+              />
             </div>
             <div className="small muted" style={{ marginTop: 6 }}>
-              Cloud providers are excluded from routing and cannot be contacted. Local models, the deterministic theory engine, MIDI generation, local transcription,
-              separation, singing, rendering and mixing keep working (spec §51).
+              Cloud providers are excluded from routing and cannot be contacted. Local models, the
+              deterministic theory engine, MIDI generation, local transcription, separation, singing,
+              rendering and mixing keep working (spec §51).
             </div>
           </div>
           <div className="st-offline-lists">
             <div>
-              <div className="field-label">{routing.offline ? 'Unavailable now' : 'Unavailable when offline'}</div>
+              <div className="field-label">
+                {routing.offline ? 'Unavailable now' : 'Unavailable when offline'}
+              </div>
               {cloud.length ? (
                 <ul className="st-plain" data-testid="offline-unavailable">
                   {cloud.map((p) => (
@@ -118,7 +135,11 @@ export default function PrivacyTab() {
         </div>
       </Panel>
 
-      <Panel title="Confirm before sending" icon="eye" sub="When to show the data-flow confirmation (provider, model, data, estimated cost) before a request.">
+      <Panel
+        title="Confirm before sending"
+        icon="eye"
+        sub="When to show the data-flow confirmation (provider, model, data, estimated cost) before a request."
+      >
         <div className="st-radio-cards" role="radiogroup" aria-label="Privacy confirmation">
           {PRIVACY_CONFIRM_OPTIONS.map((o) => (
             <button
@@ -137,21 +158,40 @@ export default function PrivacyTab() {
       </Panel>
 
       <div className="st-two">
-        <Panel title="Never upload — everywhere" icon="lock" sub="These data kinds are never sent to cloud providers, in every routing mode. Cloud providers are excluded from requests that contain them.">
-          <ChipSet label="Never upload (global)" options={DATA_OPTIONS} value={routing.neverUpload} onChange={(neverUpload) => setRouting({ neverUpload })} />
+        <Panel
+          title="Never upload — everywhere"
+          icon="lock"
+          sub="These data kinds are never sent to cloud providers, in every routing mode. Cloud providers are excluded from requests that contain them."
+        >
+          <ChipSet
+            label="Never upload (global)"
+            options={DATA_OPTIONS}
+            value={routing.neverUpload}
+            onChange={(neverUpload) => setRouting({ neverUpload })}
+          />
           {ruleNever.length > 0 && (
             <div className="small muted" style={{ marginTop: 8 }}>
-              Also blocked by routing rules: {[...new Set(ruleNever)].map((k) => DATA_KIND_INFO[k]?.label ?? k).join(', ')}.
+              Also blocked by routing rules:{' '}
+              {[...new Set(ruleNever)].map((k) => DATA_KIND_INFO[k]?.label ?? k).join(', ')}.
             </div>
           )}
         </Panel>
-        <Panel title={project ? `Never upload — “${project.meta.name}”` : 'Never upload — this project'} icon="folder" sub="Stored in the project file, so it travels with the project to collaborators.">
+        <Panel
+          title={project ? `Never upload — “${project.meta.name}”` : 'Never upload — this project'}
+          icon="folder"
+          sub="Stored in the project file, so it travels with the project to collaborators."
+        >
           {project ? (
             <ChipSet
               label="Never upload (project)"
               options={DATA_OPTIONS}
               value={projectNever}
-              onChange={(neverUpload) => updateProject((p) => ({ ...p, meta: { ...p.meta, settings: { ...p.meta.settings, neverUpload } } }))}
+              onChange={(neverUpload) =>
+                updateProject((p) => ({
+                  ...p,
+                  meta: { ...p.meta, settings: { ...p.meta.settings, neverUpload } },
+                }))
+              }
             />
           ) : (
             <Empty icon="folder">Open a project to set its own never-upload list.</Empty>
@@ -172,34 +212,67 @@ function DataFlowExplainer() {
   const [target, setTarget] = useState('gemini-sample');
   const options = useMemo(
     () => [
-      { value: 'gemini-sample', label: 'Gemini (example, cloud)', name: 'Gemini', location: 'cloud' as ProviderLocation },
-      ...summaries.map((s) => ({ value: s.id, label: `${s.name} (${s.location === 'internal' ? 'on-device' : s.location})`, name: s.name, location: s.location })),
+      {
+        value: 'gemini-sample',
+        label: 'Gemini (example, cloud)',
+        name: 'Gemini',
+        location: 'cloud' as ProviderLocation,
+      },
+      ...summaries.map((s) => ({
+        value: s.id,
+        label: `${s.name} (${s.location === 'internal' ? 'on-device' : s.location})`,
+        name: s.name,
+        location: s.location,
+      })),
     ],
     [summaries],
   );
   const chosen = options.find((o) => o.value === target) ?? options[0];
-  const dataKinds: DataKind[] = role === 'production' && target === 'gemini-sample' ? ['song-description', 'chord-progression', 'midi'] : ROLE_INFO[role].dataKinds;
+  const dataKinds: DataKind[] =
+    role === 'production' && target === 'gemini-sample'
+      ? ['song-description', 'chord-progression', 'midi']
+      : ROLE_INFO[role].dataKinds;
   const flow = describeDataFlow(
-    { dataKinds, role, show: ['song-description', 'chord-progression', 'midi', 'lyrics', 'recorded-vocals', 'reference-audio'] },
+    {
+      dataKinds,
+      role,
+      show: ['song-description', 'chord-progression', 'midi', 'lyrics', 'recorded-vocals', 'reference-audio'],
+    },
     { providerName: chosen.name, location: chosen.location },
   );
   return (
-    <Panel title="The data-flow indicator" icon="info" sub="Every provider request is described before it is sent: who receives it, whether it leaves the device, and exactly which kinds of project data are included.">
+    <Panel
+      title="The data-flow indicator"
+      icon="info"
+      sub="Every provider request is described before it is sent: who receives it, whether it leaves the device, and exactly which kinds of project data are included."
+    >
       <div className="st-two">
         <div className="col">
           <p className="small">
-            The indicator appears in the confirmation dialog (per your setting above) and in the activity log below. A ✓ means that kind of data is part of the
-            request; ✗ means it is not. Location badges tell you where it goes: <LocationBadge location="cloud" /> leaves this device,{' '}
-            <LocationBadge location="local" /> stays on your machine or network, <LocationBadge location="internal" /> never leaves Song Deck.
+            The indicator appears in the confirmation dialog (per your setting above) and in the activity log
+            below. A ✓ means that kind of data is part of the request; ✗ means it is not. Location badges tell
+            you where it goes: <LocationBadge location="cloud" /> leaves this device,{' '}
+            <LocationBadge location="local" /> stays on your machine or network,{' '}
+            <LocationBadge location="internal" /> never leaves Song Deck.
           </p>
           <div className="grid-2">
             <label className="field">
               <span className="field-label">Task</span>
-              <Select value={role} onChange={setRole} options={TASK_ROLES.map((r) => ({ value: r, label: ROLE_INFO[r].label }))} aria-label="Sample task" />
+              <Select
+                value={role}
+                onChange={setRole}
+                options={TASK_ROLES.map((r) => ({ value: r, label: ROLE_INFO[r].label }))}
+                aria-label="Sample task"
+              />
             </label>
             <label className="field">
               <span className="field-label">Provider</span>
-              <Select value={chosen.value} onChange={setTarget} options={options.map((o) => ({ value: o.value, label: o.label }))} aria-label="Sample provider" />
+              <Select
+                value={chosen.value}
+                onChange={setTarget}
+                options={options.map((o) => ({ value: o.value, label: o.label }))}
+                aria-label="Sample provider"
+              />
             </label>
           </div>
         </div>
@@ -211,28 +284,60 @@ function DataFlowExplainer() {
 
 const roleLabel = (r: TaskRole) => ROLE_INFO[r]?.label ?? r;
 
-function eventText(e: OrchestratorEvent): { icon: string; tone: string; title: string; detail: string; provider?: string; location?: ProviderLocation } {
+function eventText(e: OrchestratorEvent): {
+  icon: string;
+  tone: string;
+  title: string;
+  detail: string;
+  provider?: string;
+  location?: ProviderLocation;
+} {
   switch (e.type) {
     case 'routed':
-      return { icon: 'sliders', tone: '', title: `Routed ${roleLabel(e.role)}`, detail: e.decision.reasons.slice(0, 3).join(' · '), provider: e.decision.providerName, location: e.decision.location };
+      return {
+        icon: 'sliders',
+        tone: '',
+        title: `Routed ${roleLabel(e.role)}`,
+        detail: e.decision.reasons.slice(0, 3).join(' · '),
+        provider: e.decision.providerName,
+        location: e.decision.location,
+      };
     case 'confirm':
       return {
         icon: 'eye',
         tone: 'warning',
         title: 'Asked for confirmation',
-        detail: `Data: ${e.flow.items.filter((i) => i.included).map((i) => i.label).join(', ') || 'none'} · ${formatCostRange(e.estimate)}`,
+        detail: `Data: ${
+          e.flow.items
+            .filter((i) => i.included)
+            .map((i) => i.label)
+            .join(', ') || 'none'
+        } · ${formatCostRange(e.estimate)}`,
         provider: e.flow.providerName,
         location: e.flow.location,
       };
     case 'budget-warning':
       return { icon: 'alert', tone: 'warning', title: 'Budget warning', detail: e.warning };
     case 'started':
-      return { icon: 'play', tone: '', title: `Started ${roleLabel(e.role)}`, detail: e.modelId ? `model ${e.modelId}` : '', provider: e.providerId };
+      return {
+        icon: 'play',
+        tone: '',
+        title: `Started ${roleLabel(e.role)}`,
+        detail: e.modelId ? `model ${e.modelId}` : '',
+        provider: e.providerId,
+      };
     case 'fallback':
-      return { icon: 'rebuild', tone: 'warning', title: 'Fell back', detail: `${e.from} → ${e.to}: ${e.reason}` };
+      return {
+        icon: 'rebuild',
+        tone: 'warning',
+        title: 'Fell back',
+        detail: `${e.from} → ${e.to}: ${e.reason}`,
+      };
     case 'succeeded': {
       const p = e.provenance;
-      const sent = (ROLE_INFO[e.role]?.dataKinds ?? []).map((k) => DATA_KIND_INFO[k]?.label.toLowerCase() ?? k).join(', ');
+      const sent = (ROLE_INFO[e.role]?.dataKinds ?? [])
+        .map((k) => DATA_KIND_INFO[k]?.label.toLowerCase() ?? k)
+        .join(', ');
       return {
         icon: 'check',
         tone: 'success',
@@ -243,7 +348,13 @@ function eventText(e: OrchestratorEvent): { icon: string; tone: string; title: s
       };
     }
     case 'failed':
-      return { icon: 'alert', tone: 'danger', title: `${roleLabel(e.role)} failed`, detail: e.error, provider: e.providerId };
+      return {
+        icon: 'alert',
+        tone: 'danger',
+        title: `${roleLabel(e.role)} failed`,
+        detail: e.error,
+        provider: e.providerId,
+      };
   }
 }
 
@@ -259,7 +370,12 @@ function ActivityLog() {
       actions={
         <div className="row">
           <Toggle on={all} onChange={setAll} label="Include routing steps" />
-          <Button size="sm" variant="ghost" onClick={() => useAiRuntime.setState({ events: [] })} disabled={!events.length}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => useAiRuntime.setState({ events: [] })}
+            disabled={!events.length}
+          >
             Clear
           </Button>
         </div>

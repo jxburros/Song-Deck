@@ -14,7 +14,9 @@ export interface AssetEntry {
 }
 
 function isWav(bytes: Uint8Array) {
-  return bytes.length > 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+  return (
+    bytes.length > 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+  );
 }
 
 function isFlac(bytes: Uint8Array) {
@@ -33,7 +35,8 @@ export async function decodeAudioBytes(bytes: Uint8Array): Promise<AudioData> {
   }
   const Ctx: typeof OfflineAudioContext =
     (globalThis as unknown as { OfflineAudioContext: typeof OfflineAudioContext }).OfflineAudioContext ??
-    (globalThis as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+    (globalThis as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext })
+      .webkitOfflineAudioContext;
   if (!Ctx) throw new Error('This environment cannot decode compressed audio');
   const ctx = new Ctx(2, 1, 44100);
   const copy = bytes.slice().buffer;
@@ -78,7 +81,8 @@ class AssetStore {
 
   async add(meta: AudioAssetMeta, bytes: Uint8Array, decoded?: AudioData): Promise<void> {
     this.entries.set(meta.id, { meta, bytes, decoded });
-    if (this.projectId) await putAsset({ id: meta.id, projectId: this.projectId, bytes, mimeType: meta.mimeType });
+    if (this.projectId)
+      await putAsset({ id: meta.id, projectId: this.projectId, bytes, mimeType: meta.mimeType });
   }
 
   async remove(id: string): Promise<void> {

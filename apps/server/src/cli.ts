@@ -8,7 +8,16 @@
 import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { APP_PATHS, DEFAULT_ALLOWED_ORIGINS, DEFAULT_HOST, DEFAULT_PORT, defaultDataDir, isLoopbackHost, SERVER_VERSION, type ServerOptions } from './config';
+import {
+  APP_PATHS,
+  DEFAULT_ALLOWED_ORIGINS,
+  DEFAULT_HOST,
+  DEFAULT_PORT,
+  defaultDataDir,
+  isLoopbackHost,
+  SERVER_VERSION,
+  type ServerOptions,
+} from './config';
 import type { LogLevel } from './logger';
 import { createSongDeckServer } from './server';
 import type { VaultPreference } from './vault/types';
@@ -58,7 +67,8 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     }
     const value = (): string => {
       const v = inline ?? argv[++i];
-      if (v === undefined || (inline === undefined && v.startsWith('--'))) throw new Error(`${arg} needs a value`);
+      if (v === undefined || (inline === undefined && v.startsWith('--')))
+        throw new Error(`${arg} needs a value`);
       return v;
     };
     switch (arg) {
@@ -88,7 +98,8 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
         break;
       case '--vault': {
         const v = value();
-        if (!['auto', 'keychain', 'encrypted-file', 'memory'].includes(v)) throw new Error('--vault must be auto, keychain, encrypted-file or memory');
+        if (!['auto', 'keychain', 'encrypted-file', 'memory'].includes(v))
+          throw new Error('--vault must be auto, keychain, encrypted-file or memory');
         options.vault = v as VaultPreference;
         break;
       }
@@ -109,7 +120,8 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
         break;
       case '--log-level': {
         const v = value();
-        if (!['silent', 'error', 'warn', 'info', 'debug'].includes(v)) throw new Error('--log-level must be silent, error, warn, info or debug');
+        if (!['silent', 'error', 'warn', 'info', 'debug'].includes(v))
+          throw new Error('--log-level must be silent, error, warn, info or debug');
         options.logLevel = v as LogLevel;
         break;
       }
@@ -141,7 +153,9 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   }
   const host = options.host ?? DEFAULT_HOST;
   if (!isLoopbackHost(host) && !options.token) {
-    throw new Error(`--token is required when listening on a non-loopback host (${host}). Example: --token "$(openssl rand -hex 24)"`);
+    throw new Error(
+      `--token is required when listening on a non-loopback host (${host}). Example: --token "$(openssl rand -hex 24)"`,
+    );
   }
   return out;
 }
@@ -169,7 +183,9 @@ async function main(): Promise<void> {
     info = await app.listen();
   } catch (err) {
     const e = err as NodeJS.ErrnoException;
-    console.error(`songdeck-server: could not start: ${e.code === 'EADDRINUSE' ? `port ${app.config.port} is already in use (try --port)` : e.message}`);
+    console.error(
+      `songdeck-server: could not start: ${e.code === 'EADDRINUSE' ? `port ${app.config.port} is already in use (try --port)` : e.message}`,
+    );
     process.exitCode = 1;
     await app.close().catch(() => undefined);
     return;

@@ -47,13 +47,23 @@ class Client {
   }
 
   next(type: string, pred: (m: Msg) => boolean = () => true, timeoutMs = 3000): Promise<Msg> {
-    const seen = this.messages.find((m) => m.type === type && pred(m) && !(m as { __taken?: boolean }).__taken);
+    const seen = this.messages.find(
+      (m) => m.type === type && pred(m) && !(m as { __taken?: boolean }).__taken,
+    );
     if (seen) {
       (seen as { __taken?: boolean }).__taken = true;
       return Promise.resolve(seen);
     }
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`timed out waiting for ${type}; got ${JSON.stringify(this.messages.map((m) => m.type))}`)), timeoutMs);
+      const timer = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `timed out waiting for ${type}; got ${JSON.stringify(this.messages.map((m) => m.type))}`,
+            ),
+          ),
+        timeoutMs,
+      );
       this.waiters.push({
         pred: (m) => m.type === type && pred(m),
         resolve: (m) => {
@@ -76,8 +86,24 @@ const BOB = { id: 'u-bob', name: 'Bob', color: '#3e63dd' };
 
 function revision(id: string, number: number, parents: string[] = [], branchId = 'br_main') {
   const snapshot = createEmptySong({ title: `Song ${id}`, id: 'song_1' });
-  snapshot.sections.push({ id: 'sec_verse', name: 'Verse 1', kind: 'verse', bars: 8, energy: 50 } as (typeof snapshot.sections)[number]);
-  return { id, number, parents, branchId, message: `Revision ${number}`, kind: 'edit', createdAt: new Date().toISOString(), author: 'Alice', snapshot };
+  snapshot.sections.push({
+    id: 'sec_verse',
+    name: 'Verse 1',
+    kind: 'verse',
+    bars: 8,
+    energy: 50,
+  } as (typeof snapshot.sections)[number]);
+  return {
+    id,
+    number,
+    parents,
+    branchId,
+    message: `Revision ${number}`,
+    kind: 'edit',
+    createdAt: new Date().toISOString(),
+    author: 'Alice',
+    snapshot,
+  };
 }
 
 describe('collaboration hub', () => {
@@ -85,30 +111,60 @@ describe('collaboration hub', () => {
     srv = await startServer();
     const alice = await Client.connect(srv.url);
     const welcomeA = await alice.join('proj_1', ALICE);
-    expect(welcomeA).toMatchObject({ projectId: 'proj_1', peers: [], revisions: [], comments: [], branches: {} });
+    expect(welcomeA).toMatchObject({
+      projectId: 'proj_1',
+      peers: [],
+      revisions: [],
+      comments: [],
+      branches: {},
+    });
     const bob = await Client.connect(srv.url);
     const welcomeB = await bob.join('proj_1', BOB);
     expect(welcomeB.peers).toEqual([expect.objectContaining({ user: ALICE, peerId: welcomeA.you.peerId })]);
     const joined = await alice.next('peer-joined');
     expect(joined.peer).toMatchObject({ user: BOB, peerId: welcomeB.you.peerId });
 
-    bob.send({ type: 'presence', view: 'piano-roll', trackId: 'trk_bass', tick: 1920, selection: { noteIds: ['n1'] } });
+    bob.send({
+      type: 'presence',
+      view: 'piano-roll',
+      trackId: 'trk_bass',
+      tick: 1920,
+      selection: { noteIds: ['n1'] },
+    });
     const presence = await alice.next('presence');
-    expect(presence).toMatchObject({ peerId: welcomeB.you.peerId, user: BOB, presence: { view: 'piano-roll', trackId: 'trk_bass', tick: 1920, selection: { noteIds: ['n1'] } } });
+    expect(presence).toMatchObject({
+      peerId: welcomeB.you.peerId,
+      user: BOB,
+      presence: { view: 'piano-roll', trackId: 'trk_bass', tick: 1920, selection: { noteIds: ['n1'] } },
+    });
 
     const rev = revision('rev_1', 1);
     alice.send({ type: 'commit', branchId: 'br_main', revision: rev, reqId: 'c1' });
     expect(await alice.next('ack')).toMatchObject({ revisionId: 'rev_1', reqId: 'c1' });
     const commit = await bob.next('commit');
-    expect(commit).toMatchObject({ branchId: 'br_main', revision: { id: 'rev_1', snapshot: { title: 'Song rev_1' } }, from: { user: ALICE } });
+    expect(commit).toMatchObject({
+      branchId: 'br_main',
+      revision: { id: 'rev_1', snapshot: { title: 'Song rev_1' } },
+      from: { user: ALICE },
+    });
     // Re-committing the same revision id is idempotent.
     alice.send({ type: 'commit', branchId: 'br_main', revision: rev });
     expect(await alice.next('ack', (m) => m.duplicate === true)).toMatchObject({ revisionId: 'rev_1' });
 
     bob.send({ type: 'request-revision', id: 'rev_1', reqId: 7 });
-    expect(await bob.next('revision')).toMatchObject({ reqId: 7, revision: { id: 'rev_1', number: 1, snapshot: { sections: [{ id: 'sec_verse' }] } } });
+    expect(await bob.next('revision')).toMatchObject({
+      reqId: 7,
+      revision: { id: 'rev_1', number: 1, snapshot: { sections: [{ id: 'sec_verse' }] } },
+    });
 
-    const comment = { id: 'cm_1', author: 'Bob', text: 'Chorus needs more lift', at: new Date().toISOString(), sectionId: 'sec_chorus', tick: 3840 };
+    const comment = {
+      id: 'cm_1',
+      author: 'Bob',
+      text: 'Chorus needs more lift',
+      at: new Date().toISOString(),
+      sectionId: 'sec_chorus',
+      tick: 3840,
+    };
     bob.send({ type: 'comment', comment });
     expect(await bob.next('ack')).toMatchObject({ commentId: 'cm_1' });
     expect((await alice.next('comment')).comment).toEqual(comment);
@@ -138,7 +194,7 @@ describe('collaboration hub', () => {
     c.send({ type: 'hello', projectId: '../etc', user: ALICE });
     expect((await c.next('error', (m) => m.code === 'invalid-project')).code).toBe('invalid-project');
     await c.join('proj_2', ALICE);
-    c.send({ type: 'commit', branchId: 'br_main', revision: { id: 'rev_x', number: 1 } , reqId: 'bad' });
+    c.send({ type: 'commit', branchId: 'br_main', revision: { id: 'rev_x', number: 1 }, reqId: 'bad' });
     expect(await c.next('error', (m) => m.reqId === 'bad')).toMatchObject({ code: 'invalid-revision' });
     c.send({ type: 'commit', branchId: 'br_main', revision: { ...revision('../../evil', 1) } });
     expect((await c.next('error', (m) => m.code === 'invalid-revision')).error).toMatch(/revision.id/);
@@ -162,7 +218,16 @@ describe('collaboration hub', () => {
     await a.next('ack');
     a.send({ type: 'commit', branchId: 'br_alt', revision: revision('rev_2', 2, ['rev_1'], 'br_alt') });
     await a.next('ack');
-    a.send({ type: 'comment', comment: { id: 'cm_1', author: 'Alice', text: 'Keep this riff', at: '2026-10-03T10:00:00Z', trackId: 'trk_gtr' } });
+    a.send({
+      type: 'comment',
+      comment: {
+        id: 'cm_1',
+        author: 'Alice',
+        text: 'Keep this riff',
+        at: '2026-10-03T10:00:00Z',
+        trackId: 'trk_gtr',
+      },
+    });
     await a.next('ack');
     a.send({ type: 'resolve-comment', id: 'cm_1' });
     await a.next('ack', (m) => m.commentId === 'cm_1');
@@ -173,21 +238,46 @@ describe('collaboration hub', () => {
     const b = await Client.connect(srv.url);
     const welcome = await b.join('proj_persist', BOB);
     expect(welcome.revisions.map((r: { id: string }) => r.id)).toEqual(['rev_1', 'rev_2']);
-    expect(welcome.revisions[0]).toMatchObject({ number: 1, branchId: 'br_main', committedBy: { id: 'u-alice', name: 'Alice' } });
+    expect(welcome.revisions[0]).toMatchObject({
+      number: 1,
+      branchId: 'br_main',
+      committedBy: { id: 'u-alice', name: 'Alice' },
+    });
     expect(welcome.revisions[0].snapshot).toBeUndefined(); // metadata only
     expect(welcome.branches).toEqual({ br_main: 'rev_1', br_alt: 'rev_2' });
-    expect(welcome.comments).toEqual([{ id: 'cm_1', author: 'Alice', text: 'Keep this riff', at: '2026-10-03T10:00:00Z', trackId: 'trk_gtr', resolved: true }]);
+    expect(welcome.comments).toEqual([
+      {
+        id: 'cm_1',
+        author: 'Alice',
+        text: 'Keep this riff',
+        at: '2026-10-03T10:00:00Z',
+        trackId: 'trk_gtr',
+        resolved: true,
+      },
+    ]);
     b.send({ type: 'request-revision', id: 'rev_2' });
-    expect((await b.next('revision')).revision).toMatchObject({ id: 'rev_2', parents: ['rev_1'], snapshot: { title: 'Song rev_2' } });
+    expect((await b.next('revision')).revision).toMatchObject({
+      id: 'rev_2',
+      parents: ['rev_1'],
+      snapshot: { title: 'Song rev_2' },
+    });
     const summary = await json(await fetch(`${srv.url}/api/collab/rooms/proj_persist`));
-    expect(summary).toMatchObject({ projectId: 'proj_persist', revisions: [{ id: 'rev_1' }, { id: 'rev_2' }] });
+    expect(summary).toMatchObject({
+      projectId: 'proj_persist',
+      revisions: [{ id: 'rev_1' }, { id: 'rev_2' }],
+    });
   });
 
   it('checks the Origin and the token on WebSocket upgrades', async () => {
     srv = await startServer({ token: 'sekret' });
     await expect(Client.connect(srv.url)).rejects.toThrow(/401/);
-    await expect(Client.connect(`${srv.url}`, { authorization: 'Bearer sekret', origin: 'https://evil.example' })).rejects.toThrow(/403/);
-    const ok = await Client.connect(srv.url, { authorization: 'Bearer sekret', origin: 'http://localhost:5173' });
+    await expect(
+      Client.connect(`${srv.url}`, { authorization: 'Bearer sekret', origin: 'https://evil.example' }),
+    ).rejects.toThrow(/403/);
+    const ok = await Client.connect(srv.url, {
+      authorization: 'Bearer sekret',
+      origin: 'http://localhost:5173',
+    });
     await ok.join('proj_3', ALICE);
     const viaQuery = new WebSocket(`${srv.url.replace(/^http/, 'ws')}/api/collab?access_token=sekret`);
     sockets.push(viaQuery);

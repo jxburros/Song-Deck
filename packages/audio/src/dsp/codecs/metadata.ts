@@ -21,7 +21,18 @@ export type MetadataContainer = 'mp3' | 'wav' | 'flac' | 'ogg' | 'mp4' | 'unknow
 export type TagSource = 'id3v2' | 'id3v1' | 'riff-info' | 'vorbis' | 'mp4';
 
 /** Normalized meaning of a tag (the raw key is kept alongside). */
-export type TagField = 'title' | 'artist' | 'album' | 'copyright' | 'publisher' | 'isrc' | 'purchase' | 'owner' | 'comment' | 'url' | 'other';
+export type TagField =
+  | 'title'
+  | 'artist'
+  | 'album'
+  | 'copyright'
+  | 'publisher'
+  | 'isrc'
+  | 'purchase'
+  | 'owner'
+  | 'comment'
+  | 'url'
+  | 'other';
 
 export interface AudioTag {
   source: TagSource;
@@ -69,7 +80,10 @@ class Collector {
   }
   add(source: TagSource, key: string, field: TagField, raw: string): void {
     if (this.full) return;
-    const value = raw.replace(/\u0000+$/g, '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' ').trim();
+    const value = raw
+      .replace(/\u0000+$/g, '')
+      .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' ')
+      .trim();
     if (!value) return;
     const v = value.length > this.maxLen ? `${value.slice(0, this.maxLen)}…` : value;
     if (this.tags.some((t) => t.source === source && t.key === key && t.value === v)) return;
@@ -96,7 +110,12 @@ function le32(b: Uint8Array, o: number): number {
   return (u8(b, o) | (u8(b, o + 1) << 8) | (u8(b, o + 2) << 16) | (u8(b, o + 3) << 24)) >>> 0;
 }
 function syncsafe32(b: Uint8Array, o: number): number {
-  return ((u8(b, o) & 0x7f) << 21) | ((u8(b, o + 1) & 0x7f) << 14) | ((u8(b, o + 2) & 0x7f) << 7) | (u8(b, o + 3) & 0x7f);
+  return (
+    ((u8(b, o) & 0x7f) << 21) |
+    ((u8(b, o + 1) & 0x7f) << 14) |
+    ((u8(b, o + 2) & 0x7f) << 7) |
+    (u8(b, o + 3) & 0x7f)
+  );
 }
 function ascii(b: Uint8Array, o: number, n: number): string {
   let s = '';
@@ -133,7 +152,8 @@ function utf16(b: Uint8Array, bigEndian: boolean | undefined): string {
     } else be = false;
   }
   let s = '';
-  for (; o + 1 < b.length; o += 2) s += String.fromCharCode(be ? (b[o] << 8) | b[o + 1] : b[o] | (b[o + 1] << 8));
+  for (; o + 1 < b.length; o += 2)
+    s += String.fromCharCode(be ? (b[o] << 8) | b[o + 1] : b[o] | (b[o + 1] << 8));
   return s;
 }
 
@@ -154,7 +174,8 @@ function id3Text(enc: number, b: Uint8Array): string {
 /** Split at the encoding's NUL terminator: [first, rest]. */
 function id3SplitTerminated(enc: number, b: Uint8Array): [Uint8Array, Uint8Array] {
   if (enc === 1 || enc === 2) {
-    for (let i = 0; i + 1 < b.length; i += 2) if (b[i] === 0 && b[i + 1] === 0) return [b.subarray(0, i), b.subarray(i + 2)];
+    for (let i = 0; i + 1 < b.length; i += 2)
+      if (b[i] === 0 && b[i + 1] === 0) return [b.subarray(0, i), b.subarray(i + 2)];
     return [b, new Uint8Array(0)];
   }
   const i = b.indexOf(0);
@@ -199,7 +220,15 @@ const ID3_URL_FIELDS: Record<string, TagField> = {
 function describedField(description: string): TagField {
   const d = description.trim().toUpperCase();
   if (d === 'ISRC') return 'isrc';
-  if (d === 'LABEL' || d === 'PUBLISHER' || d === 'ORGANIZATION' || d === 'RECORD LABEL' || d === 'LABELNO' || d === 'CATALOGNUMBER') return 'publisher';
+  if (
+    d === 'LABEL' ||
+    d === 'PUBLISHER' ||
+    d === 'ORGANIZATION' ||
+    d === 'RECORD LABEL' ||
+    d === 'LABELNO' ||
+    d === 'CATALOGNUMBER'
+  )
+    return 'publisher';
   if (d === 'COPYRIGHT' || d === 'LICENSE' || d === 'LICENCE') return 'copyright';
   if (/AMAZON|ITUNES|PURCHASE|STORE|BEATPORT|BANDCAMP|7DIGITAL|QOBUZ/.test(d)) return 'purchase';
   if (d === 'ARTIST' || d === 'ALBUMARTIST' || d === 'ALBUM ARTIST') return 'artist';
@@ -258,7 +287,8 @@ function readId3v2(b: Uint8Array, offset: number, c: Collector): number {
       const plain = be32(body, p + 4);
       const nextSync = p + headLen + fsize;
       const nextPlain = p + headLen + plain;
-      const looksFrame = (q: number) => q === body.length || (q + 4 <= body.length && /^([A-Z0-9]{4}|\u0000{4})$/.test(ascii(body, q, 4)));
+      const looksFrame = (q: number) =>
+        q === body.length || (q + 4 <= body.length && /^([A-Z0-9]{4}|\u0000{4})$/.test(ascii(body, q, 4)));
       if (!looksFrame(nextSync) && looksFrame(nextPlain)) fsize = plain;
     }
     const fflags = major === 2 ? 0 : be16(body, p + 8);
@@ -304,7 +334,16 @@ function readId3Frame(id: string, data: Uint8Array, c: Collector): void {
     const description = id3Text(enc, desc);
     const value = id3Text(enc, rest);
     const field = describedField(description);
-    c.add('id3v2', description ? `${id}:${description}` : id, field === 'other' ? (/amazon\.com song id|purchased|itunes/i.test(`${description} ${value}`) ? 'purchase' : 'comment') : field, value);
+    c.add(
+      'id3v2',
+      description ? `${id}:${description}` : id,
+      field === 'other'
+        ? /amazon\.com song id|purchased|itunes/i.test(`${description} ${value}`)
+          ? 'purchase'
+          : 'comment'
+        : field,
+      value,
+    );
     return;
   }
   if (id === 'WXXX' || id === 'WXX') {
@@ -316,7 +355,11 @@ function readId3Frame(id: string, data: Uint8Array, c: Collector): void {
   if (ID3_TEXT_FIELDS[id]) {
     // Multiple values (v2.4) are NUL-separated.
     const text = id3Text(data[0], data.subarray(1));
-    for (const v of text.split('\u0000').filter((x) => x.trim()).slice(0, 8)) c.add('id3v2', id, ID3_TEXT_FIELDS[id], v);
+    for (const v of text
+      .split('\u0000')
+      .filter((x) => x.trim())
+      .slice(0, 8))
+      c.add('id3v2', id, ID3_TEXT_FIELDS[id], v);
     return;
   }
   if (ID3_URL_FIELDS[id]) {
@@ -329,7 +372,14 @@ function readId3Frame(id: string, data: Uint8Array, c: Collector): void {
     const [price, rest] = id3SplitTerminated(0, data.subarray(1));
     const date = latin1(rest.subarray(0, 8));
     const seller = id3Text(enc, rest.subarray(8));
-    c.add('id3v2', id, 'purchase', [seller && `seller ${seller}`, latin1(price) && `price ${latin1(price)}`, date && `purchased ${date}`].filter(Boolean).join(', ') || 'ownership frame');
+    c.add(
+      'id3v2',
+      id,
+      'purchase',
+      [seller && `seller ${seller}`, latin1(price) && `price ${latin1(price)}`, date && `purchased ${date}`]
+        .filter(Boolean)
+        .join(', ') || 'ownership frame',
+    );
     return;
   }
   if (id === 'COMR') {
@@ -344,7 +394,8 @@ function readId3Frame(id: string, data: Uint8Array, c: Collector): void {
   if (id === 'PRIV') {
     const [owner] = id3SplitTerminated(0, data);
     const o = latin1(owner);
-    if (/amazon|itunes|apple|7digital|beatport|spotify|google|napster|emusic|bandcamp|qobuz/i.test(o)) c.add('id3v2', `PRIV:${o}`, 'purchase', o);
+    if (/amazon|itunes|apple|7digital|beatport|spotify|google|napster|emusic|bandcamp|qobuz/i.test(o))
+      c.add('id3v2', `PRIV:${o}`, 'purchase', o);
   }
 }
 
@@ -581,7 +632,15 @@ function mp4Name(b: Uint8Array, o: number): string {
   return s.replace(/©/g, '©');
 }
 
-function walkAtoms(b: Uint8Array, start: number, end: number, depth: number, w: AtomWalk, c: Collector, visit: (name: string, dataStart: number, dataEnd: number, depth: number) => void): void {
+function walkAtoms(
+  b: Uint8Array,
+  start: number,
+  end: number,
+  depth: number,
+  w: AtomWalk,
+  c: Collector,
+  visit: (name: string, dataStart: number, dataEnd: number, depth: number) => void,
+): void {
   let p = start;
   while (p + 8 <= end && w.count++ < MAX_ATOMS && depth < 12) {
     let size = be32(b, p);
@@ -614,7 +673,8 @@ function mp4DataValue(b: Uint8Array, start: number, end: number, key: string): s
   if (type === 2) return utf16(payload, true);
   if (type === 21 || type === 22 || type === 0) {
     // Big-endian integer (store ids).
-    if (payload.length === 0 || payload.length > 8) return type === 0 ? latin1(payload).replace(/[^\x20-\x7e]/g, '') || null : null;
+    if (payload.length === 0 || payload.length > 8)
+      return type === 0 ? latin1(payload).replace(/[^\x20-\x7e]/g, '') || null : null;
     let v = 0;
     for (const x of payload) v = v * 256 + x;
     return String(v);
@@ -748,7 +808,13 @@ export function normalizeIsrc(value: string): string | null {
   return ISRC_RE.test(v) ? v.replace(/-/g, '') : null;
 }
 
-const SOURCE_LABEL: Record<TagSource, string> = { id3v2: 'ID3', id3v1: 'ID3v1', 'riff-info': 'RIFF', vorbis: 'Vorbis comment', mp4: 'MP4' };
+const SOURCE_LABEL: Record<TagSource, string> = {
+  id3v2: 'ID3',
+  id3v1: 'ID3v1',
+  'riff-info': 'RIFF',
+  vorbis: 'Vorbis comment',
+  mp4: 'MP4',
+};
 const KIND_LABEL: Record<RightsSignalKind, string> = {
   isrc: 'ISRC',
   copyright: 'Copyright notice',
@@ -778,7 +844,9 @@ function tagKind(t: AudioTag): RightsSignalKind | null {
     case 'album':
       return 'album';
     case 'url':
-      return /itunes\.apple|music\.apple|amazon\.|beatport|bandcamp|7digital|qobuz|spotify/i.test(t.value) ? 'purchase' : null;
+      return /itunes\.apple|music\.apple|amazon\.|beatport|bandcamp|7digital|qobuz|spotify/i.test(t.value)
+        ? 'purchase'
+        : null;
     default:
       // Any tag whose value is a well-formed ISRC counts (e.g. RIFF ISRC, comments).
       return t.key === 'ISRC' && normalizeIsrc(t.value) ? 'isrc' : null;
@@ -798,7 +866,11 @@ export function classifyRightsSignals(meta: Pick<AudioFileMetadata, 'tags'>): Ri
   const order: RightsSignalKind[] = ['isrc', 'copyright', 'label', 'purchase', 'artist', 'title', 'album'];
   signals.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
   const strong = signals.filter((s) => STRONG.includes(s.kind));
-  const level: RightsClassification['level'] = strong.length ? 'likely-commercial' : signals.length ? 'hint' : 'none';
+  const level: RightsClassification['level'] = strong.length
+    ? 'likely-commercial'
+    : signals.length
+      ? 'hint'
+      : 'none';
   return { level, signals, summary: summarizeSignals(level, signals) };
 }
 
@@ -815,11 +887,15 @@ function summarizeSignals(level: RightsClassification['level'], signals: RightsS
     if (s.kind === 'isrc') parts.push(`ISRC ${s.value}`);
     else if (s.kind === 'copyright') parts.push(quote(s.value));
     else if (s.kind === 'label') parts.push(`label/publisher ${quote(s.value)}`);
-    else if (s.kind === 'purchase') parts.push(`a store purchase marker (${s.source}: ${s.value.length > 60 ? `${s.value.slice(0, 60)}…` : s.value})`);
+    else if (s.kind === 'purchase')
+      parts.push(
+        `a store purchase marker (${s.source}: ${s.value.length > 60 ? `${s.value.slice(0, 60)}…` : s.value})`,
+      );
     else parts.push(`${s.label.toLowerCase()} ${quote(s.value)}`);
     if (parts.length >= 4) break;
   }
-  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  const list =
+    parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
   return level === 'likely-commercial'
     ? `This file carries ${list} — it looks like a commercial release.`
     : `This file is tagged with ${list}. That alone does not mean it is a commercial release.`;

@@ -5,13 +5,29 @@
  * outro thinning — driven by section energy, the genre's density curve and rests, track priorities
  * per section kind, and the user's InstrumentConstraints (sectionIds / sectionKinds always win).
  */
-import type { GenreProfile, InstrumentProfile, MusicalFunction, SectionKind, Song, Track, TrackRole } from '../ir/types';
+import type {
+  GenreProfile,
+  InstrumentProfile,
+  MusicalFunction,
+  SectionKind,
+  Song,
+  Track,
+  TrackRole,
+} from '../ir/types';
 import { getInstrument } from './instruments';
 import { genreForSong } from './tags';
 import { clamp01, effectiveMacros, lerp, unitHash } from './util';
 
 /** Section kinds in which a lead vocal sings. */
-export const VOCAL_KINDS: SectionKind[] = ['verse', 'pre-chorus', 'chorus', 'post-chorus', 'bridge', 'final-chorus', 'custom'];
+export const VOCAL_KINDS: SectionKind[] = [
+  'verse',
+  'pre-chorus',
+  'chorus',
+  'post-chorus',
+  'bridge',
+  'final-chorus',
+  'custom',
+];
 
 export function resolveFunction(track: Track, inst: InstrumentProfile): MusicalFunction {
   return track.constraints?.function ?? inst.defaultFunction ?? 'accompaniment';
@@ -37,8 +53,19 @@ const BASE_PRIORITY: Record<TrackRole, number> = {
   custom: 5,
 };
 
-const KIND_ADJUST: Partial<Record<SectionKind, Partial<Record<TrackRole | 'hook' | 'counter' | 'pad', number>>>> = {
-  intro: { drums: -3, bass: -2, keys: 2, 'synth-pad': 2, 'synth-arp': 2, hook: 4, percussion: -1, strings: 1 },
+const KIND_ADJUST: Partial<
+  Record<SectionKind, Partial<Record<TrackRole | 'hook' | 'counter' | 'pad', number>>>
+> = {
+  intro: {
+    drums: -3,
+    bass: -2,
+    keys: 2,
+    'synth-pad': 2,
+    'synth-arp': 2,
+    hook: 4,
+    percussion: -1,
+    strings: 1,
+  },
   verse: { 'lead-guitar': -3, 'synth-lead': -3, counter: -1, percussion: -1, strings: -1, hook: -2 },
   'pre-chorus': { strings: 1, 'synth-arp': 1, 'synth-pad': 1, counter: 1 },
   chorus: { 'lead-guitar': 2, strings: 1, counter: 2, hook: 2 },
@@ -83,7 +110,8 @@ function priorityOf(u: Unit, kind: SectionKind, energy: number, hasLeadVocal: bo
   if (u.fn === 'solo') p += kind === 'solo' || kind === 'bridge' ? 4 : -2;
   if (u.fn === 'melody' && !hasLeadVocal) p += 3;
   if (u.fn === 'bass-line' && u.role !== 'bass') p += 2;
-  if (u.role === 'vocal' && u.fn === 'pad') p += kind === 'chorus' || kind === 'final-chorus' || kind === 'bridge' ? 2 : -1;
+  if (u.role === 'vocal' && u.fn === 'pad')
+    p += kind === 'chorus' || kind === 'final-chorus' || kind === 'bridge' ? 2 : -1;
   if (u.role === 'percussion' && u.inst.id === 'timpani') p += energy > 0.7 ? 2 : -1;
   return p;
 }
@@ -143,34 +171,54 @@ export function arrangementFor(song: Song, opts: ArrangementOptions): Record<str
       }
       if (u.role === 'vocal' && u.fn === 'harmony' && hasLeadVocal) {
         const chorusy = kind === 'chorus' || kind === 'final-chorus' || kind === 'post-chorus';
-        if (chorusy || ((kind === 'pre-chorus' || kind === 'bridge') && e >= 0.6) || (kind === 'verse' && e >= 0.78)) active.add(u);
+        if (
+          chorusy ||
+          ((kind === 'pre-chorus' || kind === 'bridge') && e >= 0.6) ||
+          (kind === 'verse' && e >= 0.78)
+        )
+          active.add(u);
         continue;
       }
       if (u.fn === 'melody' && u.role !== 'vocal' && !hasLeadVocal) {
         // Principal melody of an instrumental piece: states the themes, takes the solos.
-        if (VOCAL_KINDS.includes(kind) || kind === 'solo' || (kind === 'intro' && e >= 0.35) || kind === 'drop') active.add(u);
+        if (
+          VOCAL_KINDS.includes(kind) ||
+          kind === 'solo' ||
+          (kind === 'intro' && e >= 0.35) ||
+          kind === 'drop'
+        )
+          active.add(u);
         continue;
       }
       if (rests.has(u.role)) continue;
       flexible.push(u);
     }
     // How many flexible units play: the genre's density curve at this energy, biased by macros.
-    let frac = clamp01(lerp(genre.arrangement.densityAtLowEnergy, genre.arrangement.densityAtHighEnergy, e) + bias);
+    let frac = clamp01(
+      lerp(genre.arrangement.densityAtLowEnergy, genre.arrangement.densityAtHighEnergy, e) + bias,
+    );
     if (kind === 'final-chorus' || ((kind === 'chorus' || kind === 'drop') && e >= 0.8)) frac = 1;
-    const target = flexible.length ? Math.max(1, Math.min(flexible.length, Math.round(frac * flexible.length + 0.3))) : 0;
+    const target = flexible.length
+      ? Math.max(1, Math.min(flexible.length, Math.round(frac * flexible.length + 0.3)))
+      : 0;
     const ranked = flexible
-      .map((u) => ({ u, p: priorityOf(u, kind, e, hasLeadVocal) + unitHash(`${opts.seed}|${u.key}|${section.id}`) * 0.5 }))
+      .map((u) => ({
+        u,
+        p: priorityOf(u, kind, e, hasLeadVocal) + unitHash(`${opts.seed}|${u.key}|${section.id}`) * 0.5,
+      }))
       .sort((a, b) => b.p - a.p);
     for (let i = 0; i < target; i++) active.add(ranked[i].u);
     // Every section keeps some harmony underneath.
-    const harmonic = (u: Unit) => HARMONIC_ROLES.includes(u.role) || u.fn === 'pad' || u.fn === 'harmony' || u.fn === 'accompaniment';
+    const harmonic = (u: Unit) =>
+      HARMONIC_ROLES.includes(u.role) || u.fn === 'pad' || u.fn === 'harmony' || u.fn === 'accompaniment';
     if (![...active].some(harmonic)) {
       const h = ranked.find((r) => harmonic(r.u));
       if (h) active.add(h.u);
     }
     // Bass locks with the drums once the groove is established.
     const drumsOn = [...active].some((u) => u.role === 'drums');
-    if (drumsOn && e >= 0.35) for (const r of ranked) if (r.u.role === 'bass' || r.u.fn === 'bass-line') active.add(r.u);
+    if (drumsOn && e >= 0.35)
+      for (const r of ranked) if (r.u.role === 'bass' || r.u.fn === 'bass-line') active.add(r.u);
     for (const u of active) for (const t of u.tracks) result[t.id].push(section.id);
   }
   return result;

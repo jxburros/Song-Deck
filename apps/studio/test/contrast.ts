@@ -16,7 +16,8 @@ function block(css: string, selector: string): Record<string, string> {
   if (start < 0) throw new Error(`theme.css has no "${selector}" block`);
   const body = css.slice(start, css.indexOf('\n}', start));
   const out: Record<string, string> = {};
-  for (const m of body.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+  for (const m of body.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g))
+    out[m[1]] = m[2].trim();
   return out;
 }
 
@@ -74,7 +75,16 @@ export interface Pair {
 }
 
 const SURFACES = ['--bg', '--bg-elev-1', '--bg-elev-2', '--bg-elev-3', '--bg-input'];
-const TEXT = ['--text', '--text-muted', '--text-dim', '--accent-text', '--ai', '--success', '--danger', '--warning'];
+const TEXT = [
+  '--text',
+  '--text-muted',
+  '--text-dim',
+  '--accent-text',
+  '--ai',
+  '--success',
+  '--danger',
+  '--warning',
+];
 
 /** The token pairs the UI actually renders, with their WCAG AA minimums. */
 export const PAIRS: Pair[] = [
@@ -85,13 +95,26 @@ export const PAIRS: Pair[] = [
     ['--success', '--success-soft'],
     ['--danger', '--danger-soft'],
     ['--warning', '--warning-soft'],
-  ].flatMap(([fg, bg]) => ['--bg-elev-1', '--bg-elev-2', '--bg-input'].map((on) => ({ fg, bg, on, min: 4.5, use: 'badges, chips, selected tabs' }))),
+  ].flatMap(([fg, bg]) =>
+    ['--bg-elev-1', '--bg-elev-2', '--bg-input'].map((on) => ({
+      fg,
+      bg,
+      on,
+      min: 4.5,
+      use: 'badges, chips, selected tabs',
+    })),
+  ),
   { fg: '--on-accent', bg: '--accent', min: 4.5, use: 'primary button' },
   { fg: '--on-accent', bg: '--accent-strong', min: 4.5, use: 'primary button (hover)' },
   { fg: '--on-ai', bg: '--ai-fill', min: 4.5, use: 'solo / A-B toggles' },
   { fg: '--on-warning', bg: '--warning-fill', min: 4.5, use: 'mute toggle' },
   ...['--accent', '--playhead', '--lock', '--ai', '--success', '--danger', '--warning'].flatMap((fg) =>
-    ['--bg', '--bg-elev-1', '--bg-elev-2'].map((bg) => ({ fg, bg, min: 3, use: 'focus ring, playhead, icons, indicators' })),
+    ['--bg', '--bg-elev-1', '--bg-elev-2'].map((bg) => ({
+      fg,
+      bg,
+      min: 3,
+      use: 'focus ring, playhead, icons, indicators',
+    })),
   ),
 ];
 

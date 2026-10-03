@@ -1,4 +1,10 @@
-import { EncryptedCredentialStore, MemoryCredentialStore, encryptedStoreSupported, type CredentialStore, type KeyValueBackend } from '@songdeck/ai';
+import {
+  EncryptedCredentialStore,
+  MemoryCredentialStore,
+  encryptedStoreSupported,
+  type CredentialStore,
+  type KeyValueBackend,
+} from '@songdeck/ai';
 
 /**
  * Browser-side API keys (spec §7) for when the local server's vault is not available.
@@ -33,7 +39,10 @@ export class IdbKeyValue implements KeyValueBackend {
     return this.dbPromise;
   }
 
-  private async run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T> | void): Promise<T> {
+  private async run<T>(
+    mode: IDBTransactionMode,
+    fn: (s: IDBObjectStore) => IDBRequest<T> | void,
+  ): Promise<T> {
     const db = await this.db();
     return new Promise<T>((resolve, reject) => {
       const t = db.transaction(STORE, mode);

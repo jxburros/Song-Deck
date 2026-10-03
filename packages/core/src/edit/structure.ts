@@ -1,5 +1,13 @@
 import type { KeyEvent, KeySignature, MeterEvent, Note, Section, Song, TempoEvent } from '../ir/types';
-import { barLengthTicks, barToTick, bpmAtTick, keyAtBar, meterAtBar, songLengthBars, tickToBar } from '../timing';
+import {
+  barLengthTicks,
+  barToTick,
+  bpmAtTick,
+  keyAtBar,
+  meterAtBar,
+  songLengthBars,
+  tickToBar,
+} from '../timing';
 import type { IdAllocator } from './util';
 
 /**
@@ -56,7 +64,12 @@ interface Target {
   mode: 'move' | 'copy';
 }
 
-export function restructure(song: Song, segments: Segment[], sections: Section[], opts: RestructureOptions): { song: Song; stats: RestructureStats } {
+export function restructure(
+  song: Song,
+  segments: Segment[],
+  sections: Section[],
+  opts: RestructureOptions,
+): { song: Song; stats: RestructureStats } {
   const stats: RestructureStats = { droppedNotes: 0, droppedChords: 0, droppedClips: 0, trimmedNotes: 0 };
   const oldLen = songLengthBars(song);
 
@@ -70,24 +83,71 @@ export function restructure(song: Song, segments: Segment[], sections: Section[]
       const b = Math.max(a, seg.endBar);
       if (b === a) continue;
       const overlaps = moved.some(([x, y]) => a < y && x < b);
-      runs.push({ kind: 'old', ns: nb, ne: nb + (b - a), srcStart: a, srcEnd: b, len: b - a, contextBar: a, move: !overlaps });
+      runs.push({
+        kind: 'old',
+        ns: nb,
+        ne: nb + (b - a),
+        srcStart: a,
+        srcEnd: b,
+        len: b - a,
+        contextBar: a,
+        move: !overlaps,
+      });
       if (!overlaps) moved.push([a, b]);
       nb += b - a;
     } else if (seg.kind === 'copy') {
       const len = Math.max(0, seg.endBar - seg.startBar);
       const bars = Math.max(0, seg.bars);
       if (!bars) continue;
-      if (!len) runs.push({ kind: 'empty', ns: nb, ne: nb + bars, srcStart: 0, srcEnd: 0, len: 0, contextBar: Math.max(0, seg.startBar), move: false });
-      else runs.push({ kind: 'copy', ns: nb, ne: nb + bars, srcStart: seg.startBar, srcEnd: seg.endBar, len, contextBar: seg.startBar, move: false });
+      if (!len)
+        runs.push({
+          kind: 'empty',
+          ns: nb,
+          ne: nb + bars,
+          srcStart: 0,
+          srcEnd: 0,
+          len: 0,
+          contextBar: Math.max(0, seg.startBar),
+          move: false,
+        });
+      else
+        runs.push({
+          kind: 'copy',
+          ns: nb,
+          ne: nb + bars,
+          srcStart: seg.startBar,
+          srcEnd: seg.endBar,
+          len,
+          contextBar: seg.startBar,
+          move: false,
+        });
       nb += bars;
     } else if (seg.bars > 0) {
-      runs.push({ kind: 'empty', ns: nb, ne: nb + seg.bars, srcStart: 0, srcEnd: 0, len: 0, contextBar: Math.max(0, seg.contextBar), move: false });
+      runs.push({
+        kind: 'empty',
+        ns: nb,
+        ne: nb + seg.bars,
+        srcStart: 0,
+        srcEnd: 0,
+        len: 0,
+        contextBar: Math.max(0, seg.contextBar),
+        move: false,
+      });
       nb += seg.bars;
     }
   }
   const newLen = nb;
   // Material past the old last section follows the new last section (unbounded tail).
-  const tail: Run = { kind: 'old', ns: newLen, ne: Infinity, srcStart: oldLen, srcEnd: Infinity, len: Infinity, contextBar: oldLen, move: true };
+  const tail: Run = {
+    kind: 'old',
+    ns: newLen,
+    ne: Infinity,
+    srcStart: oldLen,
+    srcEnd: Infinity,
+    len: Infinity,
+    contextBar: oldLen,
+    move: true,
+  };
   runs.push(tail);
   const hasTail = hasMaterialFrom(song, barToTick(song, oldLen));
 
@@ -149,7 +209,10 @@ export function restructure(song: Song, segments: Segment[], sections: Section[]
       }
     }
   }
-  const meterMap = compressBarEvents(meterEvents, (a, b) => a.numerator === b.numerator && a.denominator === b.denominator);
+  const meterMap = compressBarEvents(
+    meterEvents,
+    (a, b) => a.numerator === b.numerator && a.denominator === b.denominator,
+  );
   const keyMap = compressBarEvents(keyEvents, (a, b) => sameKey(a.key, b.key));
   if (!meterMap.length || meterMap[0].bar !== 0) {
     const m = meterAtBar(song, 0);
@@ -168,9 +231,11 @@ export function restructure(song: Song, segments: Segment[], sections: Section[]
     for (let guard = 0; guard < 256; guard++) {
       const r = runAtNew(curNew);
       if (!r) return newStart(curNew);
-      const runEndNew = r.kind === 'copy' ? Math.min(r.ne, r.ns + (Math.floor((curNew - r.ns) / r.len) + 1) * r.len) : r.ne;
+      const runEndNew =
+        r.kind === 'copy' ? Math.min(r.ne, r.ns + (Math.floor((curNew - r.ns) / r.len) + 1) * r.len) : r.ne;
       const runEndOld = runEndNew === Infinity ? Infinity : curOld + (runEndNew - curNew);
-      if (runEndOld === Infinity || oldEndTick <= oldStart(runEndOld)) return newStart(curNew) + (oldEndTick - oldStart(curOld));
+      if (runEndOld === Infinity || oldEndTick <= oldStart(runEndOld))
+        return newStart(curNew) + (oldEndTick - oldStart(curOld));
       const next = sourceOf(runEndNew);
       if (next.old !== runEndOld) return newStart(runEndNew);
       curOld = runEndOld;
@@ -202,7 +267,8 @@ export function restructure(song: Song, segments: Segment[], sections: Section[]
         } else {
           const copy: Note = { ...n, id: opts.ids.next('n'), tick: start, duration };
           delete copy.locked;
-          if (copy.lyricLineId && lyricMap?.has(copy.lyricLineId)) copy.lyricLineId = lyricMap.get(copy.lyricLineId);
+          if (copy.lyricLineId && lyricMap?.has(copy.lyricLineId))
+            copy.lyricLineId = lyricMap.get(copy.lyricLineId);
           notes.push(copy);
         }
       }
@@ -233,7 +299,12 @@ export function restructure(song: Song, segments: Segment[], sections: Section[]
     for (const tg of targets) {
       const start = newStart(tg.newBar) + pos.tickInBar;
       const end = contiguousEnd(pos.bar, tg.newBar, c.tick + c.duration);
-      chords.push({ ...c, id: tg.mode === 'move' ? c.id : opts.ids.next('ch'), tick: start, duration: Math.max(1, end - start) });
+      chords.push({
+        ...c,
+        id: tg.mode === 'move' ? c.id : opts.ids.next('ch'),
+        tick: start,
+        duration: Math.max(1, end - start),
+      });
     }
   }
   chords.sort((a, b) => a.tick - b.tick);
@@ -249,7 +320,8 @@ export function restructure(song: Song, segments: Segment[], sections: Section[]
   }
   for (const t of song.tempoMap) {
     const pos = tickToBar(song, t.tick);
-    for (const tg of targetsFor(pos.bar)) tempos.push({ tick: newStart(tg.newBar) + pos.tickInBar, bpm: t.bpm });
+    for (const tg of targetsFor(pos.bar))
+      tempos.push({ tick: newStart(tg.newBar) + pos.tickInBar, bpm: t.bpm });
   }
   out.tempoMap = compressTempo(tempos, song);
 
@@ -274,8 +346,10 @@ export function restructure(song: Song, segments: Segment[], sections: Section[]
       if (tg.mode === 'move') phrases.push({ ...ph, startTick: start, endTick: Math.max(start, end) });
       else {
         const copy = { ...ph, id: opts.ids.next('ph'), startTick: start, endTick: Math.max(start, end) };
-        if (copy.sectionId && opts.copySectionIds?.has(copy.sectionId)) copy.sectionId = opts.copySectionIds.get(copy.sectionId);
-        if (copy.lyricLineId && lyricMap?.has(copy.lyricLineId)) copy.lyricLineId = lyricMap.get(copy.lyricLineId);
+        if (copy.sectionId && opts.copySectionIds?.has(copy.sectionId))
+          copy.sectionId = opts.copySectionIds.get(copy.sectionId);
+        if (copy.lyricLineId && lyricMap?.has(copy.lyricLineId))
+          copy.lyricLineId = lyricMap.get(copy.lyricLineId);
         phrases.push(copy);
       }
     }
@@ -313,7 +387,10 @@ function sameKey(a: KeySignature, b: KeySignature): boolean {
 
 /** Sort bar events (stable), keep the last event per bar, drop events equal to their predecessor. */
 function compressBarEvents<T extends { bar: number }>(events: T[], same: (a: T, b: T) => boolean): T[] {
-  const sorted = events.map((e, i) => ({ e, i })).sort((a, b) => a.e.bar - b.e.bar || a.i - b.i).map((x) => x.e);
+  const sorted = events
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => a.e.bar - b.e.bar || a.i - b.i)
+    .map((x) => x.e);
   const byBar: T[] = [];
   for (const e of sorted) {
     if (byBar.length && byBar[byBar.length - 1].bar === e.bar) byBar[byBar.length - 1] = e;
@@ -354,7 +431,10 @@ function compressTempo(events: TempoEvent[], song: Song): TempoEvent[] {
  * chords whose onset falls beyond the end of a (shorter) bar are dropped; other events are
  * clamped to the end of their bar.
  */
-export function rebar(song: Song, meterMap: MeterEvent[]): { song: Song; droppedNotes: number; droppedChords: number } {
+export function rebar(
+  song: Song,
+  meterMap: MeterEvent[],
+): { song: Song; droppedNotes: number; droppedChords: number } {
   const nt = { ppq: song.ppq, meterMap, tempoMap: song.tempoMap };
   let droppedNotes = 0;
   let droppedChords = 0;
@@ -408,7 +488,10 @@ export function rebar(song: Song, meterMap: MeterEvent[]): { song: Song; dropped
     song.tempoMap.map((t) => ({ tick: map(t.tick, true)!, bpm: t.bpm })),
     song,
   );
-  out.automation = song.automation.map((l) => ({ ...l, points: l.points.map((p) => ({ ...p, tick: map(p.tick, true)! })) }));
+  out.automation = song.automation.map((l) => ({
+    ...l,
+    points: l.points.map((p) => ({ ...p, tick: map(p.tick, true)! })),
+  }));
   out.phrases = song.phrases.map((p) => {
     const s = map(p.startTick, true)!;
     const e = map(p.endTick, true)!;

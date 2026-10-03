@@ -29,7 +29,8 @@ export function sanitizeProjectName(input: string): string {
     .replace(/^[\s.]+|[\s.]+$/g, '')
     .slice(0, 120)
     .replace(/[\s.]+$/g, '');
-  if (!name || name === '_' || RESERVED.test(name)) throw new HttpError(400, 'invalid-name', 'Invalid project name');
+  if (!name || name === '_' || RESERVED.test(name))
+    throw new HttpError(400, 'invalid-name', 'Invalid project name');
   return name;
 }
 
@@ -63,7 +64,12 @@ export class ProjectStore {
       if (!e.isFile() || !e.name.endsWith(PROJECT_EXT) || e.name.startsWith('.')) continue;
       const st = await fsp.stat(path.join(this.dir, e.name)).catch(() => undefined);
       if (!st) continue;
-      out.push({ name: e.name.slice(0, -PROJECT_EXT.length), file: e.name, size: st.size, mtime: st.mtime.toISOString() });
+      out.push({
+        name: e.name.slice(0, -PROJECT_EXT.length),
+        file: e.name,
+        size: st.size,
+        mtime: st.mtime.toISOString(),
+      });
     }
     return out.sort((a, b) => b.mtime.localeCompare(a.mtime));
   }
@@ -73,11 +79,20 @@ export class ProjectStore {
     const st = await fsp.stat(file).catch(() => undefined);
     if (!st?.isFile()) return undefined;
     const base = path.basename(file);
-    return { name: base.slice(0, -PROJECT_EXT.length), file: base, size: st.size, mtime: st.mtime.toISOString() };
+    return {
+      name: base.slice(0, -PROJECT_EXT.length),
+      file: base,
+      size: st.size,
+      mtime: st.mtime.toISOString(),
+    };
   }
 
   /** Stream a request body into the project file (atomic replace, bounded, ZIP signature checked). */
-  async write(name: string, req: IncomingMessage, limit: number): Promise<{ info: ProjectInfo; created: boolean }> {
+  async write(
+    name: string,
+    req: IncomingMessage,
+    limit: number,
+  ): Promise<{ info: ProjectInfo; created: boolean }> {
     const file = this.fileFor(name);
     const declared = Number(req.headers['content-length']);
     if (Number.isFinite(declared) && declared > limit) {
@@ -118,7 +133,11 @@ export class ProjectStore {
       // .songproject packages are ZIP archives (local file header or empty-archive signature).
       const sig = head.toString('binary');
       if (sig !== 'PK\u0003\u0004' && sig !== 'PK\u0005\u0006') {
-        throw new HttpError(400, 'not-a-songproject', 'Body is not a .songproject package (expected a ZIP archive)');
+        throw new HttpError(
+          400,
+          'not-a-songproject',
+          'Body is not a .songproject package (expected a ZIP archive)',
+        );
       }
       await fsp.rename(tmp, file);
     } catch (err) {

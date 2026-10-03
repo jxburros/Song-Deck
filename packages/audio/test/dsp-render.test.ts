@@ -3,14 +3,29 @@ import { cloneSong, defaultChannelStrip, GM_DRUM } from '@songdeck/core';
 import type { AudioClip, Song } from '@songdeck/core';
 import { SongRenderer, renderSong, renderStems, renderTrack } from '../src/dsp';
 import type { AudioData } from '../src/types';
-import { bandSong, cents, db, hasNonFinite, lcg, mkNote, mkSong, mkTrack, peak, rms, setStrip, sine, yinF0 } from './dsp-helpers';
+import {
+  bandSong,
+  cents,
+  db,
+  hasNonFinite,
+  lcg,
+  mkNote,
+  mkSong,
+  mkTrack,
+  peak,
+  rms,
+  setStrip,
+  sine,
+  yinF0,
+} from './dsp-helpers';
 
 const SR = 44100;
 
 function sameAudio(a: AudioData, b: AudioData): boolean {
   if (a.channels.length !== b.channels.length) return false;
   for (let c = 0; c < a.channels.length; c++) {
-    const x = a.channels[c], y = b.channels[c];
+    const x = a.channels[c],
+      y = b.channels[c];
     if (x.length !== y.length) return false;
     for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
   }
@@ -53,10 +68,12 @@ describe('renderSong', () => {
     const ref = renderSong(song, opts);
     const r = new SongRenderer(song, opts);
     expect(r.totalFrames).toBe(ref.channels[0].length);
-    const L = new Float32Array(r.totalFrames), R = new Float32Array(r.totalFrames);
+    const L = new Float32Array(r.totalFrames),
+      R = new Float32Array(r.totalFrames);
     const rnd = lcg(42);
     let pos = 0;
-    const bufL = new Float32Array(8192), bufR = new Float32Array(8192);
+    const bufL = new Float32Array(8192),
+      bufR = new Float32Array(8192);
     while (pos < r.totalFrames) {
       const want = 1 + Math.floor(rnd() * 8192);
       const n = r.process(bufL, bufR, want);
@@ -119,7 +136,18 @@ describe('renderSong', () => {
     const song = mkSong(2);
     song.tracks = [mkTrack('a', 'sine', [mkNote(69, 0, 3840)])];
     setStrip(song, 'a', { volumeDb: 0 });
-    song.automation = [{ id: 'l1', target: 'a', param: 'volumeDb', enabled: true, points: [{ tick: 0, value: -40 }, { tick: 3840, value: 0 }] }];
+    song.automation = [
+      {
+        id: 'l1',
+        target: 'a',
+        param: 'volumeDb',
+        enabled: true,
+        points: [
+          { tick: 0, value: -40 },
+          { tick: 3840, value: 0 },
+        ],
+      },
+    ];
     const out = renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0 });
     const L = out.channels[0];
     const early = rms(L, Math.round(0.2 * SR), Math.round(0.6 * SR));
@@ -133,15 +161,41 @@ describe('renderSong', () => {
       prev = v;
     }
     // step curve
-    song.automation = [{ id: 'l2', target: 'a', param: 'volumeDb', enabled: true, points: [{ tick: 0, value: -30, curve: 'step' }, { tick: 1920, value: 0 }] }];
+    song.automation = [
+      {
+        id: 'l2',
+        target: 'a',
+        param: 'volumeDb',
+        enabled: true,
+        points: [
+          { tick: 0, value: -30, curve: 'step' },
+          { tick: 1920, value: 0 },
+        ],
+      },
+    ];
     const st = renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0 });
     const a = rms(st.channels[0], Math.round(1.0 * SR), Math.round(1.8 * SR));
     const b = rms(st.channels[0], Math.round(2.2 * SR), Math.round(3.0 * SR));
     expect(db(b) - db(a)).toBeCloseTo(30, 0);
     // master lane
-    song.automation = [{ id: 'm', target: 'master', param: 'volumeDb', enabled: true, points: [{ tick: 0, value: -20 }, { tick: 1919, value: -20, curve: 'step' }, { tick: 1920, value: 0 }] }];
+    song.automation = [
+      {
+        id: 'm',
+        target: 'master',
+        param: 'volumeDb',
+        enabled: true,
+        points: [
+          { tick: 0, value: -20 },
+          { tick: 1919, value: -20, curve: 'step' },
+          { tick: 1920, value: 0 },
+        ],
+      },
+    ];
     const ms = renderSong(song, { sampleRate: SR, includeSends: false, tailSeconds: 0 });
-    expect(db(rms(ms.channels[0], Math.round(2.5 * SR), Math.round(3.5 * SR))) - db(rms(ms.channels[0], Math.round(0.5 * SR), Math.round(1.5 * SR)))).toBeGreaterThan(15);
+    expect(
+      db(rms(ms.channels[0], Math.round(2.5 * SR), Math.round(3.5 * SR))) -
+        db(rms(ms.channels[0], Math.round(0.5 * SR), Math.round(1.5 * SR))),
+    ).toBeGreaterThan(15);
   });
 
   it('reverb and delay sends leave a tail after the note', () => {
@@ -153,29 +207,50 @@ describe('renderSong', () => {
     setStrip(song, 'a', { reverbSend: 1 });
     const wet = renderSong(song, opts);
     // window after the piano note has been damped (note ends at 0.25 s)
-    const a = Math.round(1.2 * SR), b = Math.round(1.6 * SR);
+    const a = Math.round(1.2 * SR),
+      b = Math.round(1.6 * SR);
     expect(rms(wet.channels[0], a, b)).toBeGreaterThan(rms(dry.channels[0], a, b) * 4);
     // stereo reverb is decorrelated
     expect(rms(wet.channels[0], a, b)).toBeGreaterThan(0);
     setStrip(song, 'a', { reverbSend: 0, delaySend: 1 });
     const del = renderSong(song, opts);
     // dotted-eighth (0.75 beat at 120 bpm = 0.375 s) echo after the note
-    const echo = rms(del.channels[0], Math.round(0.6 * SR), Math.round(0.9 * SR)) + rms(del.channels[1], Math.round(0.6 * SR), Math.round(0.9 * SR));
+    const echo =
+      rms(del.channels[0], Math.round(0.6 * SR), Math.round(0.9 * SR)) +
+      rms(del.channels[1], Math.round(0.6 * SR), Math.round(0.9 * SR));
     const echoDry = rms(dry.channels[0], Math.round(0.6 * SR), Math.round(0.9 * SR)) * 2;
     expect(echo).toBeGreaterThan(echoDry * 1.5);
     // includeSends:false removes the bus
     const noSends = renderSong(song, { ...opts, includeSends: false });
-    expect(rms(noSends.channels[0], Math.round(0.6 * SR), Math.round(0.9 * SR))).toBeCloseTo(rms(dry.channels[0], Math.round(0.6 * SR), Math.round(0.9 * SR)), 6);
+    expect(rms(noSends.channels[0], Math.round(0.6 * SR), Math.round(0.9 * SR))).toBeCloseTo(
+      rms(dry.channels[0], Math.round(0.6 * SR), Math.round(0.9 * SR)),
+      6,
+    );
   });
 
   it('plays audio clips with offset, gain, fades and on-the-fly resampling', () => {
     const song = mkSong(2);
     const assetSr = 22050;
     const asset = sine(440, 3, assetSr, 0.5);
-    const clip: AudioClip = { id: 'c1', assetId: 'tone', tick: 960, offsetSeconds: 0.5, durationSeconds: 2, gainDb: -6, fadeInSeconds: 0.1, fadeOutSeconds: 0.2 };
+    const clip: AudioClip = {
+      id: 'c1',
+      assetId: 'tone',
+      tick: 960,
+      offsetSeconds: 0.5,
+      durationSeconds: 2,
+      gainDb: -6,
+      fadeInSeconds: 0.1,
+      fadeOutSeconds: 0.2,
+    };
     song.tracks = [mkTrack('aud', 'none', [], { kind: 'audio', clips: [clip], stemGroup: 'others' })];
     setStrip(song, 'aud', { volumeDb: 0 });
-    const out = renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0, assets: (id) => (id === 'tone' ? asset : undefined) });
+    const out = renderSong(song, {
+      sampleRate: SR,
+      applyMaster: false,
+      includeSends: false,
+      tailSeconds: 0,
+      assets: (id) => (id === 'tone' ? asset : undefined),
+    });
     const L = out.channels[0];
     // silent before the clip (tick 960 = 1.0 s at 120 bpm)
     expect(peak(L, 0, Math.round(0.99 * SR))).toBe(0);
@@ -184,18 +259,29 @@ describe('renderSong', () => {
     // level: 0.5 amplitude × -6 dB at center pan (unity) ≈ 0.25 peak
     expect(peak(L, Math.round(1.5 * SR), Math.round(2.5 * SR))).toBeCloseTo(0.5 * Math.pow(10, -6 / 20), 2);
     // fade in: quieter during the first 30 ms than later
-    expect(rms(L, Math.round(1.0 * SR), Math.round(1.03 * SR))).toBeLessThan(rms(L, Math.round(1.5 * SR), Math.round(1.6 * SR)) * 0.7);
+    expect(rms(L, Math.round(1.0 * SR), Math.round(1.03 * SR))).toBeLessThan(
+      rms(L, Math.round(1.5 * SR), Math.round(1.6 * SR)) * 0.7,
+    );
     // ends after durationSeconds (1 + 2 = 3 s)
     expect(peak(L, Math.round(3.01 * SR), L.length)).toBe(0);
     // muted clip / missing asset → silence, no throw
-    song.tracks[0].clips = [{ ...clip, muted: true }, { ...clip, id: 'c2', assetId: 'missing' }];
+    song.tracks[0].clips = [
+      { ...clip, muted: true },
+      { ...clip, id: 'c2', assetId: 'missing' },
+    ];
     const r = new SongRenderer(song, { sampleRate: SR, assets: () => undefined });
     expect(r.missingAssets).toContain('missing');
   });
 
   it('stems sum to the unmastered mix', () => {
     const song = bandSong(2);
-    for (const t of song.tracks) setStrip(song, t.id, { reverbSend: 0.25, delaySend: 0.15, drive: 0.2, compressor: { ...defaultChannelStrip().compressor, enabled: true } });
+    for (const t of song.tracks)
+      setStrip(song, t.id, {
+        reverbSend: 0.25,
+        delaySend: 0.15,
+        drive: 0.2,
+        compressor: { ...defaultChannelStrip().compressor, enabled: true },
+      });
     const opts = { sampleRate: SR, applyMaster: false, tailSeconds: 1 };
     const mix = renderSong(song, opts);
     const stems = renderStems(song, opts);
@@ -227,7 +313,13 @@ describe('renderSong', () => {
     const song = mkSong(1);
     song.tracks = [mkTrack('a', 'unknown-thing', [mkNote(57, 0, 1800, 100)])];
     setStrip(song, 'a', {});
-    const out = renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0, patchOverrides: { a: 'flute' } });
+    const out = renderSong(song, {
+      sampleRate: SR,
+      applyMaster: false,
+      includeSends: false,
+      tailSeconds: 0,
+      patchOverrides: { a: 'flute' },
+    });
     expect(Math.abs(cents(yinF0(out.channels[0], SR, Math.round(0.5 * SR)), 220))).toBeLessThan(15);
   });
 });
@@ -243,14 +335,42 @@ describe('robustness', () => {
       const one = mkSong(1);
       one.tracks = [mkTrack('a', 'sine', [mkNote(69, 0, 1800)])];
       setStrip(one, 'a', {});
-      const tone = renderSong(one, { sampleRate: sr, applyMaster: false, includeSends: false, tailSeconds: 0 });
+      const tone = renderSong(one, {
+        sampleRate: sr,
+        applyMaster: false,
+        includeSends: false,
+        tailSeconds: 0,
+      });
       expect(Math.abs(cents(yinF0(tone.channels[0], sr, Math.round(0.5 * sr), 2048), 440))).toBeLessThan(5);
     }
     const ext = mkSong(1);
-    const patches = ['piano', 'guitar-distorted', 'bass-electric', 'strings-ensemble', 'epiano', 'organ', 'choir', 'timpani', 'lead-saw', 'harp', 'vocal-placeholder'];
-    ext.tracks = patches.map((p) => mkTrack(p, p, [mkNote(0, 0, 400, 1), mkNote(127, 480, 400, 127), mkNote(60, 960, 1, 64), mkNote(-5, 1000, 100, 300 as number)]));
+    const patches = [
+      'piano',
+      'guitar-distorted',
+      'bass-electric',
+      'strings-ensemble',
+      'epiano',
+      'organ',
+      'choir',
+      'timpani',
+      'lead-saw',
+      'harp',
+      'vocal-placeholder',
+    ];
+    ext.tracks = patches.map((p) =>
+      mkTrack(p, p, [
+        mkNote(0, 0, 400, 1),
+        mkNote(127, 480, 400, 127),
+        mkNote(60, 960, 1, 64),
+        mkNote(-5, 1000, 100, 300 as number),
+      ]),
+    );
     for (const t of ext.tracks) setStrip(ext, t.id, {});
-    const o = renderSong(ext, { sampleRate: SR, patchOverrides: Object.fromEntries(patches.map((p) => [p, p])), tailSeconds: 0.5 });
+    const o = renderSong(ext, {
+      sampleRate: SR,
+      patchOverrides: Object.fromEntries(patches.map((p) => [p, p])),
+      tailSeconds: 0.5,
+    });
     expect(hasNonFinite(o)).toBe(false);
     const empty = mkSong(0);
     empty.sections = [];
@@ -264,15 +384,34 @@ describe('robustness', () => {
     song.tracks = [mkTrack('a', 'pad-bright', [mkNote(60, 0, 3840, 100), mkNote(67, 0, 3840, 100)])];
     setStrip(song, 'a', {});
     song.automation = [
-      { id: 'p', target: 'a', param: 'pan', enabled: true, points: [{ tick: 0, value: -1 }, { tick: 3840, value: 1 }] },
-      { id: 'lp', target: 'a', param: 'eq.lowpassHz', enabled: true, points: [{ tick: 0, value: 400 }, { tick: 3840, value: 400 }] },
+      {
+        id: 'p',
+        target: 'a',
+        param: 'pan',
+        enabled: true,
+        points: [
+          { tick: 0, value: -1 },
+          { tick: 3840, value: 1 },
+        ],
+      },
+      {
+        id: 'lp',
+        target: 'a',
+        param: 'eq.lowpassHz',
+        enabled: true,
+        points: [
+          { tick: 0, value: 400 },
+          { tick: 3840, value: 400 },
+        ],
+      },
       { id: 'w', target: 'a', param: 'width', enabled: true, points: [{ tick: 0, value: 0 }] },
       { id: 'r', target: 'a', param: 'reverbSend', enabled: true, points: [{ tick: 0, value: 0.8 }] },
       { id: 'x', target: 'a', param: 'eq.highShelfDb', enabled: false, points: [{ tick: 0, value: 12 }] },
     ];
     const out = renderSong(song, { sampleRate: SR, applyMaster: false, tailSeconds: 0.2 });
     expect(hasNonFinite(out)).toBe(false);
-    const L = out.channels[0], R = out.channels[1];
+    const L = out.channels[0],
+      R = out.channels[1];
     const early = [Math.round(0.4 * SR), Math.round(0.8 * SR)] as const;
     const late = [Math.round(3.2 * SR), Math.round(3.6 * SR)] as const;
     expect(rms(L, ...early)).toBeGreaterThan(rms(R, ...early) * 2);
@@ -294,7 +433,8 @@ describe('SongRenderer transport', () => {
   it('seeks, reports position, ends with 0 and loops', () => {
     const song = bandSong(2);
     const r = new SongRenderer(song, { sampleRate: SR, tailSeconds: 0.5 });
-    const L = new Float32Array(4096), R = new Float32Array(4096);
+    const L = new Float32Array(4096),
+      R = new Float32Array(4096);
     r.seekSeconds(1);
     expect(r.positionFrames).toBe(SR);
     expect(r.process(L, R)).toBe(4096);
@@ -322,7 +462,8 @@ describe('SongRenderer transport', () => {
     song.tracks = [mkTrack('a', 'pad-warm', [mkNote(60, 0, 7680, 100), mkNote(64, 0, 7680, 100)])];
     setStrip(song, 'a', { volumeDb: 0 });
     const r = new SongRenderer(song, { sampleRate: SR, applyMaster: false, includeSends: false });
-    const L = new Float32Array(SR), R = new Float32Array(SR);
+    const L = new Float32Array(SR),
+      R = new Float32Array(SR);
     r.process(L, R);
     const before = rms(L, SR / 2, SR);
     // remove the notes: voices must release
@@ -357,7 +498,8 @@ describe('SongRenderer transport', () => {
     song.tracks = [];
     const out = renderSong(song, { sampleRate: SR, metronome: true, tailSeconds: 0 });
     const L = out.channels[0];
-    for (const beat of [0, 0.5, 1, 1.5]) expect(peak(L, Math.round(beat * SR), Math.round(beat * SR) + 400)).toBeGreaterThan(0.05);
+    for (const beat of [0, 0.5, 1, 1.5])
+      expect(peak(L, Math.round(beat * SR), Math.round(beat * SR) + 400)).toBeGreaterThan(0.05);
     expect(peak(L, Math.round(0.2 * SR), Math.round(0.45 * SR))).toBe(0);
   });
 
@@ -367,7 +509,8 @@ describe('SongRenderer transport', () => {
     setStrip(song, 'a', {});
     const r = new SongRenderer(song, { sampleRate: SR });
     r.seekSeconds(2);
-    const L = new Float32Array(SR / 2), R = new Float32Array(SR / 2);
+    const L = new Float32Array(SR / 2),
+      R = new Float32Array(SR / 2);
     r.process(L, R);
     expect(rms(L, SR / 4, SR / 2)).toBeGreaterThan(0.005);
   });
@@ -376,7 +519,8 @@ describe('SongRenderer transport', () => {
     const song = mkSong(13);
     const notes = [];
     // one hit per beat (480 ticks = 0.5 s at 120 bpm)
-    for (let p = GM_DRUM.KICK_ACOUSTIC; p <= GM_DRUM.SHAKER; p++) notes.push(mkNote(p, (p - 35) * 480, 240, 100));
+    for (let p = GM_DRUM.KICK_ACOUSTIC; p <= GM_DRUM.SHAKER; p++)
+      notes.push(mkNote(p, (p - 35) * 480, 240, 100));
     song.tracks = [mkTrack('d', 'drum-kit', notes, { role: 'drums', stemGroup: 'drums' })];
     setStrip(song, 'd', { volumeDb: 0 });
     const out = renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0 });
@@ -390,11 +534,21 @@ describe('SongRenderer transport', () => {
 describe('vocal tracks in the renderer', () => {
   it('uses the singing synth for vocal-placeholder and silence for mode "none"', () => {
     const song: Song = mkSong(2);
-    song.tracks = [mkTrack('v', 'lead-vocal', [mkNote(60, 0, 1800, 100, { syllable: 'ah' })], { role: 'vocal', stemGroup: 'vocals' })];
+    song.tracks = [
+      mkTrack('v', 'lead-vocal', [mkNote(60, 0, 1800, 100, { syllable: 'ah' })], {
+        role: 'vocal',
+        stemGroup: 'vocals',
+      }),
+    ];
     setStrip(song, 'v', {});
     const out = renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0 });
     expect(Math.abs(cents(yinF0(out.channels[0], SR, Math.round(0.5 * SR)), 261.63))).toBeLessThan(30);
     song.tracks[0].vocal = { mode: 'none' };
-    expect(peak(renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0 }).channels[0])).toBe(0);
+    expect(
+      peak(
+        renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0 })
+          .channels[0],
+      ),
+    ).toBe(0);
   });
 });

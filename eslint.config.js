@@ -28,7 +28,10 @@ export default tseslint.config(
     },
     linterOptions: { reportUnusedDisableDirectives: 'error' },
     rules: {
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none', ignoreRestSiblings: true }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none', ignoreRestSiblings: true },
+      ],
       // Bit-twiddling DSP and codecs use these deliberately.
       'no-constant-condition': ['error', { checkLoops: false }],
       'no-empty': ['error', { allowEmptyCatch: true }],

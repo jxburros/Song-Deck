@@ -64,9 +64,21 @@ export interface EncryptedRecord {
  */
 type CryptoKeyLike = object;
 interface SubtleLike {
-  generateKey(algorithm: { name: string; length: number }, extractable: boolean, usages: string[]): Promise<unknown>;
-  encrypt(algorithm: { name: string; iv: Uint8Array<ArrayBuffer>; additionalData?: Uint8Array<ArrayBuffer> }, key: never, data: Uint8Array<ArrayBuffer>): Promise<ArrayBuffer>;
-  decrypt(algorithm: { name: string; iv: Uint8Array<ArrayBuffer>; additionalData?: Uint8Array<ArrayBuffer> }, key: never, data: Uint8Array<ArrayBuffer>): Promise<ArrayBuffer>;
+  generateKey(
+    algorithm: { name: string; length: number },
+    extractable: boolean,
+    usages: string[],
+  ): Promise<unknown>;
+  encrypt(
+    algorithm: { name: string; iv: Uint8Array<ArrayBuffer>; additionalData?: Uint8Array<ArrayBuffer> },
+    key: never,
+    data: Uint8Array<ArrayBuffer>,
+  ): Promise<ArrayBuffer>;
+  decrypt(
+    algorithm: { name: string; iv: Uint8Array<ArrayBuffer>; additionalData?: Uint8Array<ArrayBuffer> },
+    key: never,
+    data: Uint8Array<ArrayBuffer>,
+  ): Promise<ArrayBuffer>;
 }
 export interface WebCryptoLike {
   subtle: SubtleLike;
@@ -95,7 +107,8 @@ export class EncryptedCredentialStore implements CredentialStore {
     opts: EncryptedCredentialStoreOptions = {},
   ) {
     const c = opts.crypto ?? defaultCrypto();
-    if (!c || !encryptedStoreSupported(c)) throw new Error('WebCrypto is not available (the encrypted key store needs a secure context)');
+    if (!c || !encryptedStoreSupported(c))
+      throw new Error('WebCrypto is not available (the encrypted key store needs a secure context)');
     this.crypto = c;
   }
 
@@ -105,7 +118,10 @@ export class EncryptedCredentialStore implements CredentialStore {
       this.keyPromise = (async () => {
         const existing = await this.kv.get<CryptoKeyLike>(MASTER_KEY);
         if (existing) return existing;
-        const key = (await this.crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])) as CryptoKeyLike;
+        const key = (await this.crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, [
+          'encrypt',
+          'decrypt',
+        ])) as CryptoKeyLike;
         await this.kv.set(MASTER_KEY, key);
         return key;
       })();
@@ -122,8 +138,20 @@ export class EncryptedCredentialStore implements CredentialStore {
     if (!secret) throw new ProviderError('bad-request', 'Secret must not be empty');
     const key = await this.masterKey();
     const iv = this.crypto.getRandomValues(new Uint8Array(12));
-    const ct = new Uint8Array(await this.crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: this.aad(ref) }, key as never, new TextEncoder().encode(secret)));
-    const record: EncryptedRecord = { v: 1, iv, ct, updatedAt: new Date().toISOString(), ...(label ? { label } : {}) };
+    const ct = new Uint8Array(
+      await this.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv, additionalData: this.aad(ref) },
+        key as never,
+        new TextEncoder().encode(secret),
+      ),
+    );
+    const record: EncryptedRecord = {
+      v: 1,
+      iv,
+      ct,
+      updatedAt: new Date().toISOString(),
+      ...(label ? { label } : {}),
+    };
     await this.kv.set(SECRET_PREFIX + ref, record);
   }
 
@@ -136,10 +164,17 @@ export class EncryptedCredentialStore implements CredentialStore {
     if (!record) return undefined;
     const key = await this.masterKey();
     try {
-      const pt = await this.crypto.subtle.decrypt({ name: 'AES-GCM', iv: toBuffer(record.iv), additionalData: this.aad(ref) }, key as never, toBuffer(record.ct));
+      const pt = await this.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: toBuffer(record.iv), additionalData: this.aad(ref) },
+        key as never,
+        toBuffer(record.ct),
+      );
       return new TextDecoder().decode(pt);
     } catch {
-      throw new ProviderError('auth', `The stored key "${ref}" could not be decrypted (the browser key store was reset or altered) — enter the key again`);
+      throw new ProviderError(
+        'auth',
+        `The stored key "${ref}" could not be decrypted (the browser key store was reset or altered) — enter the key again`,
+      );
     }
   }
 
@@ -152,7 +187,11 @@ export class EncryptedCredentialStore implements CredentialStore {
     for (const k of await this.kv.keys()) {
       if (!k.startsWith(SECRET_PREFIX)) continue;
       const r = await this.kv.get<EncryptedRecord>(k);
-      out.push({ ref: k.slice(SECRET_PREFIX.length), ...(r?.label ? { label: r.label } : {}), ...(r?.updatedAt ? { updatedAt: r.updatedAt } : {}) });
+      out.push({
+        ref: k.slice(SECRET_PREFIX.length),
+        ...(r?.label ? { label: r.label } : {}),
+        ...(r?.updatedAt ? { updatedAt: r.updatedAt } : {}),
+      });
     }
     return out.sort((a, b) => a.ref.localeCompare(b.ref));
   }

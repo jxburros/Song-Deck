@@ -4,15 +4,24 @@ import { md5Hex } from '../src/dsp/codecs/md5';
 import type { AudioData } from '../src/types';
 import { lcg } from './dsp-helpers';
 
-function signal(n: number, channels: number, kind: 'noise' | 'tone' | 'silence' | 'mixed', seed = 1, sr = 44100): AudioData {
+function signal(
+  n: number,
+  channels: number,
+  kind: 'noise' | 'tone' | 'silence' | 'mixed',
+  seed = 1,
+  sr = 44100,
+): AudioData {
   const rnd = lcg(seed);
   const chs: Float32Array[] = [];
   for (let c = 0; c < channels; c++) {
     const x = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       if (kind === 'noise') x[i] = (rnd() * 2 - 1) * 0.9;
-      else if (kind === 'tone') x[i] = 0.7 * Math.sin((2 * Math.PI * (220 + 110 * c) * i) / sr) * (0.5 + 0.5 * Math.sin(i / 5000));
-      else if (kind === 'mixed') x[i] = 0.5 * Math.sin((2 * Math.PI * 330 * i) / sr) + (rnd() * 2 - 1) * 0.01 + (i % 9000 < 300 ? 0.4 : 0);
+      else if (kind === 'tone')
+        x[i] = 0.7 * Math.sin((2 * Math.PI * (220 + 110 * c) * i) / sr) * (0.5 + 0.5 * Math.sin(i / 5000));
+      else if (kind === 'mixed')
+        x[i] =
+          0.5 * Math.sin((2 * Math.PI * 330 * i) / sr) + (rnd() * 2 - 1) * 0.01 + (i % 9000 < 300 ? 0.4 : 0);
     }
     chs.push(x);
   }
@@ -23,13 +32,17 @@ function quantize(buf: AudioData, bits: number): AudioData {
   const s = Math.pow(2, bits - 1);
   return {
     sampleRate: buf.sampleRate,
-    channels: buf.channels.map((c) => Float32Array.from(c, (v) => Math.max(-s, Math.min(s - 1, Math.round(v * s))) / s)),
+    channels: buf.channels.map((c) =>
+      Float32Array.from(c, (v) => Math.max(-s, Math.min(s - 1, Math.round(v * s))) / s),
+    ),
   };
 }
 
 function maxDiff(a: AudioData, b: AudioData): number {
   let m = 0;
-  for (let c = 0; c < a.channels.length; c++) for (let i = 0; i < a.channels[c].length; i++) m = Math.max(m, Math.abs(a.channels[c][i] - b.channels[c][i]));
+  for (let c = 0; c < a.channels.length; c++)
+    for (let i = 0; i < a.channels[c].length; i++)
+      m = Math.max(m, Math.abs(a.channels[c][i] - b.channels[c][i]));
   return m;
 }
 
@@ -48,7 +61,9 @@ describe('md5', () => {
     expect(t('')).toBe('d41d8cd98f00b204e9800998ecf8427e');
     expect(t('abc')).toBe('900150983cd24fb0d6963f7d28e17f72');
     expect(t('message digest')).toBe('f96b697d7cb7938d525a2f31aaf161d0');
-    expect(t('12345678901234567890123456789012345678901234567890123456789012345678901234567890')).toBe('57edf4a22be3c955ac49da2e2107b67a');
+    expect(t('12345678901234567890123456789012345678901234567890123456789012345678901234567890')).toBe(
+      '57edf4a22be3c955ac49da2e2107b67a',
+    );
   });
 });
 
@@ -83,10 +98,17 @@ describe('WAV', () => {
     const q = quantize(src, 16);
     expect(identical(decodeWav(encodeWav(q, { bitDepth: 16 })), q)).toBe(true);
     // silence stays digital silence (no dither noise)
-    const sil = decodeWav(encodeWav({ sampleRate: 44100, channels: [new Float32Array(1000)] }, { bitDepth: 16 }));
+    const sil = decodeWav(
+      encodeWav({ sampleRate: 44100, channels: [new Float32Array(1000)] }, { bitDepth: 16 }),
+    );
     expect(sil.channels[0].every((v) => v === 0)).toBe(true);
     // clipping is clamped
-    const hot = decodeWav(encodeWav({ sampleRate: 44100, channels: [Float32Array.of(2, -2, 0.5)] }, { bitDepth: 16, dither: false }));
+    const hot = decodeWav(
+      encodeWav(
+        { sampleRate: 44100, channels: [Float32Array.of(2, -2, 0.5)] },
+        { bitDepth: 16, dither: false },
+      ),
+    );
     expect(hot.channels[0][0]).toBeCloseTo(32767 / 32768, 6);
     expect(hot.channels[0][1]).toBe(-1);
   });
@@ -166,7 +188,10 @@ describe('WAV', () => {
     expect(d64.channels[0][1]).toBeCloseTo(-0.6, 6);
 
     // 6-channel → stereo downmix
-    const six: AudioData = { sampleRate: 44100, channels: Array.from({ length: 6 }, (_, c) => Float32Array.of(c === 2 ? 0.5 : 0.1)) };
+    const six: AudioData = {
+      sampleRate: 44100,
+      channels: Array.from({ length: 6 }, (_, c) => Float32Array.of(c === 2 ? 0.5 : 0.1)),
+    };
     const enc6 = encodeWav(six, { bitDepth: 32 });
     const dec6 = decodeWav(enc6);
     expect(dec6.channels.length).toBe(2);

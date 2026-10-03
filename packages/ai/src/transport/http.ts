@@ -91,14 +91,22 @@ export class HttpClient {
       const run = async () => {
         const t = withTimeout(req.signal, timeoutMs);
         try {
-          const res = await this.opts.transport.fetch(req.url, { method: req.method ?? (body !== undefined ? 'POST' : 'GET'), headers, body, signal: t.signal }, auth);
+          const res = await this.opts.transport.fetch(
+            req.url,
+            { method: req.method ?? (body !== undefined ? 'POST' : 'GET'), headers, body, signal: t.signal },
+            auth,
+          );
           if (!res.ok) {
             const errBody = await readErrorBody(res);
-            throw errorFromStatus(res.status, errBody, { providerId, retryAfter: res.headers.get('retry-after') });
+            throw errorFromStatus(res.status, errBody, {
+              providerId,
+              retryAfter: res.headers.get('retry-after'),
+            });
           }
           return await read(res);
         } catch (err) {
-          if (t.signal.aborted && !(err instanceof ProviderError && err.status)) throw abortError(t, providerId, timeoutMs);
+          if (t.signal.aborted && !(err instanceof ProviderError && err.status))
+            throw abortError(t, providerId, timeoutMs);
           throw toProviderError(err, providerId);
         } finally {
           t.dispose();
@@ -107,7 +115,12 @@ export class HttpClient {
       return this.opts.gate ? this.opts.gate.run(run, req.signal) : run();
     };
     if (req.retry === false) return attempt();
-    return withRetry(attempt, { isRetryable: isRetryableHttpError, ...(this.opts.retry ?? {}) }, req.signal, providerId);
+    return withRetry(
+      attempt,
+      { isRetryable: isRetryableHttpError, ...(this.opts.retry ?? {}) },
+      req.signal,
+      providerId,
+    );
   }
 
   async json<T = unknown>(req: HttpRequestOptions): Promise<T> {
@@ -117,7 +130,10 @@ export class HttpClient {
       try {
         return JSON.parse(text) as T;
       } catch {
-        throw new ProviderError('parse', `Invalid JSON from ${this.opts.providerId}: ${text.slice(0, 200)}`, { providerId: this.opts.providerId, status: res.status });
+        throw new ProviderError('parse', `Invalid JSON from ${this.opts.providerId}: ${text.slice(0, 200)}`, {
+          providerId: this.opts.providerId,
+          status: res.status,
+        });
       }
     });
   }

@@ -23,7 +23,10 @@ interface StorageInfo {
 async function readStorage(): Promise<StorageInfo> {
   const sm = typeof navigator !== 'undefined' ? navigator.storage : undefined;
   if (!sm?.estimate) return { supported: false };
-  const [est, persisted] = await Promise.all([sm.estimate(), sm.persisted ? sm.persisted() : Promise.resolve(undefined)]);
+  const [est, persisted] = await Promise.all([
+    sm.estimate(),
+    sm.persisted ? sm.persisted() : Promise.resolve(undefined),
+  ]);
   return { usage: est.usage, quota: est.quota, persisted, supported: true };
 }
 
@@ -33,7 +36,8 @@ async function clearLocalData(alsoVault: boolean): Promise<void> {
   // Close the project first so no pending autosave writes it back.
   if (useStudio.getState().project) useStudio.getState().closeProject();
   if (alsoVault) {
-    for (const p of useSettings.getState().providers) if (p.credentialRef) await deleteCredential(p.credentialRef).catch(() => undefined);
+    for (const p of useSettings.getState().providers)
+      if (p.credentialRef) await deleteCredential(p.credentialRef).catch(() => undefined);
   }
   await browserCredentials.clear();
   await new Promise<void>((resolve) => {
@@ -96,7 +100,11 @@ export default function GeneralTab() {
 
   return (
     <>
-      <TabHeader icon="settings" title="General" lede="Appearance, your name, the local Song Deck server and its keychain vault, export defaults, storage on this device." />
+      <TabHeader
+        icon="settings"
+        title="General"
+        lede="Appearance, your name, the local Song Deck server and its keychain vault, export defaults, storage on this device."
+      />
 
       <div className="st-two">
         <Panel title="Appearance & identity" icon="eye">
@@ -112,9 +120,17 @@ export default function GeneralTab() {
             />
           </Field>
           <Field label="Your name" hint="Author of your revisions and your name in collaboration rooms.">
-            <CommitText value={s.userName} onCommit={(v) => s.update({ userName: v.trim() || 'Me' })} aria-label="Your name" />
+            <CommitText
+              value={s.userName}
+              onCommit={(v) => s.update({ userName: v.trim() || 'Me' })}
+              aria-label="Your name"
+            />
           </Field>
-          <Toggle on={s.showTheoryHints} onChange={(showTheoryHints) => s.update({ showTheoryHints })} label="Show theory hints in the workbench" />
+          <Toggle
+            on={s.showTheoryHints}
+            onChange={(showTheoryHints) => s.update({ showTheoryHints })}
+            label="Show theory hints in the workbench"
+          />
         </Panel>
 
         <Panel
@@ -128,14 +144,22 @@ export default function GeneralTab() {
           }
         >
           <div className="st-server-status">
-            <span className={`status-dot ${server.status === 'online' ? 'ok' : server.status === 'offline' ? 'warn' : ''}`} />
+            <span
+              className={`status-dot ${server.status === 'online' ? 'ok' : server.status === 'offline' ? 'warn' : ''}`}
+            />
             <div className="grow">
               <strong data-testid="server-status">
-                {server.status === 'online' ? `Online — ${server.info?.name ?? 'songdeck-server'} ${server.info?.version ?? ''}` : server.status === 'offline' ? 'Not running — browser-only mode' : 'Checking…'}
+                {server.status === 'online'
+                  ? `Online — ${server.info?.name ?? 'songdeck-server'} ${server.info?.version ?? ''}`
+                  : server.status === 'offline'
+                    ? 'Not running — browser-only mode'
+                    : 'Checking…'}
               </strong>
               <div className="small dim">
                 {server.checkedAt ? `checked ${timeAgo(server.checkedAt)}` : ''}
-                {server.status === 'online' && (vault?.backend ?? vaultBackend) ? ` · vault: ${describeVaultBackend(vault?.backend ?? vaultBackend)}` : ''}
+                {server.status === 'online' && (vault?.backend ?? vaultBackend)
+                  ? ` · vault: ${describeVaultBackend(vault?.backend ?? vaultBackend)}`
+                  : ''}
               </div>
             </div>
           </div>
@@ -147,7 +171,10 @@ export default function GeneralTab() {
             </div>
           ) : null}
           {vault?.detail && <div className="small dim">{vault.detail}</div>}
-          <Field label="Server URL" hint="Empty = this page’s origin (the dev server proxies /api to port 7788, or the server serves the studio itself).">
+          <Field
+            label="Server URL"
+            hint="Empty = this page’s origin (the dev server proxies /api to port 7788, or the server serves the studio itself)."
+          >
             <CommitText
               mono
               value={s.serverUrl}
@@ -159,7 +186,11 @@ export default function GeneralTab() {
               aria-label="Server URL"
             />
           </Field>
-          <Toggle on={s.useServerProxy} onChange={(useServerProxy) => s.update({ useServerProxy })} label="Use the server’s keychain vault & proxy for provider keys" />
+          <Toggle
+            on={s.useServerProxy}
+            onChange={(useServerProxy) => s.update({ useServerProxy })}
+            label="Use the server’s keychain vault & proxy for provider keys"
+          />
           <div className="small dim">
             {s.useServerProxy
               ? 'Provider keys are stored by the server (OS keychain where available) and injected server-side; the browser never holds them.'
@@ -167,8 +198,9 @@ export default function GeneralTab() {
           </div>
           {server.status === 'offline' && (
             <div className="callout small">
-              Start it with <code>npx tsx apps/server/src/cli.ts</code> (or <code>npm run start:server</code>) for the keychain vault, provider proxy, hardware detection,
-              render nodes, plugins and collaboration.
+              Start it with <code>npx tsx apps/server/src/cli.ts</code> (or <code>npm run start:server</code>)
+              for the keychain vault, provider proxy, hardware detection, render nodes, plugins and
+              collaboration.
             </div>
           )}
         </Panel>
@@ -180,7 +212,9 @@ export default function GeneralTab() {
             <Field label="Sample rate">
               <Select
                 value={String(s.exportPrefs.sampleRate)}
-                onChange={(v) => s.update({ exportPrefs: { ...s.exportPrefs, sampleRate: Number(v) as 44100 | 48000 } })}
+                onChange={(v) =>
+                  s.update({ exportPrefs: { ...s.exportPrefs, sampleRate: Number(v) as 44100 | 48000 } })
+                }
                 options={[
                   { value: '44100', label: '44.1 kHz' },
                   { value: '48000', label: '48 kHz' },
@@ -191,7 +225,9 @@ export default function GeneralTab() {
             <Field label="WAV bit depth">
               <Select
                 value={String(s.exportPrefs.bitDepth)}
-                onChange={(v) => s.update({ exportPrefs: { ...s.exportPrefs, bitDepth: Number(v) as 16 | 24 } })}
+                onChange={(v) =>
+                  s.update({ exportPrefs: { ...s.exportPrefs, bitDepth: Number(v) as 16 | 24 } })
+                }
                 options={[
                   { value: '16', label: '16-bit' },
                   { value: '24', label: '24-bit' },
@@ -202,7 +238,9 @@ export default function GeneralTab() {
             <Field label="MP3 bitrate">
               <Select
                 value={String(s.exportPrefs.mp3Kbps)}
-                onChange={(v) => s.update({ exportPrefs: { ...s.exportPrefs, mp3Kbps: Number(v) as 128 | 192 | 256 | 320 } })}
+                onChange={(v) =>
+                  s.update({ exportPrefs: { ...s.exportPrefs, mp3Kbps: Number(v) as 128 | 192 | 256 | 320 } })
+                }
                 options={['128', '192', '256', '320'].map((k) => ({ value: k, label: `${k} kbps` }))}
                 aria-label="Default MP3 bitrate"
               />
@@ -215,15 +253,23 @@ export default function GeneralTab() {
             <>
               <div className="row between">
                 <span>
-                  <strong>{bytesLabel(storage.usage)}</strong> used of {bytesLabel(storage.quota)} available to Song Deck
+                  <strong>{bytesLabel(storage.usage)}</strong> used of {bytesLabel(storage.quota)} available
+                  to Song Deck
                 </span>
-                <Badge tone={storage.persisted ? 'success' : undefined}>{storage.persisted ? 'Persistent' : 'Best-effort'}</Badge>
+                <Badge tone={storage.persisted ? 'success' : undefined}>
+                  {storage.persisted ? 'Persistent' : 'Best-effort'}
+                </Badge>
               </div>
               <div className="st-meter">
-                <div style={{ width: `${Math.min(100, ((storage.usage ?? 0) / Math.max(1, storage.quota ?? 1)) * 100)}%` }} />
+                <div
+                  style={{
+                    width: `${Math.min(100, ((storage.usage ?? 0) / Math.max(1, storage.quota ?? 1)) * 100)}%`,
+                  }}
+                />
               </div>
               <div className="small dim">
-                {projects.length} project{projects.length === 1 ? '' : 's'} with full history and audio in IndexedDB. Settings (never keys) in localStorage.
+                {projects.length} project{projects.length === 1 ? '' : 's'} with full history and audio in
+                IndexedDB. Settings (never keys) in localStorage.
               </div>
               {!storage.persisted && navigator.storage?.persist && (
                 <Button
@@ -231,7 +277,12 @@ export default function GeneralTab() {
                   icon="lock"
                   onClick={async () => {
                     const ok = await navigator.storage.persist();
-                    toast(ok ? 'success' : 'warning', ok ? 'Storage is now persistent — the browser will not evict your projects.' : 'The browser declined persistent storage.');
+                    toast(
+                      ok ? 'success' : 'warning',
+                      ok
+                        ? 'Storage is now persistent — the browser will not evict your projects.'
+                        : 'The browser declined persistent storage.',
+                    );
                     setStorage(await readStorage());
                   }}
                 >
@@ -257,10 +308,15 @@ export default function GeneralTab() {
           <dd className="mono">{server.status === 'online' ? `${server.info?.version ?? '?'}` : '—'}</dd>
           <dt>Docs</dt>
           <dd>
-            <span className="mono">Song Deck.md</span> (product specification) · <span className="mono">docs/ARCHITECTURE.md</span> · <span className="mono">apps/server/README.md</span>
+            <span className="mono">Song Deck.md</span> (product specification) ·{' '}
+            <span className="mono">docs/ARCHITECTURE.md</span> ·{' '}
+            <span className="mono">apps/server/README.md</span>
           </dd>
           <dt>Promise</dt>
-          <dd className="muted">Generate a song. Keep the song. Change the notes, the instruments, the singer, the production. Use whichever AI you want — or none.</dd>
+          <dd className="muted">
+            Generate a song. Keep the song. Change the notes, the instruments, the singer, the production. Use
+            whichever AI you want — or none.
+          </dd>
         </dl>
       </Panel>
 
@@ -268,7 +324,10 @@ export default function GeneralTab() {
         <div className="row between wrap">
           <div>
             <strong>Clear all local data</strong>
-            <div className="small muted">Deletes every project, version history, audio asset, setting, spend ledger and queued task stored by Song Deck in this browser.</div>
+            <div className="small muted">
+              Deletes every project, version history, audio asset, setting, spend ledger and queued task
+              stored by Song Deck in this browser.
+            </div>
           </div>
           <Button variant="danger" icon="trash" onClick={() => setConfirm(true)}>
             Clear all local data…
@@ -289,11 +348,17 @@ export default function GeneralTab() {
           }}
         >
           <p>
-            This permanently removes <strong>{projects.length}</strong> project{projects.length === 1 ? '' : 's'} and everything else Song Deck stored in this browser. Export
-            any project you want to keep as a .songproject first. Shared projects on the server are not affected.
+            This permanently removes <strong>{projects.length}</strong> project
+            {projects.length === 1 ? '' : 's'} and everything else Song Deck stored in this browser. Export
+            any project you want to keep as a .songproject first. Shared projects on the server are not
+            affected.
           </p>
           {server.status === 'online' && (
-            <Toggle on={alsoVault} onChange={setAlsoVault} label="Also delete my provider keys from the server vault" />
+            <Toggle
+              on={alsoVault}
+              onChange={setAlsoVault}
+              label="Also delete my provider keys from the server vault"
+            />
           )}
           <div className="small dim">
             <Icon name="info" size={12} /> The page reloads afterwards.

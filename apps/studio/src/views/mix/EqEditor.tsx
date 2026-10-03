@@ -1,10 +1,27 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as RMouseEvent,
+  type PointerEvent as RPointerEvent,
+} from 'react';
 import { defaultEq, type EqSettings } from '@songdeck/core';
 import { useElementSize } from '../../hooks';
 import { Toggle } from '../../ui/kit';
 import { alpha, cssVar, useThemeName } from '../../ui/theme';
 import { Knob } from './controls';
-import { BANDS, bandActive, bandResponse, eqResponse, freqToX, logFreqs, roundFreq, xToFreq, type BandSpec } from './eqMath';
+import {
+  BANDS,
+  bandActive,
+  bandResponse,
+  eqResponse,
+  freqToX,
+  logFreqs,
+  roundFreq,
+  xToFreq,
+  type BandSpec,
+} from './eqMath';
 import { fmtDb, fmtHz, fmtHzUnit } from './mixModel';
 
 /**
@@ -31,7 +48,19 @@ function setupCanvas(canvas: HTMLCanvasElement, w: number, h: number): CanvasRen
 }
 
 /** Tiny EQ curve for channel strips. */
-export function EqThumb({ eq, width = 72, height = 26, onClick, label }: { eq: EqSettings; width?: number; height?: number; onClick?: () => void; label: string }) {
+export function EqThumb({
+  eq,
+  width = 72,
+  height = 26,
+  onClick,
+  label,
+}: {
+  eq: EqSettings;
+  width?: number;
+  height?: number;
+  onClick?: () => void;
+  label: string;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   const freqs = useMemo(() => logFreqs(48), []);
   const theme = useThemeName();
@@ -60,7 +89,13 @@ export function EqThumb({ eq, width = 72, height = 26, onClick, label }: { eq: E
     ctx.stroke();
   }, [eq, width, height, freqs, theme]);
   return (
-    <button type="button" className={`mx-eq-thumb ${eq.enabled ? '' : 'off'}`} onClick={onClick} title={`${label} — open EQ`} aria-label={`${label} EQ (open editor)`}>
+    <button
+      type="button"
+      className={`mx-eq-thumb ${eq.enabled ? '' : 'off'}`}
+      onClick={onClick}
+      title={`${label} — open EQ`}
+      aria-label={`${label} EQ (open editor)`}
+    >
       <canvas ref={ref} width={width} height={height} aria-hidden />
     </button>
   );
@@ -102,7 +137,8 @@ export function EqEditor({
   const PAD_B = 18;
   const plotW = width - PAD_L - PAD_R;
   const plotH = height - PAD_T - PAD_B;
-  const yOf = (db: number) => PAD_T + plotH / 2 - (Math.max(-DISPLAY_DB, Math.min(DISPLAY_DB, db)) / DISPLAY_DB) * (plotH / 2);
+  const yOf = (db: number) =>
+    PAD_T + plotH / 2 - (Math.max(-DISPLAY_DB, Math.min(DISPLAY_DB, db)) / DISPLAY_DB) * (plotH / 2);
   const dbOf = (y: number) => ((PAD_T + plotH / 2 - y) / (plotH / 2)) * DISPLAY_DB;
   const freqs = useMemo(() => logFreqs(Math.max(64, Math.round(plotW / 2))), [plotW]);
 
@@ -221,7 +257,10 @@ export function EqEditor({
       if (focused) {
         const f = eq[b.freqKey] as number;
         const g = b.gainKey ? (eq[b.gainKey] as number) : 0;
-        const text = b.type === 'highpass' || b.type === 'lowpass' ? `${b.short} ${f > 10 ? fmtHzUnit(f) : 'off'}` : `${b.short} ${fmtHzUnit(f)} ${fmtDb(g)} dB`;
+        const text =
+          b.type === 'highpass' || b.type === 'lowpass'
+            ? `${b.short} ${f > 10 ? fmtHzUnit(f) : 'off'}`
+            : `${b.short} ${fmtHzUnit(f)} ${fmtDb(g)} dB`;
         ctx.font = `11px ${cssVar('--font-ui')}`;
         const tw = ctx.measureText(text).width + 10;
         const tx = Math.min(PAD_L + plotW - tw, Math.max(PAD_L, p.x - tw / 2));
@@ -333,7 +372,10 @@ export function EqEditor({
           ref={canvasRef}
           role="img"
           aria-label={`${title} EQ frequency response`}
-          style={{ cursor: disabled ? 'not-allowed' : hover || dragging ? 'grab' : 'default', touchAction: 'none' }}
+          style={{
+            cursor: disabled ? 'not-allowed' : hover || dragging ? 'grab' : 'default',
+            touchAction: 'none',
+          }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={end}
@@ -348,7 +390,13 @@ export function EqEditor({
           const cut = b.type === 'highpass' || b.type === 'lowpass';
           const on = cut ? f > 10 : true;
           return (
-            <div key={b.id} className={`mx-eq-band ${bandActive(eq, b) ? 'active' : ''}`} style={{ ['--band' as string]: b.color }} onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover(null)}>
+            <div
+              key={b.id}
+              className={`mx-eq-band ${bandActive(eq, b) ? 'active' : ''}`}
+              style={{ ['--band' as string]: b.color }}
+              onMouseEnter={() => setHover(b.id)}
+              onMouseLeave={() => setHover(null)}
+            >
               <div className="mx-eq-band-head">
                 <span className="dot" />
                 <span>{b.label}</span>
@@ -367,11 +415,15 @@ export function EqEditor({
               </div>
               <div className="mx-eq-band-knobs">
                 <Knob
-                  value={on ? Math.max(b.minHz, Math.min(b.maxHz, f)) : b.type === 'highpass' ? b.minHz : b.maxHz}
+                  value={
+                    on ? Math.max(b.minHz, Math.min(b.maxHz, f)) : b.type === 'highpass' ? b.minHz : b.maxHz
+                  }
                   min={b.minHz}
                   max={b.maxHz}
                   log
-                  defaultValue={cut ? (b.type === 'highpass' ? 80 : 12000) : (defaultEq()[b.freqKey] as number)}
+                  defaultValue={
+                    cut ? (b.type === 'highpass' ? 80 : 12000) : (defaultEq()[b.freqKey] as number)
+                  }
                   onPreview={(v) => setBand({ [b.freqKey]: roundFreq(v) })}
                   onCommit={onCommit}
                   onKeyCommit={onCommitSoon}

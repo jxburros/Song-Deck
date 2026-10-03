@@ -45,7 +45,12 @@ function chordStabs(sr: number, seconds: number, seed: number, stereo: boolean):
       const pan = r();
       for (let i = s0; i < s1; i++) {
         const t = (i - s0) / sr;
-        const v = amp * Math.exp(-t * 1.5) * (Math.sin(2 * Math.PI * f * t) + 0.5 * Math.sin(4 * Math.PI * f * t) + 0.25 * Math.sin(6 * Math.PI * f * t));
+        const v =
+          amp *
+          Math.exp(-t * 1.5) *
+          (Math.sin(2 * Math.PI * f * t) +
+            0.5 * Math.sin(4 * Math.PI * f * t) +
+            0.25 * Math.sin(6 * Math.PI * f * t));
         L[i] += v * (stereo ? 1 - pan : 1);
         R[i] += v * (stereo ? pan : 1);
       }
@@ -62,8 +67,10 @@ function chordStabs(sr: number, seconds: number, seed: number, stereo: boolean):
 /** Round-trip through 16-bit WAV, exactly what fpcalc reads. */
 const as16bit = (a: AudioData) => decodeWav(encodeWav(a, { bitDepth: 16, dither: false }));
 
-const GOLDEN_MONO_11025 = 'AQAAS1qcMIkUJsBz4j9-43twXIEfTD_45MEuShIqnjhD_HB-5CrEC-GP8jr2CJ8GqtgN5wvC3VApmcg51JJCDf5x4-lR5MfMlAokY1Jywk1xHTF8whem_3iOmjvY5cd1bDf8IJSO5CY6nfDIHH8S7Etwgjv8B_2R_EMeodYPPsXhPcf046OKp8JvTI4duAKR_Ih4PAWGCCMUGIIIItAQwwRSQjEiiBKASKAQFQgZKRAyggghpBBGEEKRQoogRJBBiCBkwAHACWAcAEQoaAA';
-const GOLDEN_STEREO_44100 = 'AQAAZBKZJEpY4flx3fgminjUbOjX4wfCnEgu_B7OHdVz4TO-4_gYMYT5InkV5A-uH4903MYz-Cd63A_K7BI2pQuL5zhSQdKD8LiJZ3lwHT2uBkfzbQBLysSTb0kQ_sd_7IGQH75w7cKVPzhzuOmP7zj-HWMeInvyQDGZI0-SGa6O77CHNwnCC_qRP0K_THAYx_jxY9cR2of0I74w9B8eJrAH90cvHBMfhQn8acPxHB_4I5kuxOmOXXheXGKPP0ePM_HQlIowPJUAAAygiBCApGVMEAKIUAIghQRAhiBBHUIQKIEAEggSRBhAYAghkEAKCAAMAwAIQoBAxAGhBDGAIESQUUARxaSAxArCpEAGGGWEQAg55wRSRBCjFHCIAQ';
+const GOLDEN_MONO_11025 =
+  'AQAAS1qcMIkUJsBz4j9-43twXIEfTD_45MEuShIqnjhD_HB-5CrEC-GP8jr2CJ8GqtgN5wvC3VApmcg51JJCDf5x4-lR5MfMlAokY1Jywk1xHTF8whem_3iOmjvY5cd1bDf8IJSO5CY6nfDIHH8S7Etwgjv8B_2R_EMeodYPPsXhPcf046OKp8JvTI4duAKR_Ih4PAWGCCMUGIIIItAQwwRSQjEiiBKASKAQFQgZKRAyggghpBBGEEKRQoogRJBBiCBkwAHACWAcAEQoaAA';
+const GOLDEN_STEREO_44100 =
+  'AQAAZBKZJEpY4flx3fgminjUbOjX4wfCnEgu_B7OHdVz4TO-4_gYMYT5InkV5A-uH4903MYz-Cd63A_K7BI2pQuL5zhSQdKD8LiJZ3lwHT2uBkfzbQBLysSTb0kQ_sd_7IGQH75w7cKVPzhzuOmP7zj-HWMeInvyQDGZI0-SGa6O77CHNwnCC_qRP0K_THAYx_jxY9cR2of0I74w9B8eJrAH90cvHBMfhQn8acPxHB_4I5kuxOmOXXheXGKPP0ePM_HQlIowPJUAAAygiBCApGVMEAKIUAIghQRAhiBBHUIQKIEAEggSRBhAYAghkEAKCAAMAwAIQoBAxAGhBDGAIESQUUARxaSAxArCpEAGGGWEQAg55wRSRBCjFHCIAQ';
 
 describe('Chromaprint port', () => {
   it('reproduces fpcalc exactly for 16-bit mono 11025 Hz input', () => {
@@ -89,7 +96,9 @@ describe('Chromaprint port', () => {
 
   it('only fingerprints full frames of the first 120 seconds and handles silence/short input', () => {
     expect(chromaprintRaw(new Int16Array(4095)).length).toBe(0);
-    expect(chromaprintFingerprint({ sampleRate: 44100, channels: [new Float32Array(10)] }).raw.length).toBe(0);
+    expect(chromaprintFingerprint({ sampleRate: 44100, channels: [new Float32Array(10)] }).raw.length).toBe(
+      0,
+    );
     const silent = chromaprintFingerprint({ sampleRate: 11025, channels: [new Float32Array(11025 * 10)] });
     expect(silent.raw.length).toBeGreaterThan(0);
     const long = chromaprintFingerprint({ sampleRate: 11025, channels: [new Float32Array(11025 * 130)] });
@@ -136,12 +145,17 @@ describe.skipIf(!fpcalc)('Chromaprint port vs live fpcalc', () => {
       for (const [name, audio, maxBer] of cases) {
         const file = path.join(dir, `${name}.wav`);
         writeFileSync(file, encodeWav(audio, { bitDepth: 16, dither: false }));
-        const ref = JSON.parse(execFileSync('fpcalc', ['-raw', '-json', file]).toString()) as { fingerprint: number[]; duration: number };
+        const ref = JSON.parse(execFileSync('fpcalc', ['-raw', '-json', file]).toString()) as {
+          fingerprint: number[];
+          duration: number;
+        };
         const ours = chromaprintFingerprint(decodeWav(encodeWav(audio, { bitDepth: 16, dither: false })));
         expect(ours.raw.length, name).toBe(ref.fingerprint.length);
         expect(fingerprintBitErrorRate(ours.raw, ref.fingerprint), name).toBeLessThanOrEqual(maxBer);
         if (audio.sampleRate === 11025 && audio.channels.length === 1) {
-          const enc = JSON.parse(execFileSync('fpcalc', ['-json', file]).toString()) as { fingerprint: string };
+          const enc = JSON.parse(execFileSync('fpcalc', ['-json', file]).toString()) as {
+            fingerprint: string;
+          };
           expect(ours.fingerprint).toBe(enc.fingerprint);
         }
       }

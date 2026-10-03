@@ -45,7 +45,13 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
   it('sends structured-output requests to /v1/messages with x-api-key and anthropic-version', async () => {
     const m = mockFetch(() => jsonResponse(message()));
     const inst = createProvider(anthropicConfig(), depsWith(m.fetch, { 'provider:anthropic': SECRET }));
-    const res = await inst.llm!.complete({ system: 'sys', messages: [{ role: 'user', content: 'hi' }], responseSchema: OPERATIONS_SCHEMA, schemaName: 'operations', maxTokens: 1000 });
+    const res = await inst.llm!.complete({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'hi' }],
+      responseSchema: OPERATIONS_SCHEMA,
+      schemaName: 'operations',
+      maxTokens: 1000,
+    });
 
     expect(m.calls).toHaveLength(1);
     const call = m.calls[0];
@@ -69,7 +75,17 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
     // Anthropic dialect: additionalProperties false everywhere, no numeric/array/string constraints.
     walk(oc.format.schema, (n) => {
       if (n.type === 'object') expect(n.additionalProperties).toBe(false);
-      for (const k of ['minimum', 'maximum', 'multipleOf', 'minLength', 'maxLength', 'minItems', 'maxItems', 'exclusiveMinimum']) expect(n).not.toHaveProperty(k);
+      for (const k of [
+        'minimum',
+        'maximum',
+        'multipleOf',
+        'minLength',
+        'maxLength',
+        'minItems',
+        'maxItems',
+        'exclusiveMinimum',
+      ])
+        expect(n).not.toHaveProperty(k);
     });
     // Text comes from text blocks only (thinking skipped); JSON parsed.
     expect(res.text).toBe('{"explanation":"ok","confidence":0.9,"operations":[]}');
@@ -119,7 +135,9 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
       ),
     );
     const inst = createProvider(anthropicConfig(), depsWith(m.fetch, { 'provider:anthropic': SECRET }));
-    const err = await inst.llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA }).catch((e) => e);
+    const err = await inst
+      .llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA })
+      .catch((e) => e);
     expect(err).toBeInstanceOf(ProviderError);
     expect((err as ProviderError).kind).toBe('refusal');
     expect((err as ProviderError).category).toBe('cyber');
@@ -127,9 +145,21 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
   });
 
   it('maps max_tokens with JSON output to a truncated error carrying the partial text', async () => {
-    const m = mockFetch(() => jsonResponse(message({ content: [{ type: 'text', text: '{"operations":[{"op":"add_notes"' }], stop_reason: 'max_tokens' })));
-    const inst = createProvider(anthropicConfig({ defaultModel: 'claude-sonnet-4-6' }), depsWith(m.fetch, { 'provider:anthropic': SECRET }));
-    const err = (await inst.llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA }).catch((e) => e)) as ProviderError;
+    const m = mockFetch(() =>
+      jsonResponse(
+        message({
+          content: [{ type: 'text', text: '{"operations":[{"op":"add_notes"' }],
+          stop_reason: 'max_tokens',
+        }),
+      ),
+    );
+    const inst = createProvider(
+      anthropicConfig({ defaultModel: 'claude-sonnet-4-6' }),
+      depsWith(m.fetch, { 'provider:anthropic': SECRET }),
+    );
+    const err = (await inst
+      .llm!.complete({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA })
+      .catch((e) => e)) as ProviderError;
     expect(err.kind).toBe('truncated');
     expect(err.partialText).toContain('add_notes');
   });
@@ -142,9 +172,20 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
       [529, 'unavailable'],
     ];
     for (const [status, kind] of cases) {
-      const m = mockFetch(() => jsonResponse({ type: 'error', error: { type: 'x', message: `boom ${status}` } }, status, status === 429 ? { 'retry-after': '0' } : {}));
-      const inst = createProvider(anthropicConfig({ defaultModel: 'claude-haiku-4-5' }), depsWith(m.fetch, { 'provider:anthropic': SECRET }));
-      const err = (await inst.llm!.complete({ messages: [{ role: 'user', content: 'x' }] }).catch((e) => e)) as ProviderError;
+      const m = mockFetch(() =>
+        jsonResponse(
+          { type: 'error', error: { type: 'x', message: `boom ${status}` } },
+          status,
+          status === 429 ? { 'retry-after': '0' } : {},
+        ),
+      );
+      const inst = createProvider(
+        anthropicConfig({ defaultModel: 'claude-haiku-4-5' }),
+        depsWith(m.fetch, { 'provider:anthropic': SECRET }),
+      );
+      const err = (await inst
+        .llm!.complete({ messages: [{ role: 'user', content: 'x' }] })
+        .catch((e) => e)) as ProviderError;
       expect(err).toBeInstanceOf(ProviderError);
       expect(err.kind).toBe(kind);
       expect(err.message).toContain(`boom ${status}`);
@@ -156,7 +197,9 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
   it('reports a missing credential as an auth error without calling the API', async () => {
     const m = mockFetch(() => jsonResponse(message()));
     const inst = createProvider(anthropicConfig(), depsWith(m.fetch, {}));
-    const err = (await inst.llm!.complete({ messages: [{ role: 'user', content: 'x' }] }).catch((e) => e)) as ProviderError;
+    const err = (await inst
+      .llm!.complete({ messages: [{ role: 'user', content: 'x' }] })
+      .catch((e) => e)) as ProviderError;
     expect(err.kind).toBe('auth');
     expect(m.calls).toHaveLength(0);
   });
@@ -176,11 +219,29 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
             capabilities: {
               structured_outputs: { supported: true },
               image_input: { supported: true },
-              effort: { supported: true, low: { supported: true }, medium: { supported: true }, high: { supported: true }, max: { supported: true }, xhigh: { supported: true } },
-              thinking: { supported: true, types: { adaptive: { supported: true }, enabled: { supported: false } } },
+              effort: {
+                supported: true,
+                low: { supported: true },
+                medium: { supported: true },
+                high: { supported: true },
+                max: { supported: true },
+                xhigh: { supported: true },
+              },
+              thinking: {
+                supported: true,
+                types: { adaptive: { supported: true }, enabled: { supported: false } },
+              },
             },
           },
-          { type: 'model', id: 'claude-legacy', display_name: 'Legacy', created_at: '2024-01-01T00:00:00Z', max_input_tokens: 50000, max_tokens: 4096, capabilities: { structured_outputs: { supported: false }, effort: { supported: false } } },
+          {
+            type: 'model',
+            id: 'claude-legacy',
+            display_name: 'Legacy',
+            created_at: '2024-01-01T00:00:00Z',
+            max_input_tokens: 50000,
+            max_tokens: 4096,
+            capabilities: { structured_outputs: { supported: false }, effort: { supported: false } },
+          },
         ],
         has_more: false,
         first_id: 'claude-opus-5-5',
@@ -190,7 +251,9 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
     const inst = createProvider(anthropicConfig(), depsWith(m.fetch, { 'provider:anthropic': SECRET }));
     const models = await inst.llm!.listModels();
     const opus = models.find((x) => x.id === 'claude-opus-5-5')!;
-    expect(opus.capabilities).toEqual(expect.arrayContaining(['STRUCTURED_JSON', 'LONG_CONTEXT', 'TOOL_CALLING', 'MIDI_EDITING']));
+    expect(opus.capabilities).toEqual(
+      expect.arrayContaining(['STRUCTURED_JSON', 'LONG_CONTEXT', 'TOOL_CALLING', 'MIDI_EDITING']),
+    );
     expect(opus.contextLength).toBe(1000000);
     expect(opus.qualityTier).toBe(5);
     const legacy = models.find((x) => x.id === 'claude-legacy')!;
@@ -199,9 +262,14 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
 
     // A model without structured outputs / effort gets prompt-only JSON and no effort.
     const m2 = mockFetch(() => jsonResponse(message({ model: 'claude-legacy' })));
-    const llm = new AnthropicLLM(anthropicConfig(), { transport: depsWith(m2.fetch, { 'provider:anthropic': SECRET }).transport });
+    const llm = new AnthropicLLM(anthropicConfig(), {
+      transport: depsWith(m2.fetch, { 'provider:anthropic': SECRET }).transport,
+    });
     (llm as unknown as { models: Map<string, unknown> }).models = new Map([[legacy.id, legacy]]);
-    const params = llm.buildParams({ messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA }, 'claude-legacy');
+    const params = llm.buildParams(
+      { messages: [{ role: 'user', content: 'x' }], responseSchema: OPERATIONS_SCHEMA },
+      'claude-legacy',
+    );
     expect(params).not.toHaveProperty('output_config');
     expect(String(params.system)).toContain('Respond with a single JSON object');
   });
@@ -209,12 +277,23 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
   it('routes through ServerProxyTransport with a placeholder key and credentialRef in the envelope', async () => {
     const proxy = mockFetch(() => jsonResponse(message({ model: 'claude-sonnet-4-6' })));
     const transport = new ServerProxyTransport('http://localhost:4317', { fetch: proxy.fetch });
-    const inst = createProvider(anthropicConfig({ defaultModel: 'claude-sonnet-4-6' }), { transport, retry: { baseDelayMs: 0 } });
+    const inst = createProvider(anthropicConfig({ defaultModel: 'claude-sonnet-4-6' }), {
+      transport,
+      retry: { baseDelayMs: 0 },
+    });
     const res = await inst.llm!.complete({ messages: [{ role: 'user', content: 'hello' }] });
     expect(res.model).toBe('claude-sonnet-4-6');
     expect(proxy.calls).toHaveLength(1);
     expect(proxy.calls[0].url).toBe('http://localhost:4317/api/proxy');
-    const env = bodyJson(proxy.calls[0]) as { url: string; method: string; headers: Record<string, string>; body: string; bodyEncoding: string; credentialRef: string; auth: { type: string; name: string } };
+    const env = bodyJson(proxy.calls[0]) as {
+      url: string;
+      method: string;
+      headers: Record<string, string>;
+      body: string;
+      bodyEncoding: string;
+      credentialRef: string;
+      auth: { type: string; name: string };
+    };
     expect(env.url).toBe('https://api.anthropic.com/v1/messages');
     expect(env.method).toBe('POST');
     expect(env.headers['x-api-key']).toBe('proxy-managed');
@@ -230,10 +309,20 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
     const m = mockFetch((call) => {
       n++;
       const body = bodyJson(call) as { output_config?: { effort?: string } };
-      if (body.output_config?.effort) return jsonResponse({ type: 'error', error: { type: 'invalid_request_error', message: 'effort is not supported for this model' } }, 400);
+      if (body.output_config?.effort)
+        return jsonResponse(
+          {
+            type: 'error',
+            error: { type: 'invalid_request_error', message: 'effort is not supported for this model' },
+          },
+          400,
+        );
       return jsonResponse(message({ model: 'claude-haiku-4-5' }));
     });
-    const inst = createProvider(anthropicConfig({ defaultModel: 'claude-haiku-4-5' }), depsWith(m.fetch, { 'provider:anthropic': SECRET }));
+    const inst = createProvider(
+      anthropicConfig({ defaultModel: 'claude-haiku-4-5' }),
+      depsWith(m.fetch, { 'provider:anthropic': SECRET }),
+    );
     const res = await inst.llm!.complete({ messages: [{ role: 'user', content: 'x' }] });
     expect(res.model).toBe('claude-haiku-4-5');
     expect(n).toBe(2);

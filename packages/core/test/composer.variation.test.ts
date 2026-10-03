@@ -17,11 +17,15 @@ import { parseChordSymbol } from '../src/theory/chords';
 import type { Note, Song, VariationLevel } from '../src/ir/types';
 import { validityProblems } from './composer-helpers';
 
-const PROMPT = 'Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.';
+const PROMPT =
+  'Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.';
 const song = composeSong(parsePromptToBlueprint(PROMPT, { seed: 21 }));
 const vocalOf = (s: Song) => s.tracks.find((t) => t.role === 'vocal')!;
 const shape = (ns: Note[]) => ns.map((n) => [n.pitch, n.tick, n.duration]);
-const accompanimentNotes = (s: Song) => s.tracks.filter((t) => t.role !== 'vocal').flatMap((t) => t.notes.map((n) => `${t.id}|${n.pitch}|${n.tick}|${n.duration}`));
+const accompanimentNotes = (s: Song) =>
+  s.tracks
+    .filter((t) => t.role !== 'vocal')
+    .flatMap((t) => t.notes.map((n) => `${t.id}|${n.pitch}|${n.tick}|${n.duration}`));
 const diffRatio = (a: string[], b: string[]) => {
   const sb = new Set(b);
   return a.filter((x) => !sb.has(x)).length / Math.max(1, a.length);
@@ -43,10 +47,12 @@ describe('createVariation (§24)', () => {
         expect([m.pitch, m.tick, m.duration]).toEqual([n.pitch, n.tick, n.duration]);
       }
     }
-    const velChanged = v.tracks.flatMap((t) => t.notes).filter((n) => {
-      const o = song.tracks.flatMap((x) => x.notes).find((x) => x.id === n.id);
-      return o && o.velocity !== n.velocity;
-    }).length;
+    const velChanged = v.tracks
+      .flatMap((t) => t.notes)
+      .filter((n) => {
+        const o = song.tracks.flatMap((x) => x.notes).find((x) => x.id === n.id);
+        return o && o.velocity !== n.velocity;
+      }).length;
     expect(velChanged).toBeGreaterThan(100);
     expect(validityProblems(v)).toEqual([]);
   });
@@ -90,7 +96,9 @@ describe('createVariation (§24)', () => {
     expect(b.structure).toEqual(a.structure);
     expect(b.motifs).toEqual(a.motifs);
     expect(b.energyCurve).toEqual(a.energyCurve);
-    expect(b.principalProgressions.find((p) => p.sectionKind === 'chorus')!.roman).toEqual(a.principalProgressions.find((p) => p.sectionKind === 'chorus')!.roman);
+    expect(b.principalProgressions.find((p) => p.sectionKind === 'chorus')!.roman).toEqual(
+      a.principalProgressions.find((p) => p.sectionKind === 'chorus')!.roman,
+    );
     expect(vocalOf(v).notes).not.toEqual(vocalOf(song).notes);
     expect(validityProblems(v)).toEqual([]);
   });
@@ -101,13 +109,21 @@ describe('createVariation (§24)', () => {
     const drums = locked.tracks.find((t) => t.role === 'drums')!;
     const chorus = locked.sections.find((s) => s.kind === 'chorus')!;
     const bass = locked.tracks.find((t) => t.role === 'bass')!;
-    locked.locks = { [LockKeys.track(vocal.id)]: true, [LockKeys.trackSection(bass.id, chorus.id)]: true, [LockKeys.section(locked.sections[0].id)]: true };
+    locked.locks = {
+      [LockKeys.track(vocal.id)]: true,
+      [LockKeys.trackSection(bass.id, chorus.id)]: true,
+      [LockKeys.section(locked.sections[0].id)]: true,
+    };
     drums.notes = drums.notes.map((n, i) => (i % 5 === 0 ? { ...n, locked: true } : n));
     const spans = sectionLayout(locked);
     const snapshot = (s: Song) =>
       stableStringify({
         vocal: vocalOf(s),
-        cells: s.tracks.map((t) => spans.filter((sp) => isTrackSectionLocked(locked, t.id, sp.section.id)).map((sp) => t.notes.filter((n) => n.tick >= sp.startTick && n.tick < sp.endTick))),
+        cells: s.tracks.map((t) =>
+          spans
+            .filter((sp) => isTrackSectionLocked(locked, t.id, sp.section.id))
+            .map((sp) => t.notes.filter((n) => n.tick >= sp.startTick && n.tick < sp.endTick)),
+        ),
         lockedNotes: s.tracks.flatMap((t) => t.notes.filter((n) => n.locked)),
       });
     const before = snapshot(locked);
@@ -131,7 +147,9 @@ describe('Song DNA (§11)', () => {
     expect(dna.harmonicLanguage.mode).toBe('minor');
     const total = Object.values(dna.harmonicLanguage.chordVocabulary).reduce((t, v) => t + v, 0);
     expect(total).toBeCloseTo(1, 2);
-    expect(dna.harmonicLanguage.chordVocabulary.i ?? dna.harmonicLanguage.chordVocabulary.Isus2 ?? 0).toBeGreaterThanOrEqual(0);
+    expect(
+      dna.harmonicLanguage.chordVocabulary.i ?? dna.harmonicLanguage.chordVocabulary.Isus2 ?? 0,
+    ).toBeGreaterThanOrEqual(0);
     const verse = dna.principalProgressions.find((p) => p.sectionKind === 'verse')!;
     expect(verse.roman.length).toBeGreaterThanOrEqual(2);
     expect(verse.roman.length).toBeLessThanOrEqual(8);
@@ -171,7 +189,9 @@ describe('Song DNA (§11)', () => {
       expect(d.structure.map((x) => [x.kind, x.bars])).toEqual(dna.structure.map((x) => [x.kind, x.bars]));
       expect(d.motifs).toEqual(dna.motifs);
       expect(d.energyCurve).toEqual(dna.energyCurve);
-      expect(d.principalProgressions.find((p) => p.sectionKind === 'verse')!.roman).toEqual(dna.principalProgressions.find((p) => p.sectionKind === 'verse')!.roman);
+      expect(d.principalProgressions.find((p) => p.sectionKind === 'verse')!.roman).toEqual(
+        dna.principalProgressions.find((p) => p.sectionKind === 'verse')!.roman,
+      );
       expect(validityProblems(s)).toEqual([]);
     }
     expect(songHash(composeFromDNA(dna, { seed: 101 }))).toBe(songHash(a));
@@ -192,7 +212,12 @@ describe('Song DNA (§11)', () => {
     });
     expect(s.title).toBe('Synth Cousin');
     expect(s.tempoMap[0].bpm).toBe(120);
-    expect(s.tracks.map((t) => t.instrumentId)).toEqual(['lead-vocal', 'electronic-kit', 'synth-bass', 'synth-pad']);
+    expect(s.tracks.map((t) => t.instrumentId)).toEqual([
+      'lead-vocal',
+      'electronic-kit',
+      'synth-bass',
+      'synth-pad',
+    ]);
     expect(validityProblems(s)).toEqual([]);
   });
 });
@@ -204,7 +229,12 @@ describe('branch templates (§53)', () => {
   });
 
   it('re-orchestrations keep the vocal melody and harmony', () => {
-    const pop = composeSong(parsePromptToBlueprint('upbeat pop song with piano, clean guitar, bass, drums and a synth pad, female vocal', { seed: 4 }));
+    const pop = composeSong(
+      parsePromptToBlueprint(
+        'upbeat pop song with piano, clean guitar, bass, drums and a synth pad, female vocal',
+        { seed: 4 },
+      ),
+    );
     for (const id of ['heavy', 'acoustic', 'synth'] as const) {
       const out = BRANCH_TEMPLATES.find((t) => t.id === id)!.apply(pop, 9);
       expect(vocalOf(out).notes, id).toEqual(vocalOf(pop).notes);
@@ -234,8 +264,13 @@ describe('branch templates (§53)', () => {
     const b = sectionLayout(edit).find((x) => x.section.id === solo.id)!;
     expect(b.section.bars).toBe(a.section.bars);
     for (const t of locked.tracks) {
-      const orig = t.notes.filter((n) => n.tick >= a.startTick && n.tick < a.endTick).map((n) => [n.id, n.pitch, n.tick - a.startTick, n.duration, n.velocity]);
-      const kept = edit.tracks.find((x) => x.id === t.id)!.notes.filter((n) => n.tick >= b.startTick && n.tick < b.endTick).map((n) => [n.id, n.pitch, n.tick - b.startTick, n.duration, n.velocity]);
+      const orig = t.notes
+        .filter((n) => n.tick >= a.startTick && n.tick < a.endTick)
+        .map((n) => [n.id, n.pitch, n.tick - a.startTick, n.duration, n.velocity]);
+      const kept = edit.tracks
+        .find((x) => x.id === t.id)!
+        .notes.filter((n) => n.tick >= b.startTick && n.tick < b.endTick)
+        .map((n) => [n.id, n.pitch, n.tick - b.startTick, n.duration, n.velocity]);
       expect(kept).toEqual(orig);
     }
     const synth = BRANCH_TEMPLATES.find((t) => t.id === 'synth')!.apply(locked, 3);
@@ -243,7 +278,9 @@ describe('branch templates (§53)', () => {
     const g2 = synth.tracks.find((t) => t.id === guitar.id)!;
     expect(g2.instrumentId).toBe(guitar.instrumentId);
     const vs = sectionLayout(locked).find((x) => x.section.id === verse.id)!;
-    expect(g2.notes.filter((n) => n.tick >= vs.startTick && n.tick < vs.endTick)).toEqual(guitar.notes.filter((n) => n.tick >= vs.startTick && n.tick < vs.endTick));
+    expect(g2.notes.filter((n) => n.tick >= vs.startTick && n.tick < vs.endTick)).toEqual(
+      guitar.notes.filter((n) => n.tick >= vs.startTick && n.tick < vs.endTick),
+    );
   });
 
   it('radio edit shortens the song while keeping every chorus intact', () => {
@@ -259,8 +296,13 @@ describe('branch templates (§53)', () => {
     const a = sectionLayout(long).find((s) => s.section.id === chorusId)!;
     const b = sectionLayout(edit).find((s) => s.section.id === chorusId)!;
     for (const t of long.tracks) {
-      const orig = t.notes.filter((n) => n.tick >= a.startTick && n.tick < a.endTick).map((n) => [n.id, n.pitch, n.tick - a.startTick]);
-      const moved = edit.tracks.find((x) => x.id === t.id)!.notes.filter((n) => n.tick >= b.startTick && n.tick < b.endTick).map((n) => [n.id, n.pitch, n.tick - b.startTick]);
+      const orig = t.notes
+        .filter((n) => n.tick >= a.startTick && n.tick < a.endTick)
+        .map((n) => [n.id, n.pitch, n.tick - a.startTick]);
+      const moved = edit.tracks
+        .find((x) => x.id === t.id)!
+        .notes.filter((n) => n.tick >= b.startTick && n.tick < b.endTick)
+        .map((n) => [n.id, n.pitch, n.tick - b.startTick]);
       expect(moved).toEqual(orig);
     }
   });
@@ -299,16 +341,32 @@ describe('applyMacroTransforms (§19)', () => {
   it('stores per-track macros when a track is given', () => {
     const bass = song.tracks.find((t) => t.role === 'bass')!;
     const out = applyMacroTransforms(song, { humanization: 0.9, complexity: 0.8 }, bass.id);
-    expect(out.tracks.find((t) => t.id === bass.id)!.macros).toMatchObject({ humanization: 0.9, complexity: 0.8 });
+    expect(out.tracks.find((t) => t.id === bass.id)!.macros).toMatchObject({
+      humanization: 0.9,
+      complexity: 0.8,
+    });
     expect(out.macros).toEqual(song.macros);
-    for (const t of out.tracks) if (t.id !== bass.id) expect(t.notes).toEqual(song.tracks.find((x) => x.id === t.id)!.notes);
+    for (const t of out.tracks)
+      if (t.id !== bass.id) expect(t.notes).toEqual(song.tracks.find((x) => x.id === t.id)!.notes);
   });
 });
 
 describe('generateAsset (§25 Generate MIDI)', () => {
   it('creates a melancholy 16-bar cello melody in D minor', () => {
     const { song: s, trackId } = generateAsset(
-      { description: 'Create a melancholy 16-bar cello melody in D minor', instrumentId: 'cello', role: 'strings', function: 'melody', bars: 16, key: { tonic: 2, mode: 'minor' }, tempo: 80, meter: { numerator: 4, denominator: 4 }, moods: ['melancholy'], genreIds: ['cinematic'], count: 1 },
+      {
+        description: 'Create a melancholy 16-bar cello melody in D minor',
+        instrumentId: 'cello',
+        role: 'strings',
+        function: 'melody',
+        bars: 16,
+        key: { tonic: 2, mode: 'minor' },
+        tempo: 80,
+        meter: { numerator: 4, denominator: 4 },
+        moods: ['melancholy'],
+        genreIds: ['cinematic'],
+        count: 1,
+      },
       7,
     );
     expect(s.tracks.length).toBe(1);
@@ -325,11 +383,37 @@ describe('generateAsset (§25 Generate MIDI)', () => {
   });
 
   it('creates drum patterns and bass lines over a given progression', () => {
-    const drums = generateAsset({ description: 'Make a pop-punk drum pattern at 176 BPM', instrumentId: 'drum-kit', role: 'drums', bars: 8, key: { tonic: 0, mode: 'major' }, tempo: 176, meter: { numerator: 4, denominator: 4 }, moods: [], genreIds: ['pop-punk'], count: 1 }, 3);
+    const drums = generateAsset(
+      {
+        description: 'Make a pop-punk drum pattern at 176 BPM',
+        instrumentId: 'drum-kit',
+        role: 'drums',
+        bars: 8,
+        key: { tonic: 0, mode: 'major' },
+        tempo: 176,
+        meter: { numerator: 4, denominator: 4 },
+        moods: [],
+        genreIds: ['pop-punk'],
+        count: 1,
+      },
+      3,
+    );
     expect(drums.song.tempoMap[0].bpm).toBe(176);
     expect(drums.song.tracks[0].notes.some((n) => n.pitch === 36)).toBe(true);
     expect(drums.song.tracks[0].notes.some((n) => n.pitch === 38)).toBe(true);
-    const req = { description: 'bass line', instrumentId: 'electric-bass', role: 'bass' as const, bars: 4, key: { tonic: 9, mode: 'minor' as const }, tempo: 110, meter: { numerator: 4, denominator: 4 }, moods: [], genreIds: ['rock'], count: 4, progression: ['Am', 'F', 'C', 'G'] };
+    const req = {
+      description: 'bass line',
+      instrumentId: 'electric-bass',
+      role: 'bass' as const,
+      bars: 4,
+      key: { tonic: 9, mode: 'minor' as const },
+      tempo: 110,
+      meter: { numerator: 4, denominator: 4 },
+      moods: [],
+      genreIds: ['rock'],
+      count: 4,
+      progression: ['Am', 'F', 'C', 'G'],
+    };
     const lines = [1, 2, 3, 4].map((seed) => generateAsset(req, seed).song);
     expect(lines[0].chords.map((c) => c.symbol)).toEqual(['Am', 'F', 'C', 'G']);
     expect(new Set(lines.map((l) => stableStringify(l.tracks[0].notes))).size).toBe(4);
@@ -337,7 +421,7 @@ describe('generateAsset (§25 Generate MIDI)', () => {
       // Each chord change gets its root.
       for (const c of l.chords) {
         const first = l.tracks[0].notes.find((n) => n.tick >= c.tick - 30 && n.tick < c.tick + 60);
-        expect(first && (first.pitch % 12) === (parseChordSymbol(c.symbol)!.root % 12)).toBe(true);
+        expect(first && first.pitch % 12 === parseChordSymbol(c.symbol)!.root % 12).toBe(true);
       }
       expect(validityProblems(l)).toEqual([]);
     }

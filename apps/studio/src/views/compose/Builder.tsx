@@ -27,7 +27,14 @@ import { ProviderPicker } from '../shared/ProviderPicker';
 import { FUNCTIONS, MODES, TRACK_ROLES } from './BlueprintEditor';
 import { ChipPicker, genreItems, instrumentItems, tagItems } from './ChipPicker';
 import { LyricsInput } from './LyricsInput';
-import { STARTERS, choicesFromDraft, draftLyrics, useComposeSession, type ComposeDraft, type Starter } from './session';
+import {
+  STARTERS,
+  choicesFromDraft,
+  draftLyrics,
+  useComposeSession,
+  type ComposeDraft,
+  type Starter,
+} from './session';
 
 /**
  * The Compose builder (step 1): pick instruments and how many, genres and how much influence,
@@ -93,27 +100,54 @@ function InstrumentRow({
         <strong className="ellipsis">{name}</strong>
       </div>
       <div className="cb-stepper" role="group" aria-label={`${name} count`}>
-        <Button size="sm" variant="ghost" icon="minus" aria-label={`Fewer ${name}`} disabled={entry.count <= 1} onClick={() => onChange({ count: Math.max(1, entry.count - 1) })} />
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="minus"
+          aria-label={`Fewer ${name}`}
+          disabled={entry.count <= 1}
+          onClick={() => onChange({ count: Math.max(1, entry.count - 1) })}
+        />
         <span className="mono" aria-live="polite" data-testid="instrument-count">
           × {entry.count}
         </span>
-        <Button size="sm" variant="ghost" icon="plus" aria-label={`More ${name}`} disabled={entry.count >= 8} onClick={() => onChange({ count: Math.min(8, entry.count + 1) })} />
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="plus"
+          aria-label={`More ${name}`}
+          disabled={entry.count >= 8}
+          onClick={() => onChange({ count: Math.min(8, entry.count + 1) })}
+        />
       </div>
       <Select
         size="sm"
         aria-label={`${name} role`}
         value={entry.role ?? ''}
         onChange={(v) => onChange({ role: (v || undefined) as TrackRole | undefined })}
-        options={[{ value: '', label: `Role: auto${inst ? ` (${inst.defaultRole})` : ''}` }, ...TRACK_ROLES.map((r) => ({ value: r, label: r }))]}
+        options={[
+          { value: '', label: `Role: auto${inst ? ` (${inst.defaultRole})` : ''}` },
+          ...TRACK_ROLES.map((r) => ({ value: r, label: r })),
+        ]}
       />
       <Select
         size="sm"
         aria-label={`${name} function`}
         value={entry.function ?? ''}
         onChange={(v) => onChange({ function: (v || undefined) as MusicalFunction | undefined })}
-        options={[{ value: '', label: `Plays: auto${inst ? ` (${inst.defaultFunction})` : ''}` }, ...FUNCTIONS.map((f) => ({ value: f, label: f }))]}
+        options={[
+          { value: '', label: `Plays: auto${inst ? ` (${inst.defaultFunction})` : ''}` },
+          ...FUNCTIONS.map((f) => ({ value: f, label: f })),
+        ]}
       />
-      <Button size="sm" variant="ghost" icon="close" aria-label={`Remove ${name}`} title={`Remove ${name}`} onClick={onRemove} />
+      <Button
+        size="sm"
+        variant="ghost"
+        icon="close"
+        aria-label={`Remove ${name}`}
+        title={`Remove ${name}`}
+        onClick={onRemove}
+      />
     </div>
   );
 }
@@ -138,7 +172,13 @@ export function Builder({
   const session = useComposeSession();
   const { draft, patch } = session;
   const model = Boolean(route && !route.internal);
-  const allInstruments = useMemo(() => [...customInstruments, ...BUILTIN_INSTRUMENTS.filter((b) => !customInstruments.some((c) => c.id === b.id))], [customInstruments]);
+  const allInstruments = useMemo(
+    () => [
+      ...customInstruments,
+      ...BUILTIN_INSTRUMENTS.filter((b) => !customInstruments.some((c) => c.id === b.id)),
+    ],
+    [customInstruments],
+  );
   const instOf = (id: string) => allInstruments.find((i) => i.id === id);
   const lyrics = useMemo(() => draftLyrics(draft), [draft]);
   const choices = useMemo(() => choicesFromDraft(draft, lyrics), [draft, lyrics]);
@@ -152,28 +192,49 @@ export function Builder({
   }, [choices, session.seed, customGenres, customInstruments]);
 
   const genrePick = useMemo(() => genreItems(BUILTIN_GENRES, customGenres), [customGenres]);
-  const instPick = useMemo(() => instrumentItems(BUILTIN_INSTRUMENTS, customInstruments), [customInstruments]);
+  const instPick = useMemo(
+    () => instrumentItems(BUILTIN_INSTRUMENTS, customInstruments),
+    [customInstruments],
+  );
   const moodPick = useMemo(() => tagItems(['mood']), []);
-  const tagPick = useMemo(() => tagItems(['style', 'era', 'production', 'vocal', 'region', 'rhythm'], customGenres), [customGenres]);
-  const suggestion = useMemo(() => (draft.instruments.length ? [] : suggestInstruments(genre)), [draft.instruments.length, genre]);
+  const tagPick = useMemo(
+    () => tagItems(['style', 'era', 'production', 'vocal', 'region', 'rhythm'], customGenres),
+    [customGenres],
+  );
+  const suggestion = useMemo(
+    () => (draft.instruments.length ? [] : suggestInstruments(genre)),
+    [draft.instruments.length, genre],
+  );
   const templates = useMemo(() => structureTemplateNames(genre), [genre]);
 
-  const setInstrument = (i: number, p: Partial<BuilderInstrument>) => patch({ instruments: draft.instruments.map((x, j) => (j === i ? { ...x, ...p } : x)) });
+  const setInstrument = (i: number, p: Partial<BuilderInstrument>) =>
+    patch({ instruments: draft.instruments.map((x, j) => (j === i ? { ...x, ...p } : x)) });
   const toggleInstrument = (id: string) => {
     const at = draft.instruments.findIndex((x) => x.instrumentId === id);
-    patch({ instruments: at >= 0 ? draft.instruments.filter((_, j) => j !== at) : [...draft.instruments, { instrumentId: id, count: 1 }] });
+    patch({
+      instruments:
+        at >= 0
+          ? draft.instruments.filter((_, j) => j !== at)
+          : [...draft.instruments, { instrumentId: id, count: 1 }],
+    });
   };
   const toggleGenre = (id: string) => {
     const on = draft.genres.some((g) => g.genreId === id);
-    patch({ genres: on ? draft.genres.filter((g) => g.genreId !== id) : [...draft.genres, { genreId: id, weight: draft.genres.length ? 0.5 : 1 }] });
+    patch({
+      genres: on
+        ? draft.genres.filter((g) => g.genreId !== id)
+        : [...draft.genres, { genreId: id, weight: draft.genres.length ? 0.5 : 1 }],
+    });
   };
   const genreTotal = draft.genres.reduce((t, g) => t + g.weight, 0) || 1;
   const toggleMood = (id: string) => {
     const on = draft.moods.some((m) => m.tagId === id);
     patch({ moods: on ? draft.moods.filter((m) => m.tagId !== id) : [...draft.moods, { tagId: id }] });
   };
-  const toggleTag = (id: string) => patch({ tags: draft.tags.includes(id) ? draft.tags.filter((t) => t !== id) : [...draft.tags, id] });
-  const vocalTracks = preview?.instrumentation.filter((t) => t.role === 'vocal' && t.instrumentId === 'lead-vocal').length ?? 0;
+  const toggleTag = (id: string) =>
+    patch({ tags: draft.tags.includes(id) ? draft.tags.filter((t) => t !== id) : [...draft.tags, id] });
+  const vocalTracks =
+    preview?.instrumentation.filter((t) => t.role === 'vocal' && t.instrumentId === 'lead-vocal').length ?? 0;
   const autoVocal = lyrics || genreExpectsVocal(genre) ? 'lead vocal' : 'instrumental';
   const tempoHint = (f: 'slow' | 'mid' | 'fast') => `≈${tempoForFeel(f, genre)} BPM`;
   const sectionsWithLyrics = lyrics?.sections.filter((s) => s.lines.length).length ?? 0;
@@ -191,7 +252,9 @@ export function Builder({
         {preview.meter.numerator}/{preview.meter.denominator}
       </span>
       <span>≈{formatDuration(preview)}</span>
-      {preview.tags?.length ? <span>{preview.tags.length === 1 ? '1 tag' : `${preview.tags.length} tags`}</span> : null}
+      {preview.tags?.length ? (
+        <span>{preview.tags.length === 1 ? '1 tag' : `${preview.tags.length} tags`}</span>
+      ) : null}
       {lyrics && <span>{sectionsWithLyrics} sung sections</span>}
     </div>
   );
@@ -218,7 +281,8 @@ export function Builder({
                 }}
               />
               <div className="small muted">
-                <Icon name="info" size={12} /> {route?.providerName} fills in what you describe; everything you pick below is kept exactly.
+                <Icon name="info" size={12} /> {route?.providerName} fills in what you describe; everything
+                you pick below is kept exactly.
               </div>
             </div>
           </div>
@@ -241,12 +305,25 @@ export function Builder({
             <div className="cb-starters row wrap">
               <span className="small muted">Start from:</span>
               {STARTERS.map((s) => (
-                <button key={s.id} type="button" className="chip" onClick={() => patch({ ...applyStarter(s, customGenres) })}>
+                <button
+                  key={s.id}
+                  type="button"
+                  className="chip"
+                  onClick={() => patch({ ...applyStarter(s, customGenres) })}
+                >
                   {s.label}
                 </button>
               ))}
-              {(draft.instruments.length > 0 || draft.genres.length > 0 || draft.moods.length > 0 || draft.tags.length > 0) && (
-                <Button size="sm" variant="ghost" icon="close" onClick={() => patch({ instruments: [], genres: [], moods: [], tags: [] })}>
+              {(draft.instruments.length > 0 ||
+                draft.genres.length > 0 ||
+                draft.moods.length > 0 ||
+                draft.tags.length > 0) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon="close"
+                  onClick={() => patch({ instruments: [], genres: [], moods: [], tags: [] })}
+                >
                   Clear
                 </Button>
               )}
@@ -256,23 +333,55 @@ export function Builder({
               <div className="panel-header">
                 <Icon name="midi" />
                 <h3 className="grow">Instruments</h3>
-                <span className="small muted">{draft.instruments.reduce((t, i) => t + i.count, 0) || 'none yet'}</span>
+                <span className="small muted">
+                  {draft.instruments.reduce((t, i) => t + i.count, 0) || 'none yet'}
+                </span>
               </div>
               <div className="panel-body col">
                 {draft.instruments.map((entry, i) => (
-                  <InstrumentRow key={entry.instrumentId} entry={entry} inst={instOf(entry.instrumentId)} onChange={(p) => setInstrument(i, p)} onRemove={() => patch({ instruments: draft.instruments.filter((_, j) => j !== i) })} />
+                  <InstrumentRow
+                    key={entry.instrumentId}
+                    entry={entry}
+                    inst={instOf(entry.instrumentId)}
+                    onChange={(p) => setInstrument(i, p)}
+                    onRemove={() => patch({ instruments: draft.instruments.filter((_, j) => j !== i) })}
+                  />
                 ))}
                 {!draft.instruments.length && suggestion.length > 0 && (
                   <div className="callout small cb-suggest" data-testid="instrument-suggestion">
                     <span>
-                      Suggested for {draft.genres.length ? genre.name : 'this style'}: {suggestion.map((s) => `${instOf(s.instrumentId)?.name ?? s.instrumentId}${s.count > 1 ? ` × ${s.count}` : ''}`).join(', ')}
+                      Suggested for {draft.genres.length ? genre.name : 'this style'}:{' '}
+                      {suggestion
+                        .map(
+                          (s) =>
+                            `${instOf(s.instrumentId)?.name ?? s.instrumentId}${s.count > 1 ? ` × ${s.count}` : ''}`,
+                        )
+                        .join(', ')}
                     </span>
-                    <Button size="sm" icon="plus" onClick={() => patch({ instruments: suggestion.map((s) => ({ instrumentId: s.instrumentId, count: s.count })) })}>
+                    <Button
+                      size="sm"
+                      icon="plus"
+                      onClick={() =>
+                        patch({
+                          instruments: suggestion.map((s) => ({
+                            instrumentId: s.instrumentId,
+                            count: s.count,
+                          })),
+                        })
+                      }
+                    >
                       Use these
                     </Button>
                   </div>
                 )}
-                <ChipPicker items={instPick} selected={draft.instruments.map((i) => i.instrumentId)} onToggle={toggleInstrument} label="Search instruments" placeholder="Search instruments (guitar, strings, synth…)" perGroup={8} />
+                <ChipPicker
+                  items={instPick}
+                  selected={draft.instruments.map((i) => i.instrumentId)}
+                  onToggle={toggleInstrument}
+                  label="Search instruments"
+                  placeholder="Search instruments (guitar, strings, synth…)"
+                  perGroup={8}
+                />
               </div>
             </div>
 
@@ -280,7 +389,9 @@ export function Builder({
               <div className="panel-header">
                 <Icon name="layers" />
                 <h3 className="grow">Genres</h3>
-                <span className="small muted">{draft.genres.length ? 'influence' : 'pick one or blend several'}</span>
+                <span className="small muted">
+                  {draft.genres.length ? 'influence' : 'pick one or blend several'}
+                </span>
               </div>
               <div className="panel-body col">
                 {draft.genres.map((g, i) => {
@@ -290,14 +401,37 @@ export function Builder({
                     <div key={g.genreId} className="cb-genre-row" data-testid="builder-genre">
                       <strong className="cb-genre-name ellipsis">{name}</strong>
                       <div className="grow">
-                        <Slider value={g.weight} min={0.05} max={1} step={0.05} ariaLabel={`${name} influence`} onChange={(weight) => patch({ genres: draft.genres.map((x, j) => (j === i ? { ...x, weight } : x)) })} accent />
+                        <Slider
+                          value={g.weight}
+                          min={0.05}
+                          max={1}
+                          step={0.05}
+                          ariaLabel={`${name} influence`}
+                          onChange={(weight) =>
+                            patch({ genres: draft.genres.map((x, j) => (j === i ? { ...x, weight } : x)) })
+                          }
+                          accent
+                        />
                       </div>
                       <span className="mono small cb-pct">{Math.round((g.weight / genreTotal) * 100)}%</span>
-                      <Button size="sm" variant="ghost" icon="close" aria-label={`Remove ${name}`} onClick={() => patch({ genres: draft.genres.filter((_, j) => j !== i) })} />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon="close"
+                        aria-label={`Remove ${name}`}
+                        onClick={() => patch({ genres: draft.genres.filter((_, j) => j !== i) })}
+                      />
                     </div>
                   );
                 })}
-                <ChipPicker items={genrePick} selected={draft.genres.map((g) => g.genreId)} onToggle={toggleGenre} label="Search genres" placeholder="Search genres" perGroup={8} />
+                <ChipPicker
+                  items={genrePick}
+                  selected={draft.genres.map((g) => g.genreId)}
+                  onToggle={toggleGenre}
+                  label="Search genres"
+                  placeholder="Search genres"
+                  perGroup={8}
+                />
               </div>
             </div>
 
@@ -318,17 +452,40 @@ export function Builder({
                             size="sm"
                             aria-label={`Where ${t?.name ?? m.tagId} applies`}
                             value={m.section ?? ''}
-                            onChange={(v) => patch({ moods: draft.moods.map((x, j) => (j === i ? (v ? { ...x, section: v as SectionKind } : { tagId: x.tagId }) : x)) })}
+                            onChange={(v) =>
+                              patch({
+                                moods: draft.moods.map((x, j) =>
+                                  j === i
+                                    ? v
+                                      ? { ...x, section: v as SectionKind }
+                                      : { tagId: x.tagId }
+                                    : x,
+                                ),
+                              })
+                            }
                             options={MOOD_TARGETS}
                           />
-                          <Button size="sm" variant="ghost" icon="close" aria-label={`Remove ${t?.name ?? m.tagId}`} onClick={() => patch({ moods: draft.moods.filter((_, j) => j !== i) })} />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon="close"
+                            aria-label={`Remove ${t?.name ?? m.tagId}`}
+                            onClick={() => patch({ moods: draft.moods.filter((_, j) => j !== i) })}
+                          />
                         </div>
                       );
                     })}
                   </div>
                 )}
                 {moodPick.length ? (
-                  <ChipPicker items={moodPick} selected={draft.moods.map((m) => m.tagId)} onToggle={toggleMood} label="Search moods" placeholder="Search moods and feelings" perGroup={14} />
+                  <ChipPicker
+                    items={moodPick}
+                    selected={draft.moods.map((m) => m.tagId)}
+                    onToggle={toggleMood}
+                    label="Search moods"
+                    placeholder="Search moods and feelings"
+                    perGroup={14}
+                  />
                 ) : (
                   <div className="small muted">No mood tags in the catalog yet.</div>
                 )}
@@ -339,19 +496,38 @@ export function Builder({
               <div className="panel-header">
                 <Icon name="grid" />
                 <h3 className="grow">Style, era &amp; production</h3>
-                <span className="small muted">{draft.tags.length ? `${draft.tags.length} chosen` : tagPick.length === 1 ? '1 tag' : `${tagPick.length} tags`}</span>
+                <span className="small muted">
+                  {draft.tags.length
+                    ? `${draft.tags.length} chosen`
+                    : tagPick.length === 1
+                      ? '1 tag'
+                      : `${tagPick.length} tags`}
+                </span>
               </div>
               <div className="panel-body col">
                 {draft.tags.length > 0 && (
                   <div className="chip-list" aria-label="Chosen tags">
                     {draft.tags.map((id) => (
-                      <button key={id} type="button" className="chip on" onClick={() => toggleTag(id)} aria-label={`Remove tag ${getTag(id)?.name ?? id}`}>
+                      <button
+                        key={id}
+                        type="button"
+                        className="chip on"
+                        onClick={() => toggleTag(id)}
+                        aria-label={`Remove tag ${getTag(id)?.name ?? id}`}
+                      >
                         {getTag(id)?.name ?? id} <Icon name="close" size={10} />
                       </button>
                     ))}
                   </div>
                 )}
-                <ChipPicker items={tagPick} selected={draft.tags} onToggle={toggleTag} label="Search tags" placeholder="Search styles, eras, production, regions, rhythms…" perGroup={8} />
+                <ChipPicker
+                  items={tagPick}
+                  selected={draft.tags}
+                  onToggle={toggleTag}
+                  label="Search tags"
+                  placeholder="Search styles, eras, production, regions, rhythms…"
+                  perGroup={8}
+                />
               </div>
             </div>
           </>
@@ -362,7 +538,10 @@ export function Builder({
         <div className="panel-body col">
           {summary}
           {preview && preview.instrumentation.length > 0 && (
-            <div className="small muted ellipsis-2" title={preview.instrumentation.map((t) => t.name).join(', ')}>
+            <div
+              className="small muted ellipsis-2"
+              title={preview.instrumentation.map((t) => t.name).join(', ')}
+            >
               {preview.instrumentation.map((t) => t.name).join(' · ')}
             </div>
           )}
@@ -373,7 +552,9 @@ export function Builder({
             Fine-tune first
           </Button>
           <div className="small dim">
-            {model ? `With ${route?.providerName}${draft.describe.trim() ? ' (your words + choices)' : ' — add words above, or generate from your choices'}` : 'On-device engine · works offline'}
+            {model
+              ? `With ${route?.providerName}${draft.describe.trim() ? ' (your words + choices)' : ' — add words above, or generate from your choices'}`
+              : 'On-device engine · works offline'}
           </div>
         </div>
       </div>
@@ -399,7 +580,16 @@ export function Builder({
                     { value: 'bpm', label: 'Exact BPM' },
                   ]}
                 />
-                {draft.tempo === 'bpm' && <NumberInput aria-label="BPM" value={draft.bpm} min={30} max={300} onChange={(bpm) => patch({ bpm: Math.round(bpm) })} style={{ width: 76 }} />}
+                {draft.tempo === 'bpm' && (
+                  <NumberInput
+                    aria-label="BPM"
+                    value={draft.bpm}
+                    min={30}
+                    max={300}
+                    onChange={(bpm) => patch({ bpm: Math.round(bpm) })}
+                    style={{ width: 76 }}
+                  />
+                )}
               </div>
             </Field>
             <Field label="Key">
@@ -408,14 +598,30 @@ export function Builder({
                   aria-label="Key"
                   value={String(draft.tonic)}
                   onChange={(v) => patch({ tonic: v === 'auto' ? 'auto' : parseInt(v, 10) })}
-                  options={[{ value: 'auto', label: 'Auto' }, ...FLAT_NAMES.map((n, i) => ({ value: String(i), label: n }))]}
+                  options={[
+                    { value: 'auto', label: 'Auto' },
+                    ...FLAT_NAMES.map((n, i) => ({ value: String(i), label: n })),
+                  ]}
                 />
-                <Select aria-label="Mode" value={draft.mode} onChange={(mode) => patch({ mode })} options={[{ value: 'auto', label: 'Auto mode' }, ...MODES.map((m) => ({ value: m, label: m }))]} />
+                <Select
+                  aria-label="Mode"
+                  value={draft.mode}
+                  onChange={(mode) => patch({ mode })}
+                  options={[
+                    { value: 'auto', label: 'Auto mode' },
+                    ...MODES.map((m) => ({ value: m, label: m })),
+                  ]}
+                />
               </div>
             </Field>
             <div className="grid-2">
               <Field label="Meter">
-                <Select aria-label="Meter" value={draft.meter} onChange={(meter) => patch({ meter })} options={[{ value: 'auto', label: 'Auto' }, ...METERS]} />
+                <Select
+                  aria-label="Meter"
+                  value={draft.meter}
+                  onChange={(meter) => patch({ meter })}
+                  options={[{ value: 'auto', label: 'Auto' }, ...METERS]}
+                />
               </Field>
               <Field label="Length" hint={lyrics ? 'Set by your lyrics' : undefined}>
                 <div className="row">
@@ -431,7 +637,17 @@ export function Builder({
                       { value: 'minutes', label: 'Minutes…' },
                     ]}
                   />
-                  {draft.length === 'minutes' && !lyrics && <NumberInput aria-label="Minutes" value={draft.minutes} min={0.5} max={12} step={0.5} onChange={(minutes) => patch({ minutes })} style={{ width: 64 }} />}
+                  {draft.length === 'minutes' && !lyrics && (
+                    <NumberInput
+                      aria-label="Minutes"
+                      value={draft.minutes}
+                      min={0.5}
+                      max={12}
+                      step={0.5}
+                      onChange={(minutes) => patch({ minutes })}
+                      style={{ width: 64 }}
+                    />
+                  )}
                 </div>
               </Field>
             </div>
@@ -441,7 +657,10 @@ export function Builder({
                 disabled={!!lyrics}
                 value={templates.includes(draft.structure) ? draft.structure : ''}
                 onChange={(structure) => patch({ structure })}
-                options={[{ value: '', label: 'Auto (most common for the genre)' }, ...templates.map((t) => ({ value: t, label: t }))]}
+                options={[
+                  { value: '', label: 'Auto (most common for the genre)' },
+                  ...templates.map((t) => ({ value: t, label: t })),
+                ]}
               />
             </Field>
             <Field label="Vocal">
@@ -450,29 +669,67 @@ export function Builder({
                   aria-label="Vocal"
                   value={draft.vocal}
                   onChange={(vocal) => patch({ vocal })}
-                  options={[{ value: 'auto', label: `Auto (${autoVocal})` }, { value: 'none', label: 'Instrumental' }, ...VOICES.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1) }))]}
+                  options={[
+                    { value: 'auto', label: `Auto (${autoVocal})` },
+                    { value: 'none', label: 'Instrumental' },
+                    ...VOICES.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1) })),
+                  ]}
                 />
                 {(draft.vocal !== 'none' && draft.vocal !== 'auto') || (draft.vocal === 'auto' && lyrics) ? (
-                  <Select aria-label="Vocal mode" value={draft.vocalMode === 'default' ? (lyrics ? 'ai-singer' : 'melody-only') : draft.vocalMode} onChange={(vocalMode) => patch({ vocalMode })} options={VOCAL_MODES} />
+                  <Select
+                    aria-label="Vocal mode"
+                    value={
+                      draft.vocalMode === 'default' ? (lyrics ? 'ai-singer' : 'melody-only') : draft.vocalMode
+                    }
+                    onChange={(vocalMode) => patch({ vocalMode })}
+                    options={VOCAL_MODES}
+                  />
                 ) : null}
               </div>
-              {vocalTracks > 0 && <div className="hint">Adds a Lead Vocal track{lyrics ? ' that sings your lyrics' : ''}.</div>}
+              {vocalTracks > 0 && (
+                <div className="hint">Adds a Lead Vocal track{lyrics ? ' that sings your lyrics' : ''}.</div>
+              )}
             </Field>
             <Field label="Title">
-              <TextInput value={draft.title} onChange={(title) => patch({ title })} placeholder={preview?.title && preview.title !== 'Untitled' ? preview.title : 'Untitled'} aria-label="Title" />
+              <TextInput
+                value={draft.title}
+                onChange={(title) => patch({ title })}
+                placeholder={preview?.title && preview.title !== 'Untitled' ? preview.title : 'Untitled'}
+                aria-label="Title"
+              />
             </Field>
             <Field label="Lyrics theme">
-              <TextInput value={draft.lyricsTheme} onChange={(lyricsTheme) => patch({ lyricsTheme })} placeholder="e.g. leaving home" aria-label="Lyrics theme" />
+              <TextInput
+                value={draft.lyricsTheme}
+                onChange={(lyricsTheme) => patch({ lyricsTheme })}
+                placeholder="e.g. leaving home"
+                aria-label="Lyrics theme"
+              />
             </Field>
             <div className="grid-2">
               <Field label="Seed" hint="Same choices + seed ⇒ same song.">
                 <div className="row">
-                  <NumberInput aria-label="Composition seed" value={session.seed} onChange={(v) => session.set({ seed: Math.round(v) })} min={0} max={99999999} />
-                  <Button icon="dice" title="New seed" aria-label="New seed" onClick={() => session.set({ seed: Math.floor(Math.random() * 99999999) })} />
+                  <NumberInput
+                    aria-label="Composition seed"
+                    value={session.seed}
+                    onChange={(v) => session.set({ seed: Math.round(v) })}
+                    min={0}
+                    max={99999999}
+                  />
+                  <Button
+                    icon="dice"
+                    title="New seed"
+                    aria-label="New seed"
+                    onClick={() => session.set({ seed: Math.floor(Math.random() * 99999999) })}
+                  />
                 </div>
               </Field>
               <Field label="Composition planner">
-                <ProviderPicker role="composition" value={session.planner} onChange={(planner) => session.set({ planner })} />
+                <ProviderPicker
+                  role="composition"
+                  value={session.planner}
+                  onChange={(planner) => session.set({ planner })}
+                />
               </Field>
             </div>
           </div>

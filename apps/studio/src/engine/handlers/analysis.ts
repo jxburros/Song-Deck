@@ -152,7 +152,9 @@ function initialStages(): Record<string, LiveStage> {
 }
 
 export function resetLiveRun(runId: string) {
-  useAnalysisLive.setState((s) => ({ runs: { ...s.runs, [runId]: { stages: initialStages(), progress: 0, updatedAt: Date.now() } } }));
+  useAnalysisLive.setState((s) => ({
+    runs: { ...s.runs, [runId]: { stages: initialStages(), progress: 0, updatedAt: Date.now() } },
+  }));
 }
 
 function updateLive(runId: string, fn: (run: LiveRun) => LiveRun) {
@@ -163,9 +165,18 @@ function updateLive(runId: string, fn: (run: LiveRun) => LiveRun) {
 }
 
 /** Normalise whatever stage records the rebuild job reports into the spec's pipeline. */
-export function mergeStageDetail(run: LiveRun, stage: string | undefined, p: number, detail: unknown): LiveRun {
+export function mergeStageDetail(
+  run: LiveRun,
+  stage: string | undefined,
+  p: number,
+  detail: unknown,
+): LiveRun {
   const stages = { ...run.stages };
-  const list = Array.isArray(detail) ? detail : detail && typeof detail === 'object' && Array.isArray((detail as { stages?: unknown }).stages) ? (detail as { stages: unknown[] }).stages : null;
+  const list = Array.isArray(detail)
+    ? detail
+    : detail && typeof detail === 'object' && Array.isArray((detail as { stages?: unknown }).stages)
+      ? (detail as { stages: unknown[] }).stages
+      : null;
   if (list) {
     for (const raw of list) {
       if (!raw || typeof raw !== 'object') continue;
@@ -173,16 +184,15 @@ export function mergeStageDetail(run: LiveRun, stage: string | undefined, p: num
       const id = pipelineStageFor(String(r.id ?? r.stage ?? r.name ?? r.label ?? ''));
       if (!id) continue;
       const statusRaw = String(r.status ?? r.state ?? '');
-      const status: StageStatus =
-        /done|complete|success|ok|finish/i.test(statusRaw)
-          ? 'done'
-          : /run|active|progress|working/i.test(statusRaw)
-            ? 'running'
-            : /skip/i.test(statusRaw)
-              ? 'skipped'
-              : /fail|error/i.test(statusRaw)
-                ? 'failed'
-                : stages[id].status;
+      const status: StageStatus = /done|complete|success|ok|finish/i.test(statusRaw)
+        ? 'done'
+        : /run|active|progress|working/i.test(statusRaw)
+          ? 'running'
+          : /skip/i.test(statusRaw)
+            ? 'skipped'
+            : /fail|error/i.test(statusRaw)
+              ? 'failed'
+              : stages[id].status;
       const prog = typeof r.progress === 'number' ? r.progress : status === 'done' ? 1 : stages[id].progress;
       const finished = status === 'done' || status === 'skipped';
       stages[id] = {
@@ -190,7 +200,14 @@ export function mergeStageDetail(run: LiveRun, stage: string | undefined, p: num
         status,
         progress: prog,
         confidence: finished && typeof r.confidence === 'number' ? r.confidence : stages[id].confidence,
-        detail: typeof r.detail === 'string' ? r.detail : typeof r.message === 'string' ? r.message : typeof r.summary === 'string' ? r.summary : stages[id].detail,
+        detail:
+          typeof r.detail === 'string'
+            ? r.detail
+            : typeof r.message === 'string'
+              ? r.message
+              : typeof r.summary === 'string'
+                ? r.summary
+                : stages[id].detail,
       };
     }
   }
@@ -202,7 +219,8 @@ export function mergeStageDetail(run: LiveRun, stage: string | undefined, p: num
       if (s.id === cur) {
         reached = true;
         stages[s.id] = { ...stages[s.id], status: 'running' };
-      } else if (!reached && stages[s.id].status !== 'skipped') stages[s.id] = { ...stages[s.id], status: 'done', progress: 1 };
+      } else if (!reached && stages[s.id].status !== 'skipped')
+        stages[s.id] = { ...stages[s.id], status: 'done', progress: 1 };
     }
   }
   return { ...run, stages, current: cur ?? run.current, progress: Math.max(run.progress, p) };
@@ -213,7 +231,12 @@ function finishLive(runId: string, ok: boolean) {
     const stages = { ...run.stages };
     for (const s of REBUILD_PIPELINE) {
       const st = stages[s.id];
-      if (ok && (st.status === 'pending' || st.status === 'running')) stages[s.id] = { ...st, status: s.id === 'project' ? 'pending' : 'done', progress: s.id === 'project' ? 0 : 1 };
+      if (ok && (st.status === 'pending' || st.status === 'running'))
+        stages[s.id] = {
+          ...st,
+          status: s.id === 'project' ? 'pending' : 'done',
+          progress: s.id === 'project' ? 0 : 1,
+        };
       if (!ok && st.status === 'running') stages[s.id] = { ...st, status: 'failed' };
     }
     return { ...run, stages, progress: ok ? 1 : run.progress };
@@ -226,8 +249,16 @@ function finishLive(runId: string, ok: boolean) {
 
 function assertAudio(audio: unknown): asserts audio is AudioData {
   const a = audio as AudioData | undefined;
-  if (!a || typeof a !== 'object' || !Array.isArray(a.channels) || !a.channels.length || !(a.channels[0] instanceof Float32Array)) {
-    throw new Error('The source audio for this task is no longer in memory (the page was reloaded). Open the recording again and re-run.');
+  if (
+    !a ||
+    typeof a !== 'object' ||
+    !Array.isArray(a.channels) ||
+    !a.channels.length ||
+    !(a.channels[0] instanceof Float32Array)
+  ) {
+    throw new Error(
+      'The source audio for this task is no longer in memory (the page was reloaded). Open the recording again and re-run.',
+    );
   }
 }
 
@@ -275,7 +306,10 @@ function withAbort<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
  * (richest results: IR notes, per-stage confidence). Otherwise the orchestrator runs it (auto
  * routing when `providerId` is undefined).
  */
-export function externalProvider(role: 'transcription' | 'separation', choice: string | undefined): { providerId?: string; name: string } | null {
+export function externalProvider(
+  role: 'transcription' | 'separation',
+  choice: string | undefined,
+): { providerId?: string; name: string } | null {
   if (!choice || choice === 'internal' || choice === INTERNAL_FOR_ROLE[role]) return null;
   try {
     initAi();
@@ -293,7 +327,13 @@ function neverUpload(): DataKind[] {
 
 async function toWav(audio: AudioData, signal: AbortSignal) {
   const data = await jobs.call<Uint8Array>('encodeWav', { audio, bitDepth: 16 }, { signal });
-  return { mimeType: 'audio/wav', data, sampleRate: audio.sampleRate, channels: audio.channels.length, durationSeconds: (audio.channels[0]?.length ?? 0) / audio.sampleRate };
+  return {
+    mimeType: 'audio/wav',
+    data,
+    sampleRate: audio.sampleRate,
+    channels: audio.channels.length,
+    durationSeconds: (audio.channels[0]?.length ?? 0) / audio.sampleRate,
+  };
 }
 
 const VOICE_SOURCES = new Set<TranscribeSource>(['humming', 'singing']);
@@ -309,16 +349,27 @@ const DEFAULT_INSTRUMENT: Record<TranscribeSource, [string, TranscribeAudioResul
 };
 
 /** Provider transcription (seconds-based notes) → the same result shape as the on-device engine. */
-async function transcribeWithProvider(ctx: Parameters<TaskHandler<TranscribeTaskInput, TranscribeTaskOutput>>[0], ext: { providerId?: string; name: string }): Promise<TranscribeTaskOutput> {
+async function transcribeWithProvider(
+  ctx: Parameters<TaskHandler<TranscribeTaskInput, TranscribeTaskOutput>>[0],
+  ext: { providerId?: string; name: string },
+): Promise<TranscribeTaskOutput> {
   const { audio, source, bpm, key, quantizeBeats, snapToKey } = ctx.input;
   ctx.progress(0.05, `Encoding audio for ${ext.name}…`);
   const encoded = await toWav(audio, ctx.signal);
   ctx.progress(0.15, `Transcribing with ${ext.name}…`);
   const run = await getOrchestrator().transcribe(
     { audio: encoded, source },
-    { providerId: ext.providerId, signal: ctx.signal, dataKinds: [VOICE_SOURCES.has(source) ? 'recorded-vocals' : 'reference-audio'], neverUpload: neverUpload() },
+    {
+      providerId: ext.providerId,
+      signal: ctx.signal,
+      dataKinds: [VOICE_SOURCES.has(source) ? 'recorded-vocals' : 'reference-audio'],
+      neverUpload: neverUpload(),
+    },
   );
-  ctx.log('info', `Provider: ${run.provenance.providerName}${run.provenance.modelId ? ` · ${run.provenance.modelId}` : ''} (${run.provenance.location})`);
+  ctx.log(
+    'info',
+    `Provider: ${run.provenance.providerName}${run.provenance.modelId ? ` · ${run.provenance.modelId}` : ''} (${run.provenance.location})`,
+  );
   const r = run.result;
   const warnings: string[] = [];
   // Tempo / key: request → provider → on-device analysis.
@@ -327,22 +378,52 @@ async function transcribeWithProvider(ctx: Parameters<TaskHandler<TranscribeTask
   const providerKey = r.key ? parseKey(r.key) : null;
   if (!bpm && !r.tempo) {
     ctx.progress(0.75, 'Detecting tempo and key on-device…');
-    const a = await jobs.call<{ tempo: TempoResult; key: KeyResult }>('analyze', { audio }, { signal: ctx.signal });
+    const a = await jobs.call<{ tempo: TempoResult; key: KeyResult }>(
+      'analyze',
+      { audio },
+      { signal: ctx.signal },
+    );
     tempoRes = a.tempo;
     keyRes = a.key;
   } else if (!key && !providerKey && source !== 'drums') {
-    const a = await jobs.call<{ tempo: TempoResult; key: KeyResult }>('analyze', { audio }, { signal: ctx.signal });
+    const a = await jobs.call<{ tempo: TempoResult; key: KeyResult }>(
+      'analyze',
+      { audio },
+      { signal: ctx.signal },
+    );
     keyRes = a.key;
   }
   const finalBpm = bpm ?? r.tempo ?? (tempoRes && tempoRes.beats.length >= 4 ? tempoRes.bpm : 120);
   const bpmConfidence = bpm ? 1 : r.tempo ? (r.confidence ?? 0.7) : (tempoRes?.confidence ?? 0);
   const finalKey: KeySignature = key ?? providerKey ?? keyRes?.key ?? { tonic: 0, mode: 'major' };
   const keyConfidence = key ? 1 : providerKey ? (r.confidence ?? 0.7) : (keyRes?.confidence ?? 0);
-  const transcribed: TranscribedNote[] = r.notes.map((n) => ({ pitch: Math.round(n.pitch), startSeconds: n.start, endSeconds: n.end, velocity: n.velocity, confidence: n.confidence }));
+  const transcribed: TranscribedNote[] = r.notes.map((n) => ({
+    pitch: Math.round(n.pitch),
+    startSeconds: n.start,
+    endSeconds: n.end,
+    velocity: n.velocity,
+    confidence: n.confidence,
+  }));
   const first = transcribed.reduce((m, n) => Math.min(m, n.startSeconds), Infinity);
-  const offset = bpm ? 0 : tempoRes && tempoRes.confidence >= 0.35 && Number.isFinite(first) ? gridOrigin(tempoRes, first) : Number.isFinite(first) ? first : 0;
-  if (!bpm && bpmConfidence < 0.35) warnings.push(`Tempo is uncertain (${Math.round(finalBpm)} BPM): set the tempo or record with the count-in for a reliable grid.`);
-  let notes = transcribedToNotes(transcribed, { bpm: finalBpm, quantizeBeats: quantizeBeats ?? 0, offsetSeconds: offset, key: finalKey, snapToKey, origin: `transcription:${run.provenance.providerId}` });
+  const offset = bpm
+    ? 0
+    : tempoRes && tempoRes.confidence >= 0.35 && Number.isFinite(first)
+      ? gridOrigin(tempoRes, first)
+      : Number.isFinite(first)
+        ? first
+        : 0;
+  if (!bpm && bpmConfidence < 0.35)
+    warnings.push(
+      `Tempo is uncertain (${Math.round(finalBpm)} BPM): set the tempo or record with the count-in for a reliable grid.`,
+    );
+  let notes = transcribedToNotes(transcribed, {
+    bpm: finalBpm,
+    quantizeBeats: quantizeBeats ?? 0,
+    offsetSeconds: offset,
+    key: finalKey,
+    snapToKey,
+    origin: `transcription:${run.provenance.providerId}`,
+  });
   if (VOICE_SOURCES.has(source) || source === 'bass') notes = enforceMonophony(notes);
   const [instrumentId, role] = DEFAULT_INSTRUMENT[source];
   return {
@@ -351,7 +432,9 @@ async function transcribeWithProvider(ctx: Parameters<TaskHandler<TranscribeTask
     bpmConfidence,
     key: finalKey,
     keyConfidence,
-    confidence: r.confidence ?? (notes.length ? notes.reduce((a, n) => a + (n.confidence ?? 0.6), 0) / notes.length : 0),
+    confidence:
+      r.confidence ??
+      (notes.length ? notes.reduce((a, n) => a + (n.confidence ?? 0.6), 0) / notes.length : 0),
     method: `${run.provenance.providerName}${r.model ? ` · ${r.model}` : ''}`,
     suggestedInstrumentId: instrumentId,
     suggestedRole: role,
@@ -368,7 +451,10 @@ const transcribe: TaskHandler<TranscribeTaskInput, TranscribeTaskOutput> = async
   void _label;
   assertAudio(audio);
   const ext = externalProvider('transcription', provider);
-  ctx.log('info', `Transcribing ${SOURCE_LABEL[opts.source] ?? opts.source} (${describe(audio)}) with ${ext ? ext.name : 'the on-device engine'}`);
+  ctx.log(
+    'info',
+    `Transcribing ${SOURCE_LABEL[opts.source] ?? opts.source} (${describe(audio)}) with ${ext ? ext.name : 'the on-device engine'}`,
+  );
   ctx.log(
     'info',
     `Options: tempo ${opts.bpm ? `${Math.round(opts.bpm)} BPM` : 'detect'}, key ${opts.key ? `${opts.key.tonic}/${opts.key.mode}` : 'detect'}, quantize ${opts.quantizeBeats ? `${Math.round(opts.quantizeBeats * 1000) / 1000} beat` : 'off'}${opts.snapToKey ? ', snap to key' : ''}`,
@@ -380,7 +466,10 @@ const transcribe: TaskHandler<TranscribeTaskInput, TranscribeTaskOutput> = async
     ctx.progress(0.08, 'Analysing pitch and rhythm…');
     // quantizeBeats: 0 means "off" (the engine's default would be 1/16).
     const args = { audio, ...opts, quantizeBeats: opts.quantizeBeats ?? 0 };
-    result = await withAbort(jobs.call<TranscribeAudioResult>('transcribe', args, { signal: ctx.signal }), ctx.signal);
+    result = await withAbort(
+      jobs.call<TranscribeAudioResult>('transcribe', args, { signal: ctx.signal }),
+      ctx.signal,
+    );
   }
   ctx.log(
     'info',
@@ -392,16 +481,29 @@ const transcribe: TaskHandler<TranscribeTaskInput, TranscribeTaskOutput> = async
 };
 
 /** Stems from an orchestrated provider (any names) → the four-stem layout of the Rebuild pipeline. */
-async function separateWithProvider(audio: AudioData, ext: { providerId?: string; name: string }, signal: AbortSignal, progress: (p: number, msg: string) => void) {
+async function separateWithProvider(
+  audio: AudioData,
+  ext: { providerId?: string; name: string },
+  signal: AbortSignal,
+  progress: (p: number, msg: string) => void,
+) {
   progress(0.05, `Encoding audio for ${ext.name}…`);
   const encoded = await toWav(audio, signal);
   progress(0.12, `Separating stems with ${ext.name}…`);
-  const run = await getOrchestrator().separate({ audio: encoded, stems: ['drums', 'bass', 'vocals', 'other'] }, { providerId: ext.providerId, signal, neverUpload: neverUpload() });
+  const run = await getOrchestrator().separate(
+    { audio: encoded, stems: ['drums', 'bass', 'vocals', 'other'] },
+    { providerId: ext.providerId, signal, neverUpload: neverUpload() },
+  );
   const decoded: { name: string; audio: AudioData; wav: Uint8Array }[] = [];
   for (const [name, enc] of Object.entries(run.result.stems)) {
     decoded.push({ name, audio: await decodeAudioBytes(enc.data), wav: enc.data });
   }
-  return { decoded, method: `${run.provenance.providerName}${run.result.model ? ` · ${run.result.model}` : ''}`, confidence: run.result.confidence, provenance: run.provenance };
+  return {
+    decoded,
+    method: `${run.provenance.providerName}${run.result.model ? ` · ${run.result.model}` : ''}`,
+    confidence: run.result.confidence,
+    provenance: run.provenance,
+  };
 }
 
 function mixInto(target: AudioData | undefined, add: AudioData): AudioData {
@@ -416,7 +518,10 @@ function mixInto(target: AudioData | undefined, add: AudioData): AudioData {
 
 /** Map arbitrary stem names (e.g. 6-stem models) onto drums / bass / vocals / other. */
 function toFourStems(list: { name: string; audio: AudioData }[], fallback: AudioData): FourStems {
-  const silent = (): AudioData => ({ sampleRate: fallback.sampleRate, channels: fallback.channels.map((c) => new Float32Array(c.length)) });
+  const silent = (): AudioData => ({
+    sampleRate: fallback.sampleRate,
+    channels: fallback.channels.map((c) => new Float32Array(c.length)),
+  });
   let drums: AudioData | undefined;
   let bass: AudioData | undefined;
   let vocals: AudioData | undefined;
@@ -428,7 +533,12 @@ function toFourStems(list: { name: string; audio: AudioData }[], fallback: Audio
     else if (/voc|voice|sing/.test(n)) vocals = mixInto(vocals, s.audio);
     else other = mixInto(other, s.audio);
   }
-  return { drums: drums ?? silent(), bass: bass ?? silent(), vocals: vocals ?? silent(), other: other ?? silent() };
+  return {
+    drums: drums ?? silent(),
+    bass: bass ?? silent(),
+    vocals: vocals ?? silent(),
+    other: other ?? silent(),
+  };
 }
 
 const separate: TaskHandler<SeparateTaskInput, SeparateTaskOutput> = async (ctx) => {
@@ -440,16 +550,37 @@ const separate: TaskHandler<SeparateTaskInput, SeparateTaskOutput> = async (ctx)
     const r = await separateWithProvider(audio, ext, ctx.signal, (p, m) => ctx.progress(p, m));
     ctx.log('info', `${r.decoded.length} stems from ${r.method}`);
     ctx.progress(1, 'Done');
-    return { stems: r.decoded.map((d) => ({ name: d.name, audio: d.audio, wav: encode ? d.wav : undefined, confidence: r.confidence })), method: r.method, confidence: r.confidence, provenance: r.provenance };
+    return {
+      stems: r.decoded.map((d) => ({
+        name: d.name,
+        audio: d.audio,
+        wav: encode ? d.wav : undefined,
+        confidence: r.confidence,
+      })),
+      method: r.method,
+      confidence: r.confidence,
+      provenance: r.provenance,
+    };
   }
-  ctx.log('info', `Separating stems (${describe(audio)}) with the built-in DSP separator (HPSS + spectral masks)`);
+  ctx.log(
+    'info',
+    `Separating stems (${describe(audio)}) with the built-in DSP separator (HPSS + spectral masks)`,
+  );
   ctx.progress(0.02, 'Separating stems…');
-  const res = await jobs.call<{ stems: Record<string, AudioData> | { name: string; audio: AudioData; confidence?: number }[]; method?: string; confidence?: number | Record<string, number> }>(
+  const res = await jobs.call<{
+    stems: Record<string, AudioData> | { name: string; audio: AudioData; confidence?: number }[];
+    method?: string;
+    confidence?: number | Record<string, number>;
+  }>(
     'separate',
     { audio },
-    { signal: ctx.signal, onProgress: (p) => ctx.progress(0.02 + p * (encode ? 0.78 : 0.96), 'Separating stems…') },
+    {
+      signal: ctx.signal,
+      onProgress: (p) => ctx.progress(0.02 + p * (encode ? 0.78 : 0.96), 'Separating stems…'),
+    },
   );
-  const perStem = res.confidence && typeof res.confidence === 'object' ? (res.confidence as Record<string, number>) : {};
+  const perStem =
+    res.confidence && typeof res.confidence === 'object' ? (res.confidence as Record<string, number>) : {};
   const list: EncodedStem[] = Array.isArray(res.stems)
     ? res.stems.map((s) => ({ name: s.name, audio: s.audio, confidence: s.confidence ?? perStem[s.name] }))
     : Object.entries(res.stems).map(([name, a]) => ({ name, audio: a, confidence: perStem[name] }));
@@ -457,12 +588,24 @@ const separate: TaskHandler<SeparateTaskInput, SeparateTaskOutput> = async (ctx)
     for (let i = 0; i < list.length; i++) {
       if (ctx.signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
       ctx.progress(0.8 + (i / list.length) * 0.2, `Encoding ${list[i].name}…`);
-      list[i].wav = await jobs.call<Uint8Array>('encodeWav', { audio: list[i].audio, bitDepth: 16 }, { signal: ctx.signal });
+      list[i].wav = await jobs.call<Uint8Array>(
+        'encodeWav',
+        { audio: list[i].audio, bitDepth: 16 },
+        { signal: ctx.signal },
+      );
     }
   }
   const values = list.map((s) => s.confidence).filter((v): v is number => typeof v === 'number');
-  const overall = typeof res.confidence === 'number' ? res.confidence : values.length ? values.reduce((a, b) => a + b, 0) / values.length : undefined;
-  ctx.log('info', `${list.length} stems: ${list.map((s) => `${s.name}${s.confidence !== undefined ? ` ${Math.round(s.confidence * 100)}%` : ''}`).join(', ')}`);
+  const overall =
+    typeof res.confidence === 'number'
+      ? res.confidence
+      : values.length
+        ? values.reduce((a, b) => a + b, 0) / values.length
+        : undefined;
+  ctx.log(
+    'info',
+    `${list.length} stems: ${list.map((s) => `${s.name}${s.confidence !== undefined ? ` ${Math.round(s.confidence * 100)}%` : ''}`).join(', ')}`,
+  );
   ctx.progress(1, 'Done');
   return { stems: list, method: res.method ?? 'On-device DSP separation', confidence: overall };
 };
@@ -472,7 +615,10 @@ const rebuild: TaskHandler<RebuildTaskInput, RebuildTaskOutput> = async (ctx) =>
   assertAudio(audio);
   resetLiveRun(runId);
   const ext = externalProvider('separation', separationProvider);
-  ctx.log('info', `Rebuilding “${title}” (${describe(audio)}) — separation: ${ext ? ext.name : 'on-device DSP'} (attempt ${ctx.attempt ?? 1})`);
+  ctx.log(
+    'info',
+    `Rebuilding “${title}” (${describe(audio)}) — separation: ${ext ? ext.name : 'on-device DSP'} (attempt ${ctx.attempt ?? 1})`,
+  );
   let lastStage: string | undefined;
   const onProgress = (scale: (p: number) => number) => (p: number, stage?: string, detail?: unknown) => {
     const id = pipelineStageFor(stage);
@@ -487,18 +633,37 @@ const rebuild: TaskHandler<RebuildTaskInput, RebuildTaskOutput> = async (ctx) =>
   try {
     let result: RebuildTaskOutput;
     if (ext) {
-      updateLive(runId, (run) => ({ ...run, current: 'separation', stages: { ...run.stages, separation: { ...run.stages.separation, status: 'running', detail: `Separating with ${ext.name}…` } } }));
+      updateLive(runId, (run) => ({
+        ...run,
+        current: 'separation',
+        stages: {
+          ...run.stages,
+          separation: { ...run.stages.separation, status: 'running', detail: `Separating with ${ext.name}…` },
+        },
+      }));
       const sep = await separateWithProvider(audio, ext, ctx.signal, (p, m) => ctx.progress(p * 0.4, m));
       ctx.log('info', `Stems from ${sep.method}: ${sep.decoded.map((d) => d.name).join(', ')}`);
       const stems = toFourStems(sep.decoded, audio);
-      const r = await rebuildWithStems(audio, title, stems, { signal: ctx.signal, onProgress: onProgress((p) => 0.4 + p * 0.6) });
+      const r = await rebuildWithStems(audio, title, stems, {
+        signal: ctx.signal,
+        onProgress: onProgress((p) => 0.4 + p * 0.6),
+      });
       result = {
         ...r,
-        stems: sep.decoded.map((d) => ({ name: d.name, audio: d.audio, wav: d.wav, confidence: sep.confidence })),
+        stems: sep.decoded.map((d) => ({
+          name: d.name,
+          audio: d.audio,
+          wav: d.wav,
+          confidence: sep.confidence,
+        })),
         separation: { method: sep.method, confidence: sep.confidence, provenance: sep.provenance },
       };
     } else {
-      result = await jobs.call<RebuildTaskOutput>('rebuild', { audio, title }, { signal: ctx.signal, onProgress: onProgress((p) => p) });
+      result = await jobs.call<RebuildTaskOutput>(
+        'rebuild',
+        { audio, title },
+        { signal: ctx.signal, onProgress: onProgress((p) => p) },
+      );
     }
     for (const w of result.report?.warnings ?? []) ctx.log('warn', w);
     finishLive(runId, true);

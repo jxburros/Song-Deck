@@ -9,7 +9,16 @@
  * frame N of the output always corresponds to song frame N.
  */
 import type { ChannelStrip, InstrumentProfile, MixerState, Song, Track } from '@songdeck/core';
-import { barToTick, createTimeMap, defaultChannelStrip, defaultMixer, meterAtBar, songLengthTicks, ticksPerBeat, type TimeMap } from '@songdeck/core';
+import {
+  barToTick,
+  createTimeMap,
+  defaultChannelStrip,
+  defaultMixer,
+  meterAtBar,
+  songLengthTicks,
+  ticksPerBeat,
+  type TimeMap,
+} from '@songdeck/core';
 import type { AssetResolver, AudioData } from '../types';
 import { createAudio } from '../types';
 import { AP_COUNT, type LaneEval, buildLanes } from './automation';
@@ -150,7 +159,8 @@ export class SongRenderer {
   constructor(song: Song, opts: RenderOptions = {}) {
     this.opts = { ...opts };
     const sr = Math.round(num(opts.sampleRate, 44100));
-    if (!(sr >= 8000 && sr <= 384000)) throw new Error(`SongRenderer: unsupported sample rate ${opts.sampleRate}`);
+    if (!(sr >= 8000 && sr <= 384000))
+      throw new Error(`SongRenderer: unsupported sample rate ${opts.sampleRate}`);
     this.sampleRate = sr;
     this.applyMaster = opts.applyMaster !== false;
     this.includeSends = opts.includeSends !== false;
@@ -195,7 +205,11 @@ export class SongRenderer {
 
   private resolvePatch(track: Track): { id: string; patch: PatchDefinition } {
     const o = this.opts.patchOverrides?.[track.id];
-    let id = o ?? this.opts.instruments?.find((i) => i.id === track.instrumentId)?.patchId ?? resolveInstrumentPatch(track.instrumentId) ?? '';
+    let id =
+      o ??
+      this.opts.instruments?.find((i) => i.id === track.instrumentId)?.patchId ??
+      resolveInstrumentPatch(track.instrumentId) ??
+      '';
     if (!id) {
       const byRole: Partial<Record<Track['role'], string>> = {
         drums: 'drums-acoustic',
@@ -279,7 +293,13 @@ export class SongRenderer {
       }
     }
 
-    const ctx = { timeMap: tm, ppq: song.ppq || 480, startSec: this.startSec, sampleRate: sr, seed: this.seed };
+    const ctx = {
+      timeMap: tm,
+      ppq: song.ppq || 480,
+      startSec: this.startSec,
+      sampleRate: sr,
+      seed: this.seed,
+    };
     const wanted = this.opts.trackIds ? new Set(this.opts.trackIds) : null;
     const next: TrackState[] = [];
     const seen = new Set<string>();
@@ -287,11 +307,17 @@ export class SongRenderer {
       if (!track || seen.has(track.id)) continue;
       seen.add(track.id);
       const isAudio = track.kind === 'audio';
-      const { id: patchId, patch } = isAudio ? { id: 'audio', patch: null as PatchDefinition | null } : this.resolvePatch(track);
+      const { id: patchId, patch } = isAudio
+        ? { id: 'audio', patch: null as PatchDefinition | null }
+        : this.resolvePatch(track);
       const vocalMode = track.vocal?.mode ?? song.vocals?.mode;
       const silent = !isAudio && patch?.engine === 'vocal' && vocalMode === 'none';
       const render = !wanted || wanted.has(track.id);
-      const key = !render ? 'skip' : isAudio ? 'audio' : `${patchId}|${patch!.engine}|${silent ? 'silent' : ''}|${this.opts.vocalVoiceId ?? ''}|${track.vocal?.voiceId ?? ''}|${track.vocal?.voiceType ?? ''}`;
+      const key = !render
+        ? 'skip'
+        : isAudio
+          ? 'audio'
+          : `${patchId}|${patch!.engine}|${silent ? 'silent' : ''}|${this.opts.vocalVoiceId ?? ''}|${track.vocal?.voiceId ?? ''}|${track.vocal?.voiceType ?? ''}`;
       let ts = this.trackMap.get(track.id);
       if (ts && ts.key === key) {
         ts.track = track;
@@ -313,11 +339,24 @@ export class SongRenderer {
         } else if (silent) {
           source = new SilentSource();
         } else if (patch!.engine === 'vocal') {
-          vocal = new VocalInstrument(song, track, sr, this.startSec, this.opts.vocalVoiceId, this.seed, patch!.gainDb);
+          vocal = new VocalInstrument(
+            song,
+            track,
+            sr,
+            this.startSec,
+            this.opts.vocalVoiceId,
+            this.seed,
+            patch!.gainDb,
+          );
           source = vocal;
         } else {
-          const pizz = patch!.articulationPatches?.pizzicato ? PATCHES[patch!.articulationPatches.pizzicato] : undefined;
-          poly = new PolyInstrument(patch!, sr, { sampleInstrument: this.opts.sampleInstruments?.[patchId], pizzPatch: pizz });
+          const pizz = patch!.articulationPatches?.pizzicato
+            ? PATCHES[patch!.articulationPatches.pizzicato]
+            : undefined;
+          poly = new PolyInstrument(patch!, sr, {
+            sampleInstrument: this.opts.sampleInstruments?.[patchId],
+            pizzPatch: pizz,
+          });
           poly.setEvents(buildNoteEvents(track, patch!, ctx), frame);
           source = poly;
         }
@@ -393,7 +432,7 @@ export class SongRenderer {
 
   private applyMixer(mixer: MixerState, snap: boolean): void {
     this.mixer = mixer;
-    const anySolo = this.tracks.some((t) => !!(mixer.channels?.[t.id]?.solo));
+    const anySolo = this.tracks.some((t) => !!mixer.channels?.[t.id]?.solo);
     for (const ts of this.tracks) {
       const s = mixer.channels?.[ts.id] ?? defaultChannelStrip();
       ts.stripData = s;
@@ -411,7 +450,10 @@ export class SongRenderer {
     this.revTail = Math.round((1.4 * clampNum(num(rv.decaySeconds, 2), 0.1, 30) + 0.6) * this.sampleRate);
     const fb = clampNum(num(dl.feedback, 0.3), 0, 0.95);
     const repeats = fb > 0.001 ? Math.min(400, Math.ceil(Math.log(1e-4) / Math.log(fb))) + 1 : 1;
-    this.dlyTail = Math.round(Math.min(60, repeats * ((clampNum(num(dl.timeBeats, 0.75), 0.01, 16) * 60) / 30) + 0.5) * this.sampleRate);
+    this.dlyTail = Math.round(
+      Math.min(60, repeats * ((clampNum(num(dl.timeBeats, 0.75), 0.01, 16) * 60) / 30) + 0.5) *
+        this.sampleRate,
+    );
     const rr = dbToGain(clampNum(num((mixer.reverb ?? def.reverb).returnDb, -4), -120, 12));
     const dr = dbToGain(clampNum(num((mixer.delay ?? def.delay).returnDb, -8), -120, 12));
     if (snap) {
@@ -503,7 +545,12 @@ export class SongRenderer {
     let n = BLOCK;
     const pos = this.srcPos;
     if (this.loop && pos < this.loop.end) n = Math.min(n, this.loop.end - pos);
-    const mL = this.mL, mR = this.mR, rvL = this.rvL, rvR = this.rvR, dlL = this.dlL, dlR = this.dlR;
+    const mL = this.mL,
+      mR = this.mR,
+      rvL = this.rvL,
+      rvR = this.rvR,
+      dlL = this.dlL,
+      dlR = this.dlR;
     mL.fill(0, 0, n);
     mR.fill(0, 0, n);
     const sends = this.includeSends;
@@ -517,12 +564,14 @@ export class SongRenderer {
     for (let t = 0; t < this.tracks.length; t++) {
       const ts = this.tracks[t];
       if (!ts.render) continue;
-      const L = ts.L, R = ts.R;
+      const L = ts.L,
+        R = ts.R;
       L.fill(0, 0, n);
       R.fill(0, 0, n);
       ts.source.render(L, R, pos, n);
       if (ts.retired) {
-        const tL = this.tmpL, tR = this.tmpR;
+        const tL = this.tmpL,
+          tR = this.tmpR;
         tL.fill(0, 0, n);
         tR.fill(0, 0, n);
         ts.retired.render(tL, tR, pos, n);
@@ -554,7 +603,18 @@ export class SongRenderer {
         const lanes = ts.lanes;
         for (let k = 0; k < lanes.length; k++) auto[lanes[k].paramIndex] = lanes[k].valueAt(pos);
       }
-      sendFlags |= ts.strip.process(L, R, n, auto, mL, mR, sends ? rvL : null, sends ? rvR : null, sends ? dlL : null, sends ? dlR : null);
+      sendFlags |= ts.strip.process(
+        L,
+        R,
+        n,
+        auto,
+        mL,
+        mR,
+        sends ? rvL : null,
+        sends ? rvR : null,
+        sends ? dlL : null,
+        sends ? dlR : null,
+      );
     }
     // a bus whose input has been silent for longer than its tail is skipped entirely
     if (sendFlags & 1) this.revIdle = 0;
@@ -564,7 +624,8 @@ export class SongRenderer {
     const runRev = sends && this.revIdle <= this.revTail;
     const runDly = sends && this.dlyIdle <= this.dlyTail;
     if (sends) {
-      const wL = this.wetL, wR = this.wetR;
+      const wL = this.wetL,
+        wR = this.wetR;
       const r0 = this.revReturn.current;
       const r1 = this.revReturn.step();
       if (runRev) {
@@ -600,7 +661,8 @@ export class SongRenderer {
     }
     this.meterBlock(mL, mR, n);
     // push into the output FIFO (dropping the limiter pre-roll)
-    const ringL = this.ringL, ringR = this.ringR;
+    const ringL = this.ringL,
+      ringR = this.ringR;
     let w = (this.ringRead + this.ringCount) & 511;
     let i0 = 0;
     if (this.discard > 0) {
@@ -627,7 +689,8 @@ export class SongRenderer {
   process(outL: Float32Array, outR: Float32Array, frames?: number): number {
     const want = Math.max(0, Math.min(frames ?? outL.length, outL.length, outR.length));
     let written = 0;
-    const ringL = this.ringL, ringR = this.ringR;
+    const ringL = this.ringL,
+      ringR = this.ringR;
     const clicks = this.clicks;
     const clen = this.clickHi.length;
     while (written < want) {
@@ -684,7 +747,8 @@ export class SongRenderer {
   }
 
   private meterBlock(L: Float64Array, R: Float64Array, n: number): void {
-    let pk = 0, s = 0;
+    let pk = 0,
+      s = 0;
     for (let i = 0; i < n; i++) {
       const a = L[i] < 0 ? -L[i] : L[i];
       const b = R[i] < 0 ? -R[i] : R[i];
@@ -700,7 +764,8 @@ export class SongRenderer {
 }
 
 function lowerBoundF(a: Float64Array, v: number): number {
-  let lo = 0, hi = a.length;
+  let lo = 0,
+    hi = a.length;
   while (lo < hi) {
     const m = (lo + hi) >> 1;
     if (a[m] < v) lo = m + 1;
@@ -717,7 +782,8 @@ function lowerBoundF(a: Float64Array, v: number): number {
 export function renderSong(song: Song, opts: RenderOptions = {}): AudioData {
   const r = new SongRenderer(song, opts);
   const out = createAudio(r.sampleRate, r.totalFrames, 2);
-  const L = out.channels[0], R = out.channels[1];
+  const L = out.channels[0],
+    R = out.channels[1];
   const chunk = 8192;
   for (let f = 0; f < r.totalFrames; f += chunk) {
     const n = Math.min(chunk, r.totalFrames - f);
@@ -736,7 +802,10 @@ export function renderTrack(song: Song, trackId: string, opts: RenderOptions = {
  * Guide stems (spec §28: drums_reference.wav …). Keys are stem groups (by: 'stemGroup', default) or
  * track ids (by: 'track'). Unmastered by default so the stems sum to the unmastered mix.
  */
-export function renderStems(song: Song, opts: RenderOptions & { by?: 'stemGroup' | 'track' } = {}): Record<string, AudioData> {
+export function renderStems(
+  song: Song,
+  opts: RenderOptions & { by?: 'stemGroup' | 'track' } = {},
+): Record<string, AudioData> {
   const by = opts.by ?? 'stemGroup';
   const groups = new Map<string, string[]>();
   const wanted = opts.trackIds ? new Set(opts.trackIds) : null;
@@ -749,6 +818,7 @@ export function renderStems(song: Song, opts: RenderOptions & { by?: 'stemGroup'
   const out: Record<string, AudioData> = {};
   const rest: RenderOptions = { ...opts };
   delete (rest as { by?: unknown }).by;
-  for (const [key, ids] of groups) out[key] = renderSong(song, { applyMaster: false, ...rest, trackIds: ids });
+  for (const [key, ids] of groups)
+    out[key] = renderSong(song, { applyMaster: false, ...rest, trackIds: ids });
   return out;
 }

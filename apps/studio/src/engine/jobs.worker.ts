@@ -42,7 +42,11 @@ const controllers = new Map<number, AbortController>();
 /** Custom and sampled instruments for renders (set by the pool's `configure`). */
 let instrumentConfig: RenderInstrumentConfig = { instruments: [], sampleInstruments: {} };
 
-function collectTransfer(value: unknown, out: Transferable[] = [], seen = new Set<unknown>()): Transferable[] {
+function collectTransfer(
+  value: unknown,
+  out: Transferable[] = [],
+  seen = new Set<unknown>(),
+): Transferable[] {
   if (!value || typeof value !== 'object' || seen.has(value)) return out;
   seen.add(value);
   if (ArrayBuffer.isView(value)) {
@@ -67,16 +71,51 @@ async function run(req: JobRequest, signal: AbortSignal): Promise<unknown> {
     self.postMessage({ id: req.id, progress: p, stage, detail } satisfies JobResponse);
   switch (req.method) {
     case 'renderMix': {
-      const a = req.args as { song: Song; assets?: Record<string, AudioData>; sampleRate?: number; applyMaster?: boolean; trackIds?: string[]; seed?: number };
-      return audio.renderSong(a.song, { ...instrumentConfig, sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), applyMaster: a.applyMaster, trackIds: a.trackIds, seed: a.seed });
+      const a = req.args as {
+        song: Song;
+        assets?: Record<string, AudioData>;
+        sampleRate?: number;
+        applyMaster?: boolean;
+        trackIds?: string[];
+        seed?: number;
+      };
+      return audio.renderSong(a.song, {
+        ...instrumentConfig,
+        sampleRate: a.sampleRate ?? 44100,
+        assets: resolverFrom(a.assets),
+        applyMaster: a.applyMaster,
+        trackIds: a.trackIds,
+        seed: a.seed,
+      });
     }
     case 'renderStems': {
-      const a = req.args as { song: Song; assets?: Record<string, AudioData>; sampleRate?: number; by?: 'stemGroup' | 'track' };
-      return audio.renderStems(a.song, { ...instrumentConfig, sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), by: a.by ?? 'stemGroup', applyMaster: false });
+      const a = req.args as {
+        song: Song;
+        assets?: Record<string, AudioData>;
+        sampleRate?: number;
+        by?: 'stemGroup' | 'track';
+      };
+      return audio.renderStems(a.song, {
+        ...instrumentConfig,
+        sampleRate: a.sampleRate ?? 44100,
+        assets: resolverFrom(a.assets),
+        by: a.by ?? 'stemGroup',
+        applyMaster: false,
+      });
     }
     case 'renderTrack': {
-      const a = req.args as { song: Song; trackId: string; assets?: Record<string, AudioData>; sampleRate?: number };
-      return audio.renderTrack(a.song, a.trackId, { ...instrumentConfig, sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), applyMaster: false });
+      const a = req.args as {
+        song: Song;
+        trackId: string;
+        assets?: Record<string, AudioData>;
+        sampleRate?: number;
+      };
+      return audio.renderTrack(a.song, a.trackId, {
+        ...instrumentConfig,
+        sampleRate: a.sampleRate ?? 44100,
+        assets: resolverFrom(a.assets),
+        applyMaster: false,
+      });
     }
     case 'master': {
       const a = req.args as { audio: AudioData; settings: MasteringSettings };
@@ -93,7 +132,15 @@ async function run(req: JobRequest, signal: AbortSignal): Promise<unknown> {
       return audio.encodeFlac(a.audio, { bitDepth: a.bitDepth ?? 24 });
     }
     case 'synthesizeVocal': {
-      const a = req.args as { song: Song; trackId: string; voiceId?: string; startTick?: number; endTick?: number; sampleRate?: number; seed?: number };
+      const a = req.args as {
+        song: Song;
+        trackId: string;
+        voiceId?: string;
+        startTick?: number;
+        endTick?: number;
+        sampleRate?: number;
+        seed?: number;
+      };
       return audio.synthesizeVocal(a.song, a.trackId, a);
     }
     case 'transcribe': {
@@ -150,7 +197,12 @@ self.onmessage = async (ev: MessageEvent<JobRequest>) => {
     self.postMessage({ id: req.id, ok: true, result } satisfies JobResponse, collectTransfer(result));
   } catch (err) {
     const aborted = err instanceof Error && err.name === 'AbortError';
-    self.postMessage({ id: req.id, ok: false, error: err instanceof Error ? err.message : String(err), aborted } satisfies JobResponse);
+    self.postMessage({
+      id: req.id,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+      aborted,
+    } satisfies JobResponse);
   } finally {
     controllers.delete(req.id);
   }

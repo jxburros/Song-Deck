@@ -19,17 +19,33 @@ export const GLYPH = {
 };
 
 /** Filled (quarter and shorter) or hollow (half/whole) notehead centred on (x, y). */
-export function drawNotehead(c: PdfCanvas, x: number, y: number, s: number, type: NoteType, shape: 'normal' | 'x' | 'diamond' = 'normal'): void {
+export function drawNotehead(
+  c: PdfCanvas,
+  x: number,
+  y: number,
+  s: number,
+  type: NoteType,
+  shape: 'normal' | 'x' | 'diamond' = 'normal',
+): void {
   if (shape === 'x') {
     const r = 0.5 * s;
     c.lineCap(1).lineWidth(0.16 * s);
-    c.moveTo(x - r, y - r).lineTo(x + r, y + r).moveTo(x - r, y + r).lineTo(x + r, y - r).stroke();
+    c.moveTo(x - r, y - r)
+      .lineTo(x + r, y + r)
+      .moveTo(x - r, y + r)
+      .lineTo(x + r, y - r)
+      .stroke();
     c.lineCap(0);
     return;
   }
   if (shape === 'diamond') {
     const r = 0.55 * s;
-    c.moveTo(x - r, y).lineTo(x, y + r).lineTo(x + r, y).lineTo(x, y - r).close().fill();
+    c.moveTo(x - r, y)
+      .lineTo(x, y + r)
+      .lineTo(x + r, y)
+      .lineTo(x, y - r)
+      .close()
+      .fill();
     return;
   }
   if (type === 'whole') {
@@ -46,7 +62,14 @@ export function drawNotehead(c: PdfCanvas, x: number, y: number, s: number, type
 }
 
 /** Stem from a notehead; returns the x of the stem and the y of its free end. */
-export function drawStem(c: PdfCanvas, x: number, y: number, s: number, up: boolean, length = 3.5): { sx: number; tip: number } {
+export function drawStem(
+  c: PdfCanvas,
+  x: number,
+  y: number,
+  s: number,
+  up: boolean,
+  length = 3.5,
+): { sx: number; tip: number } {
   const sx = up ? x + (NOTEHEAD_RX - 0.06) * s : x - (NOTEHEAD_RX - 0.06) * s;
   const from = up ? y + 0.15 * s : y - 0.15 * s;
   const tip = up ? y + length * s : y - length * s;
@@ -55,13 +78,27 @@ export function drawStem(c: PdfCanvas, x: number, y: number, s: number, up: bool
 }
 
 /** Flags (1 = eighth, 2 = 16th, 3 = 32nd) at the free end of a stem. */
-export function drawFlags(c: PdfCanvas, sx: number, tip: number, s: number, up: boolean, count: number): void {
+export function drawFlags(
+  c: PdfCanvas,
+  sx: number,
+  tip: number,
+  s: number,
+  up: boolean,
+  count: number,
+): void {
   const dir = up ? -1 : 1;
   for (let i = 0; i < count; i++) {
     const t = tip + dir * i * 0.8 * s;
     const x0 = sx - (GLYPH.stemWidth * s) / 2;
     c.moveTo(x0, t);
-    c.curveTo(x0 + 0.15 * s, t + dir * 0.9 * s, x0 + 1.35 * s, t + dir * 1.3 * s, x0 + 0.95 * s, t + dir * 2.75 * s);
+    c.curveTo(
+      x0 + 0.15 * s,
+      t + dir * 0.9 * s,
+      x0 + 1.35 * s,
+      t + dir * 1.3 * s,
+      x0 + 0.95 * s,
+      t + dir * 2.75 * s,
+    );
     c.curveTo(x0 + 1.05 * s, t + dir * 1.75 * s, x0 + 0.35 * s, t + dir * 1.45 * s, x0, t + dir * 1.15 * s);
     c.close().fill();
   }
@@ -85,7 +122,12 @@ export function drawAccidental(c: PdfCanvas, x: number, y: number, s: number, ac
   const thin = 0.11 * s;
   const thick = 0.42 * s;
   const bar = (x1: number, y1: number, x2: number, y2: number) => {
-    c.moveTo(x1, y1 - thick / 2).lineTo(x2, y2 - thick / 2).lineTo(x2, y2 + thick / 2).lineTo(x1, y1 + thick / 2).close().fill();
+    c.moveTo(x1, y1 - thick / 2)
+      .lineTo(x2, y2 - thick / 2)
+      .lineTo(x2, y2 + thick / 2)
+      .lineTo(x1, y1 + thick / 2)
+      .close()
+      .fill();
   };
   switch (acc) {
     case 'sharp':
@@ -113,7 +155,11 @@ export function drawAccidental(c: PdfCanvas, x: number, y: number, s: number, ac
     case 'double-sharp': {
       const r = 0.42 * s;
       c.lineCap(1).lineWidth(0.18 * s);
-      c.moveTo(x - r, y - r).lineTo(x + r, y + r).moveTo(x - r, y + r).lineTo(x + r, y - r).stroke();
+      c.moveTo(x - r, y - r)
+        .lineTo(x + r, y + r)
+        .moveTo(x - r, y + r)
+        .lineTo(x + r, y - r)
+        .stroke();
       c.lineCap(0);
       return;
     }
@@ -140,7 +186,9 @@ export function drawRest(c: PdfCanvas, x: number, y0: number, s: number, type: N
       c.rect(x - 0.6 * s, Y(2), 1.2 * s, 0.5 * s).fill();
       return;
     case 'quarter': {
-      c.lineCap(1).lineJoin(1).lineWidth(0.3 * s);
+      c.lineCap(1)
+        .lineJoin(1)
+        .lineWidth(0.3 * s);
       c.moveTo(x - 0.25 * s, Y(3.3));
       c.lineTo(x + 0.35 * s, Y(2.55));
       c.curveTo(x - 0.2 * s, Y(2.2), x - 0.3 * s, Y(1.95), x + 0.3 * s, Y(1.25));
@@ -163,7 +211,10 @@ export function drawRest(c: PdfCanvas, x: number, y0: number, s: number, type: N
         const hy = topY - i * s;
         const hx = top.x - slope * (top.y - hy);
         c.circle(hx - 0.75 * s, hy - 0.05 * s, 0.24 * s).fill();
-        c.lineWidth(0.13 * s).moveTo(hx - 0.75 * s, hy - 0.2 * s).curveTo(hx - 0.4 * s, hy - 0.3 * s, hx - 0.1 * s, hy - 0.2 * s, hx, hy + 0.08 * s).stroke();
+        c.lineWidth(0.13 * s)
+          .moveTo(hx - 0.75 * s, hy - 0.2 * s)
+          .curveTo(hx - 0.4 * s, hy - 0.3 * s, hx - 0.1 * s, hy - 0.2 * s, hx, hy + 0.08 * s)
+          .stroke();
       }
       return;
     }
@@ -244,7 +295,14 @@ export function drawPercussionClef(c: PdfCanvas, x: number, y0: number, s: numbe
 }
 
 /** Time signature digits stacked on the staff. Returns the width used. */
-export function drawTimeSignature(c: PdfCanvas, x: number, y0: number, s: number, num: number, den: number): number {
+export function drawTimeSignature(
+  c: PdfCanvas,
+  x: number,
+  y0: number,
+  s: number,
+  num: number,
+  den: number,
+): number {
   const size = 2.85 * s;
   const top = String(num);
   const bottom = String(den);

@@ -50,7 +50,13 @@ export function kWeightingCoefficients(sampleRate: number): KWeighting {
   Q = 0.5003270373238773;
   K = Math.tan((Math.PI * f0) / sampleRate);
   a0 = 1 + K / Q + K * K;
-  const highpass: [number, number, number, number, number] = [1, -2, 1, (2 * (K * K - 1)) / a0, (1 - K / Q + K * K) / a0];
+  const highpass: [number, number, number, number, number] = [
+    1,
+    -2,
+    1,
+    (2 * (K * K - 1)) / a0,
+    (1 - K / Q + K * K) / a0,
+  ];
   return { shelf, highpass };
 }
 
@@ -95,7 +101,9 @@ const TP_PHASES: Float64Array[] = (() => {
  */
 export function truePeakEnvelope(x: ArrayLike<number>, out: Float64Array, floor = 0): void {
   const n = x.length;
-  const h0 = TP_PHASES[0], h1 = TP_PHASES[1], h2 = TP_PHASES[2];
+  const h0 = TP_PHASES[0],
+    h1 = TP_PHASES[1],
+    h2 = TP_PHASES[2];
   const B = TP_TAPS;
   const nb = Math.ceil(n / B);
   const blockMax = (s: number): number => {
@@ -123,7 +131,9 @@ export function truePeakEnvelope(x: ArrayLike<number>, out: Float64Array, floor 
     for (let i = s; i < e; i++) {
       let m = Math.abs(x[i]);
       const base = i - (TP_HALF - 1);
-      let s0 = 0, s1 = 0, s2 = 0;
+      let s0 = 0,
+        s1 = 0,
+        s2 = 0;
       if (base >= 0 && base + TP_TAPS <= n) {
         for (let k = 0; k < TP_TAPS; k++) {
           const v = x[base + k];
@@ -141,7 +151,9 @@ export function truePeakEnvelope(x: ArrayLike<number>, out: Float64Array, floor 
           s2 += h2[k] * v;
         }
       }
-      const a0 = Math.abs(s0), a1 = Math.abs(s1), a2 = Math.abs(s2);
+      const a0 = Math.abs(s0),
+        a1 = Math.abs(s1),
+        a2 = Math.abs(s2);
       if (a0 > m) m = a0;
       if (a1 > m) m = a1;
       if (a2 > m) m = a2;
@@ -153,7 +165,9 @@ export function truePeakEnvelope(x: ArrayLike<number>, out: Float64Array, floor 
 /** Linear true-peak value of one channel. */
 export function truePeakLinear(x: ArrayLike<number>): number {
   const n = x.length;
-  const h0 = TP_PHASES[0], h1 = TP_PHASES[1], h2 = TP_PHASES[2];
+  const h0 = TP_PHASES[0],
+    h1 = TP_PHASES[1],
+    h2 = TP_PHASES[2];
   let m = 0;
   for (let i = 0; i < n; i++) {
     const a = Math.abs(x[i]);
@@ -179,7 +193,9 @@ export function truePeakLinear(x: ArrayLike<number>): number {
     const e = Math.min(n, (b + 1) * B);
     for (let i = b * B; i < e; i++) {
       const base = i - (TP_HALF - 1);
-      let s0 = 0, s1 = 0, s2 = 0;
+      let s0 = 0,
+        s1 = 0,
+        s2 = 0;
       if (base >= 0 && base + TP_TAPS <= n) {
         for (let k = 0; k < TP_TAPS; k++) {
           const v = x[base + k];
@@ -230,7 +246,12 @@ function segmentEnergies(buf: AudioData): { seg: Float64Array; segLen: number } 
   const [hb0, hb1, hb2, ha1, ha2] = highpass;
   for (const ch of buf.channels.slice(0, 2)) {
     // channel weight 1.0 for L/R/mono
-    let x1 = 0, x2 = 0, y1 = 0, y2 = 0, z1 = 0, z2 = 0;
+    let x1 = 0,
+      x2 = 0,
+      y1 = 0,
+      y2 = 0,
+      z1 = 0,
+      z2 = 0;
     for (let s = 0; s < nseg; s++) {
       let acc = 0;
       const end = (s + 1) * segLen;

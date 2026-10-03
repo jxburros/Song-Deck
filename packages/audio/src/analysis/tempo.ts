@@ -62,7 +62,14 @@ export function detectTempo(buf: AudioData, opts: TempoOptions = {}): TempoResul
   if (x.length < sr) return { ...EMPTY, beats: [], downbeats: [] };
   const env = onsetEnvelopeFromSignal(x, sr);
   const r = tempoFromEnvelope(env, opts);
-  return { bpm: r.bpm, confidence: r.confidence, beats: r.beats, downbeats: r.downbeats, meter: r.meter, meterConfidence: r.meterConfidence };
+  return {
+    bpm: r.bpm,
+    confidence: r.confidence,
+    beats: r.beats,
+    downbeats: r.downbeats,
+    meter: r.meter,
+    meterConfidence: r.meterConfidence,
+  };
 }
 
 function autocorrelation(x: Float32Array): Float64Array {
@@ -116,7 +123,13 @@ function periodicityEvidence(acf: Float64Array, lag: number): number {
   return w > 0 ? s / w : 0;
 }
 
-function scanTempi(acf: Float64Array, fps: number, minBpm: number, maxBpm: number, prior: number): TempoCandidate[] {
+function scanTempi(
+  acf: Float64Array,
+  fps: number,
+  minBpm: number,
+  maxBpm: number,
+  prior: number,
+): TempoCandidate[] {
   const out: TempoCandidate[] = [];
   const step = 1.003;
   for (let bpm = minBpm; bpm <= maxBpm; bpm *= step) {
@@ -245,7 +258,11 @@ function regularize(beats: number[], period: number, env: Float32Array): number[
 }
 
 /** Spectral-change novelty between consecutive beat intervals (harmony/timbre change at bar lines). */
-function beatChange(_env: OnsetEnvelope, beats: number[], bandProfile?: (t: number) => Float32Array): number[] {
+function beatChange(
+  _env: OnsetEnvelope,
+  beats: number[],
+  bandProfile?: (t: number) => Float32Array,
+): number[] {
   if (!bandProfile || beats.length < 3) return beats.map(() => 0);
   const prof: Float32Array[] = [];
   for (let i = 0; i + 1 < beats.length; i++) prof.push(bandProfile(i));
@@ -333,7 +350,8 @@ function logBandProfile(env: OnsetEnvelope, beats: number[]): ((i: number) => Fl
   const nb = env.numBands;
   const frames = env.numFrames;
   const bandMean = new Float32Array(nb);
-  for (let t = 0; t < frames; t++) for (let b = 0; b < nb; b++) bandMean[b] += env.logBands[t * nb + b] / frames;
+  for (let t = 0; t < frames; t++)
+    for (let b = 0; b < nb; b++) bandMean[b] += env.logBands[t * nb + b] / frames;
   return (i: number) => {
     const a = Math.max(0, Math.round(beats[i]));
     const e = Math.min(frames, Math.max(a + 1, Math.round(beats[Math.min(beats.length - 1, i + 1)])));
@@ -410,7 +428,9 @@ export function tempoFromEnvelope(
   const onBeat = beats.length ? mean(beats.map((b) => strengthNear(o, b, 1))) : 0;
   const contrast = clamp01((onBeat - mean(o)) / (std(o) * 3 || 1));
   const coverage = clamp01((beats.length * period) / Math.max(1, n));
-  const confidence = clamp01((0.45 * Math.tanh(2.5 * periodicity) + 0.3 * contrast + 0.25 * regularity) * (0.6 + 0.4 * coverage));
+  const confidence = clamp01(
+    (0.45 * Math.tanh(2.5 * periodicity) + 0.3 * contrast + 0.25 * regularity) * (0.6 + 0.4 * coverage),
+  );
 
   // accents for meter / downbeats (window sums: robust to the sub-frame position of each beat)
   const winSum = (a: Float32Array, b: number): number => {
@@ -423,7 +443,8 @@ export function tempoFromEnvelope(
   const all = beats.map((b) => winSum(o, b));
   const loud = beats.map((b) => {
     let m = 0;
-    for (let i = Math.round(b) - 1; i <= Math.round(b) + 3; i++) if (i >= 0 && i < env.energy.length && env.energy[i] > m) m = env.energy[i];
+    for (let i = Math.round(b) - 1; i <= Math.round(b) + 3; i++)
+      if (i >= 0 && i < env.energy.length && env.energy[i] > m) m = env.energy[i];
     return Math.log(m + 1e-12);
   });
   const profile = opts.bandProfileForBeats ? opts.bandProfileForBeats(beatTimes) : logBandProfile(env, beats);

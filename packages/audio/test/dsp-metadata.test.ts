@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { classifyRightsSignals, decodeWav, normalizeIsrc, readAudioMetadata, type AudioFileMetadata } from '../src/dsp';
+import {
+  classifyRightsSignals,
+  decodeWav,
+  normalizeIsrc,
+  readAudioMetadata,
+  type AudioFileMetadata,
+} from '../src/dsp';
 import {
   FAKE_MPEG,
   atom,
@@ -67,14 +73,29 @@ describe('ID3', () => {
   });
 
   it('reads ID3v2.2 three-character frames', () => {
-    const m = readAudioMetadata(concat(id3v2(2, [{ id: 'TT2', body: textBody('Old Tag', 0) }, { id: 'TCR', body: textBody('(C) 2001 Example', 0) }, { id: 'TRC', body: textBody('GBAYE0000001', 0) }]), FAKE_MPEG));
+    const m = readAudioMetadata(
+      concat(
+        id3v2(2, [
+          { id: 'TT2', body: textBody('Old Tag', 0) },
+          { id: 'TCR', body: textBody('(C) 2001 Example', 0) },
+          { id: 'TRC', body: textBody('GBAYE0000001', 0) },
+        ]),
+        FAKE_MPEG,
+      ),
+    );
     expect(value(m, 'TT2')).toBe('Old Tag');
     expect(value(m, 'TCR')).toBe('(C) 2001 Example');
     expect(field(m, 'isrc')).toEqual(['GBAYE0000001']);
   });
 
   it('reads an ID3v1 trailer', () => {
-    const m = readAudioMetadata(concat(FAKE_MPEG, new Uint8Array(200), id3v1('Trailer Song', 'Trailer Artist', 'Trailer Album', 'hello')));
+    const m = readAudioMetadata(
+      concat(
+        FAKE_MPEG,
+        new Uint8Array(200),
+        id3v1('Trailer Song', 'Trailer Artist', 'Trailer Album', 'hello'),
+      ),
+    );
     expect(value(m, 'title')).toBe('Trailer Song');
     expect(value(m, 'artist')).toBe('Trailer Artist');
     expect(value(m, 'album')).toBe('Trailer Album');
@@ -82,8 +103,22 @@ describe('ID3', () => {
   });
 
   it('reads the ownership frame and v2.4 multi-value text', () => {
-    const owne = concat(Uint8Array.of(0), latin1('USD0.99'), Uint8Array.of(0), latin1('20190301'), latin1('Example Store'));
-    const m = readAudioMetadata(concat(id3v2(4, [{ id: 'OWNE', body: owne }, { id: 'TPE1', body: textBody('A\u0000B') }]), FAKE_MPEG));
+    const owne = concat(
+      Uint8Array.of(0),
+      latin1('USD0.99'),
+      Uint8Array.of(0),
+      latin1('20190301'),
+      latin1('Example Store'),
+    );
+    const m = readAudioMetadata(
+      concat(
+        id3v2(4, [
+          { id: 'OWNE', body: owne },
+          { id: 'TPE1', body: textBody('A\u0000B') },
+        ]),
+        FAKE_MPEG,
+      ),
+    );
     expect(field(m, 'purchase')[0]).toContain('Example Store');
     expect(field(m, 'artist')).toEqual(['A', 'B']);
   });
@@ -94,14 +129,26 @@ describe('ID3', () => {
     const truncated = readAudioMetadata(file.subarray(0, 60));
     expect(truncated.warnings.join(' ')).toMatch(/truncated/);
     // A frame claiming 2 GB.
-    const huge = concat(latin1('ID3'), Uint8Array.of(3, 0, 0, 0, 0, 1, 0), latin1('TIT2'), Uint8Array.of(0x7f, 0xff, 0xff, 0xff, 0, 0), textBody('x'));
+    const huge = concat(
+      latin1('ID3'),
+      Uint8Array.of(3, 0, 0, 0, 0, 1, 0),
+      latin1('TIT2'),
+      Uint8Array.of(0x7f, 0xff, 0xff, 0xff, 0, 0),
+      textBody('x'),
+    );
     expect(() => readAudioMetadata(huge)).not.toThrow();
   });
 });
 
 describe('RIFF INFO (WAV)', () => {
   it('reads ICOP, IART and INAM and still decodes as audio', () => {
-    const wav = wavWithChunks([riffInfo([['INAM', 'Field Recording'], ['IART', 'Jane Example'], ['ICOP', 'Copyright 2020 Example Records']])]);
+    const wav = wavWithChunks([
+      riffInfo([
+        ['INAM', 'Field Recording'],
+        ['IART', 'Jane Example'],
+        ['ICOP', 'Copyright 2020 Example Records'],
+      ]),
+    ]);
     const m = readAudioMetadata(wav);
     expect(m.container).toBe('wav');
     expect(value(m, 'INAM')).toBe('Field Recording');
@@ -111,24 +158,45 @@ describe('RIFF INFO (WAV)', () => {
   });
 
   it('reads an id3 chunk inside a WAV', () => {
-    const wav = wavWithChunks([riffChunk('id3 ', id3v2(3, [{ id: 'TSRC', body: textBody('USRC17607839') }]))]);
+    const wav = wavWithChunks([
+      riffChunk('id3 ', id3v2(3, [{ id: 'TSRC', body: textBody('USRC17607839') }])),
+    ]);
     expect(field(readAudioMetadata(wav), 'isrc')).toEqual(['USRC17607839']);
   });
 
   it('does not mistake RIFF ISRC ("source") for a recording code unless it is one', () => {
-    const plain = classifyRightsSignals(readAudioMetadata(wavWithChunks([riffInfo([['ISRC', 'Jane at home']])])));
+    const plain = classifyRightsSignals(
+      readAudioMetadata(wavWithChunks([riffInfo([['ISRC', 'Jane at home']])])),
+    );
     expect(plain.level).toBe('none');
-    const code = classifyRightsSignals(readAudioMetadata(wavWithChunks([riffInfo([['ISRC', 'US-RC1-76-07839']])])));
+    const code = classifyRightsSignals(
+      readAudioMetadata(wavWithChunks([riffInfo([['ISRC', 'US-RC1-76-07839']])])),
+    );
     expect(code.signals[0]).toMatchObject({ kind: 'isrc', value: 'USRC17607839' });
   });
 
   it('survives truncation and corruption', () => {
-    fuzz(wavWithChunks([riffInfo([['ICOP', 'Copyright 2020 Example Records'], ['IART', 'Jane']])]));
+    fuzz(
+      wavWithChunks([
+        riffInfo([
+          ['ICOP', 'Copyright 2020 Example Records'],
+          ['IART', 'Jane'],
+        ]),
+      ]),
+    );
   });
 });
 
 describe('Vorbis comments', () => {
-  const comments = ['TITLE=Open Song', 'ARTIST=Free Band', 'COPYRIGHT=2021 Free Band, CC BY 4.0', 'ISRC=QZABC2100001', 'LABEL=Indie Label', 'ORGANIZATION=Indie Org', 'METADATA_BLOCK_PICTURE=AAAA'];
+  const comments = [
+    'TITLE=Open Song',
+    'ARTIST=Free Band',
+    'COPYRIGHT=2021 Free Band, CC BY 4.0',
+    'ISRC=QZABC2100001',
+    'LABEL=Indie Label',
+    'ORGANIZATION=Indie Org',
+    'METADATA_BLOCK_PICTURE=AAAA',
+  ];
 
   it('reads FLAC VORBIS_COMMENT blocks', () => {
     const m = readAudioMetadata(flacFile(comments));
@@ -141,7 +209,9 @@ describe('Vorbis comments', () => {
   });
 
   it('reads FLAC preceded by an ID3v2 tag', () => {
-    const m = readAudioMetadata(concat(id3v2(3, [{ id: 'TIT2', body: textBody('Tagged') }]), flacFile(['ARTIST=Both'])));
+    const m = readAudioMetadata(
+      concat(id3v2(3, [{ id: 'TIT2', body: textBody('Tagged') }]), flacFile(['ARTIST=Both'])),
+    );
     expect(m.container).toBe('flac');
     expect(value(m, 'TIT2')).toBe('Tagged');
     expect(value(m, 'ARTIST')).toBe('Both');
@@ -157,16 +227,33 @@ describe('Vorbis comments', () => {
   it('reassembles a comment packet that spans pages', () => {
     const long = `COMMENT=${'x'.repeat(700)}`;
     const ident = concat(Uint8Array.of(1), latin1('vorbis'), new Uint8Array(23));
-    const packet = concat(Uint8Array.of(3), latin1('vorbis'), new TextEncoder().encode(''), (() => {
-      const v = enc('v');
-      const items = ['ISRC=USRC17607839', long].map((c) => concat(Uint8Array.of(enc(c).length & 255, (enc(c).length >> 8) & 255, 0, 0), enc(c)));
-      return concat(Uint8Array.of(v.length, 0, 0, 0), v, Uint8Array.of(2, 0, 0, 0), ...items);
-    })());
+    const packet = concat(
+      Uint8Array.of(3),
+      latin1('vorbis'),
+      new TextEncoder().encode(''),
+      (() => {
+        const v = enc('v');
+        const items = ['ISRC=USRC17607839', long].map((c) =>
+          concat(Uint8Array.of(enc(c).length & 255, (enc(c).length >> 8) & 255, 0, 0), enc(c)),
+        );
+        return concat(Uint8Array.of(v.length, 0, 0, 0), v, Uint8Array.of(2, 0, 0, 0), ...items);
+      })(),
+    );
     // Split the packet over two pages: 255-byte segments on page 1 continue on page 2.
     const first = packet.subarray(0, 510);
     const rest = packet.subarray(510);
     const page = (body: Uint8Array, lacing: number[], seq: number) =>
-      concat(latin1('OggS'), Uint8Array.of(0, seq ? 1 : 0), new Uint8Array(8), Uint8Array.of(9, 0, 0, 0), Uint8Array.of(seq, 0, 0, 0), new Uint8Array(4), Uint8Array.of(lacing.length), Uint8Array.from(lacing), body);
+      concat(
+        latin1('OggS'),
+        Uint8Array.of(0, seq ? 1 : 0),
+        new Uint8Array(8),
+        Uint8Array.of(9, 0, 0, 0),
+        Uint8Array.of(seq, 0, 0, 0),
+        new Uint8Array(4),
+        Uint8Array.of(lacing.length),
+        Uint8Array.from(lacing),
+        body,
+      );
     const restLacing: number[] = [];
     let n = rest.length;
     while (n >= 255) {
@@ -174,7 +261,11 @@ describe('Vorbis comments', () => {
       n -= 255;
     }
     restLacing.push(n);
-    const file = concat(page(ident, [ident.length], 0), page(first, [255, 255], 1), page(rest, restLacing, 2));
+    const file = concat(
+      page(ident, [ident.length], 0),
+      page(first, [255, 255], 1),
+      page(rest, restLacing, 2),
+    );
     const m = readAudioMetadata(file);
     expect(value(m, 'ISRC')).toBe('USRC17607839');
     expect(value(m, 'COMMENT')?.length).toBeGreaterThan(400);
@@ -184,7 +275,11 @@ describe('Vorbis comments', () => {
     fuzz(flacFile(comments));
     fuzz(oggVorbisFile(comments));
     // Comment count claiming 4 billion entries.
-    const bad = concat(latin1('fLaC'), Uint8Array.of(0x84, 0, 0, 12), Uint8Array.of(0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 5, 0, 0, 0));
+    const bad = concat(
+      latin1('fLaC'),
+      Uint8Array.of(0x84, 0, 0, 12),
+      Uint8Array.of(0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 5, 0, 0, 0),
+    );
     expect(() => readAudioMetadata(bad)).not.toThrow();
   });
 });
@@ -221,9 +316,19 @@ describe('MP4 / M4A', () => {
 
   it('survives truncation, corruption, zero and 64-bit sizes', () => {
     fuzz(file);
-    const zero = concat(atom('ftyp', latin1('M4A ')), Uint8Array.of(0, 0, 0, 0), latin1('moov'), atom('udta'));
+    const zero = concat(
+      atom('ftyp', latin1('M4A ')),
+      Uint8Array.of(0, 0, 0, 0),
+      latin1('moov'),
+      atom('udta'),
+    );
     expect(() => readAudioMetadata(zero)).not.toThrow();
-    const big = concat(atom('ftyp', latin1('M4A ')), Uint8Array.of(0, 0, 0, 1), latin1('mdat'), Uint8Array.of(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff));
+    const big = concat(
+      atom('ftyp', latin1('M4A ')),
+      Uint8Array.of(0, 0, 0, 1),
+      latin1('mdat'),
+      Uint8Array.of(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff),
+    );
     expect(() => readAudioMetadata(big)).not.toThrow();
     const tiny = concat(atom('ftyp', latin1('M4A ')), Uint8Array.of(0, 0, 0, 3), latin1('moov'));
     expect(readAudioMetadata(tiny).warnings.join(' ')).toMatch(/invalid size/);
@@ -250,27 +355,51 @@ describe('robustness', () => {
 
 describe('classifyRightsSignals', () => {
   it('flags ISRC, copyright, label and purchase markers as likely commercial', () => {
-    const m = readAudioMetadata(concat(id3v2(3, [{ id: 'TSRC', body: textBody('USRC17607839') }, { id: 'TCOP', body: textBody('℗ 2019 Some Label') }, { id: 'TIT2', body: textBody('Song') }]), FAKE_MPEG));
+    const m = readAudioMetadata(
+      concat(
+        id3v2(3, [
+          { id: 'TSRC', body: textBody('USRC17607839') },
+          { id: 'TCOP', body: textBody('℗ 2019 Some Label') },
+          { id: 'TIT2', body: textBody('Song') },
+        ]),
+        FAKE_MPEG,
+      ),
+    );
     const c = classifyRightsSignals(m);
     expect(c.level).toBe('likely-commercial');
     expect(c.signals.map((s) => s.kind)).toEqual(['isrc', 'copyright', 'title']);
-    expect(c.summary).toBe('This file carries ISRC USRC17607839 and “℗ 2019 Some Label” — it looks like a commercial release.');
+    expect(c.summary).toBe(
+      'This file carries ISRC USRC17607839 and “℗ 2019 Some Label” — it looks like a commercial release.',
+    );
   });
 
   it('treats artist/title alone as a softer hint', () => {
-    const c = classifyRightsSignals(readAudioMetadata(wavWithChunks([riffInfo([['IART', 'Me'], ['INAM', 'Demo']])])));
+    const c = classifyRightsSignals(
+      readAudioMetadata(
+        wavWithChunks([
+          riffInfo([
+            ['IART', 'Me'],
+            ['INAM', 'Demo'],
+          ]),
+        ]),
+      ),
+    );
     expect(c.level).toBe('hint');
     expect(c.summary).toMatch(/does not mean/);
   });
 
   it('reports nothing for untagged files and ignores malformed ISRCs', () => {
     expect(classifyRightsSignals(readAudioMetadata(wavWithChunks([]))).level).toBe('none');
-    const bad = classifyRightsSignals({ tags: [{ source: 'vorbis', key: 'ISRC', field: 'isrc', value: 'not-an-isrc' }] });
+    const bad = classifyRightsSignals({
+      tags: [{ source: 'vorbis', key: 'ISRC', field: 'isrc', value: 'not-an-isrc' }],
+    });
     expect(bad.level).toBe('none');
   });
 
   it('counts store URLs and MP4 store atoms as purchase markers', () => {
-    const c = classifyRightsSignals({ tags: [{ source: 'id3v2', key: 'WOAF', field: 'url', value: 'https://music.apple.com/album/1' }] });
+    const c = classifyRightsSignals({
+      tags: [{ source: 'id3v2', key: 'WOAF', field: 'url', value: 'https://music.apple.com/album/1' }],
+    });
     expect(c.signals[0].kind).toBe('purchase');
   });
 

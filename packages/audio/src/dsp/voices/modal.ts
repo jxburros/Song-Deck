@@ -43,7 +43,11 @@ export class ModalVoice extends Voice {
   private readonly pg = new Float64Array(2);
   private readonly sr: number;
 
-  constructor(host: VoiceHost, private readonly p: ModalParams, private readonly stereo: boolean) {
+  constructor(
+    host: VoiceHost,
+    private readonly p: ModalParams,
+    private readonly stereo: boolean,
+  ) {
     super(host);
     this.sr = host.sampleRate;
     this.n = Math.min(MAXM, p.modes.length);
@@ -51,7 +55,8 @@ export class ModalVoice extends Voice {
 
   start(ev: NoteEvent): void {
     this.begin(ev);
-    const p = this.p, sr = this.sr;
+    const p = this.p,
+      sr = this.sr;
     this.n = Math.min(MAXM, p.modes.length);
     const f0 = midiToHz(ev.pitch);
     const v = Math.max(0, Math.min(1, ev.velocity / 127));
@@ -96,20 +101,25 @@ export class ModalVoice extends Voice {
   render(L: Float64Array, R: Float64Array, start: number, end: number): void {
     const env = this.host.scratch;
     const alive = this.env.process(env, start, end);
-    const ph = this.ph, inc = this.inc, amp = this.amp, coef = this.coef;
+    const ph = this.ph,
+      inc = this.inc,
+      amp = this.amp,
+      coef = this.coef;
     // pitch drop applied per block
     const pm = Math.pow(2, this.drop);
     this.drop *= Math.pow(this.dropCoef, end - start);
     let st = this.strike;
-    const sc = this.strikeCoef, a = this.lpA;
+    const sc = this.strikeCoef,
+      a = this.lpA;
     let lp = this.lp;
     let ns = this.noise;
     const vg = this.vg;
-    const gl = this.stereo ? this.pg[0] : 1, gr = this.pg[1];
+    const gl = this.stereo ? this.pg[0] : 1,
+      gr = this.pg[1];
     let peak = 0;
     // drop fully decayed modes (the list only shrinks; order is irrelevant)
     let nm = this.n;
-    for (let k = 0; k < nm; ) {
+    for (let k = 0; k < nm;) {
       if (amp[k] < 1e-4) {
         nm--;
         amp[k] = amp[nm];

@@ -12,7 +12,9 @@ import type { Revision } from '@songdeck/core';
 import { writeFileAtomic } from '../http-util';
 import { type CollabComment, type RevisionMeta, SAFE_ID } from './protocol';
 
-type CommentEvent = { t: 'upsert'; comment: CollabComment } | { t: 'resolve'; id: string; resolved: boolean; by?: string; at: string };
+type CommentEvent =
+  | { t: 'upsert'; comment: CollabComment }
+  | { t: 'resolve'; id: string; resolved: boolean; by?: string; at: string };
 
 export interface RoomState {
   revisions: RevisionMeta[];
@@ -46,7 +48,10 @@ export class RoomStore {
   private readonly commentsFile: string;
   private readonly snapshotsDir: string;
 
-  constructor(collabDir: string, readonly projectId: string) {
+  constructor(
+    collabDir: string,
+    readonly projectId: string,
+  ) {
     if (!SAFE_ID.test(projectId)) throw new Error('unsafe project id');
     this.dir = path.join(collabDir, projectId);
     this.revisionsFile = path.join(this.dir, 'revisions.jsonl');
@@ -68,7 +73,8 @@ export class RoomStore {
     const comments = new Map<string, CollabComment>();
     for (const line of await readLines(this.commentsFile)) {
       const ev = line as CommentEvent;
-      if (ev?.t === 'upsert' && ev.comment && typeof ev.comment.id === 'string') comments.set(ev.comment.id, ev.comment);
+      if (ev?.t === 'upsert' && ev.comment && typeof ev.comment.id === 'string')
+        comments.set(ev.comment.id, ev.comment);
       else if (ev?.t === 'resolve' && typeof ev.id === 'string') {
         const c = comments.get(ev.id);
         if (c) comments.set(ev.id, { ...c, resolved: ev.resolved });

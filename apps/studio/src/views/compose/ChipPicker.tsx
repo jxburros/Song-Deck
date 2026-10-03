@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
-import { getGenre, listTags, type GenreProfile, type InstrumentProfile, type StyleTag, type TagKind } from '@songdeck/core';
+import {
+  getGenre,
+  listTags,
+  type GenreProfile,
+  type InstrumentProfile,
+  type StyleTag,
+  type TagKind,
+} from '@songdeck/core';
 import { Icon } from '../../ui/icons';
 
 /**
@@ -19,7 +26,11 @@ export interface PickItem {
   keywords?: string;
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9&]+/g, ' ').trim();
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9&]+/g, ' ')
+    .trim();
 
 export function ChipPicker({
   items,
@@ -61,7 +72,13 @@ export function ChipPicker({
     }
     if (q) {
       // Best matches first: names that start with the query.
-      for (const [g, list] of byGroup) byGroup.set(g, [...list].sort((a, b) => Number(!norm(a.label).startsWith(q)) - Number(!norm(b.label).startsWith(q))));
+      for (const [g, list] of byGroup)
+        byGroup.set(
+          g,
+          [...list].sort(
+            (a, b) => Number(!norm(a.label).startsWith(q)) - Number(!norm(b.label).startsWith(q)),
+          ),
+        );
     }
     return [...byGroup.entries()];
   }, [items, q, maxResults]);
@@ -71,7 +88,14 @@ export function ChipPicker({
     <div className="cb-picker" data-testid={testId}>
       <div className="cb-search">
         <Icon name="zoomIn" size={14} />
-        <input className="input sm" type="search" value={query} placeholder={placeholder ?? 'Search…'} aria-label={label} onChange={(e) => setQuery(e.target.value)} />
+        <input
+          className="input sm"
+          type="search"
+          value={query}
+          placeholder={placeholder ?? 'Search…'}
+          aria-label={label}
+          onChange={(e) => setQuery(e.target.value)}
+        />
         {query && <span className="small dim nowrap">{total} found</span>}
       </div>
       {groups.length === 0 && <div className="small muted">Nothing matches “{query}”.</div>}
@@ -86,7 +110,14 @@ export function ChipPicker({
                 {shown.map((it) => {
                   const on = selected.includes(it.id);
                   return (
-                    <button key={it.id} type="button" className={`chip ${on ? 'on' : ''}`} aria-pressed={on} title={it.title} onClick={() => onToggle(it.id)}>
+                    <button
+                      key={it.id}
+                      type="button"
+                      className={`chip ${on ? 'on' : ''}`}
+                      aria-pressed={on}
+                      title={it.title}
+                      onClick={() => onToggle(it.id)}
+                    >
                       {on && <Icon name="check" size={11} />}
                       {it.label}
                       {it.hint && <span className="cb-chip-hint">{it.hint}</span>}
@@ -94,7 +125,12 @@ export function ChipPicker({
                   );
                 })}
                 {!expanded && list.length > shown.length && (
-                  <button type="button" className="chip cb-more" onClick={() => setOpen((o) => ({ ...o, [group]: true }))} aria-label={`Show all ${list.length} in ${group}`}>
+                  <button
+                    type="button"
+                    className="chip cb-more"
+                    onClick={() => setOpen((o) => ({ ...o, [group]: true }))}
+                    aria-label={`Show all ${list.length} in ${group}`}
+                  >
                     +{list.length - shown.length} more
                   </button>
                 )}
@@ -130,13 +166,25 @@ export function tagItems(kinds: readonly TagKind[], genres?: GenreProfile[]): Pi
   const multi = kinds.length > 1;
   const tags = kinds.flatMap((k) => listTags(k));
   return tags.map((t) => {
-    const group = multi ? (t.group && t.group !== KIND_LABEL[t.kind] ? `${KIND_LABEL[t.kind]} · ${t.group}` : KIND_LABEL[t.kind]) : t.group ?? KIND_LABEL[t.kind];
+    const group = multi
+      ? t.group && t.group !== KIND_LABEL[t.kind]
+        ? `${KIND_LABEL[t.kind]} · ${t.group}`
+        : KIND_LABEL[t.kind]
+      : (t.group ?? KIND_LABEL[t.kind]);
     return {
       id: t.id,
       label: t.name,
       group,
       hint: t.kind === 'style' ? parentHint(t, genres) : undefined,
-      title: [t.description, t.kind === 'style' && t.parents?.length ? `Pulls the blend toward ${parentHint(t, genres)!.slice(2)}` : ''].filter(Boolean).join(' — ') || undefined,
+      title:
+        [
+          t.description,
+          t.kind === 'style' && t.parents?.length
+            ? `Pulls the blend toward ${parentHint(t, genres)!.slice(2)}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' — ') || undefined,
       keywords: [t.kind, ...(t.aliases ?? []), t.description ?? ''].join(' '),
     };
   });
@@ -170,11 +218,19 @@ export function genreItems(builtIn: readonly GenreProfile[], custom: readonly Ge
   const items = all.map((g) => ({
     id: g.id,
     label: g.name,
-    group: customIds.has(g.id) ? 'Your genres' : STYLE_FAMILY[g.rhythm.drumStyle] ?? 'More genres',
+    group: customIds.has(g.id) ? 'Your genres' : (STYLE_FAMILY[g.rhythm.drumStyle] ?? 'More genres'),
     title: g.description,
     keywords: [g.description ?? '', ...(g.tags ?? [])].join(' '),
   }));
-  const order = ['Your genres', 'Rock & guitar', 'Pop & electronic', 'Hip-hop & R&B', 'Jazz, folk & country', 'Orchestral & cinematic', 'More genres'];
+  const order = [
+    'Your genres',
+    'Rock & guitar',
+    'Pop & electronic',
+    'Hip-hop & R&B',
+    'Jazz, folk & country',
+    'Orchestral & cinematic',
+    'More genres',
+  ];
   return items.sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
 }
 
@@ -193,11 +249,30 @@ const FAMILY_LABEL: Record<string, string> = {
 };
 
 /** Instruments as picker items, grouped by family; custom/plugin instruments first. */
-export function instrumentItems(builtIn: readonly InstrumentProfile[], custom: readonly InstrumentProfile[]): PickItem[] {
+export function instrumentItems(
+  builtIn: readonly InstrumentProfile[],
+  custom: readonly InstrumentProfile[],
+): PickItem[] {
   const customIds = new Set(custom.map((i) => i.id));
   const all = [...custom, ...builtIn.filter((i) => !customIds.has(i.id))];
-  const order = ['Your instruments', 'Drums & percussion', 'Bass', 'Guitars', 'Keys', 'Strings', 'Brass & winds', 'Synths', 'Voices', 'More'];
+  const order = [
+    'Your instruments',
+    'Drums & percussion',
+    'Bass',
+    'Guitars',
+    'Keys',
+    'Strings',
+    'Brass & winds',
+    'Synths',
+    'Voices',
+    'More',
+  ];
   return all
-    .map((i) => ({ id: i.id, label: i.name, group: customIds.has(i.id) ? 'Your instruments' : FAMILY_LABEL[i.family] ?? 'More', keywords: `${i.family} ${i.defaultRole}` }))
+    .map((i) => ({
+      id: i.id,
+      label: i.name,
+      group: customIds.has(i.id) ? 'Your instruments' : (FAMILY_LABEL[i.family] ?? 'More'),
+      keywords: `${i.family} ${i.defaultRole}`,
+    }))
     .sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
 }

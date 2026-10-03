@@ -16,7 +16,10 @@
   cursor: pointer;
   white-space: nowrap;
   user-select: none;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
 }
 .btn:hover:not(:disabled) {
   background: var(--bg-elev-3);
@@ -262,11 +265,31 @@
   border: 1px solid var(--border);
   white-space: nowrap;
 }
-.badge.accent { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
-.badge.ai { background: var(--ai-soft); color: var(--ai); border-color: transparent; }
-.badge.success { background: var(--success-soft); color: var(--success); border-color: transparent; }
-.badge.danger { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
-.badge.warning { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
+.badge.accent {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+.badge.ai {
+  background: var(--ai-soft);
+  color: var(--ai);
+  border-color: transparent;
+}
+.badge.success {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: transparent;
+}
+.badge.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: transparent;
+}
+.badge.warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: transparent;
+}
 
 .tabs {
   display: flex;
@@ -478,9 +501,15 @@
   gap: 8px;
   align-items: flex-start;
 }
-.toast.error { border-color: color-mix(in srgb, var(--danger) 60%, transparent); }
-.toast.success { border-color: color-mix(in srgb, var(--success) 60%, transparent); }
-.toast.warning { border-color: color-mix(in srgb, var(--warning) 60%, transparent); }
+.toast.error {
+  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+}
+.toast.success {
+  border-color: color-mix(in srgb, var(--success) 60%, transparent);
+}
+.toast.warning {
+  border-color: color-mix(in srgb, var(--warning) 60%, transparent);
+}
 
 .empty-state {
   display: flex;
@@ -560,8 +589,14 @@
   gap: 8px;
   align-items: center;
 }
-.dataflow-list .yes { color: var(--success); font-weight: 700; }
-.dataflow-list .no { color: var(--text-dim); font-weight: 700; }
+.dataflow-list .yes {
+  color: var(--success);
+  font-weight: 700;
+}
+.dataflow-list .no {
+  color: var(--text-dim);
+  font-weight: 700;
+}
 
 .meter {
   width: 6px;
@@ -575,7 +610,13 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, var(--success) 0%, var(--success) 65%, var(--warning) 85%, var(--danger) 100%);
+  background: linear-gradient(
+    to top,
+    var(--success) 0%,
+    var(--success) 65%,
+    var(--warning) 85%,
+    var(--danger) 100%
+  );
 }
 
 .spinner {

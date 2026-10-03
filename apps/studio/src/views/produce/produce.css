@@ -121,7 +121,9 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.12s, background 0.12s;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
 }
 .pd-choice:hover {
   border-color: var(--border-strong);

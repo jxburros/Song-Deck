@@ -38,12 +38,23 @@ export interface OnsetEnvelopeOptions {
 /** Frames by which the flux peak precedes the true onset (window leading-edge effect), compensated. */
 const ALIGN_FRAMES = 1;
 
-export function onsetEnvelopeFromSignal(x: Float32Array, sr: number, opts: OnsetEnvelopeOptions = {}): OnsetEnvelope {
+export function onsetEnvelopeFromSignal(
+  x: Float32Array,
+  sr: number,
+  opts: OnsetEnvelopeOptions = {},
+): OnsetEnvelope {
   const fftSize = pow2ForDuration(opts.windowSeconds ?? 0.046, sr, 256, 8192);
   const hop = Math.max(1, Math.round((opts.hopSeconds ?? 0.0116) * sr));
   const spec = magnitudeSpectrogram(x, sr, { fftSize, hop });
   const numBands = opts.numBands ?? 40;
-  const fb = logFilterbank(numBands, opts.minHz ?? 30, Math.min(opts.maxHz ?? 11000, sr * 0.48), fftSize, sr, false);
+  const fb = logFilterbank(
+    numBands,
+    opts.minHz ?? 30,
+    Math.min(opts.maxHz ?? 11000, sr * 0.48),
+    fftSize,
+    sr,
+    false,
+  );
   const bands = bandEnergies(spec, fb);
   const frames = spec.numFrames;
   const energy = new Float32Array(frames);
@@ -126,7 +137,11 @@ export interface PeakPickOptions {
 }
 
 /** Adaptive-threshold peak picking (Böck et al.); returns frame indices. */
-export function pickOnsetPeaks(env: ArrayLike<number>, hopSeconds: number, o: PeakPickOptions = {}): number[] {
+export function pickOnsetPeaks(
+  env: ArrayLike<number>,
+  hopSeconds: number,
+  o: PeakPickOptions = {},
+): number[] {
   const f = (s: number): number => Math.max(0, Math.round(s / hopSeconds));
   const preMax = f(o.preMax ?? 0.03);
   const postMax = Math.max(1, f(o.postMax ?? 0.03));
@@ -177,7 +192,8 @@ export interface OnsetResult {
 /** Detect note/drum onsets (seconds). */
 export function detectOnsets(buf: AudioData, opts: OnsetOptions = {}): OnsetResult {
   const { x, sr } = prepareMono(buf);
-  if (x.length === 0) return { times: [], strengths: [], envelope: new Float32Array(0), hopSeconds: opts.hopSeconds ?? 0.0116 };
+  if (x.length === 0)
+    return { times: [], strengths: [], envelope: new Float32Array(0), hopSeconds: opts.hopSeconds ?? 0.0116 };
   const env = onsetEnvelopeFromSignal(x, sr, opts);
   const sens = clamp(opts.sensitivity ?? 0.5, 0, 1);
   const peaks = pickOnsetPeaks(env.envelope, env.hopSeconds, {

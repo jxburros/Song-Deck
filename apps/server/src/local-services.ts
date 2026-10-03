@@ -37,7 +37,9 @@ export interface LocalServicesOptions {
 }
 
 /** Every target to probe, in display order (Ollama and LM Studio from their own settings). */
-export function localServiceTargets(opts: Pick<LocalServicesOptions, 'ollamaUrl' | 'lmStudioUrl' | 'extra'>): LocalServiceTarget[] {
+export function localServiceTargets(
+  opts: Pick<LocalServicesOptions, 'ollamaUrl' | 'lmStudioUrl' | 'extra'>,
+): LocalServiceTarget[] {
   const out: LocalServiceTarget[] = [];
   if (opts.ollamaUrl) out.push({ presetId: 'ollama', baseUrl: opts.ollamaUrl, kind: 'ollama' });
   if (opts.lmStudioUrl) out.push({ presetId: 'lm-studio', baseUrl: opts.lmStudioUrl, kind: 'openai' });
@@ -54,7 +56,10 @@ export class LocalServices {
 
   async scan(): Promise<{ services: DetectedLocalService[]; scannedAt: string }> {
     // Local servers answer in milliseconds; keep the scan snappy even when a port hangs.
-    const services = await detectLocalServices(this.targets, { fetch: this.opts.fetch, timeoutMs: Math.min(this.opts.timeoutMs, 1500) });
+    const services = await detectLocalServices(this.targets, {
+      fetch: this.opts.fetch,
+      timeoutMs: Math.min(this.opts.timeoutMs, 1500),
+    });
     return { services, scannedAt: new Date().toISOString() };
   }
 }
@@ -65,7 +70,11 @@ export interface ConnectProbeDeps {
   jsonLimit: number;
 }
 
-export function registerLocalServiceRoutes(router: Router, services: LocalServices, connect: ConnectProbeDeps): void {
+export function registerLocalServiceRoutes(
+  router: Router,
+  services: LocalServices,
+  connect: ConnectProbeDeps,
+): void {
   router.get('/api/local-services', async ({ res }) => {
     sendJson(res, 200, await services.scan());
   });
@@ -75,16 +84,22 @@ export function registerLocalServiceRoutes(router: Router, services: LocalServic
     if (!isPlainObject(body)) throw badRequest('Body must be a JSON object');
     const presetId = body.presetId;
     const secret = typeof body.secret === 'string' ? body.secret.trim() : '';
-    if (typeof presetId !== 'string' || !CONNECTABLE_PRESET_IDS.includes(presetId)) throw badRequest(`presetId must be one of ${CONNECTABLE_PRESET_IDS.join(', ')}`);
+    if (typeof presetId !== 'string' || !CONNECTABLE_PRESET_IDS.includes(presetId))
+      throw badRequest(`presetId must be one of ${CONNECTABLE_PRESET_IDS.join(', ')}`);
     if (!secret || secret.length > 4096) throw badRequest('secret is required');
     const ref = `connect-probe:${presetId}`;
-    const transport = new DirectTransport(new MemoryCredentialStore({ [ref]: secret }), { fetch: connect.fetch });
+    const transport = new DirectTransport(new MemoryCredentialStore({ [ref]: secret }), {
+      fetch: connect.fetch,
+    });
     try {
       const result = await probeProvider(presetId, { transport, credentialRef: ref, signal });
       sendJson(res, 200, { ok: true, result });
     } catch (err) {
       const pe = toProviderError(err);
-      sendJson(res, 200, { ok: false, error: { kind: pe.kind, ...(pe.status ? { status: pe.status } : {}), message: pe.message } });
+      sendJson(res, 200, {
+        ok: false,
+        error: { kind: pe.kind, ...(pe.status ? { status: pe.status } : {}), message: pe.message },
+      });
     }
   });
 }

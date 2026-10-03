@@ -11,8 +11,28 @@ export const E_MINOR: KeySignature = { tonic: 4, mode: 'minor' };
 const BAR = 1920;
 const Q = 480;
 
-function track(id: string, name: string, role: Track['role'], instrumentId: string, midiChannel: number, notes: Note[], stemGroup: Track['stemGroup']): Track {
-  return { id, name, kind: 'midi', role, instrumentId, constraints: {}, notes, clips: [], color: '#888888', stemGroup, midiChannel };
+function track(
+  id: string,
+  name: string,
+  role: Track['role'],
+  instrumentId: string,
+  midiChannel: number,
+  notes: Note[],
+  stemGroup: Track['stemGroup'],
+): Track {
+  return {
+    id,
+    name,
+    kind: 'midi',
+    role,
+    instrumentId,
+    constraints: {},
+    notes,
+    clips: [],
+    color: '#888888',
+    stemGroup,
+    midiChannel,
+  };
 }
 
 /**
@@ -23,7 +43,13 @@ function track(id: string, name: string, role: Track['role'], instrumentId: stri
  * Chords: Em C G D, one per bar, repeating.
  */
 export function makeSong(): Song {
-  const song = createEmptySong({ title: 'Fixture Song', bpm: 120, key: E_MINOR, id: 'song_fixture', seed: 42 });
+  const song = createEmptySong({
+    title: 'Fixture Song',
+    bpm: 120,
+    key: E_MINOR,
+    id: 'song_fixture',
+    seed: 42,
+  });
   song.sections = [
     { id: 'sec_intro', name: 'Intro', kind: 'intro', bars: 4, energy: 30 },
     { id: 'sec_verse', name: 'Verse', kind: 'verse', bars: 8, energy: 45 },
@@ -42,12 +68,25 @@ export function makeSong(): Song {
   for (let bar = 0; bar < 20; bar++) {
     const root = bassRoots[bar % 4];
     for (let beat = 0; beat < 4; beat++) {
-      bass.push({ id: `b_${bar}_${beat}`, pitch: root, tick: bar * BAR + beat * Q, duration: Q, velocity: 96 });
-      drums.push({ id: `h_${bar}_${beat}`, pitch: 42, tick: bar * BAR + beat * Q, duration: 120, velocity: 70 });
+      bass.push({
+        id: `b_${bar}_${beat}`,
+        pitch: root,
+        tick: bar * BAR + beat * Q,
+        duration: Q,
+        velocity: 96,
+      });
+      drums.push({
+        id: `h_${bar}_${beat}`,
+        pitch: 42,
+        tick: bar * BAR + beat * Q,
+        duration: 120,
+        velocity: 70,
+      });
     }
     drums.push({ id: `k_${bar}`, pitch: 36, tick: bar * BAR, duration: 120, velocity: 110 });
     drums.push({ id: `s_${bar}`, pitch: 38, tick: bar * BAR + 2 * Q, duration: 120, velocity: 100 });
-    for (const p of triads[bar % 4]) piano.push({ id: `p_${bar}_${p}`, pitch: p, tick: bar * BAR, duration: BAR, velocity: 70 });
+    for (const p of triads[bar % 4])
+      piano.push({ id: `p_${bar}_${p}`, pitch: p, tick: bar * BAR, duration: BAR, velocity: 70 });
   }
   // Chorus vocal: "Hold on to the light" ×2 (bars 13–16 and 17–20).
   const words = ['Hold', 'on', 'to', 'the', 'light-', 'ning'];
@@ -77,15 +116,34 @@ export function makeSong(): Song {
     song.mixer.channels[t.id] = defaultChannelStrip();
   }
   song.lyrics = [
-    { id: 'ly_0', sectionId: 'sec_chorus', text: 'Hold on to the lightning', trackId: 'trk_vocal', author: 'human' },
-    { id: 'ly_1', sectionId: 'sec_chorus', text: 'Hold on to the lightning', trackId: 'trk_vocal', author: 'human' },
+    {
+      id: 'ly_0',
+      sectionId: 'sec_chorus',
+      text: 'Hold on to the lightning',
+      trackId: 'trk_vocal',
+      author: 'human',
+    },
+    {
+      id: 'ly_1',
+      sectionId: 'sec_chorus',
+      text: 'Hold on to the lightning',
+      trackId: 'trk_vocal',
+      author: 'human',
+    },
   ];
   const symbols = ['Em', 'C', 'G', 'D'];
   const chords: ChordEvent[] = [];
   for (let bar = 0; bar < 20; bar++) {
     const symbol = symbols[bar % 4];
     const spec = parseChordSymbol(symbol)!;
-    chords.push({ id: `ch_${bar}`, tick: bar * BAR, duration: BAR, ...spec, symbol, roman: chordToRoman(spec, E_MINOR) });
+    chords.push({
+      id: `ch_${bar}`,
+      tick: bar * BAR,
+      duration: BAR,
+      ...spec,
+      symbol,
+      roman: chordToRoman(spec, E_MINOR),
+    });
   }
   song.chords = chords;
   return song;

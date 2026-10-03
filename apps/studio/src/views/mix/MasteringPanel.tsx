@@ -10,7 +10,15 @@ import { useMixCache } from '../../engine/mix-cache';
 import { mixHash } from '../../engine/mix-render';
 import { masteringCandidates } from '../../engine/mix-providers';
 import { useAiRuntime } from '../../engine/ai';
-import { METHOD_LABELS, allTargets, currentMaster, fmtLufs, latestMixAnalysis, targetInfo, type TargetInfo } from '../../engine/mix-mastering';
+import {
+  METHOD_LABELS,
+  allTargets,
+  currentMaster,
+  fmtLufs,
+  latestMixAnalysis,
+  targetInfo,
+  type TargetInfo,
+} from '../../engine/mix-mastering';
 import { deliverFile, MIME, songFileBase } from '../../engine/export-files';
 import { formatTime } from '../../hooks';
 import { Badge, Button, Progress, Slider, Spinner, Toggle } from '../../ui/kit';
@@ -31,8 +39,16 @@ function fmtCompact(v: number): string {
 }
 
 const METHODS: { value: MasteringSettings['method']; short: string; hint: string }[] = [
-  { value: 'builtin', short: 'Built-in DSP', hint: 'EQ, glue compression, width, true-peak limiting, loudness targeting — on this device' },
-  { value: 'local-ai', short: 'Local AI', hint: 'A local mastering model (e.g. a mastering bridge on this machine)' },
+  {
+    value: 'builtin',
+    short: 'Built-in DSP',
+    hint: 'EQ, glue compression, width, true-peak limiting, loudness targeting — on this device',
+  },
+  {
+    value: 'local-ai',
+    short: 'Local AI',
+    hint: 'A local mastering model (e.g. a mastering bridge on this machine)',
+  },
   { value: 'cloud', short: 'Cloud', hint: 'A cloud mastering service — the mix leaves this device' },
   { value: 'external', short: 'External', hint: 'Any configured mastering provider or plugin' },
   { value: 'none', short: 'None', hint: 'User export: deliver the unmastered mix as-is' },
@@ -77,12 +93,47 @@ function TaskLine({ id, onDone }: { id: string | null; onDone?: () => void }) {
 }
 
 /** Loudness numbers for the unmastered mix, the master, and the target. */
-function LoudnessTable({ mix, master, target, mixCurrent, masterStale }: { mix?: LoudnessReport; master?: LoudnessReport; target: TargetInfo; mixCurrent: boolean; masterStale: boolean }) {
-  const rows: { label: string; unit: string; get: (r: LoudnessReport) => number; target?: number; hint: string }[] = [
-    { label: 'Integrated', unit: 'LUFS', get: (r) => r.integratedLufs, target: target.lufs, hint: 'Programme loudness (BS.1770 gated)' },
-    { label: 'True peak', unit: 'dBTP', get: (r) => r.truePeakDb, target: target.truePeakDb, hint: '4× oversampled inter-sample peak' },
+function LoudnessTable({
+  mix,
+  master,
+  target,
+  mixCurrent,
+  masterStale,
+}: {
+  mix?: LoudnessReport;
+  master?: LoudnessReport;
+  target: TargetInfo;
+  mixCurrent: boolean;
+  masterStale: boolean;
+}) {
+  const rows: {
+    label: string;
+    unit: string;
+    get: (r: LoudnessReport) => number;
+    target?: number;
+    hint: string;
+  }[] = [
+    {
+      label: 'Integrated',
+      unit: 'LUFS',
+      get: (r) => r.integratedLufs,
+      target: target.lufs,
+      hint: 'Programme loudness (BS.1770 gated)',
+    },
+    {
+      label: 'True peak',
+      unit: 'dBTP',
+      get: (r) => r.truePeakDb,
+      target: target.truePeakDb,
+      hint: '4× oversampled inter-sample peak',
+    },
     { label: 'Loudness range', unit: 'LU', get: (r) => r.lra, hint: 'EBU R128 LRA (dynamics over time)' },
-    { label: 'Short-term max', unit: 'LUFS', get: (r) => r.shortTermMaxLufs, hint: 'Loudest 3-second window' },
+    {
+      label: 'Short-term max',
+      unit: 'LUFS',
+      get: (r) => r.shortTermMaxLufs,
+      hint: 'Loudest 3-second window',
+    },
     { label: 'Momentary max', unit: 'LUFS', get: (r) => r.momentaryMaxLufs, hint: 'Loudest 400 ms window' },
     { label: 'Sample peak', unit: 'dBFS', get: (r) => r.samplePeakDb, hint: 'Highest sample value' },
   ];
@@ -104,7 +155,9 @@ function LoudnessTable({ mix, master, target, mixCurrent, masterStale }: { mix?:
           <th className="num">
             Mix{mix && !mixCurrent && <span title="The mix changed since this analysis"> *</span>}
           </th>
-          <th className="num">Master{master && masterStale && <span title="The mix changed since this master"> *</span>}</th>
+          <th className="num">
+            Master{master && masterStale && <span title="The mix changed since this master"> *</span>}
+          </th>
           <th className="num">Target</th>
         </tr>
       </thead>
@@ -136,9 +189,21 @@ function LoudnessScale({ mix, master, target }: { mix?: number; master?: number;
   return (
     <div className="mx-lufs-scale" aria-hidden>
       <div className="mx-lufs-track">
-        <div className="mx-lufs-target" style={{ left: pct(target) }} title={`Target ${fmtLufs(target)} LUFS`} />
-        {mix !== undefined && mix > -100 && <div className="mx-lufs-mark mix" style={{ left: pct(mix) }} title={`Mix ${fmtLufs(mix)} LUFS`} />}
-        {master !== undefined && master > -100 && <div className="mx-lufs-mark master" style={{ left: pct(master) }} title={`Master ${fmtLufs(master)} LUFS`} />}
+        <div
+          className="mx-lufs-target"
+          style={{ left: pct(target) }}
+          title={`Target ${fmtLufs(target)} LUFS`}
+        />
+        {mix !== undefined && mix > -100 && (
+          <div className="mx-lufs-mark mix" style={{ left: pct(mix) }} title={`Mix ${fmtLufs(mix)} LUFS`} />
+        )}
+        {master !== undefined && master > -100 && (
+          <div
+            className="mx-lufs-mark master"
+            style={{ left: pct(master) }}
+            title={`Master ${fmtLufs(master)} LUFS`}
+          />
+        )}
       </div>
       <div className="row between small dim mono">
         {[-32, -24, -18, -14, -9, -4].map((v) => (
@@ -149,7 +214,15 @@ function LoudnessScale({ mix, master, target }: { mix?: number; master?: number;
   );
 }
 
-function ABSection({ song, mixReport, masterReport }: { song: Song; mixReport?: LoudnessReport; masterReport?: LoudnessReport }) {
+function ABSection({
+  song,
+  mixReport,
+  masterReport,
+}: {
+  song: Song;
+  mixReport?: LoudnessReport;
+  masterReport?: LoudnessReport;
+}) {
   useABState();
   const pos = useABPosition();
   const project = useStudio((s) => s.project);
@@ -165,7 +238,8 @@ function ABSection({ song, mixReport, masterReport }: { song: Song; mixReport?: 
 
   // Keep the player loaded with the newest buffers.
   useEffect(() => {
-    if (cache.mix && cache.mix.projectId === project?.meta.id) abPlayer.load('A', cache.mix.audio, `mix:${cache.mix.hash}`);
+    if (cache.mix && cache.mix.projectId === project?.meta.id)
+      abPlayer.load('A', cache.mix.audio, `mix:${cache.mix.hash}`);
     else abPlayer.load('A', null, null);
   }, [cache.mix, project?.meta.id]);
 
@@ -191,7 +265,12 @@ function ABSection({ song, mixReport, masterReport }: { song: Song; mixReport?: 
       abPlayer.load('B', null, null);
       return;
     }
-    if (cache.master && cache.master.projectId === project?.meta.id && cache.master.assetId === master.meta.id) abPlayer.load('B', cache.master.audio, master.meta.id);
+    if (
+      cache.master &&
+      cache.master.projectId === project?.meta.id &&
+      cache.master.assetId === master.meta.id
+    )
+      abPlayer.load('B', cache.master.audio, master.meta.id);
     else if (abPlayer.loadedId('B') !== master.meta.id) void loadMaster();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cache.master, master?.meta.id, project?.meta.id]);
@@ -224,26 +303,48 @@ function ABSection({ song, mixReport, masterReport }: { song: Song; mixReport?: 
       </div>
       {!mixReady && (
         <div className="callout small" style={{ marginBottom: 8 }}>
-          {mixOld ? 'The mix changed since the last render. ' : ''}A needs a render of the current unmastered mix.{' '}
+          {mixOld ? 'The mix changed since the last render. ' : ''}A needs a render of the current unmastered
+          mix.{' '}
           <Button size="sm" variant="ghost" icon="play" onClick={prepare} disabled={isTaskActive(prepRecord)}>
             Render mix for A/B
           </Button>
         </div>
       )}
       <TaskLine id={prepTask} onDone={() => setPrepTask(null)} />
-      {!master && <div className="small dim" style={{ marginBottom: 8 }}>B appears after you master the song.</div>}
+      {!master && (
+        <div className="small dim" style={{ marginBottom: 8 }}>
+          B appears after you master the song.
+        </div>
+      )}
       <div className="mx-ab-switch" role="radiogroup" aria-label="Listen to">
-        <button type="button" role="radio" aria-checked={side === 'A'} className={`mx-ab-btn ${side === 'A' ? 'on' : ''}`} disabled={!abPlayer.has('A')} onClick={() => choose('A')}>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={side === 'A'}
+          className={`mx-ab-btn ${side === 'A' ? 'on' : ''}`}
+          disabled={!abPlayer.has('A')}
+          onClick={() => choose('A')}
+        >
           <span className="mx-ab-letter">A</span>
           <span>
             Mix<span className="small dim"> · unmastered{mixOld ? ' (older)' : ''}</span>
           </span>
         </button>
-        <button type="button" role="radio" aria-checked={side === 'B'} className={`mx-ab-btn ${side === 'B' ? 'on' : ''}`} disabled={!abPlayer.has('B')} onClick={() => choose('B')}>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={side === 'B'}
+          className={`mx-ab-btn ${side === 'B' ? 'on' : ''}`}
+          disabled={!abPlayer.has('B')}
+          onClick={() => choose('B')}
+        >
           <span className="mx-ab-letter">B</span>
           <span>
             Master{loading ? <Spinner /> : null}
-            <span className="small dim"> · {master ? (master.stale ? 'out of date' : 'current') : 'none yet'}</span>
+            <span className="small dim">
+              {' '}
+              · {master ? (master.stale ? 'out of date' : 'current') : 'none yet'}
+            </span>
           </span>
         </button>
       </div>
@@ -258,7 +359,14 @@ function ABSection({ song, mixReport, masterReport }: { song: Song; mixReport?: 
         >
           {abPlayer.playing ? 'Pause' : 'Play'}
         </Button>
-        <Button size="sm" variant="ghost" icon="stop" disabled={!canPlay} onClick={() => abPlayer.stop()} aria-label="Stop A/B" />
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="stop"
+          disabled={!canPlay}
+          onClick={() => abPlayer.stop()}
+          aria-label="Stop A/B"
+        />
         <input
           type="range"
           className="slider grow"
@@ -307,7 +415,11 @@ export function MasteringPanel({ song }: { song: Song }) {
     if (!external) return null;
     const list = masteringCandidates(m.method);
     const ready = list.filter((c) => c.ready);
-    return { count: ready.length, names: ready.map((c) => c.name), notReady: list.filter((c) => !c.ready).map((c) => c.name) };
+    return {
+      count: ready.length,
+      names: ready.map((c) => c.name),
+      notReady: list.filter((c) => !c.ready).map((c) => c.name),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [external, m.method, aiVersion]);
 
@@ -322,22 +434,35 @@ export function MasteringPanel({ song }: { song: Song }) {
   const cache = useMixCache();
   const hash = useMemo(() => mixHash(song), [song]);
   const mixReport = analysis?.report ?? (cache.mix?.hash === hash ? cache.mix.report : undefined);
-  const masterReport = master?.report ?? (cache.master?.assetId === master?.meta.id ? cache.master?.report : undefined);
+  const masterReport =
+    master?.report ?? (cache.master?.assetId === master?.meta.id ? cache.master?.report : undefined);
   const analyzeTask = useTaskRecord(analyzeId);
   const masterTask = useTaskRecord(masterId);
 
   const analyze = () => {
     if (!project) return;
-    const t = startTask('mix.analyze', 'Analyze mix loudness', { projectId: project.meta.id, sampleRate: prefs.sampleRate });
+    const t = startTask('mix.analyze', 'Analyze mix loudness', {
+      projectId: project.meta.id,
+      sampleRate: prefs.sampleRate,
+    });
     setAnalyzeId(t.id);
   };
   const runMaster = () => {
     if (!project) return;
-    const settings: MasteringSettings = { ...m, providerId: external && providerChoice !== 'auto' ? providerChoice : m.providerId };
+    const settings: MasteringSettings = {
+      ...m,
+      providerId: external && providerChoice !== 'auto' ? providerChoice : m.providerId,
+    };
     const t = startTask(
       'mix.master',
       `Master for ${target.label} (${fmtLufs(target.lufs)} LUFS)`,
-      { projectId: project.meta.id, settings, sampleRate: prefs.sampleRate, bitDepth: prefs.bitDepth, providerChoice },
+      {
+        projectId: project.meta.id,
+        settings,
+        sampleRate: prefs.sampleRate,
+        bitDepth: prefs.bitDepth,
+        providerChoice,
+      },
       { providerId: m.method === 'builtin' ? 'internal-mastering' : providerChoice },
     );
     setMasterId(t.id);
@@ -354,7 +479,9 @@ export function MasteringPanel({ song }: { song: Song }) {
     if (!master) return;
     const bytes = await assetStore.bytes(master.meta);
     if (!bytes) return st.toast('error', 'Master audio is missing from this browser’s storage.');
-    deliverFile(`${songFileBase(song)} - Master.wav`, bytes, MIME.wav, { detail: `Master · ${target.label}` });
+    deliverFile(`${songFileBase(song)} - Master.wav`, bytes, MIME.wav, {
+      detail: `Master · ${target.label}`,
+    });
   };
 
   return (
@@ -363,7 +490,9 @@ export function MasteringPanel({ song }: { song: Song }) {
         <div className="panel-header">
           <Icon name="wave" />
           <h3 className="grow">Mastering</h3>
-          <Badge tone={m.method === 'builtin' ? 'success' : m.method === 'none' ? undefined : 'ai'}>{METHOD_LABELS[m.method]}</Badge>
+          <Badge tone={m.method === 'builtin' ? 'success' : m.method === 'none' ? undefined : 'ai'}>
+            {METHOD_LABELS[m.method]}
+          </Badge>
         </div>
         <div className="panel-body mx-master-grid">
           <div className="col">
@@ -381,7 +510,10 @@ export function MasteringPanel({ song }: { song: Song }) {
                     className={`mx-seg-btn ${m.method === x.value ? 'on' : ''}`}
                     title={`${METHOD_LABELS[x.value]} — ${x.hint}`}
                     aria-label={METHOD_LABELS[x.value]}
-                    onClick={() => m.method !== x.value && setMastering({ method: x.value }, `Mastering method: ${METHOD_LABELS[x.value]}`)}
+                    onClick={() =>
+                      m.method !== x.value &&
+                      setMastering({ method: x.value }, `Mastering method: ${METHOD_LABELS[x.value]}`)
+                    }
                   >
                     {x.short}
                   </button>
@@ -394,17 +526,28 @@ export function MasteringPanel({ song }: { song: Song }) {
                 <div className="row">
                   <span className="field-label">Provider</span>
                   <div className="grow">
-                    <ProviderPicker role="mastering" value={providerChoice} onChange={setProviderChoice} size="sm" />
+                    <ProviderPicker
+                      role="mastering"
+                      value={providerChoice}
+                      onChange={setProviderChoice}
+                      size="sm"
+                    />
                   </div>
                 </div>
                 {availability && availability.count === 0 && (
                   <div className="callout warning small">
-                    No {m.method === 'local-ai' ? 'local AI' : m.method === 'cloud' ? 'cloud' : 'external'} mastering provider is ready
-                    {availability.notReady.length ? ` (${availability.notReady.join(', ')} not configured)` : ''}. Add one in Settings → Providers (a mastering
-                    HTTP bridge or plugin). Until then <strong>Master</strong> falls back to built-in DSP mastering and records why.
+                    No {m.method === 'local-ai' ? 'local AI' : m.method === 'cloud' ? 'cloud' : 'external'}{' '}
+                    mastering provider is ready
+                    {availability.notReady.length
+                      ? ` (${availability.notReady.join(', ')} not configured)`
+                      : ''}
+                    . Add one in Settings → Providers (a mastering HTTP bridge or plugin). Until then{' '}
+                    <strong>Master</strong> falls back to built-in DSP mastering and records why.
                   </div>
                 )}
-                {availability && availability.count > 0 && <div className="small dim">Ready: {availability.names.join(', ')}</div>}
+                {availability && availability.count > 0 && (
+                  <div className="small dim">Ready: {availability.names.join(', ')}</div>
+                )}
               </div>
             )}
             {m.method === 'none' && (
@@ -425,7 +568,9 @@ export function MasteringPanel({ song }: { song: Song }) {
                     role="radio"
                     aria-checked={m.target === t.id}
                     className={`mx-target ${m.target === t.id ? 'on' : ''}`}
-                    onClick={() => m.target !== t.id && setMastering({ target: t.id }, `Mastering target: ${t.label}`)}
+                    onClick={() =>
+                      m.target !== t.id && setMastering({ target: t.id }, `Mastering target: ${t.label}`)
+                    }
                   >
                     <span className="mx-target-name">{t.label}</span>
                     <span className="mx-target-nums mono">
@@ -445,9 +590,17 @@ export function MasteringPanel({ song }: { song: Song }) {
                 step={0.05}
                 left="Darker"
                 right="Brighter"
-                format={(v) => (Math.abs(v) < 0.025 ? 'neutral' : `${v > 0 ? '+' : '−'}${Math.round(Math.abs(v) * 100)}%`)}
+                format={(v) =>
+                  Math.abs(v) < 0.025 ? 'neutral' : `${v > 0 ? '+' : '−'}${Math.round(Math.abs(v) * 100)}%`
+                }
                 onChange={setTone}
-                onCommit={(v) => v !== m.tone && setMastering({ tone: v }, `Mastering tone ${v > 0 ? 'brighter' : v < 0 ? 'darker' : 'neutral'} (${v.toFixed(2)})`)}
+                onCommit={(v) =>
+                  v !== m.tone &&
+                  setMastering(
+                    { tone: v },
+                    `Mastering tone ${v > 0 ? 'brighter' : v < 0 ? 'darker' : 'neutral'} (${v.toFixed(2)})`,
+                  )
+                }
               />
               <Slider
                 label="Width"
@@ -459,14 +612,25 @@ export function MasteringPanel({ song }: { song: Song }) {
                 right="Wide"
                 format={(v) => `${Math.round(v * 100)}%`}
                 onChange={setWidth}
-                onCommit={(v) => v !== m.width && setMastering({ width: v }, `Mastering width ${Math.round(v * 100)}%`)}
+                onCommit={(v) =>
+                  v !== m.width && setMastering({ width: v }, `Mastering width ${Math.round(v * 100)}%`)
+                }
               />
             </div>
             <div className="row wrap">
-              <Button icon="waveform" onClick={analyze} disabled={isTaskActive(analyzeTask) || !song.tracks.length}>
+              <Button
+                icon="waveform"
+                onClick={analyze}
+                disabled={isTaskActive(analyzeTask) || !song.tracks.length}
+              >
                 Analyze mix
               </Button>
-              <Button variant="primary" icon="sparkles" onClick={runMaster} disabled={isTaskActive(masterTask) || m.method === 'none' || !song.tracks.length}>
+              <Button
+                variant="primary"
+                icon="sparkles"
+                onClick={runMaster}
+                disabled={isTaskActive(masterTask) || m.method === 'none' || !song.tracks.length}
+              >
                 Master
               </Button>
               <span className="small dim">
@@ -482,9 +646,21 @@ export function MasteringPanel({ song }: { song: Song }) {
                 <h4>Loudness report</h4>
                 <span className="small dim">EBU R128 · ITU-R BS.1770</span>
               </div>
-              <LoudnessScale mix={mixReport?.integratedLufs} master={masterReport?.integratedLufs} target={target.lufs} />
-              <LoudnessTable mix={mixReport} master={masterReport} target={target} mixCurrent={!!analysis?.current} masterStale={!!master?.stale} />
-              {!mixReport && <div className="small dim">Run “Analyze mix” to measure the unmastered mix.</div>}
+              <LoudnessScale
+                mix={mixReport?.integratedLufs}
+                master={masterReport?.integratedLufs}
+                target={target.lufs}
+              />
+              <LoudnessTable
+                mix={mixReport}
+                master={masterReport}
+                target={target}
+                mixCurrent={!!analysis?.current}
+                masterStale={!!master?.stale}
+              />
+              {!mixReport && (
+                <div className="small dim">Run “Analyze mix” to measure the unmastered mix.</div>
+              )}
             </section>
             {master && (
               <div className={`card mx-master-card ${master.stale ? 'stale' : ''}`}>
@@ -494,13 +670,22 @@ export function MasteringPanel({ song }: { song: Song }) {
                     <div>
                       <div style={{ fontWeight: 600 }}>{master.meta.name}</div>
                       <div className="small dim">
-                        {master.provenance?.providerName ?? 'Built-in DSP mastering'} · {String((master.provenance?.parameters as Record<string, unknown> | undefined)?.target ?? m.target)} ·{' '}
-                        {(master.meta.sampleRate / 1000).toFixed(1)} kHz · {new Date(master.meta.createdAt).toLocaleString()}
+                        {master.provenance?.providerName ?? 'Built-in DSP mastering'} ·{' '}
+                        {String(
+                          (master.provenance?.parameters as Record<string, unknown> | undefined)?.target ??
+                            m.target,
+                        )}{' '}
+                        · {(master.meta.sampleRate / 1000).toFixed(1)} kHz ·{' '}
+                        {new Date(master.meta.createdAt).toLocaleString()}
                       </div>
                     </div>
                   </div>
                   <div className="row">
-                    {master.stale ? <Badge tone="warning">mix changed — re-master</Badge> : <Badge tone="success">current</Badge>}
+                    {master.stale ? (
+                      <Badge tone="warning">mix changed — re-master</Badge>
+                    ) : (
+                      <Badge tone="success">current</Badge>
+                    )}
                     <Button size="sm" icon="download" onClick={() => void downloadMaster()}>
                       Master.wav
                     </Button>

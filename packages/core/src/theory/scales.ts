@@ -53,7 +53,10 @@ export function scaleIndexToPitch(index: number, key: KeySignature): MidiPitch {
  * Nearest scale index at or below the pitch, plus the chromatic alteration needed
  * (0 for in-scale pitches, +1 for a raised note).
  */
-export function pitchToScaleIndex(pitch: MidiPitch, key: KeySignature): { index: number; alteration: number } {
+export function pitchToScaleIndex(
+  pitch: MidiPitch,
+  key: KeySignature,
+): { index: number; alteration: number } {
   const intervals = MODE_INTERVALS[key.mode];
   const rel = pitch - key.tonic;
   const octave = Math.floor(rel / 12);
@@ -76,7 +79,11 @@ export function transposeDiatonic(pitch: MidiPitch, steps: number, key: KeySigna
 }
 
 /** Snap a pitch to the key's scale. */
-export function snapToScale(pitch: MidiPitch, key: KeySignature, prefer: 'nearest' | 'up' | 'down' = 'nearest'): MidiPitch {
+export function snapToScale(
+  pitch: MidiPitch,
+  key: KeySignature,
+  prefer: 'nearest' | 'up' | 'down' = 'nearest',
+): MidiPitch {
   if (isInScale(pitch, key)) return pitch;
   const up = (() => {
     for (let d = 1; d < 12; d++) if (isInScale(pitch + d, key)) return pitch + d;

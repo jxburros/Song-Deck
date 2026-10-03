@@ -160,13 +160,22 @@ export function Waveform({
       }}
     >
       <canvas ref={canvas} style={{ width: '100%', height }} />
-      {region && region.end > region.start && <div className="pd-wave-region" style={{ left: pct(region.start), width: `calc(${pct(region.end)} - ${pct(region.start)})` }} />}
+      {region && region.end > region.start && (
+        <div
+          className="pd-wave-region"
+          style={{ left: pct(region.start), width: `calc(${pct(region.end)} - ${pct(region.start)})` }}
+        />
+      )}
       {markers.map((m, i) => {
         const next = markers[i + 1]?.seconds ?? duration;
         return (
           <div key={i}>
             <div className="pd-wave-marker" style={{ left: pct(m.seconds) }} />
-            <div className="pd-wave-label" style={{ left: pct(m.seconds), width: `calc(${pct(next)} - ${pct(m.seconds)})` }} title={m.label}>
+            <div
+              className="pd-wave-label"
+              style={{ left: pct(m.seconds), width: `calc(${pct(next)} - ${pct(m.seconds)})` }}
+              title={m.label}
+            >
               {m.label}
             </div>
           </div>
@@ -226,7 +235,8 @@ export function CompareDeck({
   const claim = (list = loaded) => {
     comparePlayer.setSources(owner, list);
     const preferred = useProduceUi.getState().compareActive;
-    if (preferred && comparePlayer.has(preferred) && comparePlayer.active !== preferred) comparePlayer.setActive(preferred);
+    if (preferred && comparePlayer.has(preferred) && comparePlayer.active !== preferred)
+      comparePlayer.setActive(preferred);
   };
 
   useEffect(() => {
@@ -285,10 +295,20 @@ export function CompareDeck({
     if (!keyboard) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (
+        t &&
+        (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+      )
+        return;
       if (e.metaKey || e.ctrlKey || e.altKey || comparePlayer.owner !== owner) return;
       const n = Number(e.key);
-      if (Number.isInteger(n) && n >= 1 && n <= 9 && sources[n - 1] && comparePlayer.has(sources[n - 1].key)) {
+      if (
+        Number.isInteger(n) &&
+        n >= 1 &&
+        n <= 9 &&
+        sources[n - 1] &&
+        comparePlayer.has(sources[n - 1].key)
+      ) {
         comparePlayer.setActive(sources[n - 1].key);
         useProduceUi.getState().set({ compareActive: sources[n - 1].key });
       }
@@ -298,7 +318,9 @@ export function CompareDeck({
   }, [keyboard, sources, owner]);
 
   const playing = mine && comparePlayer.playing;
-  const duration = mine ? comparePlayer.duration() : Math.max(0, ...loaded.map((l) => (l.audio.channels[0]?.length ?? 0) / l.audio.sampleRate));
+  const duration = mine
+    ? comparePlayer.duration()
+    : Math.max(0, ...loaded.map((l) => (l.audio.channels[0]?.length ?? 0) / l.audio.sampleRate));
   const active = mine ? comparePlayer.active : null;
   const activeAudio = mine ? comparePlayer.activeAudio() : (loaded[0]?.audio ?? null);
   const ready = loaded.length > 0 && !loading;
@@ -321,7 +343,13 @@ export function CompareDeck({
         >
           {playing ? 'Pause' : 'Play'}
         </Button>
-        <Button variant="ghost" icon="stop" aria-label="Stop comparison" disabled={!mine} onClick={() => comparePlayer.stop()} />
+        <Button
+          variant="ghost"
+          icon="stop"
+          aria-label="Stop comparison"
+          disabled={!mine}
+          onClick={() => comparePlayer.stop()}
+        />
         <span className="mono small pd-deck-time" data-testid="compare-position">
           {formatTime(mine ? pos : 0)} / {formatTime(duration)}
         </span>
@@ -332,7 +360,12 @@ export function CompareDeck({
             <Spinner /> Loading audio…
           </span>
         )}
-        <Toggle on={levelMatch} onChange={(v) => useProduceUi.getState().set({ compareLevelMatch: v })} label={<span className="small">Level-match</span>} title="Play every source at the quietest one’s loudness (judge production, not volume)" />
+        <Toggle
+          on={levelMatch}
+          onChange={(v) => useProduceUi.getState().set({ compareLevelMatch: v })}
+          label={<span className="small">Level-match</span>}
+          title="Play every source at the quietest one’s loudness (judge production, not volume)"
+        />
       </div>
       <div className="pd-deck-sources" role="radiogroup" aria-label="Compare sources">
         {sources.map((s, i) => {
@@ -380,7 +413,15 @@ export function CompareDeck({
 // Tasks (spec §63)
 // ---------------------------------------------------------------------------
 
-export function TaskLine({ id, onDone, compact }: { id: string | null | undefined; onDone?: (t: TaskRecord) => void; compact?: boolean }) {
+export function TaskLine({
+  id,
+  onDone,
+  compact,
+}: {
+  id: string | null | undefined;
+  onDone?: (t: TaskRecord) => void;
+  compact?: boolean;
+}) {
   const t = useTaskRecord(id);
   const status = t?.status;
   // Fire on the transition to "succeeded" only (not when a panel re-mounts with a finished task).
@@ -402,12 +443,18 @@ function TaskRow({ t, compact }: { t: TaskRecord; compact?: boolean }) {
       <div className="pd-task" role="status" aria-live="polite" data-testid="produce-task">
         <div className="row between small">
           <span className="row ellipsis" style={{ gap: 6 }}>
-            <Spinner /> <span className="ellipsis">{compact ? t.title : `${t.title} — ${t.message ?? t.status}`}</span>
+            <Spinner />{' '}
+            <span className="ellipsis">{compact ? t.title : `${t.title} — ${t.message ?? t.status}`}</span>
           </span>
           <span className="row" style={{ gap: 4 }}>
             <span className="mono dim">{Math.round(t.progress * 100)}%</span>
             {t.status === 'running' && (
-              <Button size="sm" variant="ghost" onClick={() => taskQueue.pause(t.id)} title="Pause (resumes from the last finished stem)">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => taskQueue.pause(t.id)}
+                title="Pause (resumes from the last finished stem)"
+              >
                 Pause
               </Button>
             )}
@@ -455,13 +502,20 @@ export function ProductionQueue() {
       tasks
         .filter((t) => t.type.startsWith('produce.'))
         .sort((a, b) => {
-          const act = (x: TaskRecord) => (x.status === 'running' ? 0 : x.status === 'queued' || x.status === 'paused' ? 1 : 2);
+          const act = (x: TaskRecord) =>
+            x.status === 'running' ? 0 : x.status === 'queued' || x.status === 'paused' ? 1 : 2;
           return act(a) - act(b) || b.createdAt.localeCompare(a.createdAt);
         })
         .slice(0, 8),
     [tasks],
   );
-  if (!list.length) return <div className="small dim">No production tasks yet. Guide renders, candidates and regenerations run here — cancellable, resumable and retryable.</div>;
+  if (!list.length)
+    return (
+      <div className="small dim">
+        No production tasks yet. Guide renders, candidates and regenerations run here — cancellable, resumable
+        and retryable.
+      </div>
+    );
   return (
     <div className="col" style={{ gap: 6 }}>
       {list.map((t) => (
@@ -478,7 +532,15 @@ export function ProductionQueue() {
 // Capabilities, ratings
 // ---------------------------------------------------------------------------
 
-export function CapabilityBadges({ caps, all, wanted }: { caps: Capability[]; all: Capability[]; wanted?: Set<Capability> }) {
+export function CapabilityBadges({
+  caps,
+  all,
+  wanted,
+}: {
+  caps: Capability[];
+  all: Capability[];
+  wanted?: Set<Capability>;
+}) {
   return (
     <div className="pd-caps" aria-label="Provider capabilities">
       {all.map((c) => {
@@ -498,7 +560,15 @@ export function CapabilityBadges({ caps, all, wanted }: { caps: Capability[]; al
   );
 }
 
-export function Stars({ value, onChange, label }: { value: number | undefined; onChange: (v: number | undefined) => void; label: string }) {
+export function Stars({
+  value,
+  onChange,
+  label,
+}: {
+  value: number | undefined;
+  onChange: (v: number | undefined) => void;
+  label: string;
+}) {
   return (
     <div className="pd-stars" role="radiogroup" aria-label={label}>
       {[1, 2, 3, 4, 5].map((n) => (

@@ -12,7 +12,17 @@ import type { AudioData } from '../types';
 import { chromagramFromSignal, type ChromaResult } from './chroma';
 import { applyFilterbank, cepstrum, melFilterbank } from './features';
 import { forEachStftFrame } from './stft';
-import { clamp01, cosineSimilarity, mean, median, percentile, pow2ForDuration, prepareMono, std, throwIfAborted } from './util';
+import {
+  clamp01,
+  cosineSimilarity,
+  mean,
+  median,
+  percentile,
+  pow2ForDuration,
+  prepareMono,
+  std,
+  throwIfAborted,
+} from './util';
 
 export interface StructureOptions {
   /** Beat times (s). */
@@ -61,8 +71,12 @@ function barGrid(opts: StructureOptions, duration: number): number[] {
   }
   downs = downs.filter((t) => t < duration - 0.05);
   // extend the grid to cover the whole recording
-  const barLen = downs.length >= 2 ? (downs[downs.length - 1] - downs[0]) / (downs.length - 1) : (60 / Math.max(1, opts.bpm)) * bpb;
-  while (downs.length && downs[0] - barLen > -barLen * 0.5 && downs[0] > 0.25 * barLen) downs.unshift(Math.max(0, downs[0] - barLen));
+  const barLen =
+    downs.length >= 2
+      ? (downs[downs.length - 1] - downs[0]) / (downs.length - 1)
+      : (60 / Math.max(1, opts.bpm)) * bpb;
+  while (downs.length && downs[0] - barLen > -barLen * 0.5 && downs[0] > 0.25 * barLen)
+    downs.unshift(Math.max(0, downs[0] - barLen));
   let last = downs[downs.length - 1] ?? 0;
   while (last + barLen < duration - 0.25 * barLen) {
     last += barLen;
@@ -184,7 +198,8 @@ export function segmentStructure(buf: AudioData, opts: StructureOptions): { segm
   const checker = (M: Float32Array, w: number): Float32Array => {
     const nov = new Float32Array(nBars + 1);
     let full = 0;
-    for (let a = -w; a < w; a++) for (let b = -w; b < w; b++) full += Math.exp(-0.5 * (((a + 0.5) / w) ** 2 + ((b + 0.5) / w) ** 2));
+    for (let a = -w; a < w; a++)
+      for (let b = -w; b < w; b++) full += Math.exp(-0.5 * (((a + 0.5) / w) ** 2 + ((b + 0.5) / w) ** 2));
     for (let i = 1; i < nBars; i++) {
       // cells outside the song count as "unknown" (0): partial kernels at the edges cannot spike
       let acc = 0;
@@ -193,7 +208,7 @@ export function segmentStructure(buf: AudioData, opts: StructureOptions): { segm
           const ia = i + a;
           const ib = i + b;
           if (ia < 0 || ib < 0 || ia >= nBars || ib >= nBars) continue;
-          const sign = (a < 0) === (b < 0) ? 1 : -1;
+          const sign = a < 0 === b < 0 ? 1 : -1;
           const g = Math.exp(-0.5 * (((a + 0.5) / w) ** 2 + ((b + 0.5) / w) ** 2));
           acc += sign * g * (M[ia * nBars + ib] - 0.5);
         }
@@ -239,11 +254,18 @@ export function segmentStructure(buf: AudioData, opts: StructureOptions): { segm
     return novelty[i] - Math.max(lmin, rmin);
   };
   const peaks: number[] = [];
-  for (let i = 1; i < nBars; i++) if (novelty[i] >= novelty[i - 1] && novelty[i] >= novelty[i + 1]) peaks.push(novelty[i]);
+  for (let i = 1; i < nBars; i++)
+    if (novelty[i] >= novelty[i - 1] && novelty[i] >= novelty[i + 1]) peaks.push(novelty[i]);
   // adaptive: a boundary must be at least about half as strong as the song's clear boundaries
   const thr = Math.max(0.3, 0.55 * percentile(peaks, 75));
   for (let i = 1; i < nBars; i++) {
-    if (novelty[i] >= novelty[i - 1] && novelty[i] >= novelty[i + 1] && novelty[i] > thr && prominence(i) >= 0.12) cands.push(i);
+    if (
+      novelty[i] >= novelty[i - 1] &&
+      novelty[i] >= novelty[i + 1] &&
+      novelty[i] > thr &&
+      prominence(i) >= 0.12
+    )
+      cands.push(i);
   }
   cands.sort((a, b) => novelty[b] - novelty[a]);
   const chosen: number[] = [];
@@ -255,7 +277,8 @@ export function segmentStructure(buf: AudioData, opts: StructureOptions): { segm
   const bounds = [0, ...chosen, nBars];
   type Seg = { a: number; b: number; label?: number; strength: number };
   const segs: Seg[] = [];
-  for (let i = 0; i + 1 < bounds.length; i++) segs.push({ a: bounds[i], b: bounds[i + 1], strength: i === 0 ? 1 : novelty[bounds[i]] });
+  for (let i = 0; i + 1 < bounds.length; i++)
+    segs.push({ a: bounds[i], b: bounds[i + 1], strength: i === 0 ? 1 : novelty[bounds[i]] });
   // clustering
   const segMean = (s: Seg): Float32Array => {
     const v = new Float32Array(25);
@@ -271,7 +294,9 @@ export function segmentStructure(buf: AudioData, opts: StructureOptions): { segm
   };
   const means = segs.map(segMean);
   const sim = (i: number, j: number): number => {
-    const lenRatio = Math.min(segs[i].b - segs[i].a, segs[j].b - segs[j].a) / Math.max(segs[i].b - segs[i].a, segs[j].b - segs[j].a);
+    const lenRatio =
+      Math.min(segs[i].b - segs[i].a, segs[j].b - segs[j].a) /
+      Math.max(segs[i].b - segs[i].a, segs[j].b - segs[j].a);
     const c = (cosineSimilarity(means[i], means[j]) + 1) / 2;
     return (0.5 * c + 0.5 * diagSim(segs[i], segs[j])) * (0.85 + 0.15 * lenRatio);
   };
@@ -302,14 +327,21 @@ export function segmentStructure(buf: AudioData, opts: StructureOptions): { segm
   const maxLoud = Math.max(...segLoud);
   const minLoud = Math.min(...segLoud);
   const energy = segLoud.map((l) => (maxLoud - minLoud > 0.5 ? (l - minLoud) / (maxLoud - minLoud) : 0.6));
-  const kinds = assignKinds(segs.map((s) => s.label ?? 0), energy, segs.map((s) => s.b - s.a));
+  const kinds = assignKinds(
+    segs.map((s) => s.label ?? 0),
+    energy,
+    segs.map((s) => s.b - s.a),
+  );
   const novMax = Math.max(1e-9, ...chosen.map((c) => novelty[c]));
   const segments: StructureSegment[] = segs.map((s, i) => ({
     startSeconds: Math.round(bars[s.a].start * 1000) / 1000,
     endSeconds: Math.round((s.b >= nBars ? duration : bars[s.b].start) * 1000) / 1000,
     label: String.fromCharCode(65 + Math.min(25, s.label ?? 0)),
     kind: kinds[i],
-    confidence: Math.round(clamp01(0.25 + 0.4 * (i === 0 ? 0.8 : s.strength / novMax) + 0.25 * clamp01(labelSim[i])) * 1000) / 1000,
+    confidence:
+      Math.round(
+        clamp01(0.25 + 0.4 * (i === 0 ? 0.8 : s.strength / novMax) + 0.25 * clamp01(labelSim[i])) * 1000,
+      ) / 1000,
     startBar: s.a,
     bars: s.b - s.a,
     energy: Math.round(energy[i] * 1000) / 1000,
@@ -406,7 +438,11 @@ export function assignKinds(labels: number[], energy: number[], lengths: number[
   const count = new Map<number, number>();
   labels.forEach((l) => count.set(l, (count.get(l) ?? 0) + 1));
   const labelEnergy = new Map<number, number>();
-  for (const l of count.keys()) labelEnergy.set(l, mean(labels.map((x, i) => (x === l ? energy[i] : NaN)).filter((v) => !Number.isNaN(v))));
+  for (const l of count.keys())
+    labelEnergy.set(
+      l,
+      mean(labels.map((x, i) => (x === l ? energy[i] : NaN)).filter((v) => !Number.isNaN(v))),
+    );
   const repeated = [...count.entries()].filter(([, c]) => c >= 2).map(([l]) => l);
   let chorus = -1;
   let verse = -1;
@@ -445,12 +481,13 @@ export function assignKinds(labels: number[], energy: number[], lengths: number[
         // bridge if it only appears after the first chorus, otherwise verse/chorus by energy
         const idx = labels.map((x, j) => (x === l ? j : -1)).filter((j) => j >= 0);
         const leadsIn = idx.every((j) => labels[j + 1] === chorus);
-        const chorusLen = median(labels.map((x, j) => (x === chorus ? lengths[j] : NaN)).filter((v) => !Number.isNaN(v)));
+        const chorusLen = median(
+          labels.map((x, j) => (x === chorus ? lengths[j] : NaN)).filter((v) => !Number.isNaN(v)),
+        );
         if (leadsIn && lengths[i] <= 0.75 * chorusLen) kinds[i] = 'pre-chorus';
         else if (chorus >= 0 && idx[0] > labels.indexOf(chorus)) kinds[i] = 'bridge';
         else kinds[i] = energy[i] > 0.6 ? 'chorus' : 'verse';
-      }
-      else {
+      } else {
         // unique material
         const next = labels[i + 1];
         if (i === 0) kinds[i] = 'intro';

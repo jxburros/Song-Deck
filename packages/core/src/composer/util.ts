@@ -266,7 +266,8 @@ export function metricWeight(offset: number, m: MeterInfo): number {
   if (o === 0) return 1;
   if (m.strong.includes(o)) return 0.9;
   if (m.beats.includes(o)) return 0.75;
-  const eighth = m.compound || m.denominator >= 8 ? m.unitTicks * (m.denominator >= 16 ? 2 : 1) : m.beatTicks / 2;
+  const eighth =
+    m.compound || m.denominator >= 8 ? m.unitTicks * (m.denominator >= 16 ? 2 : 1) : m.beatTicks / 2;
   if (eighth > 0 && o % eighth === 0) return 0.5;
   if (o % m.stepTicks === 0) return 0.3;
   return 0.15;
@@ -299,7 +300,11 @@ export function tonicChordSpec(key: KeySignature): { root: number; quality: Chor
 }
 
 /** Chords covering a section, clipped to it, with gaps filled by the tonic chord. */
-export function chordsForSpan(song: Pick<Song, 'chords'>, span: { startTick: number; endTick: number }, key: KeySignature): ChordEvent[] {
+export function chordsForSpan(
+  song: Pick<Song, 'chords'>,
+  span: { startTick: number; endTick: number },
+  key: KeySignature,
+): ChordEvent[] {
   const evs = song.chords
     .filter((c) => c.tick < span.endTick && c.tick + c.duration > span.startTick)
     .sort((a, b) => a.tick - b.tick);
@@ -333,7 +338,10 @@ export function chordAtIn(chords: readonly ChordEvent[], tick: number): ChordEve
 }
 
 /** Parse a chord symbol or roman numeral relative to a key. */
-export function parseHarmonyToken(token: string, key: KeySignature): { root: number; quality: ChordQuality; bass?: number } | null {
+export function parseHarmonyToken(
+  token: string,
+  key: KeySignature,
+): { root: number; quality: ChordQuality; bass?: number } | null {
   const t = token.trim();
   if (!t) return null;
   // Roman numerals first when the token looks like one (I, ii, bVII, V/V…), else a chord symbol.
@@ -344,16 +352,25 @@ export function parseHarmonyToken(token: string, key: KeySignature): { root: num
   return parseChordSymbol(t) ?? romanToChord(t, key);
 }
 
-export function chordSymbolIn(spec: { root: number; quality: ChordQuality; bass?: number }, key: KeySignature): string {
+export function chordSymbolIn(
+  spec: { root: number; quality: ChordQuality; bass?: number },
+  key: KeySignature,
+): string {
   return formatChordSymbol(spec, key);
 }
 
-export function romanIn(spec: { root: number; quality: ChordQuality; bass?: number }, key: KeySignature): string {
+export function romanIn(
+  spec: { root: number; quality: ChordQuality; bass?: number },
+  key: KeySignature,
+): string {
   return chordToRoman(spec, key);
 }
 
 /** Same chord (root, quality, bass). */
-export function sameChord(a: { root: number; quality: string; bass?: number }, b: { root: number; quality: string; bass?: number }): boolean {
+export function sameChord(
+  a: { root: number; quality: string; bass?: number },
+  b: { root: number; quality: string; bass?: number },
+): boolean {
   return a.root === b.root && a.quality === b.quality && (a.bass ?? a.root) === (b.bass ?? b.root);
 }
 
@@ -386,10 +403,14 @@ const COMPLEXITY_VALUE: Record<string, number> = { low: 0.2, medium: 0.5, high: 
  * (complexity, avoid syncopation). Tag deltas are applied here, at generation time, and never
  * stored in `song.macros`.
  */
-export function effectiveMacros(song: Pick<Song, 'macros'> & Partial<Pick<Song, 'tags' | 'blueprint'>>, track?: Track): MacroSettings {
+export function effectiveMacros(
+  song: Pick<Song, 'macros'> & Partial<Pick<Song, 'tags' | 'blueprint'>>,
+  track?: Track,
+): MacroSettings {
   const base = applyTagsToMacros({ ...defaultMacros(), ...(song.macros ?? {}) }, songTags(song));
   const m: MacroSettings = { ...base, ...(track?.macros ?? {}) };
-  if (track?.constraints?.complexity) m.complexity = COMPLEXITY_VALUE[track.constraints.complexity] ?? m.complexity;
+  if (track?.constraints?.complexity)
+    m.complexity = COMPLEXITY_VALUE[track.constraints.complexity] ?? m.complexity;
   if (track?.constraints?.avoid?.includes('syncopation')) m.syncopation = Math.min(m.syncopation, 0.05);
   for (const k of Object.keys(m) as (keyof MacroSettings)[]) m[k] = clamp01(m[k]);
   return m;
@@ -414,12 +435,9 @@ export function unitHash(str: string): number {
  * shortened; a note overlapping a protected earlier note is either dropped (`drop`) or moved to
  * start when the protected one ends (`shift`). Protected notes are never modified.
  */
-export function resolveSamePitchOverlaps<T extends { id: string; pitch: number; tick: number; duration: number }>(
-  notes: T[],
-  isProtected: (n: T) => boolean,
-  mode: 'drop' | 'shift',
-  limit = Infinity,
-): T[] {
+export function resolveSamePitchOverlaps<
+  T extends { id: string; pitch: number; tick: number; duration: number },
+>(notes: T[], isProtected: (n: T) => boolean, mode: 'drop' | 'shift', limit = Infinity): T[] {
   const sorted = [...notes].sort((a, b) => a.tick - b.tick || a.pitch - b.pitch);
   const last = new Map<number, T>();
   const out: T[] = [];

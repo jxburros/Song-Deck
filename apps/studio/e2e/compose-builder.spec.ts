@@ -34,7 +34,12 @@ test('builder: the instruments and counts you pick are exactly the tracks you ge
   await builder.getByLabel('Search instruments').fill('drum kit');
   await instruments.getByRole('button', { name: 'Drum Kit', exact: true }).click();
   await expect(builder.getByTestId('builder-instrument')).toHaveCount(3);
-  await expect(builder.getByTestId('builder-instrument').filter({ hasText: 'Acoustic Guitar' }).getByTestId('instrument-count')).toHaveText('× 2');
+  await expect(
+    builder
+      .getByTestId('builder-instrument')
+      .filter({ hasText: 'Acoustic Guitar' })
+      .getByTestId('instrument-count'),
+  ).toHaveText('× 2');
 
   // Mood (whole song), instrumental, an exact tempo.
   await builder.getByLabel('Search moods').fill('warm');
@@ -48,7 +53,9 @@ test('builder: the instruments and counts you pick are exactly the tracks you ge
   await page.getByRole('button', { name: 'Generate song' }).click();
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
 
-  const names = (await page.locator('.wb-left .track-row').allTextContents()).filter((t) => /\d+ notes/.test(t));
+  const names = (await page.locator('.wb-left .track-row').allTextContents()).filter((t) =>
+    /\d+ notes/.test(t),
+  );
   expect(names).toHaveLength(4);
   const has = (n: string) => names.filter((t) => t.includes(n)).length;
   expect(has('Acoustic Guitar')).toBe(2);
@@ -102,16 +109,25 @@ test('lyrics-first: pasted lyrics are sung, shown in Vocals and locked', async (
   await page.getByRole('button', { name: 'Generate song' }).click();
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
 
-  await page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name: 'Vocals', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Modes' })
+    .getByRole('button', { name: 'Vocals', exact: true })
+    .click();
   await page.getByRole('tab', { name: 'Lyrics' }).click();
   const verse = page.getByLabel('Lyrics for Verse 1');
-  await expect(verse).toHaveValue('Under the streetlights I wait for the rain\nCounting the cars as they carry my name');
+  await expect(verse).toHaveValue(
+    'Under the streetlights I wait for the rain\nCounting the cars as they carry my name',
+  );
   await expect(verse).toHaveAttribute('readonly', '');
   const verseSection = page.getByTestId('lyric-section').filter({ hasText: 'Verse 1' });
   await expect(verseSection.locator('.lock-btn')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByLabel('Lyrics for Chorus', { exact: true })).toHaveValue('Hold on, hold on to me\nWe were never meant to be free');
+  await expect(page.getByLabel('Lyrics for Chorus', { exact: true })).toHaveValue(
+    'Hold on, hold on to me\nWe were never meant to be free',
+  );
   // The lyric writer is the user, not an AI.
-  const rights = (await page.evaluate(`import('/src/state/store.ts').then(({ useStudio }) => useStudio.getState().project.meta.rights.lyricWriters)`)) as string[];
+  const rights = (await page.evaluate(
+    `import('/src/state/store.ts').then(({ useStudio }) => useStudio.getState().project.meta.rights.lyricWriters)`,
+  )) as string[];
   expect(rights.length).toBeGreaterThan(0);
   expect(rights.join(' ')).not.toMatch(/AI|Placeholder/);
   expect(errors, errors.join('\n')).toEqual([]);

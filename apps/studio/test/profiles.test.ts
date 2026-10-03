@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { BUILTIN_GENRES, BUILTIN_INSTRUMENTS, createEmptySong, createProject, type GenreProfile, type InstrumentProfile, type Track } from '@songdeck/core';
+import {
+  BUILTIN_GENRES,
+  BUILTIN_INSTRUMENTS,
+  createEmptySong,
+  createProject,
+  type GenreProfile,
+  type InstrumentProfile,
+  type Track,
+} from '@songdeck/core';
 import { bundleCustomProfiles, mergeById } from '../src/state/profiles';
 
 const customGenre: GenreProfile = { ...BUILTIN_GENRES[0], id: 'lofi-hiphop', name: 'Lo-fi Hip-Hop' };
@@ -16,7 +24,10 @@ describe('custom profile bundling', () => {
 
   it('bundles only the custom profiles the song uses', () => {
     const song = createEmptySong({ title: 'Portable' });
-    song.genreBlend = [{ genreId: 'lofi-hiphop', weight: 1 }, { genreId: BUILTIN_GENRES[1].id, weight: 0.5 }];
+    song.genreBlend = [
+      { genreId: 'lofi-hiphop', weight: 1 },
+      { genreId: BUILTIN_GENRES[1].id, weight: 0.5 },
+    ];
     // Only instrumentId matters here; a partial track keeps the fixture readable.
     song.tracks = [{ id: 't1', name: 'Keys', instrumentId: 'my-rhodes', notes: [] } as unknown as Track];
     const project = createProject('Portable', song);

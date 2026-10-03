@@ -31,7 +31,9 @@ if (!entry) {
   console.error('size: no entry <script type="module"> found in dist/index.html');
   process.exit(1);
 }
-const preloads = [...html.matchAll(/<link[^>]+rel="(?:modulepreload|stylesheet)"[^>]+href="\/?([^"]+)"/g)].map((m) => m[1]);
+const preloads = [
+  ...html.matchAll(/<link[^>]+rel="(?:modulepreload|stylesheet)"[^>]+href="\/?([^"]+)"/g),
+].map((m) => m[1]);
 
 const measure = (rel) => {
   const buf = readFileSync(join(dist, rel));
@@ -53,12 +55,18 @@ console.log('Largest chunks:');
 for (const c of chunks.slice(0, 15)) console.log(`  ${fmt(c.raw)}  ${c.file}`);
 console.log('\nLoaded before first paint:');
 for (const f of initial) console.log(`  ${fmt(f.raw)}  (gzip ${fmt(f.gzip).trim()})  ${f.file}`);
-console.log(`\nEntry chunk:   ${fmt(entryInfo.raw)} (gzip ${(entryInfo.gzip / KB).toFixed(1)} KB)   budget ${fmt(BUDGET.entry).trim()}`);
-console.log(`Initial total: ${fmt(initialRaw)} (gzip ${(initialGzip / KB).toFixed(1)} KB)   budget ${fmt(BUDGET.initial).trim()}`);
+console.log(
+  `\nEntry chunk:   ${fmt(entryInfo.raw)} (gzip ${(entryInfo.gzip / KB).toFixed(1)} KB)   budget ${fmt(BUDGET.entry).trim()}`,
+);
+console.log(
+  `Initial total: ${fmt(initialRaw)} (gzip ${(initialGzip / KB).toFixed(1)} KB)   budget ${fmt(BUDGET.initial).trim()}`,
+);
 
 const failures = [];
-if (entryInfo.raw > BUDGET.entry) failures.push(`entry chunk ${fmt(entryInfo.raw).trim()} exceeds ${fmt(BUDGET.entry).trim()}`);
-if (initialRaw > BUDGET.initial) failures.push(`initial load ${fmt(initialRaw).trim()} exceeds ${fmt(BUDGET.initial).trim()}`);
+if (entryInfo.raw > BUDGET.entry)
+  failures.push(`entry chunk ${fmt(entryInfo.raw).trim()} exceeds ${fmt(BUDGET.entry).trim()}`);
+if (initialRaw > BUDGET.initial)
+  failures.push(`initial load ${fmt(initialRaw).trim()} exceeds ${fmt(BUDGET.initial).trim()}`);
 if (failures.length) {
   console.error(`\nsize: over budget: ${failures.join('; ')}`);
   process.exit(1);

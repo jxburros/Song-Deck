@@ -10,7 +10,8 @@ export default function ProposalsPanel() {
   if (!proposals.length)
     return (
       <div className="small muted">
-        No proposals yet. AI edits, theory controls and assistant suggestions appear here as reviewable diffs — nothing changes until you accept.
+        No proposals yet. AI edits, theory controls and assistant suggestions appear here as reviewable diffs
+        — nothing changes until you accept.
       </div>
     );
   const pending = proposals.filter((p) => p.status === 'pending');
@@ -37,7 +38,11 @@ export default function ProposalsPanel() {
               <Badge tone="ai">{p.source === 'internal' ? 'on-device' : p.source}</Badge>
             </div>
             {p.instruction && <div className="small muted">“{p.instruction}”</div>}
-            {p.explanation && <div className="small" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{p.explanation}</div>}
+            {p.explanation && (
+              <div className="small" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>
+                {p.explanation}
+              </div>
+            )}
             <ul className="small" style={{ margin: '8px 0', paddingLeft: 16 }}>
               {p.diff.summary.slice(0, 8).map((s, i) => (
                 <li key={i}>{s}</li>
@@ -64,7 +69,13 @@ export default function ProposalsPanel() {
               <Button size="sm" variant="danger" icon="close" onClick={() => st.rejectProposal(p.id)}>
                 Reject
               </Button>
-              <Button size="sm" variant="ghost" icon="pencil" onClick={() => view(p.id)} title="Edit the proposed notes in the piano roll before accepting">
+              <Button
+                size="sm"
+                variant="ghost"
+                icon="pencil"
+                onClick={() => view(p.id)}
+                title="Edit the proposed notes in the piano roll before accepting"
+              >
                 Modify
               </Button>
             </div>
@@ -75,7 +86,11 @@ export default function ProposalsPanel() {
         <>
           <h4 style={{ marginTop: 8 }}>Earlier</h4>
           {past.map((p) => (
-            <div key={p.id} className="row small" style={{ padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+            <div
+              key={p.id}
+              className="row small"
+              style={{ padding: '4px 0', borderBottom: '1px solid var(--border)' }}
+            >
               <Icon name={p.status === 'accepted' ? 'check' : 'close'} size={12} />
               <span className="grow ellipsis">{p.title}</span>
               <Badge tone={p.status === 'accepted' ? 'success' : undefined}>{p.status}</Badge>

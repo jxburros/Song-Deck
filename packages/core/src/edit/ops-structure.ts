@@ -27,7 +27,13 @@ function uniqueSectionName(song: Song, name: string): string {
   return `${name} (copy)`;
 }
 
-function applyRestructure(song: Song, segments: Segment[], sections: Section[], c: OpContext, extra: Parameters<typeof restructure>[3] = { ids: c.ids }) {
+function applyRestructure(
+  song: Song,
+  segments: Segment[],
+  sections: Section[],
+  c: OpContext,
+  extra: Parameters<typeof restructure>[3] = { ids: c.ids },
+) {
   const res = restructure(song, segments, sections, { ...extra, ids: c.ids });
   Object.assign(song, res.song);
   return res.stats;
@@ -43,7 +49,8 @@ export function opUpdateSection(song: Song, op: RawOp, c: OpContext): boolean {
     return false;
   }
   const next: Partial<Section> = {};
-  const bad = (field: string) => c.warn('section.invalid', `${name}: invalid "${field}" ignored.`, { sectionId: section.id });
+  const bad = (field: string) =>
+    c.warn('section.invalid', `${name}: invalid "${field}" ignored.`, { sectionId: section.id });
   if (ch.name !== undefined) {
     const v = toStr(ch.name)?.trim();
     if (v) next.name = v;
@@ -76,20 +83,28 @@ export function opUpdateSection(song: Song, op: RawOp, c: OpContext): boolean {
     else bad('feel');
   }
   if (ch.progression !== undefined) {
-    if (Array.isArray(ch.progression)) next.progression = ch.progression.map((p) => toStr(p)).filter((p): p is string => !!p && p.trim() !== '');
+    if (Array.isArray(ch.progression))
+      next.progression = ch.progression
+        .map((p) => toStr(p))
+        .filter((p): p is string => !!p && p.trim() !== '');
     else bad('progression');
   }
   let bars: number | undefined;
   if (ch.bars !== undefined) {
     const v = toInt(ch.bars);
     if (v === undefined || v < 1 || v > MAX_SECTION_BARS) {
-      c.error('section.invalid', `${name}: "bars" must be an integer between 1 and ${MAX_SECTION_BARS}.`, { sectionId: section.id });
+      c.error('section.invalid', `${name}: "bars" must be an integer between 1 and ${MAX_SECTION_BARS}.`, {
+        sectionId: section.id,
+      });
       return false;
     }
     if (v !== section.bars) bars = v;
   }
   if (c.respectLocks) {
-    const structural = bars !== undefined || (next.name !== undefined && next.name !== section.name) || (next.kind !== undefined && next.kind !== section.kind);
+    const structural =
+      bars !== undefined ||
+      (next.name !== undefined && next.name !== section.name) ||
+      (next.kind !== undefined && next.kind !== section.kind);
     if (c.locks.structure && structural) {
       c.error('lock.violated', `${name}: the song structure is locked.`, { sectionId: section.id });
       return false;
@@ -100,8 +115,13 @@ export function opUpdateSection(song: Song, op: RawOp, c: OpContext): boolean {
     }
   }
   if (next.name && next.name !== section.name) {
-    const clash = song.sections.find((s) => s.id !== section.id && s.name.toLowerCase() === next.name!.toLowerCase());
-    if (clash) c.warn('section.duplicate-name', `${name}: another section is already called "${next.name}".`, { sectionId: section.id });
+    const clash = song.sections.find(
+      (s) => s.id !== section.id && s.name.toLowerCase() === next.name!.toLowerCase(),
+    );
+    if (clash)
+      c.warn('section.duplicate-name', `${name}: another section is already called "${next.name}".`, {
+        sectionId: section.id,
+      });
   }
   const updated: Section = { ...section, ...next };
   song.sections = song.sections.map((s) => (s === section ? updated : s));
@@ -123,9 +143,13 @@ export function opUpdateSection(song: Song, op: RawOp, c: OpContext): boolean {
     const sections = song.sections.map((s) => (s.id === section.id ? { ...s, bars } : s));
     const stats = applyRestructure(song, segments, sections, c);
     if (stats.droppedNotes || stats.droppedChords) {
-      c.info('section.material-removed', `${name}: shortening "${section.name}" removed ${stats.droppedNotes} note(s) and ${stats.droppedChords} chord(s).`, {
-        sectionId: section.id,
-      });
+      c.info(
+        'section.material-removed',
+        `${name}: shortening "${section.name}" removed ${stats.droppedNotes} note(s) and ${stats.droppedChords} chord(s).`,
+        {
+          sectionId: section.id,
+        },
+      );
     }
   }
   return true;
@@ -157,7 +181,11 @@ export function opInsertSection(song: Song, op: RawOp, c: OpContext): boolean {
   }
   let kind = oneOf(spec.kind, SECTION_KINDS);
   if (!kind) {
-    if (spec.kind !== undefined) c.warn('section.invalid', `${name}: unknown section kind ${JSON.stringify(spec.kind)}; using "${source?.kind ?? 'custom'}".`);
+    if (spec.kind !== undefined)
+      c.warn(
+        'section.invalid',
+        `${name}: unknown section kind ${JSON.stringify(spec.kind)}; using "${source?.kind ?? 'custom'}".`,
+      );
     kind = source?.kind ?? 'custom';
   }
   let bars = toInt(spec.bars);
@@ -172,7 +200,11 @@ export function opInsertSection(song: Song, op: RawOp, c: OpContext): boolean {
   }
   const requestedName = toStr(spec.name)?.trim() || source?.name || kindLabel(kind);
   const sectionName = uniqueSectionName(song, requestedName);
-  if (sectionName !== requestedName) c.info('section.renamed', `${name}: "${requestedName}" already exists; the new section is called "${sectionName}".`);
+  if (sectionName !== requestedName)
+    c.info(
+      'section.renamed',
+      `${name}: "${requestedName}" already exists; the new section is called "${sectionName}".`,
+    );
   const energy = toNumber(spec.energy);
   const section: Section = {
     id: c.ids.next('sec'),
@@ -228,7 +260,13 @@ export function opInsertSection(song: Song, op: RawOp, c: OpContext): boolean {
     song.lyrics = lyrics;
   }
   if (source && song.production?.sectionPrompts?.[source.id]) {
-    song.production = { ...song.production, sectionPrompts: { ...song.production.sectionPrompts, [section.id]: song.production.sectionPrompts[source.id] } };
+    song.production = {
+      ...song.production,
+      sectionPrompts: {
+        ...song.production.sectionPrompts,
+        [section.id]: song.production.sectionPrompts[source.id],
+      },
+    };
   }
   return true;
 }
@@ -238,7 +276,11 @@ export function opRemoveSection(song: Song, op: RawOp, c: OpContext): boolean {
   const section = resolveSection(song, op.section, c, name);
   if (!section) return false;
   if (song.sections.length <= 1) {
-    c.error('section.last', `${name}: "${section.name}" is the only section; a song needs at least one section.`, { sectionId: section.id });
+    c.error(
+      'section.last',
+      `${name}: "${section.name}" is the only section; a song needs at least one section.`,
+      { sectionId: section.id },
+    );
     return false;
   }
   if (c.respectLocks) {
@@ -281,7 +323,12 @@ export function opRemoveSection(song: Song, op: RawOp, c: OpContext): boolean {
     delete prompts[section.id];
     song.production = { ...song.production, sectionPrompts: prompts };
   }
-  if (stats.droppedClips) c.warn('audio.unaligned', `${name}: ${stats.droppedClips} audio clip(s) starting in "${section.name}" were removed.`, { sectionId: section.id });
+  if (stats.droppedClips)
+    c.warn(
+      'audio.unaligned',
+      `${name}: ${stats.droppedClips} audio clip(s) starting in "${section.name}" were removed.`,
+      { sectionId: section.id },
+    );
   return true;
 }
 
@@ -291,7 +338,9 @@ export function opMoveSection(song: Song, op: RawOp, c: OpContext): boolean {
   if (!section) return false;
   const to = toInt(op.to_index);
   if (to === undefined) {
-    c.error('op.malformed', `${name}: "to_index" must be a (0-based) section index.`, { sectionId: section.id });
+    c.error('op.malformed', `${name}: "to_index" must be a (0-based) section index.`, {
+      sectionId: section.id,
+    });
     return false;
   }
   if (c.respectLocks && c.locks.structure) {
@@ -300,9 +349,15 @@ export function opMoveSection(song: Song, op: RawOp, c: OpContext): boolean {
   }
   const from = song.sections.indexOf(section);
   const target = Math.max(0, Math.min(song.sections.length - 1, to));
-  if (target !== to) c.warn('section.invalid', `${name}: to_index ${to} clamped to ${target}.`, { sectionId: section.id, fixed: true });
+  if (target !== to)
+    c.warn('section.invalid', `${name}: to_index ${to} clamped to ${target}.`, {
+      sectionId: section.id,
+      fixed: true,
+    });
   if (target === from) {
-    c.info('op.no-effect', `${name}: "${section.name}" is already at index ${from}.`, { sectionId: section.id });
+    c.info('op.no-effect', `${name}: "${section.name}" is already at index ${from}.`, {
+      sectionId: section.id,
+    });
     return true;
   }
   const spans = sectionLayout(song);
@@ -314,6 +369,11 @@ export function opMoveSection(song: Song, op: RawOp, c: OpContext): boolean {
     return { kind: 'old', startBar: span.startBar, endBar: span.endBar };
   });
   const stats = applyRestructure(song, segments, order, c);
-  if (stats.trimmedNotes) c.info('section.notes-trimmed', `${name}: ${stats.trimmedNotes} note(s) sustaining across the moved section boundaries were shortened.`, { sectionId: section.id });
+  if (stats.trimmedNotes)
+    c.info(
+      'section.notes-trimmed',
+      `${name}: ${stats.trimmedNotes} note(s) sustaining across the moved section boundaries were shortened.`,
+      { sectionId: section.id },
+    );
   return true;
 }

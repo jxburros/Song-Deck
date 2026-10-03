@@ -24,6 +24,11 @@ console.log('| Foreground | Background | Use | AA min | Dark: lowest | Light: lo
 console.log('| --- | --- | --- | --- | --- | --- |');
 for (const [key, pairs] of groups) {
   const [fg, bg, min] = key.split('|');
-  const bgLabel = bg === 'surfaces' ? pairs.map((p) => `\`${p.bg}\``).join(', ') : `\`${bg}\`${pairs[0].on ? ` over ${pairs.map((p) => p.on!.replace('--', '')).join('/')}` : ''}`;
-  console.log(`| \`${fg}\` | ${bgLabel} | ${pairs[0].use} | ${min}:1 | ${lowest('dark', pairs)} | ${lowest('light', pairs)} |`);
+  const bgLabel =
+    bg === 'surfaces'
+      ? pairs.map((p) => `\`${p.bg}\``).join(', ')
+      : `\`${bg}\`${pairs[0].on ? ` over ${pairs.map((p) => p.on!.replace('--', '')).join('/')}` : ''}`;
+  console.log(
+    `| \`${fg}\` | ${bgLabel} | ${pairs[0].use} | ${min}:1 | ${lowest('dark', pairs)} | ${lowest('light', pairs)} |`,
+  );
 }

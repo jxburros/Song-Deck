@@ -50,7 +50,13 @@ function newArticulation(track: Track, family: string, n: Note, rnd: () => numbe
 }
 
 /** Ornament the song in place. Returns the cells that changed. */
-export function ornamentSong(song: Song, seed: number, amount: number, scope: OrnamentScope, settings: Omit<GenSettings, 'seed'> = {}): CellChange[] {
+export function ornamentSong(
+  song: Song,
+  seed: number,
+  amount: number,
+  scope: OrnamentScope,
+  settings: Omit<GenSettings, 'seed'> = {},
+): CellChange[] {
   const a = clamp01(amount);
   if (a <= 0) return [];
   const g = buildSongGen(song, { ...settings, seed });
@@ -86,23 +92,47 @@ export function ornamentSong(song: Song, seed: number, amount: number, scope: Or
             if (r.chance(0.3)) expr.onset = r.pick(['soft', 'normal', 'scoop'] as const);
             out.expression = expr;
           } else {
-            const art = newArticulation(track, inst.family === 'bass' ? 'bass' : inst.family, n, () => r.next());
+            const art = newArticulation(track, inst.family === 'bass' ? 'bass' : inst.family, n, () =>
+              r.next(),
+            );
             if (art && art !== 'normal') out.articulation = art;
             else delete out.articulation;
           }
         }
-        if (out.velocity !== n.velocity || out.articulation !== n.articulation || out.expression !== n.expression) changed = true;
+        if (
+          out.velocity !== n.velocity ||
+          out.articulation !== n.articulation ||
+          out.expression !== n.expression
+        )
+          changed = true;
         return out;
       });
       // 2. Drum fills re-rolled at the section end.
-      if (inst.isDrumKit && track.role === 'drums' && span.index < g.spans.length - 1 && g.plays(track.id, sid) && rngCell.chance(0.35 + a * 0.65)) {
+      if (
+        inst.isDrumKit &&
+        track.role === 'drums' &&
+        span.index < g.spans.length - 1 &&
+        g.plays(track.id, sid) &&
+        rngCell.chance(0.35 + a * 0.65)
+      ) {
         const cell = makeCell(g, track, spanIndex, seed ^ 0x5bd1e995);
         const bar = cell.bars[cell.bars.length - 1];
-        const fillStart = Math.max(rs, bar.tick + bar.meter.barTicks - (cell.e1 >= 0.6 ? 2 : 1) * bar.meter.beatTicks);
+        const fillStart = Math.max(
+          rs,
+          bar.tick + bar.meter.barTicks - (cell.e1 >= 0.6 ? 2 : 1) * bar.meter.beatTicks,
+        );
         const fillEnd = Math.min(re, span.endTick);
         if (fillEnd > fillStart) {
-          const fresh = finalizeNotes(generateDrums(cell), { low: 0, high: 127, start: span.startTick, end: span.endTick, drum: true }).filter((n) => n.tick >= fillStart && n.tick + n.duration <= fillEnd);
-          const locked = track.notes.filter((n) => n.tick >= fillStart && n.tick < fillEnd && (n.locked || n.tick + n.duration > fillEnd));
+          const fresh = finalizeNotes(generateDrums(cell), {
+            low: 0,
+            high: 127,
+            start: span.startTick,
+            end: span.endTick,
+            drum: true,
+          }).filter((n) => n.tick >= fillStart && n.tick + n.duration <= fillEnd);
+          const locked = track.notes.filter(
+            (n) => n.tick >= fillStart && n.tick < fillEnd && (n.locked || n.tick + n.duration > fillEnd),
+          );
           const ids = new IdFactory(seed, `orn/${track.id}/${sid}`);
           const used = new Set(track.notes.map((n) => n.id));
           const added: Note[] = [];
@@ -111,17 +141,31 @@ export function ornamentSong(song: Song, seed: number, amount: number, scope: Or
             let id = ids.next('n');
             while (used.has(id)) id = ids.next('n');
             used.add(id);
-            const note: Note = { id, pitch: n.pitch, tick: n.tick, duration: n.duration, velocity: n.velocity, origin: 'composer/ornament' };
+            const note: Note = {
+              id,
+              pitch: n.pitch,
+              tick: n.tick,
+              duration: n.duration,
+              velocity: n.velocity,
+              origin: 'composer/ornament',
+            };
             if (n.articulation && n.articulation !== 'normal') note.articulation = n.articulation;
             added.push(note);
           }
-          const keep = track.notes.filter((n) => !(n.tick >= fillStart && n.tick < fillEnd && !n.locked && n.tick + n.duration <= fillEnd));
+          const keep = track.notes.filter(
+            (n) => !(n.tick >= fillStart && n.tick < fillEnd && !n.locked && n.tick + n.duration <= fillEnd),
+          );
           track.notes = sortNotes([...keep, ...added]);
           changed = true;
         }
       }
       // 3. Grace notes before long notes of secondary melodic lines.
-      if (!principal && !inst.isDrumKit && inst.polyphony === 'mono' && (MELODIC_ROLES.has(track.role) || inst.family === 'woodwind' || inst.family === 'brass')) {
+      if (
+        !principal &&
+        !inst.isDrumKit &&
+        inst.polyphony === 'mono' &&
+        (MELODIC_ROLES.has(track.role) || inst.family === 'woodwind' || inst.family === 'brass')
+      ) {
         const ids = new IdFactory(seed, `grace/${track.id}/${sid}`);
         const used = new Set(track.notes.map((n) => n.id));
         const sorted = [...track.notes].sort((x, y) => x.tick - y.tick);
@@ -138,7 +182,14 @@ export function ornamentSong(song: Song, seed: number, amount: number, scope: Or
           let id = ids.next('n');
           while (used.has(id)) id = ids.next('n');
           used.add(id);
-          added.push({ id, pitch: p, tick: t, duration: 36, velocity: toVelocity(n.velocity - 12), origin: 'composer/ornament' });
+          added.push({
+            id,
+            pitch: p,
+            tick: t,
+            duration: 36,
+            velocity: toVelocity(n.velocity - 12),
+            origin: 'composer/ornament',
+          });
         }
         if (added.length) {
           track.notes = sortNotes([...track.notes, ...added]);
@@ -148,7 +199,11 @@ export function ornamentSong(song: Song, seed: number, amount: number, scope: Or
       if (changed) {
         // Re-rolled fills and grace notes must not collide with ringing notes of the same pitch:
         // locked notes (and, off the drum kit, all original notes) win; new notes yield.
-        track.notes = resolveSamePitchOverlaps(track.notes, (n) => n.locked === true || (!inst.isDrumKit && origIds.has(n.id)), 'drop');
+        track.notes = resolveSamePitchOverlaps(
+          track.notes,
+          (n) => n.locked === true || (!inst.isDrumKit && origIds.has(n.id)),
+          'drop',
+        );
         changedSections.push(sid);
       }
     });

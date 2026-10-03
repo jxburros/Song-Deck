@@ -103,20 +103,58 @@ function mixFixture(): string {
     for (let k = 0; k < 4; k++) {
       const t = bt + k * beat;
       // kick on 1 and 3, snare on 2 and 4, closed hats on eighths
-      if (k % 2 === 0) add(t, 0.25, (s) => 0.9 * Math.sin(2 * Math.PI * (50 + 90 * Math.exp(-s * 30)) * s) * Math.exp(-s * 14));
-      else add(t, 0.18, (s) => 0.45 * rnd() * Math.exp(-s * 22) + 0.25 * Math.sin(2 * Math.PI * 190 * s) * Math.exp(-s * 25));
+      if (k % 2 === 0)
+        add(
+          t,
+          0.25,
+          (s) => 0.9 * Math.sin(2 * Math.PI * (50 + 90 * Math.exp(-s * 30)) * s) * Math.exp(-s * 14),
+        );
+      else
+        add(
+          t,
+          0.18,
+          (s) =>
+            0.45 * rnd() * Math.exp(-s * 22) + 0.25 * Math.sin(2 * Math.PI * 190 * s) * Math.exp(-s * 25),
+        );
       for (const h of [0, 0.5]) add(t + h * beat, 0.05, (s) => 0.12 * rnd() * Math.exp(-s * 90), 0.35, 0.65);
       // bass on every beat
       const bf = hz(bass[b]);
-      add(t, beat * 0.85, (s) => 0.35 * Math.min(1, s / 0.01) * Math.exp(-s * 2) * (Math.sin(2 * Math.PI * bf * s) + 0.3 * Math.sin(4 * Math.PI * bf * s)));
+      add(
+        t,
+        beat * 0.85,
+        (s) =>
+          0.35 *
+          Math.min(1, s / 0.01) *
+          Math.exp(-s * 2) *
+          (Math.sin(2 * Math.PI * bf * s) + 0.3 * Math.sin(4 * Math.PI * bf * s)),
+      );
       // lead melody, one note per beat
       const mf = hz(melody[b * 4 + k]);
-      add(t, beat * 0.9, (s) => 0.22 * Math.min(1, s / 0.02) * Math.min(1, (beat * 0.9 - s) / 0.05) * Math.sin(2 * Math.PI * mf * s * (1 + 0.004 * Math.sin(2 * Math.PI * 5 * s))), 0.5, 0.5);
+      add(
+        t,
+        beat * 0.9,
+        (s) =>
+          0.22 *
+          Math.min(1, s / 0.02) *
+          Math.min(1, (beat * 0.9 - s) / 0.05) *
+          Math.sin(2 * Math.PI * mf * s * (1 + 0.004 * Math.sin(2 * Math.PI * 5 * s))),
+        0.5,
+        0.5,
+      );
     }
     // sustained chord pad, slightly wide
     for (const p of chords[b]) {
       const f = hz(p);
-      add(bt, 4 * beat, (s) => 0.07 * Math.min(1, s / 0.05) * (Math.sin(2 * Math.PI * f * s) + 0.5 * Math.sin(2 * Math.PI * 2 * f * s)), 0.65, 0.35);
+      add(
+        bt,
+        4 * beat,
+        (s) =>
+          0.07 *
+          Math.min(1, s / 0.05) *
+          (Math.sin(2 * Math.PI * f * s) + 0.5 * Math.sin(2 * Math.PI * 2 * f * s)),
+        0.65,
+        0.35,
+      );
     }
   }
   let peak = 0;
@@ -138,7 +176,9 @@ function collectErrors(page: Page): string[] {
 
 /** Mode tabs in the top bar (matched by label prefix: "Generate" / "Generate MIDI"…). */
 function modeTab(page: Page, label: 'Generate' | 'Transcribe' | 'Rebuild') {
-  return page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name: new RegExp(`^${label}`) });
+  return page
+    .getByRole('navigation', { name: 'Modes' })
+    .getByRole('button', { name: new RegExp(`^${label}`) });
 }
 
 async function openMode(page: Page, label: 'Generate' | 'Transcribe' | 'Rebuild') {
@@ -153,7 +193,12 @@ const SHOTS = process.env.SHOTS_DIR ?? '/tmp/claude-0';
 test.use({
   permissions: ['microphone'],
   launchOptions: {
-    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${melodyFixture()}`, '--autoplay-policy=no-user-gesture-required'],
+    args: [
+      '--use-fake-ui-for-media-stream',
+      '--use-fake-device-for-media-stream',
+      `--use-file-for-fake-audio-capture=${melodyFixture()}`,
+      '--autoplay-policy=no-user-gesture-required',
+    ],
   },
 });
 
@@ -182,7 +227,10 @@ test('generate two alternatives from a prompt, preview them and export .mid', as
   await page.screenshot({ path: `${SHOTS}/e2e-generate.png`, fullPage: false });
   await cards.nth(0).getByRole('button', { name: 'Stop A' }).click();
   // Export .mid
-  const [download] = await Promise.all([page.waitForEvent('download'), cards.nth(1).getByRole('button', { name: 'Export B as MIDI' }).click()]);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    cards.nth(1).getByRole('button', { name: 'Export B as MIDI' }).click(),
+  ]);
   expect(download.suggestedFilename()).toMatch(/\.mid$/);
   const bytes = readFileSync(await download.path());
   expect(bytes.subarray(0, 4).toString('latin1')).toBe('MThd');
@@ -242,8 +290,15 @@ test('transcribe an uploaded WAV melody and start a project from the idea', asyn
   await page.getByRole('tab', { name: 'Notation' }).click();
   await expect(page.getByTestId('transcription-result').getByTestId('notation')).toBeVisible();
   // Export MIDI
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export-transcription').click()]);
-  expect(readFileSync(await download.path()).subarray(0, 4).toString('latin1')).toBe('MThd');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('export-transcription').click(),
+  ]);
+  expect(
+    readFileSync(await download.path())
+      .subarray(0, 4)
+      .toString('latin1'),
+  ).toBe('MThd');
   // New project from this idea → workbench, recording stored with provenance + analysis.
   await page.getByTestId('new-project-from-idea').click();
   await expect(page.getByTestId('piano-roll')).toBeVisible();
@@ -253,13 +308,24 @@ test('transcribe an uploaded WAV melody and start a project from the idea', asyn
       req.onsuccess = () => res(req.result);
       req.onerror = () => rej(req.error);
     });
-    const all: { meta: { assets: { kind: string }[]; provenance: unknown[] }; analysis: { kind: string }[] }[] = await new Promise((res) => {
+    const all: {
+      meta: { assets: { kind: string }[]; provenance: unknown[] };
+      analysis: { kind: string }[];
+    }[] = await new Promise((res) => {
       const r = db.transaction('projects').objectStore('projects').getAll();
       r.onsuccess = () => res(r.result);
     });
-    return all.map((p) => ({ assets: p.meta.assets.map((a) => a.kind), provenance: p.meta.provenance.length, analysis: p.analysis.map((a) => a.kind) }));
+    return all.map((p) => ({
+      assets: p.meta.assets.map((a) => a.kind),
+      provenance: p.meta.provenance.length,
+      analysis: p.analysis.map((a) => a.kind),
+    }));
   });
-  expect(meta.some((p) => p.assets.includes('recording') && p.provenance > 0 && p.analysis.includes('transcription'))).toBe(true);
+  expect(
+    meta.some(
+      (p) => p.assets.includes('recording') && p.provenance > 0 && p.analysis.includes('transcription'),
+    ),
+  ).toBe(true);
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
@@ -317,8 +383,20 @@ test('rebuild a synthesized mix and open it as a project with stems', async ({ p
   const pipeline = page.getByTestId('rebuild-pipeline');
   await expect(pipeline.locator('li')).toHaveCount(10);
   await expect(page.getByTestId('rebuild-summary')).toBeVisible({ timeout: 180_000 });
-  for (const stage of ['separation', 'tempo', 'key', 'chords', 'transcription', 'classification', 'midi', 'structure']) {
-    await expect(pipeline.locator(`li[data-stage="${stage}"]`)).toHaveAttribute('data-status', /done|skipped/);
+  for (const stage of [
+    'separation',
+    'tempo',
+    'key',
+    'chords',
+    'transcription',
+    'classification',
+    'midi',
+    'structure',
+  ]) {
+    await expect(pipeline.locator(`li[data-stage="${stage}"]`)).toHaveAttribute(
+      'data-status',
+      /done|skipped/,
+    );
   }
   await expect(page.getByTestId('rebuild-tracks').locator('tbody tr')).not.toHaveCount(0);
   await page.screenshot({ path: `${SHOTS}/e2e-rebuild.png`, fullPage: false });

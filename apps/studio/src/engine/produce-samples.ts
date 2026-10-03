@@ -31,7 +31,11 @@ interface SampleState {
   error?: string;
 }
 
-export const useSampleInstruments = create<SampleState>(() => ({ instruments: [], assignments: {}, loading: false }));
+export const useSampleInstruments = create<SampleState>(() => ({
+  instruments: [],
+  assignments: {},
+  loading: false,
+}));
 
 const NOTE: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 
@@ -56,18 +60,34 @@ export function rootKeyFromName(name: string): number | undefined {
 
 function summarize(inst: SampleInstrument): { zones: number; keyRange: [number, number] } {
   if (!inst.zones.length) return { zones: 0, keyRange: [0, 0] };
-  return { zones: inst.zones.length, keyRange: [Math.min(...inst.zones.map((z) => z.lokey)), Math.max(...inst.zones.map((z) => z.hikey))] };
+  return {
+    zones: inst.zones.length,
+    keyRange: [Math.min(...inst.zones.map((z) => z.lokey)), Math.max(...inst.zones.map((z) => z.hikey))],
+  };
 }
 
 /** Multi-sample instrument from loose audio files: each file covers the keys nearest its root. */
-export function instrumentFromSamples(samples: { name: string; audio: AudioData }[], name: string): SampleInstrument {
-  const rooted = samples.map((s, i) => ({ ...s, root: rootKeyFromName(s.name) ?? (samples.length === 1 ? 60 : 48 + i * 2) })).sort((a, b) => a.root - b.root);
+export function instrumentFromSamples(
+  samples: { name: string; audio: AudioData }[],
+  name: string,
+): SampleInstrument {
+  const rooted = samples
+    .map((s, i) => ({ ...s, root: rootKeyFromName(s.name) ?? (samples.length === 1 ? 60 : 48 + i * 2) }))
+    .sort((a, b) => a.root - b.root);
   const zones: SampleZone[] = rooted.map((s, i) => {
     const prev = rooted[i - 1];
     const next = rooted[i + 1];
     const lokey = prev ? Math.floor((prev.root + s.root) / 2) + 1 : 0;
     const hikey = next ? Math.floor((s.root + next.root) / 2) : 127;
-    return { sample: s.audio, lokey, hikey, pitchKeycenter: s.root, lovel: 1, hivel: 127, ampegRelease: 0.12 };
+    return {
+      sample: s.audio,
+      lokey,
+      hikey,
+      pitchKeycenter: s.root,
+      lovel: 1,
+      hivel: 127,
+      ampegRelease: 0.12,
+    };
   });
   return { name, zones, polyphony: 32 };
 }
@@ -75,7 +95,10 @@ export function instrumentFromSamples(samples: { name: string; audio: AudioData 
 const norm = (p: string) => p.replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
 
 /** Parse SFZ text, loading the samples it references through `load(path)`. */
-async function parseSfzWithSamples(text: string, load: (path: string) => Promise<AudioData | undefined>): Promise<SampleInstrument> {
+async function parseSfzWithSamples(
+  text: string,
+  load: (path: string) => Promise<AudioData | undefined>,
+): Promise<SampleInstrument> {
   const wanted = new Set<string>();
   parseSfz(text, (p) => {
     wanted.add(p);
@@ -115,16 +138,38 @@ export async function loadSampleFiles(files: File[]): Promise<SampleInstrumentEn
       }
       const instrument = await parseSfzWithSamples(await sfz.text(), async (path) => {
         const p = norm(path);
-        const f = byName.get(p) ?? byName.get(p.split('/').pop() ?? p) ?? [...byName.entries()].find(([k]) => p.endsWith(k))?.[1];
+        const f =
+          byName.get(p) ??
+          byName.get(p.split('/').pop() ?? p) ??
+          [...byName.entries()].find(([k]) => p.endsWith(k))?.[1];
         return f ? decodeAudioBytes(new Uint8Array(await f.arrayBuffer())) : undefined;
       });
       const name = instrument.name || sfz.name.replace(/\.sfz$/i, '');
-      return addEntry({ name, source: 'file', origin: `${sfz.name}${audioFiles.length ? ` + ${audioFiles.length} samples` : ''}`, instrument: { ...instrument, name } });
+      return addEntry({
+        name,
+        source: 'file',
+        origin: `${sfz.name}${audioFiles.length ? ` + ${audioFiles.length} samples` : ''}`,
+        instrument: { ...instrument, name },
+      });
     }
-    if (!audioFiles.length) throw new Error('Choose an .sfz file with its samples, or one or more WAV/FLAC samples');
-    const samples = await Promise.all(audioFiles.map(async (f) => ({ name: f.name, audio: await decodeAudioBytes(new Uint8Array(await f.arrayBuffer())) })));
-    const name = audioFiles.length === 1 ? audioFiles[0].name.replace(/\.[^.]+$/, '') : `${audioFiles[0].name.replace(/[_ -]?[a-g][#b]?-?\d.*$/i, '').replace(/\.[^.]+$/, '') || 'Sample set'} (${audioFiles.length} samples)`;
-    return addEntry({ name, source: 'file', origin: audioFiles.map((f) => f.name).join(', '), instrument: instrumentFromSamples(samples, name) });
+    if (!audioFiles.length)
+      throw new Error('Choose an .sfz file with its samples, or one or more WAV/FLAC samples');
+    const samples = await Promise.all(
+      audioFiles.map(async (f) => ({
+        name: f.name,
+        audio: await decodeAudioBytes(new Uint8Array(await f.arrayBuffer())),
+      })),
+    );
+    const name =
+      audioFiles.length === 1
+        ? audioFiles[0].name.replace(/\.[^.]+$/, '')
+        : `${audioFiles[0].name.replace(/[_ -]?[a-g][#b]?-?\d.*$/i, '').replace(/\.[^.]+$/, '') || 'Sample set'} (${audioFiles.length} samples)`;
+    return addEntry({
+      name,
+      source: 'file',
+      origin: audioFiles.map((f) => f.name).join(', '),
+      instrument: instrumentFromSamples(samples, name),
+    });
   } catch (err) {
     useSampleInstruments.setState({ error: err instanceof Error ? err.message : String(err) });
     throw err;
@@ -152,11 +197,23 @@ export function pluginSampleInstruments(): PluginSampleInstrument[] {
     if (!p.patchId?.startsWith('sfz:')) continue;
     const inst = ext.sampleInstruments[p.patchId];
     const s = inst ? summarize(inst) : { zones: 0, keyRange: [0, 0] as [number, number] };
-    byPatch.set(p.patchId, { patchId: p.patchId, name: p.name, plugin: p.patchId.slice(4).split('/')[0], ...s, loaded: !!inst });
+    byPatch.set(p.patchId, {
+      patchId: p.patchId,
+      name: p.name,
+      plugin: p.patchId.slice(4).split('/')[0],
+      ...s,
+      loaded: !!inst,
+    });
   }
   for (const [patchId, inst] of Object.entries(ext.sampleInstruments)) {
     if (byPatch.has(patchId)) continue;
-    byPatch.set(patchId, { patchId, name: inst.name ?? patchId, plugin: patchId.slice(4).split('/')[0], ...summarize(inst), loaded: true });
+    byPatch.set(patchId, {
+      patchId,
+      name: inst.name ?? patchId,
+      plugin: patchId.slice(4).split('/')[0],
+      ...summarize(inst),
+      loaded: true,
+    });
   }
   return [...byPatch.values()];
 }
@@ -182,7 +239,10 @@ export function assignSampleInstrument(trackId: string, instrumentId: string | n
  * session sample instruments by patch id (plugin sample sets are already known to the render
  * workers). Only tracks in `trackIds` (when given) are considered.
  */
-export function sampleRenderOptions(assignments: Record<string, string>, trackIds?: string[]): {
+export function sampleRenderOptions(
+  assignments: Record<string, string>,
+  trackIds?: string[],
+): {
   patchOverrides: Record<string, string>;
   sampleInstruments: Record<string, SampleInstrument>;
   used: { trackId: string; name: string }[];

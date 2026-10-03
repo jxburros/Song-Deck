@@ -117,7 +117,8 @@ export class RenderPool {
   }
 
   run(payload: Uint8Array, signal?: AbortSignal): Promise<RenderResult> {
-    if (this.closed) return Promise.reject(new JobFailedError(503, 'shutting-down', 'Render node is shutting down'));
+    if (this.closed)
+      return Promise.reject(new JobFailedError(503, 'shutting-down', 'Render node is shutting down'));
     if (signal?.aborted) return Promise.reject(abortError());
     if (this.isFull()) return Promise.reject(new PoolBusyError());
     return new Promise<RenderResult>((resolve, reject) => {
@@ -131,7 +132,10 @@ export class RenderPool {
     });
   }
 
-  private settle(job: Job, outcome: { ok: true; result: RenderResult } | { ok: false; error: unknown }): void {
+  private settle(
+    job: Job,
+    outcome: { ok: true; result: RenderResult } | { ok: false; error: unknown },
+  ): void {
     if (job.settled) return;
     job.settled = true;
     this.running.delete(job);
@@ -183,7 +187,11 @@ export class RenderPool {
         w.job = undefined;
         if (job && job.id === msg.id) {
           if (msg.ok) this.settle(job, { ok: true, result: msg.result });
-          else this.settle(job, { ok: false, error: new JobFailedError(msg.error.status, msg.error.code, msg.error.message) });
+          else
+            this.settle(job, {
+              ok: false,
+              error: new JobFailedError(msg.error.status, msg.error.code, msg.error.message),
+            });
         }
         this.markIdle(w);
         this.pump();
@@ -206,17 +214,31 @@ export class RenderPool {
     this.retire(w);
     const job = w.job;
     w.job = undefined;
-    if (job) this.settle(job, { ok: false, error: new JobFailedError(500, 'render-crashed', `Render worker crashed: ${err.message}`) });
+    if (job)
+      this.settle(job, {
+        ok: false,
+        error: new JobFailedError(500, 'render-crashed', `Render worker crashed: ${err.message}`),
+      });
     if (!wasReady && !this.closed) {
       this.bootFailures++;
       this.consecutiveBootFailures++;
       if (!this.everReady && this.bootFailures >= 2) {
-        this.opts.logger.warn(`render workers could not start (${err.message}); rendering on the main thread instead`);
+        this.opts.logger.warn(
+          `render workers could not start (${err.message}); rendering on the main thread instead`,
+        );
         this.inlineMode = true;
       } else if (this.everReady && this.consecutiveBootFailures >= 3 && !this.workers.length) {
         // Workers worked before but now keep failing to boot: fail the waiting jobs instead of re-spawning forever.
         this.opts.logger.error(`render workers keep failing to start (${err.message})`);
-        for (const job of this.queue.splice(0)) this.settle(job, { ok: false, error: new JobFailedError(503, 'render-unavailable', `Render workers failed to start: ${err.message}`) });
+        for (const job of this.queue.splice(0))
+          this.settle(job, {
+            ok: false,
+            error: new JobFailedError(
+              503,
+              'render-unavailable',
+              `Render workers failed to start: ${err.message}`,
+            ),
+          });
         this.consecutiveBootFailures = 0;
         return;
       }
@@ -226,12 +248,15 @@ export class RenderPool {
 
   private markIdle(w: PoolWorker): void {
     clearTimeout(w.idleTimer);
-    w.idleTimer = setTimeout(() => {
-      if (!w.job && !w.dead) {
-        this.retire(w);
-        void w.worker.terminate();
-      }
-    }, this.opts.idleMs ?? 5 * 60_000);
+    w.idleTimer = setTimeout(
+      () => {
+        if (!w.job && !w.dead) {
+          this.retire(w);
+          void w.worker.terminate();
+        }
+      },
+      this.opts.idleMs ?? 5 * 60_000,
+    );
     w.idleTimer.unref();
   }
 
@@ -268,7 +293,9 @@ export class RenderPool {
     await new Promise((r) => setImmediate(r));
     if (job.settled) return;
     try {
-      const run = this.opts.runInline ?? (async (payload: Uint8Array) => (await import('./worker')).runRenderJob(payload));
+      const run =
+        this.opts.runInline ??
+        (async (payload: Uint8Array) => (await import('./worker')).runRenderJob(payload));
       const result = await run(job.payload);
       this.settle(job, { ok: true, result });
     } catch (err) {
@@ -282,8 +309,16 @@ export class RenderPool {
 
   async close(): Promise<void> {
     this.closed = true;
-    for (const job of this.queue.splice(0)) this.settle(job, { ok: false, error: new JobFailedError(503, 'shutting-down', 'Render node is shutting down') });
-    for (const job of [...this.running]) this.settle(job, { ok: false, error: new JobFailedError(503, 'shutting-down', 'Render node is shutting down') });
+    for (const job of this.queue.splice(0))
+      this.settle(job, {
+        ok: false,
+        error: new JobFailedError(503, 'shutting-down', 'Render node is shutting down'),
+      });
+    for (const job of [...this.running])
+      this.settle(job, {
+        ok: false,
+        error: new JobFailedError(503, 'shutting-down', 'Render node is shutting down'),
+      });
     const workers = this.workers.splice(0);
     for (const w of workers) {
       w.dead = true;

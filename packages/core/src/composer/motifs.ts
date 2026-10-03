@@ -74,7 +74,8 @@ function weightedSampleWithoutReplacement<T>(rng: Rng, items: T[], weights: numb
 export function phraseRhythm(rng: Rng, o: RhythmOptions): RhythmSlot[] {
   const grid = Math.max(30, o.grid);
   const slots = Math.max(1, Math.floor(o.lengthTicks / grid));
-  if (slots <= 1 || (o.count !== undefined && o.count <= 1)) return [{ offset: 0, duration: Math.max(grid, o.lengthTicks) }];
+  if (slots <= 1 || (o.count !== undefined && o.count <= 1))
+    return [{ offset: 0, duration: Math.max(grid, o.lengthTicks) }];
   const w = (s: number) => metricWeight(o.barOffset + s * grid, o.meter);
   const minFinal = Math.min(o.minFinal ?? o.meter.beatTicks, Math.floor(o.lengthTicks / 2));
   // Final onset: a strong position leaving at least `minFinal`.
@@ -84,7 +85,11 @@ export function phraseRhythm(rng: Rng, o: RhythmOptions): RhythmSlot[] {
     if (w(s) >= 0.75) finals.push(s);
     if (finals.length >= 2) break;
   }
-  const f = finals.length ? (finals.length > 1 && rng.chance(0.35) ? finals[1] : finals[0]) : Math.max(1, slots - Math.ceil(minFinal / grid));
+  const f = finals.length
+    ? finals.length > 1 && rng.chance(0.35)
+      ? finals[1]
+      : finals[0]
+    : Math.max(1, slots - Math.ceil(minFinal / grid));
   const want = o.count !== undefined ? o.count : Math.round(f * (0.32 + 0.42 * clamp01(o.density))) + 1;
   let n = clamp(want, 2, o.count !== undefined ? Math.max(2, o.count) : f + 1);
   if (n > f + 1 && o.count === undefined) n = f + 1;
@@ -98,7 +103,12 @@ export function phraseRhythm(rng: Rng, o: RhythmOptions): RhythmSlot[] {
     candidates.push(s);
     weights.push(wt);
   }
-  const chosen = weightedSampleWithoutReplacement(rng, candidates, weights, Math.max(0, Math.min(n - 2, candidates.length)));
+  const chosen = weightedSampleWithoutReplacement(
+    rng,
+    candidates,
+    weights,
+    Math.max(0, Math.min(n - 2, candidates.length)),
+  );
   const onsets = [first, ...chosen, f].sort((a, b) => a - b);
   const out: RhythmSlot[] = onsets.map((s, i) => {
     const offset = s * grid;
@@ -121,7 +131,12 @@ function adjustSlotCount(slots: RhythmSlot[], count: number, lengthTicks: number
     const s = out[li];
     if (s.duration < 60) break;
     const half = Math.round(s.duration / 2);
-    out.splice(li, 1, { offset: s.offset, duration: half }, { offset: s.offset + half, duration: s.duration - half });
+    out.splice(
+      li,
+      1,
+      { offset: s.offset, duration: half },
+      { offset: s.offset + half, duration: s.duration - half },
+    );
   }
   while (out.length > count && out.length > 1) {
     // Merge the shortest interior note into its predecessor.
@@ -189,7 +204,8 @@ export function phraseDegrees(rng: Rng, n: number, o: DegreeOptions): number[] {
       const noise = rng.gaussian(0, o.flat ? 0.45 : 0.35 + clamp01(o.movement) * 0.45);
       step = Math.round(target - prev + noise);
       step = clamp(step, -maxStep, maxStep);
-      if (!o.avoidLeaps && !o.flat && Math.abs(step) <= 1 && rng.chance(0.03 + clamp01(o.movement) * 0.1)) step = (step >= 0 ? 1 : -1) * rng.int(3, 4);
+      if (!o.avoidLeaps && !o.flat && Math.abs(step) <= 1 && rng.chance(0.03 + clamp01(o.movement) * 0.1))
+        step = (step >= 0 ? 1 : -1) * rng.int(3, 4);
     }
     if (step === 0) {
       repeats++;
@@ -216,7 +232,12 @@ export function abstractPhrase(rng: Rng, r: RhythmOptions, d: DegreeOptions, vel
     // Phrase arc: a little louder toward the middle, accents on strong beats.
     const t = rhythm.length > 1 ? i / (rhythm.length - 1) : 0;
     const accent = metricWeight(r.barOffset + s.offset, r.meter) >= 0.75 ? 6 : 0;
-    return { offset: s.offset, duration: s.duration, degree: degrees[i], velocity: Math.round(velocity - 6 + 10 * Math.sin(Math.PI * t) + accent) };
+    return {
+      offset: s.offset,
+      duration: s.duration,
+      degree: degrees[i],
+      velocity: Math.round(velocity - 6 + 10 * Math.sin(Math.PI * t) + accent),
+    };
   });
 }
 
@@ -233,7 +254,18 @@ export function adaptMotifToCount(notes: readonly MotifNote[], count: number): M
     const half = Math.round(s.duration / 2);
     const nextDeg = out[li + 1]?.degree ?? s.degree;
     const passing = s.degree + Math.sign(nextDeg - s.degree);
-    out.splice(li, 1, { ...s, duration: half }, { ...s, offset: s.offset + half, duration: s.duration - half, degree: passing, velocity: s.velocity - 4 });
+    out.splice(
+      li,
+      1,
+      { ...s, duration: half },
+      {
+        ...s,
+        offset: s.offset + half,
+        duration: s.duration - half,
+        degree: passing,
+        velocity: s.velocity - 4,
+      },
+    );
   }
   while (out.length > count && out.length > 1) {
     let si = out.length > 2 ? 1 : out.length - 1;
@@ -260,7 +292,8 @@ export function alignStressToMeter(
   const n = notes.length;
   const grid = Math.max(30, Math.round(o.grid));
   const slots = Math.floor(o.lengthTicks / grid);
-  if (n < 2 || stress.length !== n || slots < n || !stress.some((s) => s > 0)) return notes.map((x) => ({ ...x }));
+  if (n < 2 || stress.length !== n || slots < n || !stress.some((s) => s > 0))
+    return notes.map((x) => ({ ...x }));
   const fitAt = (i: number, ticks: number) => {
     const wt = metricWeight(o.barOffset + ticks, o.meter);
     return stress[i] > 0 ? wt : -0.6 * Math.max(0, wt - 0.5);
@@ -308,12 +341,14 @@ export function alignStressToMeter(
   }
   const fitOf = (p: readonly number[]) => p.reduce((t, s, i) => t + fit(i, s), 0);
   const origFit = notes.reduce((t, x, i) => t + fitAt(i, x.offset), 0);
-  if (fitOf(pos) <= origFit + 0.25 || pos.every((s, i) => s * grid === notes[i].offset)) return notes.map((x) => ({ ...x }));
+  if (fitOf(pos) <= origFit + 0.25 || pos.every((s, i) => s * grid === notes[i].offset))
+    return notes.map((x) => ({ ...x }));
   return notes.map((x, i) => {
     const offset = pos[i] * grid;
     const next = i + 1 < n ? pos[i + 1] * grid : end;
     const gap = next - offset;
-    const duration = i + 1 < n ? Math.max(30, gap - Math.min(24, Math.round(gap * 0.08))) : Math.max(grid, end - offset);
+    const duration =
+      i + 1 < n ? Math.max(30, gap - Math.min(24, Math.round(gap * 0.08))) : Math.max(grid, end - offset);
     const accent = stress[i] > 0 ? 4 : -3;
     return { ...x, offset, duration, velocity: clamp(Math.round(x.velocity + accent), 1, 127) };
   });
@@ -336,7 +371,13 @@ export interface RealizeOptions {
   motifId?: string;
 }
 
-function nearestChordTone(pitch: number, pcs: readonly number[], preferDir: number, prev: number | null, keepMoving = false): number {
+function nearestChordTone(
+  pitch: number,
+  pcs: readonly number[],
+  preferDir: number,
+  prev: number | null,
+  keepMoving = false,
+): number {
   let best = pitch;
   let bestScore = Infinity;
   for (let d = -4; d <= 4; d++) {
@@ -365,17 +406,22 @@ export function realizePhrase(notes: readonly MotifNote[], o: RealizeOptions): R
   let prevDegree: number | null = null;
   for (const mn of notes) {
     const tick = o.start + mn.offset;
-    let pitch = transposeDiatonic(o.anchor, mn.degree, o.key) + (o.diatonicOnly ? 0 : mn.alteration ?? 0);
+    let pitch = transposeDiatonic(o.anchor, mn.degree, o.key) + (o.diatonicOnly ? 0 : (mn.alteration ?? 0));
     const chord = chordAtIn(o.chords, tick);
     const pcs = chord ? chordPitchClasses(chord) : [];
     const { meter, barStart } = o.meterAt(tick);
     const w = metricWeight(tick - barStart, meter);
     // Chord tones on strong beats and sustained notes; passing/neighbour scale tones elsewhere.
-    const strong = w >= 0.9 || (w >= 0.75 && mn.duration >= meter.beatTicks) || mn.duration >= meter.beatTicks * 1.5;
+    const strong =
+      w >= 0.9 || (w >= 0.75 && mn.duration >= meter.beatTicks) || mn.duration >= meter.beatTicks * 1.5;
     if (o.strongFit !== false && strong && pcs.length && !pcs.includes(mod12(pitch))) {
       const dir = prevPitch === null ? 0 : Math.sign(pitch - prevPitch);
       pitch = nearestChordTone(pitch, pcs, dir, prevPitch, prevDegree !== null && prevDegree !== mn.degree);
-    } else if (!isInScale(pitch, o.key) && !(mn.alteration && !o.diatonicOnly) && !pcs.includes(mod12(pitch))) {
+    } else if (
+      !isInScale(pitch, o.key) &&
+      !(mn.alteration && !o.diatonicOnly) &&
+      !pcs.includes(mod12(pitch))
+    ) {
       pitch = snapToScale(pitch, o.key);
     }
     // A scale tone a semitone from a chromatic chord tone (F over B major, C over A major) clashes:
@@ -388,10 +434,25 @@ export function realizePhrase(notes: readonly MotifNote[], o: RealizeOptions): R
     }
     if (o.avoid && o.avoid(tick, mn.duration, pitch) && pcs.length) {
       // Step to another chord tone (a third away) instead of doubling.
-      const alts = [pitch + 3, pitch - 3, pitch + 4, pitch - 4, pitch + 5, pitch - 5, pitch + 7, pitch - 7].filter((p) => pcs.includes(mod12(p)) && !o.avoid!(tick, mn.duration, p));
+      const alts = [
+        pitch + 3,
+        pitch - 3,
+        pitch + 4,
+        pitch - 4,
+        pitch + 5,
+        pitch - 5,
+        pitch + 7,
+        pitch - 7,
+      ].filter((p) => pcs.includes(mod12(p)) && !o.avoid!(tick, mn.duration, p));
       if (alts.length) pitch = alts[0];
     }
-    out.push({ pitch, tick, duration: mn.duration, velocity: mn.velocity, ...(o.motifId ? { motifId: o.motifId } : {}) });
+    out.push({
+      pitch,
+      tick,
+      duration: mn.duration,
+      velocity: mn.velocity,
+      ...(o.motifId ? { motifId: o.motifId } : {}),
+    });
     prevPitch = pitch;
     prevDegree = mn.degree;
   }
@@ -428,10 +489,16 @@ export function realizePhrase(notes: readonly MotifNote[], o: RealizeOptions): R
 }
 
 /** A chord tone of `chord` near `target` (anchor for a phrase). */
-export function anchorNear(chord: ChordEvent | undefined, target: number, key: KeySignature, prefer: 'root' | 'third' | 'any' = 'any'): number {
+export function anchorNear(
+  chord: ChordEvent | undefined,
+  target: number,
+  key: KeySignature,
+  prefer: 'root' | 'third' | 'any' = 'any',
+): number {
   if (!chord) return nearestPitchWithClass(key.tonic, target);
   const pcs = chordPitchClasses(chord);
-  const candidates = prefer === 'root' ? [chord.root] : prefer === 'third' ? [pcs[1] ?? chord.root] : pcs.slice(0, 3);
+  const candidates =
+    prefer === 'root' ? [chord.root] : prefer === 'third' ? [pcs[1] ?? chord.root] : pcs.slice(0, 3);
   let best = nearestPitchWithClass(candidates[0], target);
   for (const pc of candidates) {
     const p = nearestPitchWithClass(pc, target);
@@ -478,8 +545,24 @@ export function buildSongMotifs(o: MotifPlanOptions): Motif[] {
   const phraseTicks = phraseBars * m.barTicks;
   const grid = vocalGrid(m, o.bpm);
   const motifs: Motif[] = [];
-  const mk = (name: string, description: string, role: MotifRole, kinds: SectionKind[], notes: MotifNote[], lengthTicks: number, source?: string): Motif => {
-    const motif: Motif = { id: ids.next('motif'), name, description, role, lengthTicks, notes, sectionKinds: kinds };
+  const mk = (
+    name: string,
+    description: string,
+    role: MotifRole,
+    kinds: SectionKind[],
+    notes: MotifNote[],
+    lengthTicks: number,
+    source?: string,
+  ): Motif => {
+    const motif: Motif = {
+      id: ids.next('motif'),
+      name,
+      description,
+      role,
+      lengthTicks,
+      notes,
+      sectionKinds: kinds,
+    };
     if (source) motif.sourceTrackId = source;
     return motif;
   };
@@ -490,11 +573,27 @@ export function buildSongMotifs(o: MotifPlanOptions): Motif[] {
   const lenA = Math.max(m.beatTicks * 2, phraseTicks - breathA);
   const notesA = abstractPhrase(
     rA,
-    { lengthTicks: lenA, barOffset: 0, meter: m, grid, density: clamp01(o.density * 0.9 + 0.1), syncopation: o.syncopation, lateStart: 0.3 },
-    { contour: rA.chance(0.55) ? 'arch' : 'descending', movement: o.movement * 0.85, span: o.flatVocal ? 2 : 4, flat: o.flatVocal, endDegree: rA.pick([0, -2, 2]) },
+    {
+      lengthTicks: lenA,
+      barOffset: 0,
+      meter: m,
+      grid,
+      density: clamp01(o.density * 0.9 + 0.1),
+      syncopation: o.syncopation,
+      lateStart: 0.3,
+    },
+    {
+      contour: rA.chance(0.55) ? 'arch' : 'descending',
+      movement: o.movement * 0.85,
+      span: o.flatVocal ? 2 : 4,
+      flat: o.flatVocal,
+      endDegree: rA.pick([0, -2, 2]),
+    },
     84,
   );
-  motifs.push(mk('Motif A', MOTIF_DESCRIPTIONS.verse, 'vocal-hook', ['verse'], notesA, lenA, o.sources.vocal));
+  motifs.push(
+    mk('Motif A', MOTIF_DESCRIPTIONS.verse, 'vocal-hook', ['verse'], notesA, lenA, o.sources.vocal),
+  );
 
   // B — chorus hook (instrumental): a repeating riff-like cell, 8ths (16ths when slow).
   const rB = deriveRng(o.seed, 'motif', 'B');
@@ -503,8 +602,21 @@ export function buildSongMotifs(o: MotifPlanOptions): Motif[] {
   const hookGrid = o.bpm < 100 ? PPQ / 4 : PPQ / 2;
   const cell = abstractPhrase(
     rB,
-    { lengthTicks: cellLen, barOffset: 0, meter: m, grid: hookGrid, density: clamp01(0.55 + o.density * 0.35), syncopation: o.syncopation, minFinal: hookGrid * 2, lateStart: 0.1 },
-    { contour: rB.pick(['arch', 'wave', 'descending'] as Contour[]), movement: clamp01(o.movement + 0.15), span: 5 },
+    {
+      lengthTicks: cellLen,
+      barOffset: 0,
+      meter: m,
+      grid: hookGrid,
+      density: clamp01(0.55 + o.density * 0.35),
+      syncopation: o.syncopation,
+      minFinal: hookGrid * 2,
+      lateStart: 0.1,
+    },
+    {
+      contour: rB.pick(['arch', 'wave', 'descending'] as Contour[]),
+      movement: clamp01(o.movement + 0.15),
+      span: 5,
+    },
     96,
   );
   const notesB: MotifNote[] = [];
@@ -516,18 +628,46 @@ export function buildSongMotifs(o: MotifPlanOptions): Motif[] {
       notesB.push({ ...n, offset: n.offset + b * cellLen, degree: deg });
     });
   }
-  motifs.push(mk('Motif B', MOTIF_DESCRIPTIONS.hook, 'instrumental-hook', ['chorus', 'final-chorus', 'intro', 'drop', 'post-chorus'], notesB, hookBars * cellLen, o.sources.hook));
+  motifs.push(
+    mk(
+      'Motif B',
+      MOTIF_DESCRIPTIONS.hook,
+      'instrumental-hook',
+      ['chorus', 'final-chorus', 'intro', 'drop', 'post-chorus'],
+      notesB,
+      hookBars * cellLen,
+      o.sources.hook,
+    ),
+  );
 
   // C — answering phrase: enters after the vocal stops, a short line that resolves on a long note.
   const rC = deriveRng(o.seed, 'motif', 'C');
   const lenC = Math.max(m.beatTicks * 2, Math.round(m.barTicks * (phraseBars >= 2 ? 1.5 : 1)));
   const notesC = abstractPhrase(
     rC,
-    { lengthTicks: lenC, barOffset: m.beatTicks % m.barTicks, meter: m, grid: o.bpm < 100 ? PPQ / 4 : PPQ / 2, density: 0.45, syncopation: o.syncopation * 0.7, minFinal: m.beatTicks * 1.5 },
+    {
+      lengthTicks: lenC,
+      barOffset: m.beatTicks % m.barTicks,
+      meter: m,
+      grid: o.bpm < 100 ? PPQ / 4 : PPQ / 2,
+      density: 0.45,
+      syncopation: o.syncopation * 0.7,
+      minFinal: m.beatTicks * 1.5,
+    },
     { contour: 'answer', movement: o.movement, span: 4, endDegree: rC.pick([-2, 0, -4]) },
     80,
   );
-  motifs.push(mk('Motif C', MOTIF_DESCRIPTIONS.answer, 'answer', ['verse', 'chorus', 'bridge', 'final-chorus'], notesC, lenC, o.sources.answer));
+  motifs.push(
+    mk(
+      'Motif C',
+      MOTIF_DESCRIPTIONS.answer,
+      'answer',
+      ['verse', 'chorus', 'bridge', 'final-chorus'],
+      notesC,
+      lenC,
+      o.sources.answer,
+    ),
+  );
 
   // D — chorus vocal hook: longer notes, an early leap up, repeated pitches that stick.
   const rD = deriveRng(o.seed, 'motif', 'D');
@@ -535,11 +675,35 @@ export function buildSongMotifs(o: MotifPlanOptions): Motif[] {
   const lenD = Math.max(m.beatTicks * 2, phraseTicks - breathD);
   const notesD = abstractPhrase(
     rD,
-    { lengthTicks: lenD, barOffset: 0, meter: m, grid, density: clamp01(o.density * 0.7), syncopation: o.syncopation * 0.8, minFinal: m.beatTicks * 2, lateStart: 0.1 },
-    { contour: o.flatVocal ? 'arch' : 'hook', movement: clamp01(o.movement + 0.1), span: o.flatVocal ? 3 : 5, endDegree: rD.pick([0, 2, -1]) },
+    {
+      lengthTicks: lenD,
+      barOffset: 0,
+      meter: m,
+      grid,
+      density: clamp01(o.density * 0.7),
+      syncopation: o.syncopation * 0.8,
+      minFinal: m.beatTicks * 2,
+      lateStart: 0.1,
+    },
+    {
+      contour: o.flatVocal ? 'arch' : 'hook',
+      movement: clamp01(o.movement + 0.1),
+      span: o.flatVocal ? 3 : 5,
+      endDegree: rD.pick([0, 2, -1]),
+    },
     98,
   );
-  motifs.push(mk('Motif D', MOTIF_DESCRIPTIONS.chorusVocal, 'vocal-hook', ['chorus', 'final-chorus'], notesD, lenD, o.sources.vocal));
+  motifs.push(
+    mk(
+      'Motif D',
+      MOTIF_DESCRIPTIONS.chorusVocal,
+      'vocal-hook',
+      ['chorus', 'final-chorus'],
+      notesD,
+      lenD,
+      o.sources.vocal,
+    ),
+  );
 
   // E — riff: low, root-centred one-bar figure for riff-driven genres.
   if (o.riff) {
@@ -558,16 +722,35 @@ export function buildSongMotifs(o: MotifPlanOptions): Motif[] {
       const nextOff = i + 1 < notesE.length ? notesE[i + 1].offset : m.barTicks;
       notesE[i].duration = Math.max(riffGrid / 2, nextOff - notesE[i].offset - 10);
     }
-    motifs.push(mk('Motif E', MOTIF_DESCRIPTIONS.riff, 'riff', ['intro', 'verse', 'solo', 'outro'], notesE, m.barTicks, o.sources.riff));
+    motifs.push(
+      mk(
+        'Motif E',
+        MOTIF_DESCRIPTIONS.riff,
+        'riff',
+        ['intro', 'verse', 'solo', 'outro'],
+        notesE,
+        m.barTicks,
+        o.sources.riff,
+      ),
+    );
   }
   return motifs;
 }
 
 /** Find a song motif by its description role (falls back to names A–E). */
-export function findSongMotif(song: Pick<Song, 'motifs'>, which: keyof typeof MOTIF_DESCRIPTIONS): Motif | undefined {
+export function findSongMotif(
+  song: Pick<Song, 'motifs'>,
+  which: keyof typeof MOTIF_DESCRIPTIONS,
+): Motif | undefined {
   const desc = MOTIF_DESCRIPTIONS[which];
   const byDesc = song.motifs.find((m) => m.description === desc);
   if (byDesc) return byDesc;
-  const name = { verse: 'Motif A', hook: 'Motif B', answer: 'Motif C', chorusVocal: 'Motif D', riff: 'Motif E' }[which];
+  const name = {
+    verse: 'Motif A',
+    hook: 'Motif B',
+    answer: 'Motif C',
+    chorusVocal: 'Motif D',
+    riff: 'Motif E',
+  }[which];
   return song.motifs.find((m) => m.name === name);
 }

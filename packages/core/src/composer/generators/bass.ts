@@ -19,8 +19,19 @@ import { applySwing, chordAtIn, clamp, humanize, metricWeight, toVelocity, type 
 type BassStyle = BassPattern;
 
 /** Patterns written out as 16-step bars (see IDIOMS). */
-type IdiomStyle = 'octave' | 'funk' | 'boogie' | 'reggae' | 'tumbao' | 'bossa' | 'samba' | 'log-drum' | 'wobble';
-const IDIOM_STYLES: readonly string[] = ['octave', 'funk', 'boogie', 'reggae', 'tumbao', 'bossa', 'samba', 'log-drum', 'wobble'];
+type IdiomStyle =
+  'octave' | 'funk' | 'boogie' | 'reggae' | 'tumbao' | 'bossa' | 'samba' | 'log-drum' | 'wobble';
+const IDIOM_STYLES: readonly string[] = [
+  'octave',
+  'funk',
+  'boogie',
+  'reggae',
+  'tumbao',
+  'bossa',
+  'samba',
+  'log-drum',
+  'wobble',
+];
 
 function styleFor(c: Cell): BassStyle {
   const d = baseDrumStyle(c.g.drumStyle);
@@ -31,7 +42,16 @@ function styleFor(c: Cell): BassStyle {
   if (c.inst.id === 'log-drum') return 'log-drum';
   const idiom = c.g.genre.rhythm.bassStyle;
   if (idiom) return idiom;
-  if (c.inst.id === '808-bass' && (d === 'hip-hop' || d === 'trap' || d === 'rnb' || d === 'four-on-floor' || d === 'synth-pop' || d === 'pop')) return 'eight-o-eight';
+  if (
+    c.inst.id === '808-bass' &&
+    (d === 'hip-hop' ||
+      d === 'trap' ||
+      d === 'rnb' ||
+      d === 'four-on-floor' ||
+      d === 'synth-pop' ||
+      d === 'pop')
+  )
+    return 'eight-o-eight';
   switch (d) {
     case 'punk':
       return 'eighths';
@@ -108,7 +128,10 @@ const IDIOMS: Record<IdiomStyle, { calm: string[]; busy: string[] }> = {
   // Disco: octave-jumping eighths.
   octave: { calm: ['R.O.R.O.R.O.R.O.'], busy: ['R.O.R.O.R.O.R.O.', 'R.ORR.O.R.O.5.O.'] },
   // Funk: "the one" held, syncopated 16ths, dead notes and octave pops.
-  funk: { calm: ['R-.R..O.x.R.5.7.', 'R-...R.O..5.R...'], busy: ['R-.R..O.x.R.5.7O', 'R-..xRO..R.x5-O.', 'R.xR.xO.R..R.57O'] },
+  funk: {
+    calm: ['R-.R..O.x.R.5.7.', 'R-...R.O..5.R...'],
+    busy: ['R-.R..O.x.R.5.7O', 'R-..xRO..R.x5-O.', 'R.xR.xO.R..R.57O'],
+  },
   // Boogie-woogie / shuffle: R-3-5-6-b7-6-5-3 in (swung) eighths.
   boogie: { calm: ['R.3.5.6.7.6.5.3.'], busy: ['R.3.5.6.7.6.5.3.'] },
   // Reggae: melodic lines that leave space around beat 1 and lock with the drop on 3.
@@ -120,7 +143,10 @@ const IDIOMS: Record<IdiomStyle, { calm: string[]; busy: string[] }> = {
   // Samba: surdo-like "1 . . a 2" figure.
   samba: { calm: ['R..R5---R..R5---'], busy: ['R..R5---R..R5---', 'R.RR5-.5R.RR5-.N'] },
   // Amapiano log drum: syncopated, percussive hits with octave leaps.
-  'log-drum': { calm: ['R..R..O.........', 'R.....R..R......'], busy: ['R..R..O.R.5..R..', '...R..R...O..5R.', 'R.....R..R..O...'] },
+  'log-drum': {
+    calm: ['R..R..O.........', 'R.....R..R......'],
+    busy: ['R..R..O.R.5..R..', '...R..R...O..5R.', 'R.....R..R..O...'],
+  },
   // Dubstep wobble: held, re-triggered sub notes.
   wobble: { calm: ['R-------R---O---'], busy: ['R-R-RRR-R-O-RR5-', 'R---RRR-O-O-R-5-'] },
 };
@@ -145,7 +171,12 @@ function idiomaticBass(c: Cell, style: IdiomStyle): RawNote[] {
       let j = i + 1;
       while (j < 16 && row[j] === '-') j++;
       const tied = j === 16 && j > i + 1;
-      evs.push({ tick: bar.tick + Math.round(i * step), end: tied ? null : bar.tick + Math.round(j * step), deg: ch, step: i });
+      evs.push({
+        tick: bar.tick + Math.round(i * step),
+        end: tied ? null : bar.tick + Math.round(j * step),
+        deg: ch,
+        step: i,
+      });
     }
   }
   const notes: RawNote[] = [];
@@ -206,8 +237,15 @@ function idiomaticBass(c: Cell, style: IdiomStyle): RawNote[] {
       articulation = 'ghost';
     } else if (style === 'log-drum' && deg === 'O') articulation = 'slide';
     else if (style === 'wobble' && k > 0 && ev.end === null) articulation = 'legato';
-    else if (style === 'octave' || style === 'funk') articulation = dur <= step * 1.7 ? 'staccato' : undefined;
-    notes.push({ pitch, tick: ev.tick, duration: dur, velocity: vel, ...(articulation ? { articulation } : {}) });
+    else if (style === 'octave' || style === 'funk')
+      articulation = dur <= step * 1.7 ? 'staccato' : undefined;
+    notes.push({
+      pitch,
+      tick: ev.tick,
+      duration: dur,
+      velocity: vel,
+      ...(articulation ? { articulation } : {}),
+    });
   }
   return notes;
 }
@@ -215,7 +253,8 @@ function idiomaticBass(c: Cell, style: IdiomStyle): RawNote[] {
 export function generateBass(c: Cell): RawNote[] {
   let style = styleFor(c);
   if (IDIOM_STYLES.includes(style)) {
-    if (c.bars.every((b) => b.meter.common)) return finishBass(c, idiomaticBass(c, style as IdiomStyle), style);
+    if (c.bars.every((b) => b.meter.common))
+      return finishBass(c, idiomaticBass(c, style as IdiomStyle), style);
     style = IDIOM_FALLBACK[style as IdiomStyle];
   }
   const lo = c.range.low;
@@ -253,13 +292,21 @@ export function generateBass(c: Cell): RawNote[] {
       break;
     case 'root-fifth':
     case 'walking':
-      addBeatsPattern((t, m) => (style === 'walking' ? m.beats.map((b) => t + b) : m.strong.length > 1 ? m.strong.map((b) => t + b) : m.beats.filter((_, i) => i % 2 === 0).map((b) => t + b)));
+      addBeatsPattern((t, m) =>
+        style === 'walking'
+          ? m.beats.map((b) => t + b)
+          : m.strong.length > 1
+            ? m.strong.map((b) => t + b)
+            : m.beats.filter((_, i) => i % 2 === 0).map((b) => t + b),
+      );
       break;
     case 'offbeat':
       addBeatsPattern((t, m) => m.beats.map((b) => t + b + Math.round(m.beatTicks / 2)));
       break;
     case 'rolling':
-      addBeatsPattern((t, m) => m.beats.flatMap((b) => [1, 2, 3].map((k) => t + b + Math.round((m.beatTicks * k) / 4))));
+      addBeatsPattern((t, m) =>
+        m.beats.flatMap((b) => [1, 2, 3].map((k) => t + b + Math.round((m.beatTicks * k) / 4))),
+      );
       break;
     case 'sustain':
       for (const ch of changes) raw.push({ t: ch, q: ch });
@@ -283,7 +330,8 @@ export function generateBass(c: Cell): RawNote[] {
         addBeatsPattern((t, m) => {
           const out = [t];
           for (const s2 of m.strong.slice(1)) out.push(t + s2);
-          if (c.rng.chance(0.3 + c.macros.syncopation * 0.4)) out.push(t + m.barTicks - Math.round(m.beatTicks / 2));
+          if (c.rng.chance(0.3 + c.macros.syncopation * 0.4))
+            out.push(t + m.barTicks - Math.round(m.beatTicks / 2));
           return out;
         });
       }
@@ -337,7 +385,9 @@ export function generateBass(c: Cell): RawNote[] {
         const target = placeBass(nextChord.bass ?? nextChord.root, prev, lo, hiComfort);
         pitch = approachTo(target, chromaticApproach || rng.chance(0.5), rng.chance(0.5), c);
       } else if (!isChange) {
-        const opts = pcs.map((pc) => placeBass(pc, prev + (rng.chance(0.5) ? 3 : -3), lo, hiComfort)).filter((p) => p !== prev);
+        const opts = pcs
+          .map((pc) => placeBass(pc, prev + (rng.chance(0.5) ? 3 : -3), lo, hiComfort))
+          .filter((p) => p !== prev);
         pitch = opts.length ? rng.pick(opts) : pitch;
       }
     } else if (style === 'root-fifth') {
@@ -354,11 +404,17 @@ export function generateBass(c: Cell): RawNote[] {
       } else if (!isChange && rng.chance(complexity * (style === 'eighths' ? 0.25 : 0.35))) {
         const { meter, barStart } = c.meterAt(q);
         const weak = metricWeight(q - barStart, meter) <= 0.5;
-        if (weak && pitch + 12 <= c.range.high && (style === 'eighths' || style === 'offbeat' || style === 'eight-o-eight')) pitch += 12; // octave pop
+        if (
+          weak &&
+          pitch + 12 <= c.range.high &&
+          (style === 'eighths' || style === 'offbeat' || style === 'eight-o-eight')
+        )
+          pitch += 12; // octave pop
         else if (pcs.includes(fifthPc)) pitch = placeBass(fifthPc, pitch + 4, lo, hiComfort);
       }
     }
-    if (noChromatic && !isInScale(pitch, c.key) && !pcs.includes(mod12(pitch))) pitch = placeBass(rootPc, prev, lo, hiComfort);
+    if (noChromatic && !isInScale(pitch, c.key) && !pcs.includes(mod12(pitch)))
+      pitch = placeBass(rootPc, prev, lo, hiComfort);
     const { meter, barStart } = c.meterAt(q);
     const w = metricWeight(q - barStart, meter);
     const e = c.energyAt(t);
@@ -371,7 +427,8 @@ export function generateBass(c: Cell): RawNote[] {
     else if (style === 'walking') dur = Math.max(60, dur - 15);
     else if (style === 'eight-o-eight') {
       dur = Math.max(PPQ / 2, dur - 5);
-      if (i > 0 && pitch !== notes[notes.length - 1]?.pitch && rng.chance(0.15 + complexity * 0.3)) articulation = 'slide';
+      if (i > 0 && pitch !== notes[notes.length - 1]?.pitch && rng.chance(0.15 + complexity * 0.3))
+        articulation = 'slide';
     } else dur = Math.max(60, dur - 12);
     const base = style === 'sustain' ? 84 : 92 + (w >= 0.9 ? 10 : w >= 0.75 ? 4 : 0);
     const vel = toVelocity((base * (0.72 + 0.32 * e) - 88) * (0.65 + 0.7 * c.macros.dynamics) + 88);
@@ -390,12 +447,18 @@ export function generateBass(c: Cell): RawNote[] {
       const target = notes.length ? notes[notes.length - 1].pitch : center;
       const dir = c.vrng.chance(0.5) ? 1 : -1;
       for (let i = notes.length - 1; i >= 0; i--) if (notes[i].tick >= start) notes.splice(i, 1);
-      if (notes.length && notes[notes.length - 1].tick + notes[notes.length - 1].duration > start) notes[notes.length - 1].duration = Math.max(30, start - notes[notes.length - 1].tick);
+      if (notes.length && notes[notes.length - 1].tick + notes[notes.length - 1].duration > start)
+        notes[notes.length - 1].duration = Math.max(30, start - notes[notes.length - 1].tick);
       const scale = scalePitchClasses(c.key);
       let p = target - dir * 4;
       for (let t = start, k = 0; t < start + beat - 1; t += step, k++) {
         while (!scale.includes(mod12(p))) p += dir;
-        notes.push({ pitch: clamp(p, lo, c.range.high), tick: Math.round(t), duration: Math.round(step - 10), velocity: toVelocity(88 + k * 4) });
+        notes.push({
+          pitch: clamp(p, lo, c.range.high),
+          tick: Math.round(t),
+          duration: Math.round(step - 10),
+          velocity: toVelocity(88 + k * 4),
+        });
         p += dir;
       }
     }
@@ -417,6 +480,11 @@ function finishBass(c: Cell, notes: RawNote[], style: BassStyle): RawNote[] {
       n.duration = Math.max(30, n.duration - Math.max(0, shift));
     }
   }
-  humanize(notes, c.macros.humanization * 0.8, c.vrng.fork('humanize'), { start: c.span.startTick, end: c.span.endTick, maxTicks: 6, maxVelocity: 7 });
+  humanize(notes, c.macros.humanization * 0.8, c.vrng.fork('humanize'), {
+    start: c.span.startTick,
+    end: c.span.endTick,
+    maxTicks: 6,
+    maxVelocity: 7,
+  });
   return notes;
 }

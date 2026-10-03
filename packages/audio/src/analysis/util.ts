@@ -305,7 +305,8 @@ function decimationFilter(factor: number): Float64Array {
   for (let i = 0; i < taps; i++) {
     const n = i - half;
     const sinc = n === 0 ? 2 * fc : Math.sin(2 * Math.PI * fc * n) / (Math.PI * n);
-    const w = 0.42 - 0.5 * Math.cos((2 * Math.PI * i) / (taps - 1)) + 0.08 * Math.cos((4 * Math.PI * i) / (taps - 1));
+    const w =
+      0.42 - 0.5 * Math.cos((2 * Math.PI * i) / (taps - 1)) + 0.08 * Math.cos((4 * Math.PI * i) / (taps - 1));
     h[i] = sinc * w;
     sum += h[i];
   }
@@ -348,7 +349,12 @@ export function decimationFactor(sampleRate: number, target = ANALYSIS_RATE): nu
  * Generic band-limited resampler (windowed sinc, linear table interpolation). Only used
  * where an exact target rate is required; analysis normally uses `analysisDecimate`.
  */
-export function analysisResample(x: Float32Array, fromRate: number, toRate: number, zeroCrossings = 12): Float32Array {
+export function analysisResample(
+  x: Float32Array,
+  fromRate: number,
+  toRate: number,
+  zeroCrossings = 12,
+): Float32Array {
   if (fromRate === toRate || x.length === 0) return x;
   const ratio = toRate / fromRate;
   const outLen = Math.max(0, Math.round(x.length * ratio));
@@ -395,7 +401,10 @@ export function prepareMono(buf: AudioData, target = ANALYSIS_RATE): { x: Float3
 export function prepareChannels(buf: AudioData, target = ANALYSIS_RATE): AudioData {
   const f = decimationFactor(buf.sampleRate, target);
   const chans = buf.channels.map(sanitizeSignal);
-  if (f <= 1) return chans.every((c, i) => c === buf.channels[i]) ? buf : { sampleRate: buf.sampleRate, channels: chans };
+  if (f <= 1)
+    return chans.every((c, i) => c === buf.channels[i])
+      ? buf
+      : { sampleRate: buf.sampleRate, channels: chans };
   return { sampleRate: buf.sampleRate / f, channels: chans.map((c) => analysisDecimate(c, f)) };
 }
 

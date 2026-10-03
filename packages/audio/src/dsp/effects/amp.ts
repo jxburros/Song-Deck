@@ -46,7 +46,8 @@ export class AmpSim {
     this.out = Math.pow(10, p.outDb / 20);
     this.bias = Math.max(0, Math.min(0.5, p.asym));
     this.biasOut = softClip(this.bias);
-    const b = this.bias, bo = this.biasOut;
+    const b = this.bias,
+      bo = this.biasOut;
     this.shaper.setShape((x) => softClip(x + b) - bo);
     this.cab.length = 0;
     const mk = () => {

@@ -98,8 +98,8 @@ const SUFFIX_ALIASES: Record<string, ChordQuality> = {
   maj7: 'maj7',
   M7: 'maj7',
   ma7: 'maj7',
-  'Δ': 'maj7',
-  'Δ7': 'maj7',
+  Δ: 'maj7',
+  Δ7: 'maj7',
   m7: 'min7',
   min7: 'min7',
   mi7: 'min7',
@@ -112,8 +112,8 @@ const SUFFIX_ALIASES: Record<string, ChordQuality> = {
   m7b5: 'm7b5',
   'm7(b5)': 'm7b5',
   '-7b5': 'm7b5',
-  'ø': 'm7b5',
-  'ø7': 'm7b5',
+  ø: 'm7b5',
+  ø7: 'm7b5',
   dim7: 'dim7',
   '°7': 'dim7',
   o7: 'dim7',
@@ -170,7 +170,8 @@ export function parseChordSymbol(symbol: string): ChordSpec | null {
 /** Canonical chord symbol for a spec, spelled for the key when given. */
 export function formatChordSymbol(chord: ChordSpec, key?: KeySignature): string {
   const root = spellPitchClass(chord.root, key);
-  const bass = chord.bass !== undefined && chord.bass !== chord.root ? `/${spellPitchClass(chord.bass, key)}` : '';
+  const bass =
+    chord.bass !== undefined && chord.bass !== chord.root ? `/${spellPitchClass(chord.bass, key)}` : '';
   return `${root}${QUALITY_SUFFIX[chord.quality]}${bass}`;
 }
 
@@ -185,11 +186,14 @@ export function chordPitchClasses(chord: ChordSpec): PitchClass[] {
   return out;
 }
 
-export type ChordToneRole = 'root' | 'third' | 'fifth' | 'seventh' | 'sixth' | 'ninth' | 'eleventh' | 'thirteenth' | 'sus' | 'bass';
+export type ChordToneRole =
+  'root' | 'third' | 'fifth' | 'seventh' | 'sixth' | 'ninth' | 'eleventh' | 'thirteenth' | 'sus' | 'bass';
 
 /** Chord tones with their function, ordered by voicing importance (root, 3rd, 7th, 5th, extensions). */
 export function chordTones(chord: ChordSpec): { pc: PitchClass; role: ChordToneRole; interval: number }[] {
-  const tones: { pc: PitchClass; role: ChordToneRole; interval: number }[] = CHORD_INTERVALS[chord.quality].map((interval) => {
+  const tones: { pc: PitchClass; role: ChordToneRole; interval: number }[] = CHORD_INTERVALS[
+    chord.quality
+  ].map((interval) => {
     const i = interval % 12;
     let role: ChordToneRole;
     if (interval === 0) role = 'root';
@@ -205,7 +209,17 @@ export function chordTones(chord: ChordSpec): { pc: PitchClass; role: ChordToneR
     if (interval === 21) role = 'thirteenth';
     return { pc: mod12(chord.root + interval), role, interval };
   });
-  const order: ChordToneRole[] = ['root', 'third', 'sus', 'seventh', 'sixth', 'fifth', 'ninth', 'eleventh', 'thirteenth'];
+  const order: ChordToneRole[] = [
+    'root',
+    'third',
+    'sus',
+    'seventh',
+    'sixth',
+    'fifth',
+    'ninth',
+    'eleventh',
+    'thirteenth',
+  ];
   tones.sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
   if (chord.bass !== undefined && !tones.some((t) => t.pc === chord.bass)) {
     tones.push({ pc: chord.bass, role: 'bass', interval: mod12(chord.bass - chord.root) });
@@ -219,11 +233,28 @@ export function isChordTone(pitch: number, chord: ChordSpec): boolean {
 
 /** Whether a quality is minor-flavoured (minor third, not diminished). */
 export function isMinorQuality(q: ChordQuality): boolean {
-  return q === 'min' || q === 'min6' || q === 'min7' || q === 'minmaj7' || q === 'minadd9' || q === 'min9' || q === 'min11';
+  return (
+    q === 'min' ||
+    q === 'min6' ||
+    q === 'min7' ||
+    q === 'minmaj7' ||
+    q === 'minadd9' ||
+    q === 'min9' ||
+    q === 'min11'
+  );
 }
 
 export function isDominantQuality(q: ChordQuality): boolean {
-  return q === '7' || q === '9' || q === '13' || q === '7b9' || q === '7#9' || q === '7sus4' || q === 'aug7' || q === '11';
+  return (
+    q === '7' ||
+    q === '9' ||
+    q === '13' ||
+    q === '7b9' ||
+    q === '7#9' ||
+    q === '7sus4' ||
+    q === 'aug7' ||
+    q === '11'
+  );
 }
 
 /** Reduce any chord to its basic triad quality (for analysis and roman numerals). */

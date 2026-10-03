@@ -92,15 +92,36 @@ describe('chords', () => {
     expect(formatChordSymbol({ root: 7, quality: 'maj', bass: 11 })).toBe('G/B');
   });
   it('builds diatonic chords', () => {
-    expect(diatonicChords(C).map((c) => formatChordSymbol(c, C))).toEqual(['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim']);
-    expect(diatonicChords(Em).map((c) => formatChordSymbol(c, Em))).toEqual(['Em', 'F#dim', 'G', 'Am', 'Bm', 'C', 'D']);
+    expect(diatonicChords(C).map((c) => formatChordSymbol(c, C))).toEqual([
+      'C',
+      'Dm',
+      'Em',
+      'F',
+      'G',
+      'Am',
+      'Bdim',
+    ]);
+    expect(diatonicChords(Em).map((c) => formatChordSymbol(c, Em))).toEqual([
+      'Em',
+      'F#dim',
+      'G',
+      'Am',
+      'Bm',
+      'C',
+      'D',
+    ]);
   });
 });
 
 describe('roman numerals', () => {
   it('realizes numerals relative to the key mode', () => {
     expect(['i', 'VI', 'III', 'VII'].map((r) => sym(r, Em))).toEqual(['Em', 'C', 'G', 'D']);
-    expect(['I', 'V', 'vi', 'IV'].map((r) => sym(r, { tonic: 7, mode: 'major' }))).toEqual(['G', 'D', 'Em', 'C']);
+    expect(['I', 'V', 'vi', 'IV'].map((r) => sym(r, { tonic: 7, mode: 'major' }))).toEqual([
+      'G',
+      'D',
+      'Em',
+      'C',
+    ]);
     expect(sym('V', Em)).toBe('B');
     expect(sym('V7', Em)).toBe('B7');
     expect(sym('bVII', C)).toBe('A#'); // spelled with sharps in C (no flats preference)
@@ -215,12 +236,19 @@ describe('random & ids & locks', () => {
       { id: 's2', name: 'Chorus', kind: 'chorus', bars: 4, energy: 80 },
     ];
     const track = {
-      id: 't1', name: 'Drums', kind: 'midi' as const, role: 'drums' as const, instrumentId: 'drum-kit', constraints: {},
+      id: 't1',
+      name: 'Drums',
+      kind: 'midi' as const,
+      role: 'drums' as const,
+      instrumentId: 'drum-kit',
+      constraints: {},
       notes: [
         { id: 'a', pitch: 36, tick: 0, duration: 120, velocity: 100 },
         { id: 'b', pitch: 36, tick: 4 * 1920, duration: 120, velocity: 100 },
       ],
-      clips: [], color: '#fff', stemGroup: 'drums' as const,
+      clips: [],
+      color: '#fff',
+      stemGroup: 'drums' as const,
     };
     song.tracks = [track];
     song.locks = { [LockKeys.trackSection('t1', 's1')]: true };

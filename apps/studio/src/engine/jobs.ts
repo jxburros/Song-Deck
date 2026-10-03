@@ -13,7 +13,10 @@ interface Pending {
   worker: Worker;
 }
 
-const POOL_SIZE = Math.max(1, Math.min(3, (typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 2) - 1));
+const POOL_SIZE = Math.max(
+  1,
+  Math.min(3, (typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 2) - 1),
+);
 
 class JobPool {
   private workers: Worker[] = [];
@@ -25,7 +28,8 @@ class JobPool {
   /** Instruments every render job needs (sent to current and future workers). */
   configure(config: RenderInstrumentConfig) {
     this.config = config;
-    for (const w of this.workers) w.postMessage({ id: 0, method: 'configure', args: config } satisfies JobRequest);
+    for (const w of this.workers)
+      w.postMessage({ id: 0, method: 'configure', args: config } satisfies JobRequest);
   }
 
   private spawn(): Worker {
@@ -75,21 +79,34 @@ class JobPool {
   call<T>(
     method: JobMethod,
     args: unknown,
-    opts: { onProgress?: (p: number, stage?: string, detail?: unknown) => void; signal?: AbortSignal; transfer?: Transferable[] } = {},
+    opts: {
+      onProgress?: (p: number, stage?: string, detail?: unknown) => void;
+      signal?: AbortSignal;
+      transfer?: Transferable[];
+    } = {},
   ): Promise<T> {
     const worker = this.pick();
     const id = this.nextId++;
     this.load.set(worker, (this.load.get(worker) ?? 0) + 1);
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onProgress: opts.onProgress, worker });
+      this.pending.set(id, {
+        resolve: resolve as (v: unknown) => void,
+        reject,
+        onProgress: opts.onProgress,
+        worker,
+      });
       if (opts.signal) {
         if (opts.signal.aborted) {
           reject(Object.assign(new Error('Cancelled'), { name: 'AbortError' }));
           return;
         }
-        opts.signal.addEventListener('abort', () => worker.postMessage({ id: 0, method: 'cancel', args: { target: id } } satisfies JobRequest), {
-          once: true,
-        });
+        opts.signal.addEventListener(
+          'abort',
+          () => worker.postMessage({ id: 0, method: 'cancel', args: { target: id } } satisfies JobRequest),
+          {
+            once: true,
+          },
+        );
       }
       worker.postMessage({ id, method, args } satisfies JobRequest, opts.transfer ?? []);
     });

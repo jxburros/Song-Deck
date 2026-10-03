@@ -19,7 +19,8 @@ export const BUILTIN_PROFILES: ProviderProfile[] = [
   {
     id: 'cloud-quality',
     name: 'Cloud Quality',
-    description: 'Best cloud models: OpenAI for composition, Gemini for music analysis, the managed service for production and vocals.',
+    description:
+      'Best cloud models: OpenAI for composition, Gemini for music analysis, the managed service for production and vocals.',
     builtIn: true,
     assignments: {
       composition: { providerId: 'openai' },
@@ -40,7 +41,8 @@ export const BUILTIN_PROFILES: ProviderProfile[] = [
   {
     id: 'local-only',
     name: 'Local Only',
-    description: 'Nothing leaves this machine: local Llama for composition, the deterministic engine for MIDI, local transcription, DiffSinger vocals and a local music model.',
+    description:
+      'Nothing leaves this machine: local Llama for composition, the deterministic engine for MIDI, local transcription, DiffSinger vocals and a local music model.',
     builtIn: true,
     assignments: {
       composition: { providerId: 'ollama' },
@@ -82,7 +84,8 @@ export const BUILTIN_PROFILES: ProviderProfile[] = [
   {
     id: 'final-production',
     name: 'Final Production',
-    description: 'High-reasoning model for composition, premium cloud generator for production, a high-quality singing synthesizer for vocals.',
+    description:
+      'High-reasoning model for composition, premium cloud generator for production, a high-quality singing synthesizer for vocals.',
     builtIn: true,
     assignments: {
       composition: { providerId: 'anthropic', modelId: 'claude-opus-5-5' },
@@ -102,7 +105,10 @@ export const BUILTIN_PROFILES: ProviderProfile[] = [
   },
 ];
 
-export function getProfile(id: string | undefined, custom: readonly ProviderProfile[] = []): ProviderProfile | undefined {
+export function getProfile(
+  id: string | undefined,
+  custom: readonly ProviderProfile[] = [],
+): ProviderProfile | undefined {
   if (!id) return undefined;
   return custom.find((p) => p.id === id) ?? BUILTIN_PROFILES.find((p) => p.id === id);
 }

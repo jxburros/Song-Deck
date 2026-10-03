@@ -82,7 +82,10 @@ const CROSS_ORIGIN_SAFE_HEADERS = new Set(['accept', 'accept-language', 'content
  * cross-origin redirect is followed only to an allowlisted URL and without the request's
  * (possibly credential-bearing) custom headers.
  */
-export function guardedFetch(base: typeof fetch, isAllowed: (url: URL) => boolean): (input: string, init?: RequestInit) => Promise<Response> {
+export function guardedFetch(
+  base: typeof fetch,
+  isAllowed: (url: URL) => boolean,
+): (input: string, init?: RequestInit) => Promise<Response> {
   return async (input, init = {}) => {
     let url = new URL(input);
     let method = (init.method ?? 'GET').toUpperCase();
@@ -95,7 +98,10 @@ export function guardedFetch(base: typeof fetch, isAllowed: (url: URL) => boolea
       await res.body?.cancel().catch(() => undefined);
       const next = new URL(location, url);
       if (next.origin !== url.origin) {
-        if (!isAllowed(next)) throw new TypeError(`fetch failed: redirect to ${next.origin} refused (not in the provider allowlist)`);
+        if (!isAllowed(next))
+          throw new TypeError(
+            `fetch failed: redirect to ${next.origin} refused (not in the provider allowlist)`,
+          );
         const safe = new Headers();
         headers.forEach((value, key) => {
           if (CROSS_ORIGIN_SAFE_HEADERS.has(key.toLowerCase())) safe.set(key, value);
@@ -132,8 +138,10 @@ export class ManagedGateway {
       router: this.router,
       settings: () => SERVER_ROUTING,
       onEvent: (e) => {
-        if (e.type === 'failed') opts.logger.debug(`managed: ${e.role} via ${e.providerId} failed: ${e.error}`);
-        else if (e.type === 'fallback') opts.logger.debug(`managed: ${e.role} fell back from ${e.from} to ${e.to}: ${e.reason}`);
+        if (e.type === 'failed')
+          opts.logger.debug(`managed: ${e.role} via ${e.providerId} failed: ${e.error}`);
+        else if (e.type === 'fallback')
+          opts.logger.debug(`managed: ${e.role} fell back from ${e.from} to ${e.to}: ${e.reason}`);
       },
     });
     this.handler = createManagedGatewayHandler(this.orchestrator);
@@ -153,7 +161,8 @@ export class ManagedGateway {
     const usable = configs.filter((c) => c.adapter !== 'managed') as unknown as ProviderConfig[];
     const result = this.registry.configure(usable);
     this.configureErrors = result.errors;
-    for (const e of result.errors) this.opts.logger.warn(`managed gateway: provider ${e.id} unusable: ${e.error}`);
+    for (const e of result.errors)
+      this.opts.logger.warn(`managed gateway: provider ${e.id} unusable: ${e.error}`);
   }
 
   private managedIds(): string[] {
@@ -165,7 +174,8 @@ export class ManagedGateway {
 
   roleStatus(role: TaskRole): RoleStatus {
     const excludeProviderIds = this.managedIds();
-    const pick = (offline: boolean) => this.router.select({ role, excludeProviderIds, settings: { offline } });
+    const pick = (offline: boolean) =>
+      this.router.select({ role, excludeProviderIds, settings: { offline } });
     let localAvailable = false;
     try {
       pick(true);
@@ -175,9 +185,20 @@ export class ManagedGateway {
     }
     try {
       const d = pick(false);
-      return { available: true, providerId: d.providerId, providerName: d.providerName, location: d.location, ...(d.modelId ? { modelId: d.modelId } : {}), localAvailable };
+      return {
+        available: true,
+        providerId: d.providerId,
+        providerName: d.providerName,
+        location: d.location,
+        ...(d.modelId ? { modelId: d.modelId } : {}),
+        localAvailable,
+      };
     } catch (err) {
-      return { available: false, localAvailable, reason: err instanceof NoCompatibleProviderError ? err.message : (err as Error).message };
+      return {
+        available: false,
+        localAvailable,
+        reason: err instanceof NoCompatibleProviderError ? err.message : (err as Error).message,
+      };
     }
   }
 
@@ -190,7 +211,16 @@ export class ManagedGateway {
       providers: this.registry
         .list()
         .filter((p) => !skip.has(p.id))
-        .map((p) => ({ id: p.id, name: p.name, location: p.location, adapter: p.adapter, enabled: p.enabled, status: p.status, ...(p.error ? { error: p.error } : {}), capabilities: p.capabilities })),
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          location: p.location,
+          adapter: p.adapter,
+          enabled: p.enabled,
+          status: p.status,
+          ...(p.error ? { error: p.error } : {}),
+          capabilities: p.capabilities,
+        })),
       roles,
       roleLabels: Object.fromEntries(TASK_ROLES.map((r) => [r, ROLE_INFO[r].label])),
       ...(this.configureErrors.length ? { errors: this.configureErrors } : {}),
@@ -213,7 +243,14 @@ function toHttp(out: ManagedGatewayResponse): ManagedGatewayResponse {
     return { ...out, json: { ...json, code: 'no-compatible-provider' } };
   }
   if (out.status >= 400 && json && typeof json.code !== 'string') {
-    return { ...out, json: { ...json, error: String(json.error ?? 'Managed gateway error'), code: STATUS_CODES[out.status] ?? (out.status >= 500 ? 'provider-error' : 'bad-request') } };
+    return {
+      ...out,
+      json: {
+        ...json,
+        error: String(json.error ?? 'Managed gateway error'),
+        code: STATUS_CODES[out.status] ?? (out.status >= 500 ? 'provider-error' : 'bad-request'),
+      },
+    };
   }
   return out;
 }
@@ -230,7 +267,8 @@ export function registerManagedRoutes(router: Router, gateway: ManagedGateway, j
       const out = toHttp(await gateway.handler(url.pathname, body, signal));
       if (signal.aborted) return; // client went away
       const headers = { ...(out.headers ?? {}), 'cache-control': 'no-store' };
-      if (out.bytes) sendBytes(res, out.status, out.bytes, out.contentType ?? 'application/octet-stream', headers);
+      if (out.bytes)
+        sendBytes(res, out.status, out.bytes, out.contentType ?? 'application/octet-stream', headers);
       else sendJson(res, out.status, out.json ?? {}, headers);
     });
   }

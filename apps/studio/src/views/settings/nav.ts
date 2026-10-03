@@ -8,9 +8,20 @@ import { useStudio } from '../../state/store';
  * so a link like `/#settings/privacy` opens straight into that tab.
  */
 
-export type SettingsTab = 'providers' | 'routing' | 'privacy' | 'budget' | 'models' | 'nodes' | 'plugins' | 'collab' | 'general';
+export type SettingsTab =
+  'providers' | 'routing' | 'privacy' | 'budget' | 'models' | 'nodes' | 'plugins' | 'collab' | 'general';
 
-export const SETTINGS_TABS: readonly SettingsTab[] = ['providers', 'routing', 'privacy', 'budget', 'models', 'nodes', 'plugins', 'collab', 'general'];
+export const SETTINGS_TABS: readonly SettingsTab[] = [
+  'providers',
+  'routing',
+  'privacy',
+  'budget',
+  'models',
+  'nodes',
+  'plugins',
+  'collab',
+  'general',
+];
 
 interface NavState {
   tab: SettingsTab;
@@ -71,7 +82,8 @@ export function openSettings(tab: SettingsTab = 'providers', focus?: string): vo
 export function syncHash(tab: SettingsTab | null): void {
   if (typeof window === 'undefined') return;
   const url = `${window.location.pathname}${window.location.search}${tab ? `#settings/${tab}` : ''}`;
-  if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== url) window.history.replaceState(window.history.state, '', url);
+  if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== url)
+    window.history.replaceState(window.history.state, '', url);
 }
 
 // A deep link opened the page: show Settings right away.

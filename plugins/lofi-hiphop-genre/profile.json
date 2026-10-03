@@ -42,11 +42,23 @@
   "instruments": [
     { "instrumentId": "electronic-kit", "role": "drums", "weight": 1, "essential": true },
     { "instrumentId": "upright-bass", "role": "bass", "weight": 0.8, "essential": true },
-    { "instrumentId": "electric-piano", "role": "keys", "function": "harmony", "weight": 1, "essential": true },
+    {
+      "instrumentId": "electric-piano",
+      "role": "keys",
+      "function": "harmony",
+      "weight": 1,
+      "essential": true
+    },
     { "instrumentId": "synth-pad", "role": "synth-pad", "function": "pad", "weight": 0.5 },
     { "instrumentId": "acoustic-guitar", "role": "lead-guitar", "function": "counter-melody", "weight": 0.3 }
   ],
-  "rhythm": { "drumStyle": "hip-hop", "swing": 0.55, "syncopation": 0.55, "subdivision": 16, "halfTimeChance": 0.1 },
+  "rhythm": {
+    "drumStyle": "hip-hop",
+    "swing": 0.55,
+    "syncopation": 0.55,
+    "subdivision": 16,
+    "halfTimeChance": 0.1
+  },
   "dynamics": {
     "energyBySection": { "intro": 25, "verse": 40, "chorus": 50, "bridge": 35, "outro": 25 },
     "dynamicRange": 0.35
@@ -55,7 +67,10 @@
     "densityAtLowEnergy": 0.4,
     "densityAtHighEnergy": 0.85,
     "restsBySection": { "intro": ["drums", "bass"], "outro": ["drums"] },
-    "conventions": ["Drums drop out for intros and switch-ups", "Keys carry the harmony with lazy, behind-the-beat voicings"]
+    "conventions": [
+      "Drums drop out for intros and switch-ups",
+      "Keys carry the harmony with lazy, behind-the-beat voicings"
+    ]
   },
   "production": {
     "description": "Dusty vinyl crackle, tape saturation and wow, low-passed drums, warm and narrow.",

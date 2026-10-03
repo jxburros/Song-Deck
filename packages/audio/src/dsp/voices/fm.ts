@@ -61,7 +61,11 @@ export class FmVoice extends Voice {
   private readonly pg = new Float64Array(2);
   private readonly sr: number;
 
-  constructor(host: VoiceHost, private readonly p: FmParams, private readonly stereo: boolean) {
+  constructor(
+    host: VoiceHost,
+    private readonly p: FmParams,
+    private readonly stereo: boolean,
+  ) {
     super(host);
     this.sr = host.sampleRate;
     this.nPairs = Math.min(MAXP, p.pairs.length);
@@ -118,10 +122,18 @@ export class FmVoice extends Voice {
     const env = this.host.scratch;
     const alive = this.env.process(env, start, end);
     const n = this.nPairs;
-    const cph = this.cph, mph = this.mph, cinc = this.cinc, minc = this.minc;
-    const idx = this.idx, idxF = this.idxFloor, idxC = this.idxCoef, amp = this.amp, ampC = this.ampCoef;
+    const cph = this.cph,
+      mph = this.mph,
+      cinc = this.cinc,
+      minc = this.minc;
+    const idx = this.idx,
+      idxF = this.idxFloor,
+      idxC = this.idxCoef,
+      amp = this.amp,
+      ampC = this.ampCoef;
     const vg = this.vg;
-    const gl = this.stereo ? this.pg[0] : 1, gr = this.pg[1];
+    const gl = this.stereo ? this.pg[0] : 1,
+      gr = this.pg[1];
     let peak = 0;
     let sa = this.strikeAmp;
     const sc = this.strikeCoef;

@@ -71,7 +71,11 @@ export class CollabHub {
 
   constructor(private readonly opts: CollabHubOptions) {
     this.collabDir = path.join(opts.dataDir, 'collab');
-    this.wss = new WebSocketServer({ noServer: true, maxPayload: opts.maxMessageBytes, perMessageDeflate: false });
+    this.wss = new WebSocketServer({
+      noServer: true,
+      maxPayload: opts.maxMessageBytes,
+      perMessageDeflate: false,
+    });
     this.heartbeat = setInterval(() => this.ping(), opts.heartbeatMs ?? 30_000);
     this.heartbeat.unref();
   }
@@ -86,7 +90,12 @@ export class CollabHub {
   }
 
   private onConnection(ws: WebSocket): void {
-    const peer: Peer = { peerId: `peer_${randomBytes(6).toString('hex')}`, ws, alive: true, queue: Promise.resolve() };
+    const peer: Peer = {
+      peerId: `peer_${randomBytes(6).toString('hex')}`,
+      ws,
+      alive: true,
+      queue: Promise.resolve(),
+    };
     this.peers.add(peer);
     peer.helloTimer = setTimeout(() => {
       if (!peer.room) ws.close(4001, 'hello timeout');
@@ -97,9 +106,11 @@ export class CollabHub {
     });
     ws.on('message', (data, isBinary) => {
       // Process one connection's messages strictly in order (handlers are async).
-      peer.queue = peer.queue.then(() => this.onMessage(peer, data, isBinary)).catch((err) => {
-        this.opts.logger.warn(`collab: message handling failed: ${(err as Error).message}`);
-      });
+      peer.queue = peer.queue
+        .then(() => this.onMessage(peer, data, isBinary))
+        .catch((err) => {
+          this.opts.logger.warn(`collab: message handling failed: ${(err as Error).message}`);
+        });
     });
     ws.on('close', () => {
       clearTimeout(peer.helloTimer);
@@ -159,23 +170,34 @@ export class CollabHub {
   }
 
   private peerInfo(p: Peer): PeerInfo {
-    return { peerId: p.peerId, user: p.user as CollabUser, ...(p.presence ? { presence: p.presence } : {}), joinedAt: p.joinedAt ?? '' };
+    return {
+      peerId: p.peerId,
+      user: p.user as CollabUser,
+      ...(p.presence ? { presence: p.presence } : {}),
+      joinedAt: p.joinedAt ?? '',
+    };
   }
 
   private async onMessage(peer: Peer, data: RawData, isBinary: boolean): Promise<void> {
     if (isBinary) return this.error(peer, 'binary-not-supported', 'Messages must be JSON text frames');
-    const text = Array.isArray(data) ? Buffer.concat(data).toString('utf8') : Buffer.isBuffer(data) ? data.toString('utf8') : Buffer.from(data).toString('utf8');
+    const text = Array.isArray(data)
+      ? Buffer.concat(data).toString('utf8')
+      : Buffer.isBuffer(data)
+        ? data.toString('utf8')
+        : Buffer.from(data).toString('utf8');
     let msg: Record<string, unknown>;
     try {
       const parsed = JSON.parse(text) as unknown;
-      if (!isPlainObject(parsed) || typeof parsed.type !== 'string') return this.error(peer, 'invalid-message', 'Messages must be objects with a "type"');
+      if (!isPlainObject(parsed) || typeof parsed.type !== 'string')
+        return this.error(peer, 'invalid-message', 'Messages must be objects with a "type"');
       msg = parsed;
     } catch {
       return this.error(peer, 'invalid-json', 'Message is not valid JSON');
     }
     const reqId = typeof msg.reqId === 'string' || typeof msg.reqId === 'number' ? msg.reqId : undefined;
     try {
-      if (msg.type === 'ping') return this.send(peer, { type: 'pong', ...(reqId !== undefined ? { reqId } : {}) });
+      if (msg.type === 'ping')
+        return this.send(peer, { type: 'pong', ...(reqId !== undefined ? { reqId } : {}) });
       if (msg.type === 'hello') return await this.onHello(peer, msg, reqId);
       const room = peer.room;
       if (!room || !peer.user) throw new ProtocolError('not-joined', 'Send hello before other messages');
@@ -240,53 +262,100 @@ export class CollabHub {
 
   private onPresence(peer: Peer, room: Room, msg: Record<string, unknown>): void {
     peer.presence = validatePresence(msg);
-    this.broadcast(room, { type: 'presence', peerId: peer.peerId, user: peer.user, presence: peer.presence }, peer);
+    this.broadcast(
+      room,
+      { type: 'presence', peerId: peer.peerId, user: peer.user, presence: peer.presence },
+      peer,
+    );
   }
 
-  private async onCommit(peer: Peer, room: Room, msg: Record<string, unknown>, reqId: unknown): Promise<void> {
+  private async onCommit(
+    peer: Peer,
+    room: Room,
+    msg: Record<string, unknown>,
+    reqId: unknown,
+  ): Promise<void> {
     const revision = validateRevision(msg.revision);
     const branchId = msg.branchId === undefined ? revision.branchId : msg.branchId;
-    if (typeof branchId !== 'string' || !branchId || branchId.length > 128) throw new ProtocolError('invalid-commit', 'branchId must be a string');
+    if (typeof branchId !== 'string' || !branchId || branchId.length > 128)
+      throw new ProtocolError('invalid-commit', 'branchId must be a string');
     await room.mutex.run(async () => {
       if (room.state.revisions.some((r) => r.id === revision.id)) {
-        this.send(peer, { type: 'ack', revisionId: revision.id, duplicate: true, ...(reqId !== undefined ? { reqId } : {}) });
+        this.send(peer, {
+          type: 'ack',
+          revisionId: revision.id,
+          duplicate: true,
+          ...(reqId !== undefined ? { reqId } : {}),
+        });
         return;
       }
       const meta: RevisionMeta = revisionMeta(revision, peer.user, new Date().toISOString(), branchId);
       await room.store.appendRevision(meta, revision);
       room.state.revisions.push(meta);
       room.state.branches[branchId] = revision.id;
-      this.broadcast(room, { type: 'commit', branchId, revision, from: { peerId: peer.peerId, user: peer.user } }, peer);
+      this.broadcast(
+        room,
+        { type: 'commit', branchId, revision, from: { peerId: peer.peerId, user: peer.user } },
+        peer,
+      );
       this.send(peer, { type: 'ack', revisionId: revision.id, ...(reqId !== undefined ? { reqId } : {}) });
     });
   }
 
-  private async onRequestRevision(peer: Peer, room: Room, msg: Record<string, unknown>, reqId: unknown): Promise<void> {
-    if (typeof msg.id !== 'string' || !SAFE_ID.test(msg.id)) throw new ProtocolError('invalid-request', 'id must be a revision id');
+  private async onRequestRevision(
+    peer: Peer,
+    room: Room,
+    msg: Record<string, unknown>,
+    reqId: unknown,
+  ): Promise<void> {
+    if (typeof msg.id !== 'string' || !SAFE_ID.test(msg.id))
+      throw new ProtocolError('invalid-request', 'id must be a revision id');
     const revision = await room.store.readRevision(msg.id);
     if (!revision) throw new ProtocolError('not-found', `Revision ${msg.id} not found`);
     this.send(peer, { type: 'revision', revision, ...(reqId !== undefined ? { reqId } : {}) });
   }
 
-  private async onComment(peer: Peer, room: Room, msg: Record<string, unknown>, reqId: unknown): Promise<void> {
+  private async onComment(
+    peer: Peer,
+    room: Room,
+    msg: Record<string, unknown>,
+    reqId: unknown,
+  ): Promise<void> {
     const comment: CollabComment = validateComment(msg.comment);
     await room.mutex.run(async () => {
       await room.store.appendComment({ t: 'upsert', comment });
       room.state.comments.set(comment.id, comment);
-      this.broadcast(room, { type: 'comment', comment, from: { peerId: peer.peerId, user: peer.user } }, peer);
+      this.broadcast(
+        room,
+        { type: 'comment', comment, from: { peerId: peer.peerId, user: peer.user } },
+        peer,
+      );
       this.send(peer, { type: 'ack', commentId: comment.id, ...(reqId !== undefined ? { reqId } : {}) });
     });
   }
 
-  private async onResolveComment(peer: Peer, room: Room, msg: Record<string, unknown>, reqId: unknown): Promise<void> {
-    if (typeof msg.id !== 'string' || !SAFE_ID.test(msg.id)) throw new ProtocolError('invalid-request', 'id must be a comment id');
-    if (msg.resolved !== undefined && typeof msg.resolved !== 'boolean') throw new ProtocolError('invalid-request', 'resolved must be a boolean');
+  private async onResolveComment(
+    peer: Peer,
+    room: Room,
+    msg: Record<string, unknown>,
+    reqId: unknown,
+  ): Promise<void> {
+    if (typeof msg.id !== 'string' || !SAFE_ID.test(msg.id))
+      throw new ProtocolError('invalid-request', 'id must be a comment id');
+    if (msg.resolved !== undefined && typeof msg.resolved !== 'boolean')
+      throw new ProtocolError('invalid-request', 'resolved must be a boolean');
     const id = msg.id;
     const resolved = msg.resolved !== false;
     await room.mutex.run(async () => {
       const existing = room.state.comments.get(id);
       if (!existing) throw new ProtocolError('not-found', `Comment ${id} not found`);
-      await room.store.appendComment({ t: 'resolve', id, resolved, by: peer.user?.id, at: new Date().toISOString() });
+      await room.store.appendComment({
+        t: 'resolve',
+        id,
+        resolved,
+        by: peer.user?.id,
+        at: new Date().toISOString(),
+      });
       room.state.comments.set(id, { ...existing, resolved });
       this.broadcast(room, { type: 'resolve-comment', id, resolved, by: peer.user }, peer);
       this.send(peer, { type: 'ack', commentId: id, ...(reqId !== undefined ? { reqId } : {}) });
@@ -294,8 +363,14 @@ export class CollabHub {
   }
 
   private onChat(peer: Peer, room: Room, msg: Record<string, unknown>): void {
-    if (typeof msg.text !== 'string' || !msg.text.trim() || msg.text.length > 4000) throw new ProtocolError('invalid-chat', 'text must be 1..4000 characters');
-    const entry: ChatEntry = { peerId: peer.peerId, user: peer.user as CollabUser, text: msg.text, at: new Date().toISOString() };
+    if (typeof msg.text !== 'string' || !msg.text.trim() || msg.text.length > 4000)
+      throw new ProtocolError('invalid-chat', 'text must be 1..4000 characters');
+    const entry: ChatEntry = {
+      peerId: peer.peerId,
+      user: peer.user as CollabUser,
+      text: msg.text,
+      at: new Date().toISOString(),
+    };
     room.chat.push(entry);
     if (room.chat.length > CHAT_HISTORY) room.chat.splice(0, room.chat.length - CHAT_HISTORY);
     this.broadcast(room, { type: 'chat', ...entry }, peer);
@@ -325,14 +400,22 @@ export class CollabHub {
       out.push({
         projectId,
         peers: room?.peers.size ?? 0,
-        revisions: room ? room.state.revisions.length : await new RoomStore(this.collabDir, projectId).revisionCount(),
+        revisions: room
+          ? room.state.revisions.length
+          : await new RoomStore(this.collabDir, projectId).revisionCount(),
       });
     }
     return out;
   }
 
   async roomSummary(projectId: string): Promise<
-    | { projectId: string; peers: PeerInfo[]; revisions: RevisionMeta[]; branches: Record<string, string>; comments: CollabComment[] }
+    | {
+        projectId: string;
+        peers: PeerInfo[];
+        revisions: RevisionMeta[];
+        branches: Record<string, string>;
+        comments: CollabComment[];
+      }
     | undefined
   > {
     if (!SAFE_ID.test(projectId)) return undefined;

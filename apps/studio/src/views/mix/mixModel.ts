@@ -41,7 +41,11 @@ export function stripOf(mixer: MixerState, trackId: string): ChannelStrip {
   return mixer.channels[trackId] ?? defaultChannelStrip();
 }
 
-export function withChannel(mixer: MixerState, trackId: string, fn: (ch: ChannelStrip) => ChannelStrip): MixerState {
+export function withChannel(
+  mixer: MixerState,
+  trackId: string,
+  fn: (ch: ChannelStrip) => ChannelStrip,
+): MixerState {
   return { ...mixer, channels: { ...mixer.channels, [trackId]: fn(stripOf(mixer, trackId)) } };
 }
 
@@ -50,8 +54,15 @@ export function withMaster(mixer: MixerState, fn: (m: MasterBus) => MasterBus): 
 }
 
 /** Set a dotted field of a track strip or the master bus. */
-export function setStripField(mixer: MixerState, target: StripTarget, path: string, value: unknown): MixerState {
-  return target === MASTER ? withMaster(mixer, (m) => setPath(m, path, value)) : withChannel(mixer, target, (ch) => setPath(ch, path, value));
+export function setStripField(
+  mixer: MixerState,
+  target: StripTarget,
+  path: string,
+  value: unknown,
+): MixerState {
+  return target === MASTER
+    ? withMaster(mixer, (m) => setPath(m, path, value))
+    : withChannel(mixer, target, (ch) => setPath(ch, path, value));
 }
 
 export function stripField(mixer: MixerState, target: StripTarget, path: string): unknown {
@@ -171,35 +182,155 @@ export const FIELD_META: Record<string, FieldMeta> = {
   width: { label: 'Stereo width', short: 'Width', min: 0, max: 2, fmt: fmtPct },
   drive: { label: 'Drive', short: 'Drive', min: 0, max: 1, fmt: fmtPct },
   'eq.highpassHz': { label: 'EQ high-pass', short: 'HPF', min: 0, max: 20000, fmt: fmtHzUnit, log: true },
-  'eq.lowShelfHz': { label: 'EQ low shelf freq', short: 'LS Hz', min: 20, max: 2000, fmt: fmtHzUnit, log: true },
+  'eq.lowShelfHz': {
+    label: 'EQ low shelf freq',
+    short: 'LS Hz',
+    min: 20,
+    max: 2000,
+    fmt: fmtHzUnit,
+    log: true,
+  },
   'eq.lowShelfDb': { label: 'EQ low shelf', short: 'LS', min: -24, max: 24, fmt: (v) => `${fmtDb(v)} dB` },
   'eq.lowMidHz': { label: 'EQ low-mid freq', short: 'LM Hz', min: 40, max: 8000, fmt: fmtHzUnit, log: true },
   'eq.lowMidDb': { label: 'EQ low-mid', short: 'LM', min: -24, max: 24, fmt: (v) => `${fmtDb(v)} dB` },
-  'eq.lowMidQ': { label: 'EQ low-mid Q', short: 'LM Q', min: 0.1, max: 18, fmt: (v) => `Q ${v.toFixed(2)}`, log: true },
-  'eq.highMidHz': { label: 'EQ high-mid freq', short: 'HM Hz', min: 200, max: 16000, fmt: fmtHzUnit, log: true },
+  'eq.lowMidQ': {
+    label: 'EQ low-mid Q',
+    short: 'LM Q',
+    min: 0.1,
+    max: 18,
+    fmt: (v) => `Q ${v.toFixed(2)}`,
+    log: true,
+  },
+  'eq.highMidHz': {
+    label: 'EQ high-mid freq',
+    short: 'HM Hz',
+    min: 200,
+    max: 16000,
+    fmt: fmtHzUnit,
+    log: true,
+  },
   'eq.highMidDb': { label: 'EQ high-mid', short: 'HM', min: -24, max: 24, fmt: (v) => `${fmtDb(v)} dB` },
-  'eq.highMidQ': { label: 'EQ high-mid Q', short: 'HM Q', min: 0.1, max: 18, fmt: (v) => `Q ${v.toFixed(2)}`, log: true },
-  'eq.highShelfHz': { label: 'EQ high shelf freq', short: 'HS Hz', min: 1000, max: 20000, fmt: fmtHzUnit, log: true },
+  'eq.highMidQ': {
+    label: 'EQ high-mid Q',
+    short: 'HM Q',
+    min: 0.1,
+    max: 18,
+    fmt: (v) => `Q ${v.toFixed(2)}`,
+    log: true,
+  },
+  'eq.highShelfHz': {
+    label: 'EQ high shelf freq',
+    short: 'HS Hz',
+    min: 1000,
+    max: 20000,
+    fmt: fmtHzUnit,
+    log: true,
+  },
   'eq.highShelfDb': { label: 'EQ high shelf', short: 'HS', min: -24, max: 24, fmt: (v) => `${fmtDb(v)} dB` },
   'eq.lowpassHz': { label: 'EQ low-pass', short: 'LPF', min: 0, max: 22050, fmt: fmtHzUnit, log: true },
-  'compressor.thresholdDb': { label: 'Compressor threshold', short: 'Thresh', min: -60, max: 0, fmt: (v) => `${fmtDb(v, 1, false)} dB` },
-  'compressor.ratio': { label: 'Compressor ratio', short: 'Ratio', min: 1, max: 20, fmt: fmtRatio, log: true },
-  'compressor.attackMs': { label: 'Compressor attack', short: 'Attack', min: 0.1, max: 300, fmt: fmtMs, log: true },
-  'compressor.releaseMs': { label: 'Compressor release', short: 'Release', min: 5, max: 3000, fmt: fmtMs, log: true },
-  'compressor.kneeDb': { label: 'Compressor knee', short: 'Knee', min: 0, max: 24, fmt: (v) => `${v.toFixed(1)} dB` },
-  'compressor.makeupDb': { label: 'Compressor makeup', short: 'Makeup', min: 0, max: 24, fmt: (v) => `${fmtDb(v)} dB` },
-  'limiter.ceilingDb': { label: 'Limiter ceiling', short: 'Ceiling', min: -12, max: 0, fmt: (v) => `${fmtDb(v, 1, false)} dBTP` },
-  'limiter.releaseMs': { label: 'Limiter release', short: 'Release', min: 5, max: 1000, fmt: fmtMs, log: true },
+  'compressor.thresholdDb': {
+    label: 'Compressor threshold',
+    short: 'Thresh',
+    min: -60,
+    max: 0,
+    fmt: (v) => `${fmtDb(v, 1, false)} dB`,
+  },
+  'compressor.ratio': {
+    label: 'Compressor ratio',
+    short: 'Ratio',
+    min: 1,
+    max: 20,
+    fmt: fmtRatio,
+    log: true,
+  },
+  'compressor.attackMs': {
+    label: 'Compressor attack',
+    short: 'Attack',
+    min: 0.1,
+    max: 300,
+    fmt: fmtMs,
+    log: true,
+  },
+  'compressor.releaseMs': {
+    label: 'Compressor release',
+    short: 'Release',
+    min: 5,
+    max: 3000,
+    fmt: fmtMs,
+    log: true,
+  },
+  'compressor.kneeDb': {
+    label: 'Compressor knee',
+    short: 'Knee',
+    min: 0,
+    max: 24,
+    fmt: (v) => `${v.toFixed(1)} dB`,
+  },
+  'compressor.makeupDb': {
+    label: 'Compressor makeup',
+    short: 'Makeup',
+    min: 0,
+    max: 24,
+    fmt: (v) => `${fmtDb(v)} dB`,
+  },
+  'limiter.ceilingDb': {
+    label: 'Limiter ceiling',
+    short: 'Ceiling',
+    min: -12,
+    max: 0,
+    fmt: (v) => `${fmtDb(v, 1, false)} dBTP`,
+  },
+  'limiter.releaseMs': {
+    label: 'Limiter release',
+    short: 'Release',
+    min: 5,
+    max: 1000,
+    fmt: fmtMs,
+    log: true,
+  },
   'reverb.size': { label: 'Reverb size', short: 'Size', min: 0, max: 1, fmt: fmtPct },
-  'reverb.decaySeconds': { label: 'Reverb decay', short: 'Decay', min: 0.2, max: 12, fmt: fmtSeconds, log: true },
+  'reverb.decaySeconds': {
+    label: 'Reverb decay',
+    short: 'Decay',
+    min: 0.2,
+    max: 12,
+    fmt: fmtSeconds,
+    log: true,
+  },
   'reverb.damping': { label: 'Reverb damping', short: 'Damp', min: 0, max: 1, fmt: fmtPct },
   'reverb.preDelayMs': { label: 'Reverb pre-delay', short: 'Pre', min: 0, max: 250, fmt: fmtMs },
-  'reverb.returnDb': { label: 'Reverb return', short: 'Return', min: -60, max: 6, fmt: (v) => `${fmtDb(v)} dB` },
+  'reverb.returnDb': {
+    label: 'Reverb return',
+    short: 'Return',
+    min: -60,
+    max: 6,
+    fmt: (v) => `${fmtDb(v)} dB`,
+  },
   'delay.timeBeats': { label: 'Delay time', short: 'Time', min: 0.0625, max: 4, fmt: fmtBeats, log: true },
   'delay.feedback': { label: 'Delay feedback', short: 'Fdbk', min: 0, max: 0.95, fmt: fmtPct },
-  'delay.highCutHz': { label: 'Delay high cut', short: 'Hi cut', min: 1000, max: 20000, fmt: fmtHzUnit, log: true },
-  'delay.lowCutHz': { label: 'Delay low cut', short: 'Lo cut', min: 20, max: 2000, fmt: fmtHzUnit, log: true },
-  'delay.returnDb': { label: 'Delay return', short: 'Return', min: -60, max: 6, fmt: (v) => `${fmtDb(v)} dB` },
+  'delay.highCutHz': {
+    label: 'Delay high cut',
+    short: 'Hi cut',
+    min: 1000,
+    max: 20000,
+    fmt: fmtHzUnit,
+    log: true,
+  },
+  'delay.lowCutHz': {
+    label: 'Delay low cut',
+    short: 'Lo cut',
+    min: 20,
+    max: 2000,
+    fmt: fmtHzUnit,
+    log: true,
+  },
+  'delay.returnDb': {
+    label: 'Delay return',
+    short: 'Return',
+    min: -60,
+    max: 6,
+    fmt: (v) => `${fmtDb(v)} dB`,
+  },
 };
 
 export const DELAY_NOTES: { beats: number; label: string }[] = [
@@ -232,7 +363,8 @@ export interface MixFieldChange {
 
 function flatten(obj: unknown, prefix = '', out: Record<string, unknown> = {}): Record<string, unknown> {
   if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) flatten(v, prefix ? `${prefix}.${k}` : k, out);
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>))
+      flatten(v, prefix ? `${prefix}.${k}` : k, out);
   } else out[prefix] = obj;
   return out;
 }
@@ -249,7 +381,8 @@ export function diffMixer(before: MixerState, after: MixerState): MixFieldChange
   for (const id of ids) {
     const fb = flatten(stripOf(before, id));
     const fa = flatten(stripOf(after, id));
-    for (const f of new Set([...Object.keys(fb), ...Object.keys(fa)])) if (!same(fb[f], fa[f])) out.push({ target: id, field: f, before: fb[f], after: fa[f] });
+    for (const f of new Set([...Object.keys(fb), ...Object.keys(fa)]))
+      if (!same(fb[f], fa[f])) out.push({ target: id, field: f, before: fb[f], after: fa[f] });
   }
   const groups: [string, unknown, unknown][] = [
     ['master', before.master, after.master],
@@ -259,7 +392,8 @@ export function diffMixer(before: MixerState, after: MixerState): MixFieldChange
   for (const [target, b, a] of groups) {
     const fb = flatten(b);
     const fa = flatten(a);
-    for (const f of new Set([...Object.keys(fb), ...Object.keys(fa)])) if (!same(fb[f], fa[f])) out.push({ target, field: f, before: fb[f], after: fa[f] });
+    for (const f of new Set([...Object.keys(fb), ...Object.keys(fa)]))
+      if (!same(fb[f], fa[f])) out.push({ target, field: f, before: fb[f], after: fa[f] });
   }
   return out;
 }
@@ -272,7 +406,12 @@ const EQ_BAND_NAMES: Record<string, string> = {
 };
 
 /** Short description of one field change, without the target name ("EQ low-mid −3.0 dB"). */
-export function describeField(field: string, before: unknown, after: unknown, opts: { master?: boolean } = {}): string {
+export function describeField(
+  field: string,
+  before: unknown,
+  after: unknown,
+  opts: { master?: boolean } = {},
+): string {
   const meta = FIELD_META[field];
   if (typeof after === 'boolean' || typeof before === 'boolean') {
     const on = !!after;
@@ -316,10 +455,17 @@ export function describeField(field: string, before: unknown, after: unknown, op
   if (field === 'eq.lowpassHz') return a > 0 ? `low-pass ${fmtHzUnit(a)}` : 'low-pass off';
   if (field.startsWith('compressor.')) {
     const name = opts.master ? 'glue compressor' : 'compressor';
-    const what = field.slice('compressor.'.length).replace(/Db$|Ms$/, '').replace('makeup', 'makeup').toLowerCase();
+    const what = field
+      .slice('compressor.'.length)
+      .replace(/Db$|Ms$/, '')
+      .replace('makeup', 'makeup')
+      .toLowerCase();
     return `${name} ${what} ${meta ? meta.fmt(a) : a}`;
   }
-  if (field === 'pan') return Math.abs(a) < 0.005 ? 'pan center' : `pan ${Math.round(Math.abs(a) * 100)}% ${a < 0 ? 'left' : 'right'}`;
+  if (field === 'pan')
+    return Math.abs(a) < 0.005
+      ? 'pan center'
+      : `pan ${Math.round(Math.abs(a) * 100)}% ${a < 0 ? 'left' : 'right'}`;
   if (meta) return `${meta.label.toLowerCase()} ${meta.fmt(a)}`;
   return `${field} ${Number.isFinite(a) ? Number(a.toFixed(3)) : String(after)}`;
 }
@@ -362,7 +508,8 @@ export function describeMixChange(song: Song, before: MixerState, after: MixerSt
     const text = merged.slice(0, 3).join(', ') + (merged.length > 3 ? ` (+${merged.length - 3} more)` : '');
     const firstField = list[0].field;
     if (list.length === 1 && firstField === 'volumeDb') parts.push(`${name} ${text}`);
-    else if (list.length === 1 && (firstField === 'mute' || firstField === 'solo')) parts.push(`${text[0].toUpperCase()}${text.slice(1)} ${name}`);
+    else if (list.length === 1 && (firstField === 'mute' || firstField === 'solo'))
+      parts.push(`${text[0].toUpperCase()}${text.slice(1)} ${name}`);
     else parts.push(`${name}: ${text}`);
   }
   return parts.slice(0, 3).join('; ') + (parts.length > 3 ? ` (+${parts.length - 3} more)` : '');
@@ -387,18 +534,91 @@ export interface AutomationParamMeta {
 }
 
 export const AUTOMATION_META: Record<AutomationParam, AutomationParamMeta> = {
-  volumeDb: { label: 'Volume', min: -60, max: 12, fader: true, fmt: (v) => `${fmtDb(v)} dB`, from: (c) => c.volumeDb, masterOk: true },
+  volumeDb: {
+    label: 'Volume',
+    min: -60,
+    max: 12,
+    fader: true,
+    fmt: (v) => `${fmtDb(v)} dB`,
+    from: (c) => c.volumeDb,
+    masterOk: true,
+  },
   pan: { label: 'Pan', min: -1, max: 1, fmt: fmtPan, from: (c) => ('pan' in c ? c.pan : 0), masterOk: false },
-  reverbSend: { label: 'Reverb send', min: 0, max: 1, fmt: fmtPct, from: (c) => ('reverbSend' in c ? c.reverbSend : 0), masterOk: false },
-  delaySend: { label: 'Delay send', min: 0, max: 1, fmt: fmtPct, from: (c) => ('delaySend' in c ? c.delaySend : 0), masterOk: false },
+  reverbSend: {
+    label: 'Reverb send',
+    min: 0,
+    max: 1,
+    fmt: fmtPct,
+    from: (c) => ('reverbSend' in c ? c.reverbSend : 0),
+    masterOk: false,
+  },
+  delaySend: {
+    label: 'Delay send',
+    min: 0,
+    max: 1,
+    fmt: fmtPct,
+    from: (c) => ('delaySend' in c ? c.delaySend : 0),
+    masterOk: false,
+  },
   width: { label: 'Stereo width', min: 0, max: 2, fmt: fmtPct, from: (c) => c.width, masterOk: true },
-  drive: { label: 'Drive', min: 0, max: 1, fmt: fmtPct, from: (c) => ('drive' in c ? c.drive : 0), masterOk: false },
-  'eq.lowShelfDb': { label: 'EQ low shelf', min: -24, max: 24, fmt: (v) => `${fmtDb(v)} dB`, from: (c) => c.eq.lowShelfDb, masterOk: true },
-  'eq.lowMidDb': { label: 'EQ low-mid', min: -24, max: 24, fmt: (v) => `${fmtDb(v)} dB`, from: (c) => c.eq.lowMidDb, masterOk: true },
-  'eq.highMidDb': { label: 'EQ high-mid', min: -24, max: 24, fmt: (v) => `${fmtDb(v)} dB`, from: (c) => c.eq.highMidDb, masterOk: true },
-  'eq.highShelfDb': { label: 'EQ high shelf', min: -24, max: 24, fmt: (v) => `${fmtDb(v)} dB`, from: (c) => c.eq.highShelfDb, masterOk: true },
-  'eq.lowpassHz': { label: 'EQ low-pass', min: 20, max: 20000, log: true, fmt: fmtHzUnit, from: (c) => c.eq.lowpassHz || 20000, masterOk: true },
-  'eq.highpassHz': { label: 'EQ high-pass', min: 20, max: 20000, log: true, fmt: fmtHzUnit, from: (c) => c.eq.highpassHz || 20, masterOk: true },
+  drive: {
+    label: 'Drive',
+    min: 0,
+    max: 1,
+    fmt: fmtPct,
+    from: (c) => ('drive' in c ? c.drive : 0),
+    masterOk: false,
+  },
+  'eq.lowShelfDb': {
+    label: 'EQ low shelf',
+    min: -24,
+    max: 24,
+    fmt: (v) => `${fmtDb(v)} dB`,
+    from: (c) => c.eq.lowShelfDb,
+    masterOk: true,
+  },
+  'eq.lowMidDb': {
+    label: 'EQ low-mid',
+    min: -24,
+    max: 24,
+    fmt: (v) => `${fmtDb(v)} dB`,
+    from: (c) => c.eq.lowMidDb,
+    masterOk: true,
+  },
+  'eq.highMidDb': {
+    label: 'EQ high-mid',
+    min: -24,
+    max: 24,
+    fmt: (v) => `${fmtDb(v)} dB`,
+    from: (c) => c.eq.highMidDb,
+    masterOk: true,
+  },
+  'eq.highShelfDb': {
+    label: 'EQ high shelf',
+    min: -24,
+    max: 24,
+    fmt: (v) => `${fmtDb(v)} dB`,
+    from: (c) => c.eq.highShelfDb,
+    masterOk: true,
+  },
+  'eq.lowpassHz': {
+    label: 'EQ low-pass',
+    min: 20,
+    max: 20000,
+    log: true,
+    fmt: fmtHzUnit,
+    from: (c) => c.eq.lowpassHz || 20000,
+    masterOk: true,
+  },
+  'eq.highpassHz': {
+    label: 'EQ high-pass',
+    min: 20,
+    max: 20000,
+    log: true,
+    fmt: fmtHzUnit,
+    from: (c) => c.eq.highpassHz || 20,
+    masterOk: true,
+  },
 };
 
 export const AUTOMATION_PARAMS = Object.keys(AUTOMATION_META) as AutomationParam[];

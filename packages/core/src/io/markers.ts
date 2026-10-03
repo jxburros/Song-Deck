@@ -22,7 +22,15 @@ export function tempoMapCsv(song: Song): string {
     const pos = tickToBar(song, tick);
     const meter = meterAtBar(song, pos.bar);
     rows.push(
-      [pos.bar + 1, Math.round((pos.beat + 1) * 1000) / 1000, tick, fixed(tm.tickToSeconds(tick), 6), Math.round(tm.bpmAt(tick) * 1000) / 1000, meter.numerator, meter.denominator].join(','),
+      [
+        pos.bar + 1,
+        Math.round((pos.beat + 1) * 1000) / 1000,
+        tick,
+        fixed(tm.tickToSeconds(tick), 6),
+        Math.round(tm.bpmAt(tick) * 1000) / 1000,
+        meter.numerator,
+        meter.denominator,
+      ].join(','),
     );
   }
   return rows.join('\n') + '\n';
@@ -39,7 +47,18 @@ export function markersCsv(song: Song): string {
     if (span.endBar <= span.startBar) return;
     const a = tm.tickToSeconds(span.startTick);
     const b = tm.tickToSeconds(span.endTick);
-    rows.push([i + 1, csv(span.section.name), span.section.kind, span.startBar + 1, span.endBar, fixed(a), fixed(b), fixed(b - a)].join(','));
+    rows.push(
+      [
+        i + 1,
+        csv(span.section.name),
+        span.section.kind,
+        span.startBar + 1,
+        span.endBar,
+        fixed(a),
+        fixed(b),
+        fixed(b - a),
+      ].join(','),
+    );
   });
   return rows.join('\n') + '\n';
 }
@@ -49,7 +68,10 @@ export function audacityLabels(song: Song): string {
   const tm = createTimeMap(song);
   return sectionLayout(song)
     .filter((s) => s.endBar > s.startBar)
-    .map((s) => `${fixed(tm.tickToSeconds(s.startTick), 6)}\t${fixed(tm.tickToSeconds(s.endTick), 6)}\t${s.section.name.replace(/[\t\r\n]+/g, ' ')}`)
+    .map(
+      (s) =>
+        `${fixed(tm.tickToSeconds(s.startTick), 6)}\t${fixed(tm.tickToSeconds(s.endTick), 6)}\t${s.section.name.replace(/[\t\r\n]+/g, ' ')}`,
+    )
     .join('\n')
     .concat(song.sections.length ? '\n' : '');
 }

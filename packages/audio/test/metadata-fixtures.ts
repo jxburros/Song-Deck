@@ -20,7 +20,8 @@ export function concat(...parts: Uint8Array[]): Uint8Array {
 const be32 = (v: number) => Uint8Array.from([(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255]);
 const be24 = (v: number) => Uint8Array.from([(v >>> 16) & 255, (v >>> 8) & 255, v & 255]);
 const le32 = (v: number) => Uint8Array.from([v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]);
-const syncsafe = (v: number) => Uint8Array.from([(v >>> 21) & 127, (v >>> 14) & 127, (v >>> 7) & 127, v & 127]);
+const syncsafe = (v: number) =>
+  Uint8Array.from([(v >>> 21) & 127, (v >>> 14) & 127, (v >>> 7) & 127, v & 127]);
 
 // --- ID3v2 ------------------------------------------------------------------------------------
 
@@ -65,7 +66,15 @@ export function id3v1(title: string, artist: string, album: string, comment = ''
     b.set(latin1(s).subarray(0, n));
     return b;
   };
-  return concat(latin1('TAG'), field(title, 30), field(artist, 30), field(album, 30), field('2019', 4), field(comment, 30), Uint8Array.of(12));
+  return concat(
+    latin1('TAG'),
+    field(title, 30),
+    field(artist, 30),
+    field(album, 30),
+    field('2019', 4),
+    field(comment, 30),
+    Uint8Array.of(12),
+  );
 }
 
 /** A few bytes that look like an MPEG audio frame (sync word), standing in for MP3 audio. */
@@ -85,7 +94,10 @@ export function riffInfo(entries: [string, string][]): Uint8Array {
 
 /** A short silent WAV with extra chunks appended after `data` (RIFF size fixed up). */
 export function wavWithChunks(chunks: Uint8Array[], frames = 64, sampleRate = 8000): Uint8Array {
-  const base = encodeWav({ sampleRate, channels: [new Float32Array(frames)] }, { bitDepth: 16, dither: false });
+  const base = encodeWav(
+    { sampleRate, channels: [new Float32Array(frames)] },
+    { bitDepth: 16, dither: false },
+  );
   const out = concat(base, ...chunks);
   new DataView(out.buffer).setUint32(4, out.length - 8, true);
   return out;
@@ -99,13 +111,27 @@ export function riffChunk(id: string, data: Uint8Array): Uint8Array {
 
 export function vorbisComment(comments: string[], vendor = 'songdeck-test'): Uint8Array {
   const v = enc(vendor);
-  return concat(le32(v.length), v, le32(comments.length), ...comments.map((c) => concat(le32(enc(c).length), enc(c))));
+  return concat(
+    le32(v.length),
+    v,
+    le32(comments.length),
+    ...comments.map((c) => concat(le32(enc(c).length), enc(c))),
+  );
 }
 
 export function flacFile(comments: string[]): Uint8Array {
   const streaminfo = new Uint8Array(34);
   const vc = vorbisComment(comments);
-  return concat(latin1('fLaC'), Uint8Array.of(0), be24(34), streaminfo, Uint8Array.of(0x80 | 4), be24(vc.length), vc, Uint8Array.of(0xff, 0xf8, 0, 0));
+  return concat(
+    latin1('fLaC'),
+    Uint8Array.of(0),
+    be24(34),
+    streaminfo,
+    Uint8Array.of(0x80 | 4),
+    be24(vc.length),
+    vc,
+    Uint8Array.of(0xff, 0xf8, 0, 0),
+  );
 }
 
 /** One Ogg page holding the given packets (CRC left zero — the reader does not verify it). */
@@ -119,7 +145,16 @@ export function oggPage(packets: Uint8Array[], serial = 0x1234, seq = 0, headerT
     }
     lacing.push(n);
   }
-  const header = concat(latin1('OggS'), Uint8Array.of(0, headerType), new Uint8Array(8), le32(serial), le32(seq), le32(0), Uint8Array.of(lacing.length), Uint8Array.from(lacing));
+  const header = concat(
+    latin1('OggS'),
+    Uint8Array.of(0, headerType),
+    new Uint8Array(8),
+    le32(serial),
+    le32(seq),
+    le32(0),
+    Uint8Array.of(lacing.length),
+    Uint8Array.from(lacing),
+  );
   return concat(header, ...packets);
 }
 
@@ -145,16 +180,33 @@ export function atom(name: string, ...children: Uint8Array[]): Uint8Array {
 
 /** iTunes `data` atom: type 1 = UTF-8 text, 21 = big-endian integer. */
 export function dataAtom(value: string | number): Uint8Array {
-  if (typeof value === 'number') return atom('data', Uint8Array.of(0, 0, 0, 21), new Uint8Array(4), be32(value));
+  if (typeof value === 'number')
+    return atom('data', Uint8Array.of(0, 0, 0, 21), new Uint8Array(4), be32(value));
   return atom('data', Uint8Array.of(0, 0, 0, 1), new Uint8Array(4), enc(value));
 }
 
 export function mp4File(items: Uint8Array[]): Uint8Array {
-  const hdlr = atom('hdlr', new Uint8Array(4), new Uint8Array(4), latin1('mdir'), latin1('appl'), new Uint8Array(9));
+  const hdlr = atom(
+    'hdlr',
+    new Uint8Array(4),
+    new Uint8Array(4),
+    latin1('mdir'),
+    latin1('appl'),
+    new Uint8Array(9),
+  );
   const meta = atom('meta', new Uint8Array(4), hdlr, atom('ilst', ...items));
-  return concat(atom('ftyp', latin1('M4A '), new Uint8Array(4), latin1('M4A mp42isom')), atom('mdat', new Uint8Array(16)), atom('moov', atom('mvhd', new Uint8Array(100)), atom('udta', meta)));
+  return concat(
+    atom('ftyp', latin1('M4A '), new Uint8Array(4), latin1('M4A mp42isom')),
+    atom('mdat', new Uint8Array(16)),
+    atom('moov', atom('mvhd', new Uint8Array(100)), atom('udta', meta)),
+  );
 }
 
 export function freeform(mean: string, name: string, value: string): Uint8Array {
-  return atom('----', atom('mean', new Uint8Array(4), enc(mean)), atom('name', new Uint8Array(4), enc(name)), dataAtom(value));
+  return atom(
+    '----',
+    atom('mean', new Uint8Array(4), enc(mean)),
+    atom('name', new Uint8Array(4), enc(name)),
+    dataAtom(value),
+  );
 }

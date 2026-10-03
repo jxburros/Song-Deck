@@ -34,7 +34,11 @@ export function ContentCheckPanel() {
 
   const save = async () => {
     try {
-      const where = await saveCredential(ACOUSTID_CREDENTIAL_REF, key.trim(), 'AcoustID application key (content check)');
+      const where = await saveCredential(
+        ACOUSTID_CREDENTIAL_REF,
+        key.trim(),
+        'AcoustID application key (content check)',
+      );
       setKey('');
       setStored(true);
       toast(
@@ -62,21 +66,35 @@ export function ContentCheckPanel() {
       sub="Uploaded audio always asks for a rights attestation and is checked offline for embedded copyright tags (ISRC, ©/℗ notices, labels, store purchase markers). Online identification is optional."
     >
       <div className="col" style={{ gap: 10 }}>
-        <Toggle on={online} onChange={(v) => update({ online: v })} label={<strong>Identify uploads online with AcoustID</strong>} />
+        <Toggle
+          on={online}
+          onChange={(v) => update({ online: v })}
+          label={<strong>Identify uploads online with AcoustID</strong>}
+        />
         <div className="small muted">
-          When on, Song Deck computes an audio fingerprint on this device and sends <strong>only the fingerprint and the duration</strong> — never the audio — to
-          AcoustID (acoustid.org), which looks it up and returns MusicBrainz recording titles/artists. A match is shown as a warning in the attestation dialog; it never
-          blocks the upload.{offline ? ' Offline mode is on, so no lookup is made until you turn it off.' : ''}
+          When on, Song Deck computes an audio fingerprint on this device and sends{' '}
+          <strong>only the fingerprint and the duration</strong> — never the audio — to AcoustID
+          (acoustid.org), which looks it up and returns MusicBrainz recording titles/artists. A match is shown
+          as a warning in the attestation dialog; it never blocks the upload.
+          {offline ? ' Offline mode is on, so no lookup is made until you turn it off.' : ''}
         </div>
         <div className="callout warning small">
-          AcoustID’s API is free for <strong>non-commercial use only</strong> and needs your own application API key (register one at acoustid.org). If you use Song Deck
-          commercially, get a commercial AcoustID plan or leave this off. Fingerprints recognise only the exact recording — not covers, re-recordings, humming or
-          melodies — and no match does not mean you may use the audio.
+          AcoustID’s API is free for <strong>non-commercial use only</strong> and needs your own application
+          API key (register one at acoustid.org). If you use Song Deck commercially, get a commercial AcoustID
+          plan or leave this off. Fingerprints recognise only the exact recording — not covers, re-recordings,
+          humming or melodies — and no match does not mean you may use the audio.
         </div>
         <div className="row wrap" style={{ gap: 8, alignItems: 'flex-end' }}>
           <label className="field grow" style={{ minWidth: 220 }}>
             <span className="field-label">AcoustID application API key</span>
-            <TextInput value={key} onChange={setKey} type="password" placeholder={stored ? '•••••••• (stored)' : 'Paste your key'} aria-label="AcoustID API key" autoComplete="off" />
+            <TextInput
+              value={key}
+              onChange={setKey}
+              type="password"
+              placeholder={stored ? '•••••••• (stored)' : 'Paste your key'}
+              aria-label="AcoustID API key"
+              autoComplete="off"
+            />
           </label>
           <Button variant="primary" onClick={() => void save()} disabled={!key.trim()}>
             Save key
@@ -86,7 +104,11 @@ export function ContentCheckPanel() {
               Remove key
             </Button>
           )}
-          {stored !== null && <Badge tone={stored ? 'success' : undefined}>{stored ? (viaServer ? 'key in server vault' : 'key in this browser') : 'no key stored'}</Badge>}
+          {stored !== null && (
+            <Badge tone={stored ? 'success' : undefined}>
+              {stored ? (viaServer ? 'key in server vault' : 'key in this browser') : 'no key stored'}
+            </Badge>
+          )}
         </div>
         <div className="small dim">
           {viaServer
@@ -95,7 +117,8 @@ export function ContentCheckPanel() {
         </div>
         <div className="row between small" style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
           <span className="muted">
-            Remembered attestations in this browser: <strong>{remembered}</strong> file{remembered === 1 ? '' : 's'} (by SHA-256 of the file, so re-uploads are one click).
+            Remembered attestations in this browser: <strong>{remembered}</strong> file
+            {remembered === 1 ? '' : 's'} (by SHA-256 of the file, so re-uploads are one click).
           </span>
           <Button
             size="sm"

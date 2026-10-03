@@ -15,8 +15,23 @@
  */
 import { type Capability, unionCapabilities } from './capabilities';
 import { audioToJson } from './adapters/common';
-import { deserializeAudioParams, deserializeLLMRequest, type ManagedAudioOp, MANAGED_OP_ROLES, MANAGED_PATHS, type ManagedPrivacy, type SerializedLLMRequest } from './adapters/managed';
-import { ConfigurationError, ConsentRequiredError, BudgetExceededError, NoCompatibleProviderError, PrivacyDeclinedError, ProviderError } from './errors';
+import {
+  deserializeAudioParams,
+  deserializeLLMRequest,
+  type ManagedAudioOp,
+  MANAGED_OP_ROLES,
+  MANAGED_PATHS,
+  type ManagedPrivacy,
+  type SerializedLLMRequest,
+} from './adapters/managed';
+import {
+  ConfigurationError,
+  ConsentRequiredError,
+  BudgetExceededError,
+  NoCompatibleProviderError,
+  PrivacyDeclinedError,
+  ProviderError,
+} from './errors';
 import type { Orchestrator, RunOptions, RunProvenance } from './orchestrator';
 import { ROLE_INFO } from './roles';
 import type { RoutingSettings } from './router';
@@ -50,7 +65,11 @@ export interface ManagedGatewayResponse {
   headers?: Record<string, string>;
 }
 
-export type ManagedGatewayHandler = (path: string, body: unknown, signal?: AbortSignal) => Promise<ManagedGatewayResponse>;
+export type ManagedGatewayHandler = (
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+) => Promise<ManagedGatewayResponse>;
 
 export interface ManagedGatewayOptions {
   /** Providers the gateway must never use (managed adapters are always excluded to avoid loops). */
@@ -69,8 +88,15 @@ const QUALITIES: QualityLevel[] = ['draft', 'standard', 'final'];
 
 function parsePrivacy(v: unknown): ManagedPrivacy {
   const p = isPlainObject(v) ? v : {};
-  const kinds = (x: unknown): DataKind[] => (Array.isArray(x) ? x.filter((k): k is DataKind => typeof k === 'string' && (DATA_KINDS as readonly string[]).includes(k)) : []);
-  return { neverUpload: kinds(p.neverUpload), dataKinds: kinds(p.dataKinds), localOnly: p.localOnly === true };
+  const kinds = (x: unknown): DataKind[] =>
+    Array.isArray(x)
+      ? x.filter((k): k is DataKind => typeof k === 'string' && (DATA_KINDS as readonly string[]).includes(k))
+      : [];
+  return {
+    neverUpload: kinds(p.neverUpload),
+    dataKinds: kinds(p.dataKinds),
+    localOnly: p.localOnly === true,
+  };
 }
 
 function audioResponse(audio: EncodedAudio, prov: RunProvenance, seed?: number): ManagedGatewayResponse {
@@ -83,10 +109,14 @@ function audioResponse(audio: EncodedAudio, prov: RunProvenance, seed?: number):
 
 /** Map orchestrator errors to HTTP responses. */
 export function gatewayErrorResponse(err: unknown): ManagedGatewayResponse {
-  if (err instanceof NoCompatibleProviderError) return { status: 503, json: { error: err.message, reasons: err.excluded } };
-  if (err instanceof BudgetExceededError) return { status: 402, json: { error: err.message, reasons: err.reasons } };
-  if (err instanceof ConsentRequiredError) return { status: 403, json: { error: err.message, code: 'consent-required' } };
-  if (err instanceof PrivacyDeclinedError) return { status: 403, json: { error: err.message, code: 'privacy-declined' } };
+  if (err instanceof NoCompatibleProviderError)
+    return { status: 503, json: { error: err.message, reasons: err.excluded } };
+  if (err instanceof BudgetExceededError)
+    return { status: 402, json: { error: err.message, reasons: err.reasons } };
+  if (err instanceof ConsentRequiredError)
+    return { status: 403, json: { error: err.message, code: 'consent-required' } };
+  if (err instanceof PrivacyDeclinedError)
+    return { status: 403, json: { error: err.message, code: 'privacy-declined' } };
   if (err instanceof ConfigurationError) return { status: 500, json: { error: err.message } };
   if (err instanceof ProviderError) {
     const status: Record<string, number> = {
@@ -103,12 +133,18 @@ export function gatewayErrorResponse(err: unknown): ManagedGatewayResponse {
       unsupported: 501,
       unknown: 500,
     };
-    return { status: status[err.kind] ?? 500, json: { error: err.message, kind: err.kind, ...(err.category ? { category: err.category } : {}) } };
+    return {
+      status: status[err.kind] ?? 500,
+      json: { error: err.message, kind: err.kind, ...(err.category ? { category: err.category } : {}) },
+    };
   }
   return { status: 500, json: { error: (err as Error)?.message ?? String(err) } };
 }
 
-export function createManagedGatewayHandler(orchestrator: Orchestrator, opts: ManagedGatewayOptions = {}): ManagedGatewayHandler {
+export function createManagedGatewayHandler(
+  orchestrator: Orchestrator,
+  opts: ManagedGatewayOptions = {},
+): ManagedGatewayHandler {
   const excluded = (): string[] => [
     ...orchestrator.registry
       .allEntries()
@@ -117,7 +153,12 @@ export function createManagedGatewayHandler(orchestrator: Orchestrator, opts: Ma
     ...(opts.excludeProviderIds ?? []),
   ];
 
-  const runOptions = (quality: QualityLevel, privacy: ManagedPrivacy, signal?: AbortSignal, dataKinds?: DataKind[]): RunOptions & { excludeProviderIds: string[] } => {
+  const runOptions = (
+    quality: QualityLevel,
+    privacy: ManagedPrivacy,
+    signal?: AbortSignal,
+    dataKinds?: DataKind[],
+  ): RunOptions & { excludeProviderIds: string[] } => {
     const base = orchestrator.settings();
     const routing: Partial<RoutingSettings> = {
       mode: base.mode === 'rules' ? 'rules' : 'automatic',
@@ -127,21 +168,42 @@ export function createManagedGatewayHandler(orchestrator: Orchestrator, opts: Ma
       offline: base.offline || privacy.localOnly === true,
       neverUpload: [...new Set([...base.neverUpload, ...privacy.neverUpload])],
     };
-    const out: RunOptions & { excludeProviderIds: string[] } = { quality, routing, excludeProviderIds: excluded(), skipConfirm: true };
+    const out: RunOptions & { excludeProviderIds: string[] } = {
+      quality,
+      routing,
+      excludeProviderIds: excluded(),
+      skipConfirm: true,
+    };
     if (signal) out.signal = signal;
     if (dataKinds?.length) out.dataKinds = dataKinds;
     return out;
   };
 
-  const handleLlm = async (body: Record<string, unknown>, signal?: AbortSignal): Promise<ManagedGatewayResponse> => {
-    if (!isPlainObject(body.request) || !Array.isArray((body.request as Record<string, unknown>).messages)) return { status: 400, json: { error: 'request.messages is required' } };
-    const role: TaskRole = TASK_ROLES.includes(body.role as TaskRole) ? (body.role as TaskRole) : 'composition';
-    const quality: QualityLevel = QUALITIES.includes(body.quality as QualityLevel) ? (body.quality as QualityLevel) : 'standard';
+  const handleLlm = async (
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<ManagedGatewayResponse> => {
+    if (!isPlainObject(body.request) || !Array.isArray((body.request as Record<string, unknown>).messages))
+      return { status: 400, json: { error: 'request.messages is required' } };
+    const role: TaskRole = TASK_ROLES.includes(body.role as TaskRole)
+      ? (body.role as TaskRole)
+      : 'composition';
+    const quality: QualityLevel = QUALITIES.includes(body.quality as QualityLevel)
+      ? (body.quality as QualityLevel)
+      : 'standard';
     const privacy = parsePrivacy(body.privacy);
     const request = deserializeLLMRequest(body.request as unknown as SerializedLLMRequest);
-    const hasAudio = request.messages.some((m) => typeof m.content !== 'string' && m.content.some((p) => p.type === 'audio'));
-    const base = ROLE_INFO[role].interface === 'composition' ? ROLE_INFO[role].capabilities : ['TEXT_REASONING' as Capability];
-    const capabilities: Capability[] = unionCapabilities(base, hasAudio ? ['AUDIO_INPUT', 'AUDIO_UNDERSTANDING'] : []);
+    const hasAudio = request.messages.some(
+      (m) => typeof m.content !== 'string' && m.content.some((p) => p.type === 'audio'),
+    );
+    const base =
+      ROLE_INFO[role].interface === 'composition'
+        ? ROLE_INFO[role].capabilities
+        : ['TEXT_REASONING' as Capability];
+    const capabilities: Capability[] = unionCapabilities(
+      base,
+      hasAudio ? ['AUDIO_INPUT', 'AUDIO_UNDERSTANDING'] : [],
+    );
     const o = runOptions(quality, privacy, signal);
     const result = await orchestrator.run({
       role,
@@ -159,12 +221,18 @@ export function createManagedGatewayHandler(orchestrator: Orchestrator, opts: Ma
     return { status: 200, json: { ...result.result, provenance: result.provenance } };
   };
 
-  const handleAudio = async (body: Record<string, unknown>, signal?: AbortSignal): Promise<ManagedGatewayResponse> => {
+  const handleAudio = async (
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<ManagedGatewayResponse> => {
     const request = isPlainObject(body.request) ? body.request : undefined;
     const op = request?.op as ManagedAudioOp | undefined;
-    if (!request || !op || !(op in MANAGED_OP_ROLES)) return { status: 400, json: { error: `Unknown or missing op ${JSON.stringify(request?.op ?? null)}` } };
+    if (!request || !op || !(op in MANAGED_OP_ROLES))
+      return { status: 400, json: { error: `Unknown or missing op ${JSON.stringify(request?.op ?? null)}` } };
     const params = deserializeAudioParams(isPlainObject(request.params) ? request.params : {});
-    const quality: QualityLevel = QUALITIES.includes(body.quality as QualityLevel) ? (body.quality as QualityLevel) : 'standard';
+    const quality: QualityLevel = QUALITIES.includes(body.quality as QualityLevel)
+      ? (body.quality as QualityLevel)
+      : 'standard';
     const privacy = parsePrivacy(body.privacy);
     const o = runOptions(quality, privacy, signal, privacy.dataKinds);
     const role = MANAGED_OP_ROLES[op];
@@ -188,7 +256,11 @@ export function createManagedGatewayHandler(orchestrator: Orchestrator, opts: Ma
         const r = await orchestrator.run<AudioGenerationResult>({
           ...common,
           capabilities: caps,
-          estimateInput: { kind: 'audio', durationSeconds: req.durationSeconds ?? 30, generations: req.samples ?? 1 },
+          estimateInput: {
+            kind: 'audio',
+            durationSeconds: req.durationSeconds ?? 30,
+            generations: req.samples ?? 1,
+          },
           execute: (inst, model, s) => inst.audioGeneration!.generateMusic({ ...req, model, signal: s }),
         });
         return audioResponse(r.result.audio, r.provenance, r.result.seed);
@@ -196,19 +268,30 @@ export function createManagedGatewayHandler(orchestrator: Orchestrator, opts: Ma
       case 'transformAudio':
       case 'extendAudio':
       case 'inpaintAudio': {
-        const cap: Capability = op === 'transformAudio' ? 'AUDIO_TO_AUDIO' : op === 'extendAudio' ? 'OUTPAINTING' : 'INPAINTING';
+        const cap: Capability =
+          op === 'transformAudio' ? 'AUDIO_TO_AUDIO' : op === 'extendAudio' ? 'OUTPAINTING' : 'INPAINTING';
         const r = await orchestrator.run<AudioGenerationResult>({
           ...common,
           capabilities: [cap],
-          estimateInput: { kind: 'audio', durationSeconds: Number((params as { durationSeconds?: number }).durationSeconds ?? 30) },
+          estimateInput: {
+            kind: 'audio',
+            durationSeconds: Number((params as { durationSeconds?: number }).durationSeconds ?? 30),
+          },
           execute: async (inst, model, s) => {
             const g = inst.audioGeneration!;
-            if (op === 'transformAudio') return g.transformAudio({ ...(params as unknown as AudioTransformRequest), model, signal: s });
+            if (op === 'transformAudio')
+              return g.transformAudio({ ...(params as unknown as AudioTransformRequest), model, signal: s });
             if (op === 'extendAudio') {
-              if (!g.extendAudio) throw new ProviderError('unsupported', 'extend not supported', { providerId: inst.descriptor.id });
+              if (!g.extendAudio)
+                throw new ProviderError('unsupported', 'extend not supported', {
+                  providerId: inst.descriptor.id,
+                });
               return g.extendAudio({ ...(params as unknown as AudioExtendRequest), model, signal: s });
             }
-            if (!g.inpaintAudio) throw new ProviderError('unsupported', 'inpaint not supported', { providerId: inst.descriptor.id });
+            if (!g.inpaintAudio)
+              throw new ProviderError('unsupported', 'inpaint not supported', {
+                providerId: inst.descriptor.id,
+              });
             return g.inpaintAudio({ ...(params as unknown as AudioInpaintRequest), model, signal: s });
           },
         });
@@ -220,29 +303,46 @@ export function createManagedGatewayHandler(orchestrator: Orchestrator, opts: Ma
         const r =
           op === 'synthesizeSinging'
             ? await orchestrator.synthesizeSinging(req, { ...o, ...common })
-            : await orchestrator.regeneratePhrase(params as unknown as PhraseRegenerationRequest, { ...o, ...common });
+            : await orchestrator.regeneratePhrase(params as unknown as PhraseRegenerationRequest, {
+                ...o,
+                ...common,
+              });
         return audioResponse(r.result.audio, r.provenance, r.result.seed);
       }
       case 'listVoices': {
-        const r = await orchestrator.run<VoiceInfo[]>({ ...common, capabilities: ['SINGING_SYNTHESIS'], interface: 'singing', execute: (inst, _m, s) => inst.singing!.listVoices(s) });
+        const r = await orchestrator.run<VoiceInfo[]>({
+          ...common,
+          capabilities: ['SINGING_SYNTHESIS'],
+          interface: 'singing',
+          execute: (inst, _m, s) => inst.singing!.listVoices(s),
+        });
         return { status: 200, json: { voices: r.result } };
       }
       case 'transcribeNotes': {
-        const r = await orchestrator.transcribe(params as unknown as TranscriptionRequest, { ...o, ...common });
+        const r = await orchestrator.transcribe(params as unknown as TranscriptionRequest, {
+          ...o,
+          ...common,
+        });
         return { status: 200, json: { ...r.result, provenance: r.provenance } };
       }
       case 'separateStems': {
         const r = await orchestrator.separate(params as unknown as SeparationRequest, { ...o, ...common });
         const stems: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(r.result.stems)) stems[k] = audioToJson(v);
-        return { status: 200, json: { stems, ...(r.result.model ? { model: r.result.model } : {}), provenance: r.provenance } };
+        return {
+          status: 200,
+          json: { stems, ...(r.result.model ? { model: r.result.model } : {}), provenance: r.provenance },
+        };
       }
       case 'master': {
         const r = await orchestrator.master(params as unknown as MasteringRequest, { ...o, ...common });
         return audioResponse(r.result.audio, r.provenance);
       }
       case 'convertVoice': {
-        const r = await orchestrator.convertVoice(params as unknown as VoiceConversionRequest, { ...o, ...common });
+        const r = await orchestrator.convertVoice(params as unknown as VoiceConversionRequest, {
+          ...o,
+          ...common,
+        });
         return audioResponse(r.result.audio, r.provenance);
       }
     }
@@ -255,7 +355,10 @@ export function createManagedGatewayHandler(orchestrator: Orchestrator, opts: Ma
       .list()
       .filter((p) => p.enabled && p.status === 'ready' && !skip.has(p.id))
       .map((p) => ({ id: p.id, name: p.name, location: p.location, capabilities: p.capabilities }));
-    return { status: 200, json: { capabilities: unionCapabilities(...providers.map((p) => p.capabilities)), providers } };
+    return {
+      status: 200,
+      json: { capabilities: unionCapabilities(...providers.map((p) => p.capabilities)), providers },
+    };
   };
 
   return async (path, body, signal) => {

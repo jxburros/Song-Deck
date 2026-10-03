@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { TRACK_NEUTRAL, TRACK_PALETTE, randomId, unpackProject, type Project, type Revision, type Song } from '@songdeck/core';
+import {
+  TRACK_NEUTRAL,
+  TRACK_PALETTE,
+  randomId,
+  unpackProject,
+  type Project,
+  type Revision,
+  type Song,
+} from '@songdeck/core';
 import { serverBase, useSettings } from '../state/settings';
 import { setLinearHistoryProbe, subscribeCommits, useStudio } from '../state/store';
 import { useRuntime } from './runtime';
@@ -173,8 +181,14 @@ function loadPrefs(): Prefs {
     /* storage unavailable */
   }
   const prefs: Prefs = {
-    clientId: typeof p.clientId === 'string' && /^[A-Za-z0-9_.-]{1,128}$/.test(p.clientId) ? p.clientId : randomId('user'),
-    color: typeof p.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(p.color) ? p.color : PEER_COLORS[Math.floor(Math.random() * PEER_COLORS.length)],
+    clientId:
+      typeof p.clientId === 'string' && /^[A-Za-z0-9_.-]{1,128}$/.test(p.clientId)
+        ? p.clientId
+        : randomId('user'),
+    color:
+      typeof p.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(p.color)
+        ? p.color
+        : PEER_COLORS[Math.floor(Math.random() * PEER_COLORS.length)],
     autoConnect: p.autoConnect === true,
   };
   savePrefs(prefs);
@@ -198,7 +212,9 @@ function loadToken(): string {
 }
 
 const hasWindow = typeof window !== 'undefined';
-const initialPrefs: Prefs = hasWindow ? loadPrefs() : { clientId: 'user_node', color: PEER_COLORS[0], autoConnect: false };
+const initialPrefs: Prefs = hasWindow
+  ? loadPrefs()
+  : { clientId: 'user_node', color: PEER_COLORS[0], autoConnect: false };
 
 export const useCollab = create<CollabState>(() => ({
   status: 'disconnected',
@@ -248,7 +264,8 @@ export function collabUrl(token = useCollab.getState().token): string {
   const base = serverBase();
   let url: string;
   if (base && /^https?:\/\//i.test(base)) url = `${base.replace(/^http/i, 'ws')}/api/collab`;
-  else if (hasWindow) url = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${base}/api/collab`;
+  else if (hasWindow)
+    url = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${base}/api/collab`;
   else url = 'ws://127.0.0.1:7788/api/collab';
   return token ? `${url}?access_token=${encodeURIComponent(token)}` : url;
 }
@@ -301,15 +318,27 @@ export async function listSharedProjects(): Promise<SharedProjectInfo[]> {
 }
 
 export async function fetchSharedProject(name: string): Promise<Uint8Array> {
-  const res = await fetch(`${serverBase()}/api/projects/${encodeURIComponent(name)}`, { headers: collabAuthHeaders() });
+  const res = await fetch(`${serverBase()}/api/projects/${encodeURIComponent(name)}`, {
+    headers: collabAuthHeaders(),
+  });
   if (!res.ok) throw await serverError(res);
   return new Uint8Array(await res.arrayBuffer());
 }
 
 /** Peek at a shared package without importing it (id/name/revisions). */
-export function inspectSharedProject(bytes: Uint8Array): { id: string; name: string; revisions: number; title: string } {
+export function inspectSharedProject(bytes: Uint8Array): {
+  id: string;
+  name: string;
+  revisions: number;
+  title: string;
+} {
   const { project } = unpackProject(bytes);
-  return { id: project.meta.id, name: project.meta.name, revisions: project.history.revisions.length, title: project.song.title };
+  return {
+    id: project.meta.id,
+    name: project.meta.name,
+    revisions: project.history.revisions.length,
+    title: project.song.title,
+  };
 }
 
 /** Download and open a shared project (replaces a local copy with the same id). */
@@ -320,7 +349,10 @@ export async function openSharedProject(name: string, bytes?: Uint8Array): Promi
 }
 
 export async function deleteSharedProject(name: string): Promise<void> {
-  const res = await fetch(`${serverBase()}/api/projects/${encodeURIComponent(name)}`, { method: 'DELETE', headers: collabAuthHeaders() });
+  const res = await fetch(`${serverBase()}/api/projects/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    headers: collabAuthHeaders(),
+  });
   if (!res.ok && res.status !== 404) throw await serverError(res);
 }
 
@@ -366,7 +398,15 @@ interface OutgoingCommit {
 
 function isSongLike(v: unknown): v is Song {
   const s = v as Song | undefined;
-  return !!s && typeof s === 'object' && Array.isArray(s.tracks) && Array.isArray(s.sections) && Array.isArray(s.tempoMap) && Array.isArray(s.meterMap) && !!s.mixer;
+  return (
+    !!s &&
+    typeof s === 'object' &&
+    Array.isArray(s.tracks) &&
+    Array.isArray(s.sections) &&
+    Array.isArray(s.tempoMap) &&
+    Array.isArray(s.meterMap) &&
+    !!s.mixer
+  );
 }
 
 function stripWire(wire: WireRevision): Revision {
@@ -444,7 +484,15 @@ class CollabClient {
     this.rejectAll(new Error('Disconnected'));
     this.outbox.clear();
     this.commitReqs.clear();
-    useCollab.setState({ status: 'disconnected', peerId: null, peers: [], retryAt: null, outbox: 0, projectId: null, projectName: null });
+    useCollab.setState({
+      status: 'disconnected',
+      peerId: null,
+      peers: [],
+      retryAt: null,
+      outbox: 0,
+      projectId: null,
+      projectName: null,
+    });
     if (was && !quiet) log('info', `Left the room (${reason})`);
   }
 
@@ -489,7 +537,8 @@ class CollabClient {
     this.ws = ws;
     this.connectTimer = setTimeout(() => {
       this.connectTimer = null;
-      if (this.ws === ws && useCollab.getState().status !== 'connected') this.dropSocket(ws, 4000, 'connection timed out');
+      if (this.ws === ws && useCollab.getState().status !== 'connected')
+        this.dropSocket(ws, 4000, 'connection timed out');
     }, CONNECT_TIMEOUT_MS);
     ws.onopen = () => {
       const s = useCollab.getState();
@@ -505,12 +554,20 @@ class CollabClient {
       try {
         this.handle(msg);
       } catch (err) {
-        log('error', `Could not process ${msg?.type ?? 'message'}: ${err instanceof Error ? err.message : String(err)}`);
+        log(
+          'error',
+          `Could not process ${msg?.type ?? 'message'}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     };
     ws.onclose = (ev) => this.onSocketClosed(ws, ev.code, ev.reason);
     ws.onerror = () => {
-      useCollab.setState({ error: useRuntime.getState().server.status === 'offline' ? 'The local server is not running' : 'Could not reach the collaboration server' });
+      useCollab.setState({
+        error:
+          useRuntime.getState().server.status === 'offline'
+            ? 'The local server is not running'
+            : 'Could not reach the collaboration server',
+      });
     };
   }
 
@@ -631,7 +688,10 @@ class CollabClient {
     if (text.length > MAX_MESSAGE_CHARS) {
       this.outbox.delete(c.revision.id);
       useCollab.setState({ outbox: this.outbox.size });
-      log('error', `“${c.revision.message}” is too large to share live (${Math.round(text.length / 1048576)} MB) — share the project file instead`);
+      log(
+        'error',
+        `“${c.revision.message}” is too large to share live (${Math.round(text.length / 1048576)} MB) — share the project file instead`,
+      );
       return;
     }
     this.commitReqs.set(reqId, c.revision.id);
@@ -671,7 +731,9 @@ class CollabClient {
       selection: {
         notes: sel.noteIds.length,
         ...(sel.sectionIds?.length ? { sectionIds: sel.sectionIds.slice(0, 16) } : {}),
-        ...(sel.startTick !== undefined && sel.endTick !== undefined ? { startTick: sel.startTick, endTick: sel.endTick } : {}),
+        ...(sel.startTick !== undefined && sel.endTick !== undefined
+          ? { startTick: sel.startTick, endTick: sel.endTick }
+          : {}),
       },
     };
   }
@@ -701,7 +763,10 @@ class CollabClient {
     }, PRESENCE_THROTTLE_MS);
   }
 
-  async comment(text: string, anchor: { sectionId?: string; trackId?: string; tick?: number }): Promise<CollabComment> {
+  async comment(
+    text: string,
+    anchor: { sectionId?: string; trackId?: string; tick?: number },
+  ): Promise<CollabComment> {
     if (!this.connected) throw new Error('Connect to the room first');
     const comment: CollabComment = {
       id: randomId('cmt'),
@@ -710,12 +775,16 @@ class CollabClient {
       at: new Date().toISOString(),
       ...(anchor.sectionId ? { sectionId: anchor.sectionId } : {}),
       ...(anchor.trackId ? { trackId: anchor.trackId } : {}),
-      ...(anchor.tick !== undefined && Number.isFinite(anchor.tick) ? { tick: Math.max(0, Math.round(anchor.tick)) } : {}),
+      ...(anchor.tick !== undefined && Number.isFinite(anchor.tick)
+        ? { tick: Math.max(0, Math.round(anchor.tick)) }
+        : {}),
     };
     useCollab.setState((s) => ({ comments: [...s.comments, { ...comment, pending: true }] }));
     try {
       await this.request({ type: 'comment', comment });
-      useCollab.setState((s) => ({ comments: s.comments.map((c) => (c.id === comment.id ? { ...c, pending: false } : c)) }));
+      useCollab.setState((s) => ({
+        comments: s.comments.map((c) => (c.id === comment.id ? { ...c, pending: false } : c)),
+      }));
     } catch (err) {
       useCollab.setState((s) => ({ comments: s.comments.filter((c) => c.id !== comment.id) }));
       throw err;
@@ -730,7 +799,9 @@ class CollabClient {
     try {
       await this.request({ type: 'resolve-comment', id, resolved });
     } catch (err) {
-      useCollab.setState((s) => ({ comments: s.comments.map((c) => (c.id === id ? { ...c, resolved: before?.resolved } : c)) }));
+      useCollab.setState((s) => ({
+        comments: s.comments.map((c) => (c.id === id ? { ...c, resolved: before?.resolved } : c)),
+      }));
       throw err;
     }
   }
@@ -741,7 +812,18 @@ class CollabClient {
     if (!this.connected) throw new Error('Connect to the room first');
     const s = useCollab.getState();
     this.raw({ type: 'chat', text: t });
-    useCollab.setState({ chat: [...s.chat, { peerId: s.peerId ?? 'me', user: { id: s.clientId, name: displayName(), color: s.color }, text: t, at: new Date().toISOString(), mine: true }].slice(-100) });
+    useCollab.setState({
+      chat: [
+        ...s.chat,
+        {
+          peerId: s.peerId ?? 'me',
+          user: { id: s.clientId, name: displayName(), color: s.color },
+          text: t,
+          at: new Date().toISOString(),
+          mine: true,
+        },
+      ].slice(-100),
+    });
   }
 
   // -- receiving ------------------------------------------------------------------------------
@@ -765,13 +847,18 @@ class CollabClient {
           chat: (msg.chat ?? []).map((c) => ({ ...c, mine: c.user?.id === me })),
           roomRevisions: msg.revisions.length,
         });
-        log('success', `Connected · ${msg.peers.length} other ${msg.peers.length === 1 ? 'person' : 'people'} in the room · ${msg.revisions.length} shared revision${msg.revisions.length === 1 ? '' : 's'}`);
+        log(
+          'success',
+          `Connected · ${msg.peers.length} other ${msg.peers.length === 1 ? 'person' : 'people'} in the room · ${msg.revisions.length} shared revision${msg.revisions.length === 1 ? '' : 's'}`,
+        );
         this.startHeartbeat();
         void this.sync(msg.revisions);
         return;
       }
       case 'peer-joined':
-        useCollab.setState((s) => ({ peers: [...s.peers.filter((p) => p.peerId !== msg.peer.peerId), msg.peer] }));
+        useCollab.setState((s) => ({
+          peers: [...s.peers.filter((p) => p.peerId !== msg.peer.peerId), msg.peer],
+        }));
         log('info', `${msg.peer.user.name} joined`);
         return;
       case 'peer-left': {
@@ -781,21 +868,29 @@ class CollabClient {
         return;
       }
       case 'presence':
-        useCollab.setState((s) => ({ peers: s.peers.map((p) => (p.peerId === msg.peerId ? { ...p, user: msg.user ?? p.user, presence: msg.presence } : p)) }));
+        useCollab.setState((s) => ({
+          peers: s.peers.map((p) =>
+            p.peerId === msg.peerId ? { ...p, user: msg.user ?? p.user, presence: msg.presence } : p,
+          ),
+        }));
         return;
       case 'commit':
         this.receive(msg.revision, msg.from?.user, true);
         useCollab.setState((s) => ({ roomRevisions: s.roomRevisions + 1 }));
         return;
       case 'ack': {
-        const revId = msg.revisionId ?? (msg.reqId !== undefined ? this.commitReqs.get(String(msg.reqId)) : undefined);
+        const revId =
+          msg.revisionId ?? (msg.reqId !== undefined ? this.commitReqs.get(String(msg.reqId)) : undefined);
         if (msg.reqId !== undefined) this.commitReqs.delete(String(msg.reqId));
         if (revId && this.outbox.has(revId)) {
           const sentMsg = this.outbox.get(revId)?.revision.message;
           if (!msg.duplicate && sentMsg !== undefined) log('success', `Shared “${sentMsg}” with the room`);
           this.outbox.delete(revId);
           this.roomIds.add(revId);
-          useCollab.setState((s) => ({ outbox: this.outbox.size, roomRevisions: msg.duplicate ? s.roomRevisions : s.roomRevisions + 1 }));
+          useCollab.setState((s) => ({
+            outbox: this.outbox.size,
+            roomRevisions: msg.duplicate ? s.roomRevisions : s.roomRevisions + 1,
+          }));
         }
         this.settle(msg);
         return;
@@ -804,15 +899,27 @@ class CollabClient {
         this.settle(msg);
         return;
       case 'comment':
-        useCollab.setState((s) => ({ comments: [...s.comments.filter((c) => c.id !== msg.comment.id), msg.comment] }));
-        log('info', `${msg.from?.user.name ?? msg.comment.author} commented: “${msg.comment.text.slice(0, 80)}”`);
+        useCollab.setState((s) => ({
+          comments: [...s.comments.filter((c) => c.id !== msg.comment.id), msg.comment],
+        }));
+        log(
+          'info',
+          `${msg.from?.user.name ?? msg.comment.author} commented: “${msg.comment.text.slice(0, 80)}”`,
+        );
         return;
       case 'resolve-comment':
-        useCollab.setState((s) => ({ comments: s.comments.map((c) => (c.id === msg.id ? { ...c, resolved: msg.resolved } : c)) }));
+        useCollab.setState((s) => ({
+          comments: s.comments.map((c) => (c.id === msg.id ? { ...c, resolved: msg.resolved } : c)),
+        }));
         return;
       case 'chat': {
         const me = useCollab.getState().clientId;
-        useCollab.setState((s) => ({ chat: [...s.chat, { peerId: msg.peerId, user: msg.user, text: msg.text, at: msg.at, mine: msg.user?.id === me }].slice(-100) }));
+        useCollab.setState((s) => ({
+          chat: [
+            ...s.chat,
+            { peerId: msg.peerId, user: msg.user, text: msg.text, at: msg.at, mine: msg.user?.id === me },
+          ].slice(-100),
+        }));
         return;
       }
       case 'error': {
@@ -884,14 +991,25 @@ class CollabClient {
     if (!projectId || !project || project.meta.id !== projectId) return;
     const local = new Set(project.history.revisions.map((r) => r.id));
     const missing = roomRevisions.filter((r) => !local.has(r.id));
-    if (missing.length) log('info', `Fetching ${missing.length} revision${missing.length === 1 ? '' : 's'} from the room…`);
+    if (missing.length)
+      log('info', `Fetching ${missing.length} revision${missing.length === 1 ? '' : 's'} from the room…`);
     for (const meta of missing) {
       if (this.wanted !== projectId || !this.connected) return;
       try {
         const reply = await this.request({ type: 'request-revision', id: meta.id });
-        if (reply.type === 'revision') this.receive(reply.revision, meta.committedBy ? { id: meta.committedBy.id, name: meta.committedBy.name, color: TRACK_NEUTRAL } : undefined, false);
+        if (reply.type === 'revision')
+          this.receive(
+            reply.revision,
+            meta.committedBy
+              ? { id: meta.committedBy.id, name: meta.committedBy.name, color: TRACK_NEUTRAL }
+              : undefined,
+            false,
+          );
       } catch (err) {
-        log('warning', `Could not fetch revision “${meta.message}”: ${err instanceof Error ? err.message : String(err)}`);
+        log(
+          'warning',
+          `Could not fetch revision “${meta.message}”: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
     if (this.wanted !== projectId) return;
@@ -922,7 +1040,11 @@ class CollabClient {
     }
     this.synced = true;
     useCollab.setState({ outbox: this.outbox.size });
-    if (this.outbox.size) log('info', `Sending ${this.outbox.size} local revision${this.outbox.size === 1 ? '' : 's'} to the room`);
+    if (this.outbox.size)
+      log(
+        'info',
+        `Sending ${this.outbox.size} local revision${this.outbox.size === 1 ? '' : 's'} to the room`,
+      );
     for (const c of this.outbox.values()) this.sendCommit(c);
     this.sendPresence(true);
   }
@@ -955,7 +1077,10 @@ export function retryCollabNow(): void {
   client.retryNow();
 }
 
-export function addCollabComment(text: string, anchor: { sectionId?: string; trackId?: string; tick?: number } = {}): Promise<CollabComment> {
+export function addCollabComment(
+  text: string,
+  anchor: { sectionId?: string; trackId?: string; tick?: number } = {},
+): Promise<CollabComment> {
   return client.comment(text, anchor);
 }
 
@@ -1014,15 +1139,24 @@ if (hasWindow) {
     const prevId = prev.project?.meta.id ?? null;
     if (id !== prevId) {
       // Clean disconnect when the project closes or another project opens.
-      if (client.wanted && client.wanted !== id) client.disconnect(id ? 'opened another project' : 'project closed');
-      if (id && useCollab.getState().autoConnect && useRuntime.getState().server.status === 'online') client.connect(id);
+      if (client.wanted && client.wanted !== id)
+        client.disconnect(id ? 'opened another project' : 'project closed');
+      if (id && useCollab.getState().autoConnect && useRuntime.getState().server.status === 'online')
+        client.connect(id);
       return;
     }
     if (s.project && s.project !== prev.project) {
       client.watchHistory(s.project);
-      if (s.project.meta.name !== prev.project?.meta.name && client.wanted === id) useCollab.setState({ projectName: s.project.meta.name });
+      if (s.project.meta.name !== prev.project?.meta.name && client.wanted === id)
+        useCollab.setState({ projectName: s.project.meta.name });
     }
-    if (s.mode !== prev.mode || s.workbenchView !== prev.workbenchView || s.selectedTrackId !== prev.selectedTrackId || s.selection !== prev.selection) client.sendPresence();
+    if (
+      s.mode !== prev.mode ||
+      s.workbenchView !== prev.workbenchView ||
+      s.selectedTrackId !== prev.selectedTrackId ||
+      s.selection !== prev.selection
+    )
+      client.sendPresence();
   });
 
   useSettings.subscribe((s, prev) => {
@@ -1051,5 +1185,6 @@ if (hasWindow) {
 
   // Auto-connect at startup once the server answered.
   const startId = useStudio.getState().project?.meta.id;
-  if (startId && useCollab.getState().autoConnect && useRuntime.getState().server.status === 'online') client.connect(startId);
+  if (startId && useCollab.getState().autoConnect && useRuntime.getState().server.status === 'online')
+    client.connect(startId);
 }

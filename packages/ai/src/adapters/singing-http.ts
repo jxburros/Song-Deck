@@ -4,9 +4,21 @@
  */
 import type { VoiceKind, VoiceType } from '@songdeck/core';
 import type { ProviderConfig } from '../config';
-import { SINGING_BRIDGE_PATHS, type SingingBridgeNote, type SingingBridgeRequest, type SingingBridgeVoice } from '../contracts';
+import {
+  SINGING_BRIDGE_PATHS,
+  type SingingBridgeNote,
+  type SingingBridgeRequest,
+  type SingingBridgeVoice,
+} from '../contracts';
 import type { HttpClient } from '../transport/http';
-import type { PhraseRegenerationRequest, ProviderInstance, SingingProvider, SingingRequest, SingingResult, VoiceInfo } from '../types';
+import type {
+  PhraseRegenerationRequest,
+  ProviderInstance,
+  SingingProvider,
+  SingingRequest,
+  SingingResult,
+  VoiceInfo,
+} from '../types';
 import { joinUrl } from '../util';
 import { audioFromResponse, buildDescriptor, createHttpClient, type CreateProviderDeps } from './common';
 
@@ -14,7 +26,11 @@ const VOICE_KINDS: VoiceKind[] = ['stock', 'user-trained', 'imported', 'third-pa
 const VOICE_TYPES: VoiceType[] = ['soprano', 'mezzo', 'alto', 'tenor', 'baritone', 'bass'];
 
 export function voiceFromBridge(v: SingingBridgeVoice): VoiceInfo {
-  const info: VoiceInfo = { id: v.id, name: v.name || v.id, kind: VOICE_KINDS.includes(v.kind as VoiceKind) ? (v.kind as VoiceKind) : 'imported' };
+  const info: VoiceInfo = {
+    id: v.id,
+    name: v.name || v.id,
+    kind: VOICE_KINDS.includes(v.kind as VoiceKind) ? (v.kind as VoiceKind) : 'imported',
+  };
   if (VOICE_TYPES.includes(v.voice_type as VoiceType)) info.voiceType = v.voice_type as VoiceType;
   if (v.language) info.language = v.language;
   return info;
@@ -66,24 +82,47 @@ export class SingingBridge implements SingingProvider {
   }
 
   async listVoices(signal?: AbortSignal): Promise<VoiceInfo[]> {
-    const json = await this.http.json<SingingBridgeVoice[] | { voices?: SingingBridgeVoice[] }>({ url: this.url(SINGING_BRIDGE_PATHS.voices), method: 'GET', signal });
+    const json = await this.http.json<SingingBridgeVoice[] | { voices?: SingingBridgeVoice[] }>({
+      url: this.url(SINGING_BRIDGE_PATHS.voices),
+      method: 'GET',
+      signal,
+    });
     const list = Array.isArray(json) ? json : (json?.voices ?? []);
     return list.map(voiceFromBridge);
   }
 
   async synthesizeSinging(req: SingingRequest): Promise<SingingResult> {
-    const r = await this.http.bytes({ url: this.url(SINGING_BRIDGE_PATHS.synthesize), json: singingBody(req), accept: 'audio/wav', signal: req.signal });
+    const r = await this.http.bytes({
+      url: this.url(SINGING_BRIDGE_PATHS.synthesize),
+      json: singingBody(req),
+      accept: 'audio/wav',
+      signal: req.signal,
+    });
     return this.result(r.data, r.contentType, r.headers, req);
   }
 
   async regeneratePhrase(req: PhraseRegenerationRequest): Promise<SingingResult> {
     const body = { ...singingBody(req), start_seconds: req.startSeconds, end_seconds: req.endSeconds };
-    const r = await this.http.bytes({ url: this.url(SINGING_BRIDGE_PATHS.regeneratePhrase), json: body, accept: 'audio/wav', signal: req.signal });
+    const r = await this.http.bytes({
+      url: this.url(SINGING_BRIDGE_PATHS.regeneratePhrase),
+      json: body,
+      accept: 'audio/wav',
+      signal: req.signal,
+    });
     return this.result(r.data, r.contentType, r.headers, req);
   }
 
-  private result(data: Uint8Array, contentType: string, headers: Headers, req: SingingRequest): SingingResult {
-    const res: SingingResult = { audio: audioFromResponse(data, contentType, 'wav'), voiceId: req.voiceId, seed: req.seed ?? 0 };
+  private result(
+    data: Uint8Array,
+    contentType: string,
+    headers: Headers,
+    req: SingingRequest,
+  ): SingingResult {
+    const res: SingingResult = {
+      audio: audioFromResponse(data, contentType, 'wav'),
+      voiceId: req.voiceId,
+      seed: req.seed ?? 0,
+    };
     const model = headers.get('x-model') ?? req.model;
     if (model) res.model = model;
     if (this.config.location === 'local') res.costUsd = 0;
@@ -91,7 +130,14 @@ export class SingingBridge implements SingingProvider {
   }
 }
 
-export function createSingingHttpProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
+export function createSingingHttpProvider(
+  config: ProviderConfig,
+  deps: CreateProviderDeps,
+): ProviderInstance {
   const http = createHttpClient(config, deps);
-  return { descriptor: buildDescriptor(config, ['SINGING_SYNTHESIS', 'MIDI_CONDITIONING', 'LYRIC_CONDITIONING']), config, singing: new SingingBridge(config, http) };
+  return {
+    descriptor: buildDescriptor(config, ['SINGING_SYNTHESIS', 'MIDI_CONDITIONING', 'LYRIC_CONDITIONING']),
+    config,
+    singing: new SingingBridge(config, http),
+  };
 }

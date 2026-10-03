@@ -16,20 +16,82 @@ const SHOTS = '/tmp/claude-0';
 
 const GEMINI_MODELS = {
   models: [
-    { name: 'models/gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', inputTokenLimit: 1048576, outputTokenLimit: 65536, supportedGenerationMethods: ['generateContent', 'countTokens', 'createCachedContent'] },
-    { name: 'models/gemini-2.5-pro-preview-06-05', displayName: 'Gemini 2.5 Pro Preview 06-05', inputTokenLimit: 1048576, outputTokenLimit: 65536, supportedGenerationMethods: ['generateContent', 'countTokens'] },
-    { name: 'models/gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', inputTokenLimit: 1048576, outputTokenLimit: 65536, supportedGenerationMethods: ['generateContent', 'countTokens'] },
-    { name: 'models/gemini-2.5-flash-lite', displayName: 'Gemini 2.5 Flash-Lite', inputTokenLimit: 1048576, outputTokenLimit: 65536, supportedGenerationMethods: ['generateContent', 'countTokens'] },
-    { name: 'models/gemini-2.5-flash-preview-tts', displayName: 'Gemini 2.5 Flash Preview TTS', inputTokenLimit: 8192, outputTokenLimit: 16384, supportedGenerationMethods: ['countTokens', 'generateContent'] },
-    { name: 'models/gemma-3-27b-it', displayName: 'Gemma 3 27B', inputTokenLimit: 131072, outputTokenLimit: 8192, supportedGenerationMethods: ['generateContent', 'countTokens'] },
-    { name: 'models/text-embedding-004', displayName: 'Text Embedding 004', inputTokenLimit: 2048, outputTokenLimit: 1, supportedGenerationMethods: ['embedContent'] },
-    { name: 'models/imagen-4.0-generate-001', displayName: 'Imagen 4', inputTokenLimit: 480, outputTokenLimit: 8192, supportedGenerationMethods: ['predict'] },
-    { name: 'models/lyria-3-clip-preview', displayName: 'Lyria 3 Clip Preview', inputTokenLimit: 1024, outputTokenLimit: 1, supportedGenerationMethods: ['generateContent'] },
-    { name: 'models/lyria-realtime-exp', displayName: 'Lyria RealTime Experimental', supportedGenerationMethods: ['bidiGenerateContent'] },
+    {
+      name: 'models/gemini-2.5-pro',
+      displayName: 'Gemini 2.5 Pro',
+      inputTokenLimit: 1048576,
+      outputTokenLimit: 65536,
+      supportedGenerationMethods: ['generateContent', 'countTokens', 'createCachedContent'],
+    },
+    {
+      name: 'models/gemini-2.5-pro-preview-06-05',
+      displayName: 'Gemini 2.5 Pro Preview 06-05',
+      inputTokenLimit: 1048576,
+      outputTokenLimit: 65536,
+      supportedGenerationMethods: ['generateContent', 'countTokens'],
+    },
+    {
+      name: 'models/gemini-2.5-flash',
+      displayName: 'Gemini 2.5 Flash',
+      inputTokenLimit: 1048576,
+      outputTokenLimit: 65536,
+      supportedGenerationMethods: ['generateContent', 'countTokens'],
+    },
+    {
+      name: 'models/gemini-2.5-flash-lite',
+      displayName: 'Gemini 2.5 Flash-Lite',
+      inputTokenLimit: 1048576,
+      outputTokenLimit: 65536,
+      supportedGenerationMethods: ['generateContent', 'countTokens'],
+    },
+    {
+      name: 'models/gemini-2.5-flash-preview-tts',
+      displayName: 'Gemini 2.5 Flash Preview TTS',
+      inputTokenLimit: 8192,
+      outputTokenLimit: 16384,
+      supportedGenerationMethods: ['countTokens', 'generateContent'],
+    },
+    {
+      name: 'models/gemma-3-27b-it',
+      displayName: 'Gemma 3 27B',
+      inputTokenLimit: 131072,
+      outputTokenLimit: 8192,
+      supportedGenerationMethods: ['generateContent', 'countTokens'],
+    },
+    {
+      name: 'models/text-embedding-004',
+      displayName: 'Text Embedding 004',
+      inputTokenLimit: 2048,
+      outputTokenLimit: 1,
+      supportedGenerationMethods: ['embedContent'],
+    },
+    {
+      name: 'models/imagen-4.0-generate-001',
+      displayName: 'Imagen 4',
+      inputTokenLimit: 480,
+      outputTokenLimit: 8192,
+      supportedGenerationMethods: ['predict'],
+    },
+    {
+      name: 'models/lyria-3-clip-preview',
+      displayName: 'Lyria 3 Clip Preview',
+      inputTokenLimit: 1024,
+      outputTokenLimit: 1,
+      supportedGenerationMethods: ['generateContent'],
+    },
+    {
+      name: 'models/lyria-realtime-exp',
+      displayName: 'Lyria RealTime Experimental',
+      supportedGenerationMethods: ['bidiGenerateContent'],
+    },
   ],
 };
 
-const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS' };
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': '*',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+};
 
 /** Fake Gemini API; records the key each request carried. */
 async function fakeGemini(page: Page, seen: string[]): Promise<void> {
@@ -38,19 +100,45 @@ async function fakeGemini(page: Page, seen: string[]): Promise<void> {
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     const key = (await req.allHeaders())['x-goog-api-key'] ?? '';
     seen.push(key);
-    if (key !== KEY) return route.fulfill({ status: 400, headers: { ...CORS, 'content-type': 'application/json' }, body: JSON.stringify({ error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT' } }) });
-    if (new URL(req.url()).pathname === '/v1beta/models') return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'application/json' }, json: GEMINI_MODELS });
+    if (key !== KEY)
+      return route.fulfill({
+        status: 400,
+        headers: { ...CORS, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          error: {
+            code: 400,
+            message: 'API key not valid. Please pass a valid API key.',
+            status: 'INVALID_ARGUMENT',
+          },
+        }),
+      });
+    if (new URL(req.url()).pathname === '/v1beta/models')
+      return route.fulfill({
+        status: 200,
+        headers: { ...CORS, 'content-type': 'application/json' },
+        json: GEMINI_MODELS,
+      });
     return route.fulfill({ status: 404, headers: CORS, body: '{}' });
   });
 }
 
 /** A fake Ollama on this machine; every other local port is closed. */
 async function fakeLocalMachine(page: Page): Promise<void> {
-  await page.route(/^http:\/\/127\.0\.0\.1:(1234|8080|8000|88\d\d)\//, (route) => route.abort('connectionrefused'));
+  await page.route(/^http:\/\/127\.0\.0\.1:(1234|8080|8000|88\d\d)\//, (route) =>
+    route.abort('connectionrefused'),
+  );
   await page.route('http://127.0.0.1:11434/**', (route) =>
     route.request().method() === 'OPTIONS'
       ? route.fulfill({ status: 204, headers: CORS })
-      : route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'application/json' }, json: { models: [{ name: 'qwen3:8b', model: 'qwen3:8b', details: { family: 'qwen3', parameter_size: '8.2B' } }] } }),
+      : route.fulfill({
+          status: 200,
+          headers: { ...CORS, 'content-type': 'application/json' },
+          json: {
+            models: [
+              { name: 'qwen3:8b', model: 'qwen3:8b', details: { family: 'qwen3', parameter_size: '8.2B' } },
+            ],
+          },
+        }),
   );
 }
 
@@ -71,7 +159,15 @@ async function storageDump(page: Page): Promise<string> {
           r.onsuccess = () => resolve(r.result as unknown[]);
           r.onerror = () => resolve([]);
         });
-        parts.push(JSON.stringify(rows, (_k, v) => (v instanceof Uint8Array ? new TextDecoder('latin1').decode(v) : v instanceof CryptoKey ? `[CryptoKey extractable=${v.extractable}]` : v)));
+        parts.push(
+          JSON.stringify(rows, (_k, v) =>
+            v instanceof Uint8Array
+              ? new TextDecoder('latin1').decode(v)
+              : v instanceof CryptoKey
+                ? `[CryptoKey extractable=${v.extractable}]`
+                : v,
+          ),
+        );
       }
       db.close();
     }
@@ -79,13 +175,16 @@ async function storageDump(page: Page): Promise<string> {
   });
 }
 
-test('connect Gemini with a pasted key, keep it across reloads, use it in a role picker', async ({ page }) => {
+test('connect Gemini with a pasted key, keep it across reloads, use it in a role picker', async ({
+  page,
+}) => {
   test.setTimeout(180_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   // Browser-only mode: point the studio at a port where no Song Deck server runs.
   await page.addInitScript(() => {
-    if (!localStorage.getItem('songdeck:settings')) localStorage.setItem('songdeck:settings', JSON.stringify({ serverUrl: 'http://127.0.0.1:9' }));
+    if (!localStorage.getItem('songdeck:settings'))
+      localStorage.setItem('songdeck:settings', JSON.stringify({ serverUrl: 'http://127.0.0.1:9' }));
   });
   const seen: string[] = [];
   await fakeGemini(page, seen);
@@ -147,7 +246,9 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
   expect(dump).not.toContain(KEY);
   expect(dump).toContain('[CryptoKey extractable=false]');
   const settingsJson = await page.evaluate(() => localStorage.getItem('songdeck:settings') ?? '');
-  expect(settingsJson).toContain('"enabledModels":["gemini-2.5-pro","lyria-3-clip-preview","gemini-2.5-flash"]');
+  expect(settingsJson).toContain(
+    '"enabledModels":["gemini-2.5-pro","lyria-3-clip-preview","gemini-2.5-flash"]',
+  );
   expect(settingsJson).toContain('"credentialRef":"provider:gemini"');
 
   // One click adds the local Ollama found on this machine.
@@ -170,7 +271,9 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
   // Re-choose models later without the key.
   await page.getByTestId('provider-gemini').getByRole('button', { name: 'Models' }).click();
   await expect(page.getByRole('dialog')).toContainText('Choose models — Google Gemini');
-  await expect(page.getByTestId('connect-service').getByLabel('gemini-2.5-flash', { exact: true })).toBeChecked();
+  await expect(
+    page.getByTestId('connect-service').getByLabel('gemini-2.5-flash', { exact: true }),
+  ).toBeChecked();
   await page.keyboard.press('Escape');
 
   // The new provider is offered in role pickers right away (no first-run card any more).
@@ -179,9 +282,14 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
   // A one-note MIDI file opens straight into the Workbench (no Compose step needed).
   const midi = Buffer.from([
     ...[0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0x01, 0xe0],
-    ...[0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, 13, 0x00, 0x90, 0x3c, 0x64, 0x83, 0x60, 0x80, 0x3c, 0x40, 0x00, 0xff, 0x2f, 0x00],
+    ...[
+      0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, 13, 0x00, 0x90, 0x3c, 0x64, 0x83, 0x60, 0x80, 0x3c, 0x40, 0x00, 0xff,
+      0x2f, 0x00,
+    ],
   ]);
-  await page.locator('input[type=file][accept*=".mid"]').setInputFiles({ name: 'riff.mid', mimeType: 'audio/midi', buffer: midi });
+  await page
+    .locator('input[type=file][accept*=".mid"]')
+    .setInputFiles({ name: 'riff.mid', mimeType: 'audio/midi', buffer: midi });
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 30_000 });
   await page.locator('.right-tabs .tab', { hasText: 'AI Edit' }).click();
   const picker = page.locator('.right-body').getByLabel('Provider');

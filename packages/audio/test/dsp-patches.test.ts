@@ -1,24 +1,86 @@
 import { describe, expect, it } from 'vitest';
 import type { Articulation } from '@songdeck/core';
 import { PATCHES, patchIdForGmProgram, patchIdForInstrument, renderSong } from '../src/dsp';
-import { cents, hasNonFinite, mkNote, mkSong, mkTrack, peak, rms, setStrip, toneMag, yinF0 } from './dsp-helpers';
+import {
+  cents,
+  hasNonFinite,
+  mkNote,
+  mkSong,
+  mkTrack,
+  peak,
+  rms,
+  setStrip,
+  toneMag,
+  yinF0,
+} from './dsp-helpers';
 
 const SR = 44100;
 
 const REQUIRED = [
-  'drums-acoustic', 'drums-electronic', 'percussion', 'bass-electric', 'bass-synth', 'bass-upright', 'guitar-distorted', 'guitar-clean',
-  'guitar-acoustic', 'guitar-lead', 'piano', 'epiano', 'organ', 'strings-solo', 'strings-ensemble', 'strings-pizz', 'brass', 'brass-solo',
-  'flute', 'reed', 'pad-warm', 'pad-bright', 'lead-saw', 'lead-square', 'pluck', 'choir', 'vocal-placeholder', 'harp', 'timpani', 'bell',
-  'mallet', 'sine', 'guitar-nylon', 'banjo', 'mandolin', 'pedal-steel', 'sitar', 'clavinet', 'accordion', 'harmonica', 'steel-pan', 'log-drum', 'bass-808',
+  'drums-acoustic',
+  'drums-electronic',
+  'percussion',
+  'bass-electric',
+  'bass-synth',
+  'bass-upright',
+  'guitar-distorted',
+  'guitar-clean',
+  'guitar-acoustic',
+  'guitar-lead',
+  'piano',
+  'epiano',
+  'organ',
+  'strings-solo',
+  'strings-ensemble',
+  'strings-pizz',
+  'brass',
+  'brass-solo',
+  'flute',
+  'reed',
+  'pad-warm',
+  'pad-bright',
+  'lead-saw',
+  'lead-square',
+  'pluck',
+  'choir',
+  'vocal-placeholder',
+  'harp',
+  'timpani',
+  'bell',
+  'mallet',
+  'sine',
+  'guitar-nylon',
+  'banjo',
+  'mandolin',
+  'pedal-steel',
+  'sitar',
+  'clavinet',
+  'accordion',
+  'harmonica',
+  'steel-pan',
+  'log-drum',
+  'bass-808',
   'chip-pulse',
 ];
 
-function renderNote(patchId: string, pitch: number, opts: { dur?: number; vel?: number; art?: Articulation; seconds?: number } = {}) {
+function renderNote(
+  patchId: string,
+  pitch: number,
+  opts: { dur?: number; vel?: number; art?: Articulation; seconds?: number } = {},
+) {
   const song = mkSong(2);
-  const notes = [mkNote(pitch, 0, opts.dur ?? 1800, opts.vel ?? 100, opts.art ? { articulation: opts.art } : {})];
+  const notes = [
+    mkNote(pitch, 0, opts.dur ?? 1800, opts.vel ?? 100, opts.art ? { articulation: opts.art } : {}),
+  ];
   song.tracks = [mkTrack('t', 'x', notes, { stemGroup: PATCHES[patchId].stemGroup })];
   setStrip(song, 't', { volumeDb: 0 });
-  return renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, patchOverrides: { t: patchId }, tailSeconds: 0.2 });
+  return renderSong(song, {
+    sampleRate: SR,
+    applyMaster: false,
+    includeSends: false,
+    patchOverrides: { t: patchId },
+    tailSeconds: 0.2,
+  });
 }
 
 describe('patch library', () => {
@@ -31,16 +93,55 @@ describe('patch library', () => {
 
   it('maps instrument profiles and GM programs to patches', () => {
     const map: Record<string, string> = {
-      'drum-kit': 'drums-acoustic', 'electronic-kit': 'drums-electronic', percussion: 'percussion', 'electric-bass': 'bass-electric',
-      'synth-bass': 'bass-synth', 'upright-bass': 'bass-upright', 'electric-guitar-distorted': 'guitar-distorted',
-      'electric-guitar-clean': 'guitar-clean', 'acoustic-guitar': 'guitar-acoustic', 'electric-guitar-lead': 'guitar-lead', piano: 'piano',
-      'electric-piano': 'epiano', organ: 'organ', violin: 'strings-solo', viola: 'strings-solo', cello: 'strings-solo', contrabass: 'strings-solo',
-      'string-ensemble': 'strings-ensemble', 'pizzicato-strings': 'strings-pizz', trumpet: 'brass-solo', trombone: 'brass-solo',
-      'french-horn': 'brass-solo', 'brass-section': 'brass', flute: 'flute', clarinet: 'reed', saxophone: 'reed', 'synth-pad': 'pad-warm',
-      'synth-lead': 'lead-saw', 'synth-arp': 'pluck', 'synth-seq': 'pluck', choir: 'choir', 'lead-vocal': 'vocal-placeholder',
-      'backing-vocal': 'vocal-placeholder', harp: 'harp', timpani: 'timpani', glockenspiel: 'bell', marimba: 'mallet',
-      'nylon-guitar': 'guitar-nylon', banjo: 'banjo', mandolin: 'mandolin', 'pedal-steel': 'pedal-steel', sitar: 'sitar', clavinet: 'clavinet',
-      accordion: 'accordion', harmonica: 'harmonica', 'steel-pan': 'steel-pan', 'log-drum': 'log-drum', '808-bass': 'bass-808', 'chip-lead': 'chip-pulse',
+      'drum-kit': 'drums-acoustic',
+      'electronic-kit': 'drums-electronic',
+      percussion: 'percussion',
+      'electric-bass': 'bass-electric',
+      'synth-bass': 'bass-synth',
+      'upright-bass': 'bass-upright',
+      'electric-guitar-distorted': 'guitar-distorted',
+      'electric-guitar-clean': 'guitar-clean',
+      'acoustic-guitar': 'guitar-acoustic',
+      'electric-guitar-lead': 'guitar-lead',
+      piano: 'piano',
+      'electric-piano': 'epiano',
+      organ: 'organ',
+      violin: 'strings-solo',
+      viola: 'strings-solo',
+      cello: 'strings-solo',
+      contrabass: 'strings-solo',
+      'string-ensemble': 'strings-ensemble',
+      'pizzicato-strings': 'strings-pizz',
+      trumpet: 'brass-solo',
+      trombone: 'brass-solo',
+      'french-horn': 'brass-solo',
+      'brass-section': 'brass',
+      flute: 'flute',
+      clarinet: 'reed',
+      saxophone: 'reed',
+      'synth-pad': 'pad-warm',
+      'synth-lead': 'lead-saw',
+      'synth-arp': 'pluck',
+      'synth-seq': 'pluck',
+      choir: 'choir',
+      'lead-vocal': 'vocal-placeholder',
+      'backing-vocal': 'vocal-placeholder',
+      harp: 'harp',
+      timpani: 'timpani',
+      glockenspiel: 'bell',
+      marimba: 'mallet',
+      'nylon-guitar': 'guitar-nylon',
+      banjo: 'banjo',
+      mandolin: 'mandolin',
+      'pedal-steel': 'pedal-steel',
+      sitar: 'sitar',
+      clavinet: 'clavinet',
+      accordion: 'accordion',
+      harmonica: 'harmonica',
+      'steel-pan': 'steel-pan',
+      'log-drum': 'log-drum',
+      '808-bass': 'bass-808',
+      'chip-lead': 'chip-pulse',
     };
     for (const [inst, patch] of Object.entries(map)) expect(patchIdForInstrument(inst), inst).toBe(patch);
     expect(patchIdForInstrument('my-custom-rhodes')).toBe('epiano');
@@ -111,7 +212,9 @@ describe('patch library', () => {
     expect(accent).toBeGreaterThan(ghost * 2);
     // pizzicato on a strings track uses the plucked patch (decays)
     const pz = renderNote('strings-solo', 60, { dur: 1800, art: 'pizzicato' });
-    expect(rms(pz.channels[0], Math.round(1.2 * SR), Math.round(1.6 * SR))).toBeLessThan(rms(pz.channels[0], 0, Math.round(0.2 * SR)) * 0.1);
+    expect(rms(pz.channels[0], Math.round(1.2 * SR), Math.round(1.6 * SR))).toBeLessThan(
+      rms(pz.channels[0], 0, Math.round(0.2 * SR)) * 0.1,
+    );
     // bend: starts ~2 semitones low, reaches the target
     const bend = renderNote('guitar-lead', 64, { dur: 1800, art: 'bend' });
     const f = 440 * Math.pow(2, (64 - 69) / 12);
@@ -120,14 +223,20 @@ describe('patch library', () => {
     // tremolo modulates the amplitude
     const tr = renderNote('strings-ensemble', 60, { dur: 1800, art: 'tremolo' });
     const env: number[] = [];
-    for (let t = 0.5; t < 0.9; t += 0.01) env.push(rms(tr.channels[0], Math.round(t * SR), Math.round((t + 0.01) * SR)));
+    for (let t = 0.5; t < 0.9; t += 0.01)
+      env.push(rms(tr.channels[0], Math.round(t * SR), Math.round((t + 0.01) * SR)));
     expect(Math.max(...env) / Math.min(...env)).toBeGreaterThan(1.5);
   });
 
   it('mono instruments glide/hammer-on legato and slide between notes', () => {
     const song = mkSong(2);
     // overlapping notes on a mono lead: legato portamento from A3 to A4
-    song.tracks = [mkTrack('t', 'synth-lead', [mkNote(57, 0, 1000, 100), mkNote(69, 960, 900, 100, { articulation: 'legato' })])];
+    song.tracks = [
+      mkTrack('t', 'synth-lead', [
+        mkNote(57, 0, 1000, 100),
+        mkNote(69, 960, 900, 100, { articulation: 'legato' }),
+      ]),
+    ];
     setStrip(song, 't', { volumeDb: 0 });
     const out = renderSong(song, { sampleRate: SR, applyMaster: false, includeSends: false, tailSeconds: 0 });
     expect(Math.abs(cents(yinF0(out.channels[0], SR, Math.round(0.5 * SR)), 220))).toBeLessThan(20);
@@ -137,7 +246,13 @@ describe('patch library', () => {
     expect(gap).toBeGreaterThan(rms(out.channels[0], Math.round(0.6 * SR), Math.round(0.9 * SR)) * 0.4);
     // polyphony limit: 40 simultaneous piano notes still render finite audio
     const chord = mkSong(1);
-    chord.tracks = [mkTrack('p', 'piano', Array.from({ length: 40 }, (_, i) => mkNote(36 + i, 0, 1800, 90)))];
+    chord.tracks = [
+      mkTrack(
+        'p',
+        'piano',
+        Array.from({ length: 40 }, (_, i) => mkNote(36 + i, 0, 1800, 90)),
+      ),
+    ];
     setStrip(chord, 'p', {});
     const c = renderSong(chord, { sampleRate: SR, tailSeconds: 0 });
     expect(hasNonFinite(c)).toBe(false);

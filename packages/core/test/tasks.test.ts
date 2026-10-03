@@ -15,7 +15,8 @@ function deferred<T = void>() {
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 /** Resolves when the signal aborts. */
-const aborted = (signal: AbortSignal) => new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }));
+const aborted = (signal: AbortSignal) =>
+  new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }));
 
 function clockFactory() {
   let t = 0;
@@ -41,10 +42,33 @@ describe('TaskQueue basics', () => {
       ctx.addCost(0.0125);
       return ctx.input.n * 2;
     });
-    const rec = q.enqueue({ type: 'double', title: 'Double 21', input: { n: 21 }, providerId: 'internal', runner: 'local' });
-    expect(rec).toMatchObject({ id: 'task_1', status: 'queued', progress: 0, attempts: 0, maxAttempts: 1, priority: 0, dependsOn: [], providerId: 'internal', runner: 'local' });
+    const rec = q.enqueue({
+      type: 'double',
+      title: 'Double 21',
+      input: { n: 21 },
+      providerId: 'internal',
+      runner: 'local',
+    });
+    expect(rec).toMatchObject({
+      id: 'task_1',
+      status: 'queued',
+      progress: 0,
+      attempts: 0,
+      maxAttempts: 1,
+      priority: 0,
+      dependsOn: [],
+      providerId: 'internal',
+      runner: 'local',
+    });
     const done = await q.waitFor(rec.id);
-    expect(done).toMatchObject({ status: 'succeeded', result: 42, progress: 1, attempts: 1, message: 'almost', costUsd: 0.0125 });
+    expect(done).toMatchObject({
+      status: 'succeeded',
+      result: 42,
+      progress: 1,
+      attempts: 1,
+      message: 'almost',
+      costUsd: 0.0125,
+    });
     expect(done.startedAt && done.finishedAt).toBeTruthy();
     expect(done.logs.map((l) => [l.level, l.message])).toEqual([
       ['info', 'Queued'],
@@ -119,7 +143,11 @@ describe('scheduling', () => {
     const ids = ['a', 'b'].map((name) => q.enqueue({ type: 'work', title: name, input: name }).id);
     await flush();
     expect(started).toEqual(['a', 'b']);
-    ids.push(...['c', 'd', 'e'].map((name, i) => q.enqueue({ type: 'work', title: name, input: name, priority: i === 2 ? 10 : 0 }).id));
+    ids.push(
+      ...['c', 'd', 'e'].map(
+        (name, i) => q.enqueue({ type: 'work', title: name, input: name, priority: i === 2 ? 10 : 0 }).id,
+      ),
+    );
     await flush();
     expect(started).toEqual(['a', 'b']);
     expect(q.list().filter((t) => t.status === 'running')).toHaveLength(2);
@@ -143,7 +171,13 @@ describe('scheduling', () => {
     const q2 = new TaskQueue({ concurrency: 1 });
     const seen: string[] = [];
     q2.register<string, void>('w', async (ctx) => void seen.push(ctx.input));
-    for (const [name, priority] of [['low', 0], ['high', 5], ['mid', 1], ['low2', 0]] as const) q2.enqueue({ type: 'w', title: name, input: name, priority });
+    for (const [name, priority] of [
+      ['low', 0],
+      ['high', 5],
+      ['mid', 1],
+      ['low2', 0],
+    ] as const)
+      q2.enqueue({ type: 'w', title: name, input: name, priority });
     await q2.idle();
     expect(seen).toEqual(['high', 'mid', 'low', 'low2']);
   });
@@ -158,8 +192,18 @@ describe('scheduling', () => {
       return ctx.input;
     });
     const sep = q.enqueue({ type: 'step', title: 'Separate reference stems', input: 'separate' });
-    const trans = q.enqueue({ type: 'step', title: 'Transcribe bass', input: 'transcribe', dependsOn: [sep.id] });
-    const regen = q.enqueue({ type: 'step', title: 'Regenerate guitar', input: 'regen', dependsOn: [trans.id] });
+    const trans = q.enqueue({
+      type: 'step',
+      title: 'Transcribe bass',
+      input: 'transcribe',
+      dependsOn: [sep.id],
+    });
+    const regen = q.enqueue({
+      type: 'step',
+      title: 'Regenerate guitar',
+      input: 'regen',
+      dependsOn: [trans.id],
+    });
     const other = q.enqueue({ type: 'step', title: 'Render guide', input: 'render' });
     expect((await q.waitFor(trans.id)).error).toMatch(/dependency failed/i);
     expect((await q.waitFor(regen.id)).error).toMatch(/dependency failed/i);
@@ -252,7 +296,12 @@ describe('cancel, retry, pause/resume', () => {
     q.retry(o.id);
     expect(q.get(o.id)!.status).toBe('queued');
     const again = await q.waitFor(o.id);
-    expect(again).toMatchObject({ status: 'succeeded', attempts: 2, maxAttempts: 2, checkpoint: { attempt: 2, resumedFrom: { attempt: 1, resumedFrom: null } } });
+    expect(again).toMatchObject({
+      status: 'succeeded',
+      attempts: 2,
+      maxAttempts: 2,
+      checkpoint: { attempt: 2, resumedFrom: { attempt: 1, resumedFrom: null } },
+    });
     q.retry(o.id); // no effect on succeeded tasks
     expect(q.get(o.id)!.status).toBe('succeeded');
   });
@@ -286,7 +335,12 @@ describe('cancel, retry, pause/resume', () => {
     expect(q.get(t.id)!.status).toBe('running');
     stage2.resolve();
     const done = await q.waitFor(t.id);
-    expect(done).toMatchObject({ status: 'succeeded', result: 'rendered from block 5', attempts: 1, checkpoint: { block: 10 } });
+    expect(done).toMatchObject({
+      status: 'succeeded',
+      result: 'rendered from block 5',
+      attempts: 1,
+      checkpoint: { block: 10 },
+    });
     expect(calls).toEqual([
       { attempt: 1, previous: undefined },
       { attempt: 1, previous: { block: 5 } },
@@ -320,7 +374,12 @@ describe('persistence', () => {
     q1.register('quick', async () => 'done');
     const quick = q1.enqueue({ type: 'quick', title: 'Quick', input: null });
     await q1.waitFor(quick.id);
-    const long = q1.enqueue({ type: 'transcribe', title: 'Transcribe bass', input: { file: 'bass.wav' }, maxAttempts: 2 });
+    const long = q1.enqueue({
+      type: 'transcribe',
+      title: 'Transcribe bass',
+      input: { file: 'bass.wav' },
+      maxAttempts: 2,
+    });
     await flush();
     await flush();
     const saved = persistence.saved.find((t) => t.id === long.id)!;
@@ -348,9 +407,15 @@ describe('persistence', () => {
 
   it('storage persistence and persistence errors never break the queue', async () => {
     const mem = new Map<string, string>();
-    const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v) };
+    const storage = {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+    };
     const errors: unknown[] = [];
-    const q = new TaskQueue({ persistence: createStoragePersistence(storage, 'tasks'), onError: (e) => errors.push(e) });
+    const q = new TaskQueue({
+      persistence: createStoragePersistence(storage, 'tasks'),
+      onError: (e) => errors.push(e),
+    });
     q.register('noop', async (ctx: TaskContext) => ctx.input);
     await q.waitFor(q.enqueue({ type: 'noop', title: 'Noop', input: 7 }).id);
     await flush();
@@ -360,7 +425,9 @@ describe('persistence', () => {
       onError: (e) => errors.push(e),
     });
     broken.register('noop', async () => 1);
-    expect((await broken.waitFor(broken.enqueue({ type: 'noop', title: 'x', input: null }).id)).status).toBe('succeeded');
+    expect((await broken.waitFor(broken.enqueue({ type: 'noop', title: 'x', input: null }).id)).status).toBe(
+      'succeeded',
+    );
     await flush();
     expect(errors.some((e) => e instanceof Error && e.message === 'disk full')).toBe(true);
     mem.set('bad', '{not json');

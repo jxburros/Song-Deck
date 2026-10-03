@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { GM_DRUM, PPQ } from '@songdeck/core';
-import { detectOnsets, detectTempo, drumHitsToNotes, tapsToNotes, transcribeDrums, type DrumHit } from '../src/analysis';
-import { addClick, clickTrack, mono, renderDrums, rockBeat, silence, type DrumEvent } from './analysis-signals';
+import {
+  detectOnsets,
+  detectTempo,
+  drumHitsToNotes,
+  tapsToNotes,
+  transcribeDrums,
+  type DrumHit,
+} from '../src/analysis';
+import {
+  addClick,
+  clickTrack,
+  mono,
+  renderDrums,
+  rockBeat,
+  silence,
+  type DrumEvent,
+} from './analysis-signals';
 
 const SR = 22050;
 
@@ -45,7 +60,8 @@ describe('analysis: tempo, beats, meter', () => {
       expect(r.meter).toEqual({ numerator: 4, denominator: 4 });
       // accented clicks mark the bar lines
       expect(Math.abs(r.downbeats[0] - 0.3)).toBeLessThan(0.03);
-      for (let i = 1; i < r.downbeats.length; i++) expect(r.downbeats[i] - r.downbeats[i - 1]).toBeCloseTo((4 * 60) / bpm, 1);
+      for (let i = 1; i < r.downbeats.length; i++)
+        expect(r.downbeats[i] - r.downbeats[i - 1]).toBeCloseTo((4 * 60) / bpm, 1);
     });
 
     it(`rock drum pattern at ${bpm} BPM → ±2 % (no octave error)`, () => {
@@ -60,7 +76,11 @@ describe('analysis: tempo, beats, meter', () => {
 
   it('detects 3/4 from a waltz pattern', () => {
     const bpm = 140;
-    const x = renderDrums(SR, 14, rockBeat(bpm, Math.floor(13 / ((3 * 60) / bpm)), { offset: 0.25, beatsPerBar: 3 }));
+    const x = renderDrums(
+      SR,
+      14,
+      rockBeat(bpm, Math.floor(13 / ((3 * 60) / bpm)), { offset: 0.25, beatsPerBar: 3 }),
+    );
     const r = detectTempo(mono(SR, x));
     expect(Math.abs(r.bpm - bpm) / bpm).toBeLessThan(0.02);
     expect(r.meter.numerator).toBe(3);
@@ -87,7 +107,9 @@ function drumAccuracy(events: DrumEvent[], hits: DrumHit[]): { recall: number; f
   const used = new Set<number>();
   let ok = 0;
   for (const e of events) {
-    const i = hits.findIndex((h, j) => !used.has(j) && Math.abs(h.time - e.time) < 0.05 && CLASS[e.drum].includes(h.drum));
+    const i = hits.findIndex(
+      (h, j) => !used.has(j) && Math.abs(h.time - e.time) < 0.05 && CLASS[e.drum].includes(h.drum),
+    );
     if (i >= 0) {
       used.add(i);
       ok++;
@@ -116,14 +138,17 @@ describe('analysis: drum transcription', () => {
 
   it('separates open hats, crash and toms by decay and pitch', () => {
     const ev: DrumEvent[] = [];
-    for (let i = 0; i < 4; i++) ev.push({ time: 0.3 + i * 0.5, drum: 'kick' }, { time: 0.55 + i * 0.5, drum: 'open-hat' });
+    for (let i = 0; i < 4; i++)
+      ev.push({ time: 0.3 + i * 0.5, drum: 'kick' }, { time: 0.55 + i * 0.5, drum: 'open-hat' });
     ev.push({ time: 2.5, drum: 'crash' }, { time: 2.5, drum: 'kick' });
     [200, 160, 120, 95].forEach((hz, i) => ev.push({ time: 4.0 + i * 0.25, drum: 'tom', hz }));
     const r = transcribeDrums(mono(SR, renderDrums(SR, 6, ev)));
     const acc = drumAccuracy(ev, r.hits);
     expect(acc.recall).toBeGreaterThanOrEqual(0.85);
     // toms descend in pitch
-    const toms = r.hits.filter((h) => h.time > 3.9 && h.time < 4.9 && [41, 43, 45, 47, 48, 50].includes(h.drum)).map((h) => h.drum);
+    const toms = r.hits
+      .filter((h) => h.time > 3.9 && h.time < 4.9 && [41, 43, 45, 47, 48, 50].includes(h.drum))
+      .map((h) => h.drum);
     expect(toms.length).toBe(4);
     for (let i = 1; i < toms.length; i++) expect(toms[i]).toBeLessThan(toms[i - 1]);
   });

@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
-import { applyOperations, LockKeys, sectionLayout, songDurationSeconds, type MusicOperation, type SectionKind } from '@songdeck/core';
+import {
+  applyOperations,
+  LockKeys,
+  sectionLayout,
+  songDurationSeconds,
+  type MusicOperation,
+  type SectionKind,
+} from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { Badge, Button, CommitNumber, CommitText, Field, LockButton, Select } from '../../ui/kit';
 import { EnergyCurve } from '../shared/EnergyCurve';
@@ -25,7 +32,9 @@ export default function StructureView() {
     st.commit(res.song, message, 'structure');
   };
 
-  const energies = song.sections.flatMap((s) => (s.energyEnd !== undefined && s.energyEnd !== s.energy ? [s.energy, s.energyEnd] : [s.energy]));
+  const energies = song.sections.flatMap((s) =>
+    s.energyEnd !== undefined && s.energyEnd !== s.energy ? [s.energy, s.energyEnd] : [s.energy],
+  );
   const pattern = (() => {
     const labels = new Map<string, string>();
     let next = 65;
@@ -39,7 +48,11 @@ export default function StructureView() {
   })();
 
   return (
-    <div className="scroll" style={{ position: 'absolute', inset: 0, padding: 16 }} data-testid="structure-view">
+    <div
+      className="scroll"
+      style={{ position: 'absolute', inset: 0, padding: 16 }}
+      data-testid="structure-view"
+    >
       <div className="row" style={{ marginBottom: 10 }}>
         <h2 style={{ margin: 0 }}>Structure</h2>
         <Badge>{totalBars} bars</Badge>
@@ -48,7 +61,11 @@ export default function StructureView() {
           {pattern}
         </Badge>
         <div className="spacer" />
-        <LockButton locked={locked} onToggle={() => st.toggleLock(LockKeys.structure, `${locked ? 'Unlocked' : 'Locked'} structure`)} title="Lock song structure" />
+        <LockButton
+          locked={locked}
+          onToggle={() => st.toggleLock(LockKeys.structure, `${locked ? 'Unlocked' : 'Locked'} structure`)}
+          title="Lock song structure"
+        />
       </div>
 
       <div style={{ display: 'flex', gap: 2, marginBottom: 8 }}>
@@ -60,14 +77,27 @@ export default function StructureView() {
               key={s.id}
               onClick={() => setSel(s.id)}
               className={`card selectable ${section?.id === s.id ? 'selected' : ''}`}
-              style={{ width: `${w}%`, minWidth: 54, padding: '8px 6px', textAlign: 'left', overflow: 'hidden' }}
+              style={{
+                width: `${w}%`,
+                minWidth: 54,
+                padding: '8px 6px',
+                textAlign: 'left',
+                overflow: 'hidden',
+              }}
               title={s.purpose}
             >
               <div className="ellipsis" style={{ fontWeight: 700, fontSize: 12 }}>
                 {s.name}
               </div>
               <div className="small dim">{s.bars} bars</div>
-              <div style={{ height: 4, marginTop: 6, borderRadius: 2, background: `linear-gradient(to right, color-mix(in srgb, var(--accent) ${s.energy}%, transparent), color-mix(in srgb, var(--accent) ${s.energyEnd ?? s.energy}%, transparent))` }} />
+              <div
+                style={{
+                  height: 4,
+                  marginTop: 6,
+                  borderRadius: 2,
+                  background: `linear-gradient(to right, color-mix(in srgb, var(--accent) ${s.energy}%, transparent), color-mix(in srgb, var(--accent) ${s.energyEnd ?? s.energy}%, transparent))`,
+                }}
+              />
             </button>
           );
         })}
@@ -88,7 +118,24 @@ export default function StructureView() {
               size="sm"
               icon="copy"
               disabled={locked}
-              onClick={() => run([{ op: 'insert_section', after: section.id, section: { name: `${section.name} (copy)`, kind: section.kind, bars: section.bars, energy: section.energy }, copy_from: section.id }], `Duplicated ${section.name}`)}
+              onClick={() =>
+                run(
+                  [
+                    {
+                      op: 'insert_section',
+                      after: section.id,
+                      section: {
+                        name: `${section.name} (copy)`,
+                        kind: section.kind,
+                        bars: section.bars,
+                        energy: section.energy,
+                      },
+                      copy_from: section.id,
+                    },
+                  ],
+                  `Duplicated ${section.name}`,
+                )
+              }
             >
               Duplicate
             </Button>
@@ -96,64 +143,162 @@ export default function StructureView() {
               size="sm"
               icon="plus"
               disabled={locked}
-              onClick={() => run([{ op: 'insert_section', after: section.id, section: { name: 'New section', kind: 'custom', bars: 4, energy: section.energy } }], 'Inserted section')}
+              onClick={() =>
+                run(
+                  [
+                    {
+                      op: 'insert_section',
+                      after: section.id,
+                      section: { name: 'New section', kind: 'custom', bars: 4, energy: section.energy },
+                    },
+                  ],
+                  'Inserted section',
+                )
+              }
             >
               Insert after
             </Button>
             <Button
               size="sm"
               disabled={locked || song.sections.indexOf(section) === 0}
-              onClick={() => run([{ op: 'move_section', section: section.id, to_index: song.sections.indexOf(section) - 1 }], `Moved ${section.name} earlier`)}
+              onClick={() =>
+                run(
+                  [{ op: 'move_section', section: section.id, to_index: song.sections.indexOf(section) - 1 }],
+                  `Moved ${section.name} earlier`,
+                )
+              }
             >
               ← Move
             </Button>
             <Button
               size="sm"
               disabled={locked || song.sections.indexOf(section) === song.sections.length - 1}
-              onClick={() => run([{ op: 'move_section', section: section.id, to_index: song.sections.indexOf(section) + 1 }], `Moved ${section.name} later`)}
+              onClick={() =>
+                run(
+                  [{ op: 'move_section', section: section.id, to_index: song.sections.indexOf(section) + 1 }],
+                  `Moved ${section.name} later`,
+                )
+              }
             >
               Move →
             </Button>
-            <Button size="sm" variant="danger" icon="trash" disabled={locked || song.sections.length < 2} onClick={() => run([{ op: 'remove_section', section: section.id }], `Removed ${section.name}`)}>
+            <Button
+              size="sm"
+              variant="danger"
+              icon="trash"
+              disabled={locked || song.sections.length < 2}
+              onClick={() => run([{ op: 'remove_section', section: section.id }], `Removed ${section.name}`)}
+            >
               Remove
             </Button>
           </div>
           <div className="panel-body">
             <div className="grid-4">
               <Field label="Name">
-                <CommitText value={section.name} onCommit={(name) => run([{ op: 'update_section', section: section.id, changes: { name } }], `Renamed section to ${name}`)} />
+                <CommitText
+                  value={section.name}
+                  onCommit={(name) =>
+                    run(
+                      [{ op: 'update_section', section: section.id, changes: { name } }],
+                      `Renamed section to ${name}`,
+                    )
+                  }
+                />
               </Field>
               <Field label="Kind">
-                <Select value={section.kind} onChange={(kind: SectionKind) => run([{ op: 'update_section', section: section.id, changes: { kind } }], `Section kind → ${kind}`)} options={SECTION_KINDS} />
+                <Select
+                  value={section.kind}
+                  onChange={(kind: SectionKind) =>
+                    run(
+                      [{ op: 'update_section', section: section.id, changes: { kind } }],
+                      `Section kind → ${kind}`,
+                    )
+                  }
+                  options={SECTION_KINDS}
+                />
               </Field>
               <Field label="Bars" hint="Changing length shifts later material">
-                <CommitNumber value={section.bars} min={1} max={128} onCommit={(bars) => run([{ op: 'update_section', section: section.id, changes: { bars: Math.round(bars) } }], `${section.name}: ${Math.round(bars)} bars`)} />
+                <CommitNumber
+                  value={section.bars}
+                  min={1}
+                  max={128}
+                  onCommit={(bars) =>
+                    run(
+                      [{ op: 'update_section', section: section.id, changes: { bars: Math.round(bars) } }],
+                      `${section.name}: ${Math.round(bars)} bars`,
+                    )
+                  }
+                />
               </Field>
               <Field label="Feel">
                 <Select
                   value={section.feel ?? 'normal'}
-                  onChange={(feel) => run([{ op: 'update_section', section: section.id, changes: { feel } }], `${section.name}: ${feel} feel`)}
+                  onChange={(feel) =>
+                    run(
+                      [{ op: 'update_section', section: section.id, changes: { feel } }],
+                      `${section.name}: ${feel} feel`,
+                    )
+                  }
                   options={['normal', 'half-time', 'double-time'] as const}
                 />
               </Field>
               <Field label="Energy (start)">
-                <CommitNumber value={section.energy} min={0} max={100} onCommit={(energy) => run([{ op: 'update_section', section: section.id, changes: { energy } }], `${section.name}: energy ${energy}`)} />
+                <CommitNumber
+                  value={section.energy}
+                  min={0}
+                  max={100}
+                  onCommit={(energy) =>
+                    run(
+                      [{ op: 'update_section', section: section.id, changes: { energy } }],
+                      `${section.name}: energy ${energy}`,
+                    )
+                  }
+                />
               </Field>
               <Field label="Energy (end)">
                 <CommitNumber
                   value={section.energyEnd ?? section.energy}
                   min={0}
                   max={100}
-                  onCommit={(energyEnd) => run([{ op: 'update_section', section: section.id, changes: { energyEnd } }], `${section.name}: energy ramp to ${energyEnd}`)}
+                  onCommit={(energyEnd) =>
+                    run(
+                      [{ op: 'update_section', section: section.id, changes: { energyEnd } }],
+                      `${section.name}: energy ramp to ${energyEnd}`,
+                    )
+                  }
                 />
               </Field>
               <Field label="Purpose" className="grow">
-                <CommitText value={section.purpose ?? ''} onCommit={(purpose) => run([{ op: 'update_section', section: section.id, changes: { purpose } }], `${section.name}: purpose`)} />
+                <CommitText
+                  value={section.purpose ?? ''}
+                  onCommit={(purpose) =>
+                    run(
+                      [{ op: 'update_section', section: section.id, changes: { purpose } }],
+                      `${section.name}: purpose`,
+                    )
+                  }
+                />
               </Field>
               <Field label="Mood">
                 <CommitText
                   value={(section.mood ?? []).join(', ')}
-                  onCommit={(v) => run([{ op: 'update_section', section: section.id, changes: { mood: v.split(',').map((x) => x.trim()).filter(Boolean) } }], `${section.name}: mood`)}
+                  onCommit={(v) =>
+                    run(
+                      [
+                        {
+                          op: 'update_section',
+                          section: section.id,
+                          changes: {
+                            mood: v
+                              .split(',')
+                              .map((x) => x.trim())
+                              .filter(Boolean),
+                          },
+                        },
+                      ],
+                      `${section.name}: mood`,
+                    )
+                  }
                 />
               </Field>
             </div>

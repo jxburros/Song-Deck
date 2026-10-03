@@ -1,5 +1,12 @@
 import { memo, useState, type KeyboardEvent } from 'react';
-import { LockKeys, TRACK_NEUTRAL, type ChannelStrip, type MixerState, type Song, type Track } from '@songdeck/core';
+import {
+  LockKeys,
+  TRACK_NEUTRAL,
+  type ChannelStrip,
+  type MixerState,
+  type Song,
+  type Track,
+} from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { LockButton } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
@@ -22,7 +29,17 @@ const FADER_H = 172;
 const MASTER_FADER_H = FADER_H + 91;
 
 /** Editable dB value under a fader (accepts "-6", "−6.5", "-inf"). */
-function DbInput({ value, onCommitValue, disabled, label }: { value: number; onCommitValue: (db: number) => void; disabled?: boolean; label: string }) {
+function DbInput({
+  value,
+  onCommitValue,
+  disabled,
+  label,
+}: {
+  value: number;
+  onCommitValue: (db: number) => void;
+  disabled?: boolean;
+  label: string;
+}) {
   const [draft, setDraft] = useState<string | null>(null);
   const shown = draft ?? fmtDb(value);
   const commit = () => {
@@ -80,7 +97,12 @@ function ChannelStripImpl({ track, strip: ch, locked, selected, onSelect, onOpen
   const name = track.name;
   const set = (path: string, v: unknown) => previewMixer((m) => setStripField(m, id, path, v));
   const toggle = (path: string, v: boolean) => applyMixer((m) => setStripField(m, id, path, v));
-  const knob = (path: string, label: string, def: number, extra: { bipolar?: boolean; tone?: 'accent' | 'secondary' | 'muted' } = {}) => {
+  const knob = (
+    path: string,
+    label: string,
+    def: number,
+    extra: { bipolar?: boolean; tone?: 'accent' | 'secondary' | 'muted' } = {},
+  ) => {
     const meta = FIELD_META[path];
     return (
       <Knob
@@ -116,18 +138,40 @@ function ChannelStripImpl({ track, strip: ch, locked, selected, onSelect, onOpen
         </span>
       </div>
       <div className="mx-strip-kind">
-        <span className="ellipsis mx-kind" title={track.kind === 'audio' ? `Audio track (stem / recording / produced audio) · ${track.stemGroup}` : `MIDI track rendered by the guide engine · ${track.stemGroup}`}>
+        <span
+          className="ellipsis mx-kind"
+          title={
+            track.kind === 'audio'
+              ? `Audio track (stem / recording / produced audio) · ${track.stemGroup}`
+              : `MIDI track rendered by the guide engine · ${track.stemGroup}`
+          }
+        >
           <Icon name={track.kind === 'audio' ? 'wave' : 'midi'} size={10} />
           {track.stemGroup}
         </span>
         <LockButton
           locked={locked}
-          onToggle={() => useStudio.getState().toggleLock(LockKeys.mixer(id), `${locked ? 'Unlocked' : 'Locked'} mixer strip ${name}`)}
-          title={locked ? `${name} strip locked — click to unlock` : `Lock ${name} strip (AI and edits leave it untouched)`}
+          onToggle={() =>
+            useStudio
+              .getState()
+              .toggleLock(LockKeys.mixer(id), `${locked ? 'Unlocked' : 'Locked'} mixer strip ${name}`)
+          }
+          title={
+            locked
+              ? `${name} strip locked — click to unlock`
+              : `Lock ${name} strip (AI and edits leave it untouched)`
+          }
         />
       </div>
       <div className="mx-inserts">
-        <button type="button" className={`mx-insert ${ch.eq.enabled ? 'on' : ''}`} aria-pressed={ch.eq.enabled} disabled={locked} onClick={() => toggle('eq.enabled', !ch.eq.enabled)} title="EQ on/off">
+        <button
+          type="button"
+          className={`mx-insert ${ch.eq.enabled ? 'on' : ''}`}
+          aria-pressed={ch.eq.enabled}
+          disabled={locked}
+          onClick={() => toggle('eq.enabled', !ch.eq.enabled)}
+          title="EQ on/off"
+        >
           EQ
         </button>
         <button
@@ -211,7 +255,12 @@ function ChannelStripImpl({ track, strip: ch, locked, selected, onSelect, onOpen
         <MeterBar id={id} height={FADER_H} label={name} readoutId={`mx-peak-${id}`} />
       </div>
       <div className="mx-strip-foot">
-        <DbInput value={ch.volumeDb} label={name} disabled={locked} onCommitValue={(db) => applyMixer((m) => setStripField(m, id, 'volumeDb', db))} />
+        <DbInput
+          value={ch.volumeDb}
+          label={name}
+          disabled={locked}
+          onCommitValue={(db) => applyMixer((m) => setStripField(m, id, 'volumeDb', db))}
+        />
         <span className="mx-peak mono" id={`mx-peak-${id}`} title="Peak hold (dBFS)">
           −∞
         </span>
@@ -220,7 +269,19 @@ function ChannelStripImpl({ track, strip: ch, locked, selected, onSelect, onOpen
   );
 }
 
-export function MasterStripView({ song, mixer, selected, onSelect, onOpen }: { song: Song; mixer: MixerState; selected: boolean; onSelect: () => void; onOpen: (tab: InspectTab) => void }) {
+export function MasterStripView({
+  song,
+  mixer,
+  selected,
+  onSelect,
+  onOpen,
+}: {
+  song: Song;
+  mixer: MixerState;
+  selected: boolean;
+  onSelect: () => void;
+  onOpen: (tab: InspectTab) => void;
+}) {
   const m = mixer.master;
   const locked = isStripLocked(song, MASTER);
   const set = (path: string, v: unknown) => previewMixer((mx) => setStripField(mx, MASTER, path, v));
@@ -240,12 +301,23 @@ export function MasterStripView({ song, mixer, selected, onSelect, onOpen }: { s
         <span className="ellipsis">Stereo bus</span>
         <LockButton
           locked={locked}
-          onToggle={() => useStudio.getState().toggleLock(LockKeys.mixer(MASTER), `${locked ? 'Unlocked' : 'Locked'} master bus`)}
+          onToggle={() =>
+            useStudio
+              .getState()
+              .toggleLock(LockKeys.mixer(MASTER), `${locked ? 'Unlocked' : 'Locked'} master bus`)
+          }
           title={locked ? 'Master bus locked — click to unlock' : 'Lock master bus'}
         />
       </div>
       <div className="mx-inserts">
-        <button type="button" className={`mx-insert ${m.eq.enabled ? 'on' : ''}`} aria-pressed={m.eq.enabled} disabled={locked} onClick={() => toggle('eq.enabled', !m.eq.enabled)} title="Master EQ on/off">
+        <button
+          type="button"
+          className={`mx-insert ${m.eq.enabled ? 'on' : ''}`}
+          aria-pressed={m.eq.enabled}
+          disabled={locked}
+          onClick={() => toggle('eq.enabled', !m.eq.enabled)}
+          title="Master EQ on/off"
+        >
           EQ
         </button>
         <button
@@ -317,7 +389,12 @@ export function MasterStripView({ song, mixer, selected, onSelect, onOpen }: { s
         <MeterBar id={MASTER_METER} height={MASTER_FADER_H} label="Master" readoutId="mx-peak-master" />
       </div>
       <div className="mx-strip-foot">
-        <DbInput value={m.volumeDb} label="Master" disabled={locked} onCommitValue={(db) => applyMixer((mx) => setStripField(mx, MASTER, 'volumeDb', db))} />
+        <DbInput
+          value={m.volumeDb}
+          label="Master"
+          disabled={locked}
+          onCommitValue={(db) => applyMixer((mx) => setStripField(mx, MASTER, 'volumeDb', db))}
+        />
         <span className="mx-peak mono" id="mx-peak-master" title="Peak hold (dBFS)">
           −∞
         </span>

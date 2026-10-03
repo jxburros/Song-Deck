@@ -3,9 +3,18 @@
  * POST /transcribe `{ audio_base64, source }` → `{ notes, tempo?, key?, chords? }`.
  */
 import type { ProviderConfig } from '../config';
-import { TRANSCRIPTION_BRIDGE_PATHS, type TranscriptionBridgeRequest, type TranscriptionBridgeResponse } from '../contracts';
+import {
+  TRANSCRIPTION_BRIDGE_PATHS,
+  type TranscriptionBridgeRequest,
+  type TranscriptionBridgeResponse,
+} from '../contracts';
 import type { HttpClient } from '../transport/http';
-import type { ProviderInstance, TranscriptionProvider, TranscriptionRequest, TranscriptionResult } from '../types';
+import type {
+  ProviderInstance,
+  TranscriptionProvider,
+  TranscriptionRequest,
+  TranscriptionResult,
+} from '../types';
 import { bytesToBase64, clamp, joinUrl } from '../util';
 import { buildDescriptor, createHttpClient, type CreateProviderDeps } from './common';
 
@@ -16,10 +25,20 @@ export class TranscriptionBridge implements TranscriptionProvider {
   ) {}
 
   async transcribeNotes(req: TranscriptionRequest): Promise<TranscriptionResult> {
-    const body: TranscriptionBridgeRequest = { audio_base64: bytesToBase64(req.audio.data), source: req.source ?? 'mix' };
-    const json = await this.http.json<TranscriptionBridgeResponse>({ url: joinUrl(this.config.baseUrl, TRANSCRIPTION_BRIDGE_PATHS.transcribe), json: body, signal: req.signal });
+    const body: TranscriptionBridgeRequest = {
+      audio_base64: bytesToBase64(req.audio.data),
+      source: req.source ?? 'mix',
+    };
+    const json = await this.http.json<TranscriptionBridgeResponse>({
+      url: joinUrl(this.config.baseUrl, TRANSCRIPTION_BRIDGE_PATHS.transcribe),
+      json: body,
+      signal: req.signal,
+    });
     const notes = (json?.notes ?? [])
-      .filter((n) => Number.isFinite(n.pitch) && Number.isFinite(n.start) && Number.isFinite(n.end) && n.end > n.start)
+      .filter(
+        (n) =>
+          Number.isFinite(n.pitch) && Number.isFinite(n.start) && Number.isFinite(n.end) && n.end > n.start,
+      )
       .map((n) => ({
         pitch: Math.round(clamp(n.pitch, 0, 127)),
         start: n.start,
@@ -37,7 +56,14 @@ export class TranscriptionBridge implements TranscriptionProvider {
   }
 }
 
-export function createTranscriptionHttpProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
+export function createTranscriptionHttpProvider(
+  config: ProviderConfig,
+  deps: CreateProviderDeps,
+): ProviderInstance {
   const http = createHttpClient(config, deps);
-  return { descriptor: buildDescriptor(config, ['AUDIO_TRANSCRIPTION', 'AUDIO_TO_MIDI']), config, transcription: new TranscriptionBridge(config, http) };
+  return {
+    descriptor: buildDescriptor(config, ['AUDIO_TRANSCRIPTION', 'AUDIO_TO_MIDI']),
+    config,
+    transcription: new TranscriptionBridge(config, http),
+  };
 }

@@ -108,19 +108,29 @@ export class BudgetManager {
 
   private dayKey(t: number): string {
     const d = new Date(t);
-    return this.opts.timeZone === 'utc' ? d.toISOString().slice(0, 10) : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    return this.opts.timeZone === 'utc'
+      ? d.toISOString().slice(0, 10)
+      : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
   }
 
   private monthKey(t: number): string {
     const d = new Date(t);
-    return this.opts.timeZone === 'utc' ? d.toISOString().slice(0, 7) : `${d.getFullYear()}-${d.getMonth() + 1}`;
+    return this.opts.timeZone === 'utc'
+      ? d.toISOString().slice(0, 7)
+      : `${d.getFullYear()}-${d.getMonth() + 1}`;
   }
 
   totals(): BudgetTotals {
     const now = this.now();
     const day = this.dayKey(now);
     const month = this.monthKey(now);
-    const out: BudgetTotals = { todayUsd: 0, monthUsd: 0, totalUsd: 0, byProvider: {}, entries: this.list.length };
+    const out: BudgetTotals = {
+      todayUsd: 0,
+      monthUsd: 0,
+      totalUsd: 0,
+      byProvider: {},
+      entries: this.list.length,
+    };
     for (const e of this.list) {
       const t = Date.parse(e.at);
       if (!Number.isFinite(t)) continue;
@@ -143,25 +153,48 @@ export class BudgetManager {
    * Check an estimate against the limits. Unknown cost is allowed with a warning when limits are
    * set (the cost cannot be verified).
    */
-  check(estimate: CostEstimate, ctx: { providerId?: string; providerBudget?: ProviderBudget } = {}): BudgetCheck {
+  check(
+    estimate: CostEstimate,
+    ctx: { providerId?: string; providerBudget?: ProviderBudget } = {},
+  ): BudgetCheck {
     const limits = this.limitsValue;
-    const threshold = limits.warningThreshold > 0 && limits.warningThreshold <= 1 ? limits.warningThreshold : 0.8;
+    const threshold =
+      limits.warningThreshold > 0 && limits.warningThreshold <= 1 ? limits.warningThreshold : 0.8;
     const totals = this.totals();
     const cost = estimate.known ? estimate.maxUsd : 0;
     const reasons: string[] = [];
     const warnings: string[] = [];
     const projected = { dailyUsd: totals.todayUsd + cost, monthlyUsd: totals.monthUsd + cost };
-    const anyLimit = limits.perGenerationUsd !== undefined || limits.dailyUsd !== undefined || limits.monthlyUsd !== undefined || !!ctx.providerBudget;
+    const anyLimit =
+      limits.perGenerationUsd !== undefined ||
+      limits.dailyUsd !== undefined ||
+      limits.monthlyUsd !== undefined ||
+      !!ctx.providerBudget;
 
     const checkLimits = (scope: string, l: ProviderBudget, today: number, month: number) => {
-      if (l.perGenerationUsd !== undefined && cost > l.perGenerationUsd) reasons.push(`${scope}estimated ${formatUsd(cost)} exceeds the per-generation limit ${formatUsd(l.perGenerationUsd)}`);
+      if (l.perGenerationUsd !== undefined && cost > l.perGenerationUsd)
+        reasons.push(
+          `${scope}estimated ${formatUsd(cost)} exceeds the per-generation limit ${formatUsd(l.perGenerationUsd)}`,
+        );
       if (l.dailyUsd !== undefined) {
-        if (today + cost > l.dailyUsd) reasons.push(`${scope}daily limit ${formatUsd(l.dailyUsd)} would be exceeded (spent ${formatUsd(today)} today)`);
-        else if (cost > 0 && today + cost >= threshold * l.dailyUsd) warnings.push(`${scope}daily spend would reach ${formatUsd(today + cost)} of ${formatUsd(l.dailyUsd)} (${Math.round(((today + cost) / l.dailyUsd) * 100)}%)`);
+        if (today + cost > l.dailyUsd)
+          reasons.push(
+            `${scope}daily limit ${formatUsd(l.dailyUsd)} would be exceeded (spent ${formatUsd(today)} today)`,
+          );
+        else if (cost > 0 && today + cost >= threshold * l.dailyUsd)
+          warnings.push(
+            `${scope}daily spend would reach ${formatUsd(today + cost)} of ${formatUsd(l.dailyUsd)} (${Math.round(((today + cost) / l.dailyUsd) * 100)}%)`,
+          );
       }
       if (l.monthlyUsd !== undefined) {
-        if (month + cost > l.monthlyUsd) reasons.push(`${scope}monthly limit ${formatUsd(l.monthlyUsd)} would be exceeded (spent ${formatUsd(month)} this month)`);
-        else if (cost > 0 && month + cost >= threshold * l.monthlyUsd) warnings.push(`${scope}monthly spend would reach ${formatUsd(month + cost)} of ${formatUsd(l.monthlyUsd)} (${Math.round(((month + cost) / l.monthlyUsd) * 100)}%)`);
+        if (month + cost > l.monthlyUsd)
+          reasons.push(
+            `${scope}monthly limit ${formatUsd(l.monthlyUsd)} would be exceeded (spent ${formatUsd(month)} this month)`,
+          );
+        else if (cost > 0 && month + cost >= threshold * l.monthlyUsd)
+          warnings.push(
+            `${scope}monthly spend would reach ${formatUsd(month + cost)} of ${formatUsd(l.monthlyUsd)} (${Math.round(((month + cost) / l.monthlyUsd) * 100)}%)`,
+          );
       }
     };
     checkLimits('', limits, totals.todayUsd, totals.monthUsd);
@@ -169,7 +202,8 @@ export class BudgetManager {
       const p = totals.byProvider[ctx.providerId] ?? { todayUsd: 0, monthUsd: 0, totalUsd: 0 };
       checkLimits(`${ctx.providerId}: `, ctx.providerBudget, p.todayUsd, p.monthUsd);
     }
-    if (!estimate.known && anyLimit) warnings.push('Cost is unknown for this provider — budget limits cannot be verified');
+    if (!estimate.known && anyLimit)
+      warnings.push('Cost is unknown for this provider — budget limits cannot be verified');
     const result: BudgetCheck = { allowed: reasons.length === 0, reasons, projected };
     if (warnings.length) result.warning = warnings.join('; ');
     return result;
@@ -177,7 +211,11 @@ export class BudgetManager {
 
   /** Record spend (actual cost when known, otherwise the estimate). */
   record(entry: Omit<SpendEntry, 'at'> & { at?: string }): SpendEntry {
-    const e: SpendEntry = { ...entry, at: entry.at ?? new Date(this.now()).toISOString(), costUsd: Math.max(0, entry.costUsd) };
+    const e: SpendEntry = {
+      ...entry,
+      at: entry.at ?? new Date(this.now()).toISOString(),
+      costUsd: Math.max(0, entry.costUsd),
+    };
     this.list.push(e);
     const retain = (this.opts.retainDays ?? 400) * 86_400_000;
     const cutoff = this.now() - retain;

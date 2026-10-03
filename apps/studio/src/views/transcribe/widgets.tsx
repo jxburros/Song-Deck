@@ -7,29 +7,73 @@ export function LevelMeter({ rmsDb, peakDb, active }: { rmsDb: number; peakDb: n
   const pct = (db: number) => Math.max(0, Math.min(1, (db + 60) / 60)) * 100;
   const clipping = peakDb > -1;
   return (
-    <div className="col" style={{ gap: 3 }} aria-label="Input level" role="meter" aria-valuemin={-60} aria-valuemax={0} aria-valuenow={Math.round(Math.max(-60, rmsDb))}>
-      <div style={{ position: 'relative', height: 10, borderRadius: 5, background: 'var(--bg-input)', border: '1px solid var(--border)', overflow: 'hidden', opacity: active ? 1 : 0.5 }}>
+    <div
+      className="col"
+      style={{ gap: 3 }}
+      aria-label="Input level"
+      role="meter"
+      aria-valuemin={-60}
+      aria-valuemax={0}
+      aria-valuenow={Math.round(Math.max(-60, rmsDb))}
+    >
+      <div
+        style={{
+          position: 'relative',
+          height: 10,
+          borderRadius: 5,
+          background: 'var(--bg-input)',
+          border: '1px solid var(--border)',
+          overflow: 'hidden',
+          opacity: active ? 1 : 0.5,
+        }}
+      >
         <div
           style={{
             position: 'absolute',
             inset: 0,
             width: `${pct(rmsDb)}%`,
-            background: 'linear-gradient(to right, var(--success) 0%, var(--success) 70%, var(--warning) 88%, var(--danger) 100%)',
+            background:
+              'linear-gradient(to right, var(--success) 0%, var(--success) 70%, var(--warning) 88%, var(--danger) 100%)',
             transition: 'width 60ms linear',
           }}
         />
-        <div style={{ position: 'absolute', top: 0, bottom: 0, width: 2, left: `calc(${pct(peakDb)}% - 1px)`, background: clipping ? 'var(--danger)' : 'var(--text)' }} />
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            width: 2,
+            left: `calc(${pct(peakDb)}% - 1px)`,
+            background: clipping ? 'var(--danger)' : 'var(--text)',
+          }}
+        />
       </div>
       <div className="row between small dim">
         <span>{active ? `${Math.max(-60, Math.round(rmsDb))} dB` : 'Input off'}</span>
-        {clipping ? <span style={{ color: 'var(--danger)' }}>Clipping — move back or lower the input gain</span> : rmsDb < -50 && active ? <span>Very quiet — move closer</span> : <span>&nbsp;</span>}
+        {clipping ? (
+          <span style={{ color: 'var(--danger)' }}>Clipping — move back or lower the input gain</span>
+        ) : rmsDb < -50 && active ? (
+          <span>Very quiet — move closer</span>
+        ) : (
+          <span>&nbsp;</span>
+        )}
       </div>
     </div>
   );
 }
 
 /** Peak waveform overview with an optional playhead. */
-export function Waveform({ audio, height = 48, position, color = 'var(--ai)' }: { audio: AudioData; height?: number; position?: number | null; color?: string }) {
+export function Waveform({
+  audio,
+  height = 48,
+  position,
+  color = 'var(--ai)',
+}: {
+  audio: AudioData;
+  height?: number;
+  position?: number | null;
+  color?: string;
+}) {
   const W = 600;
   const path = useMemo(() => {
     const ch = audio.channels;
@@ -56,9 +100,30 @@ export function Waveform({ audio, height = 48, position, color = 'var(--ai)' }: 
   const duration = (audio.channels[0]?.length ?? 0) / audio.sampleRate;
   return (
     <div style={{ position: 'relative' }}>
-      <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" width="100%" height={height} style={{ display: 'block', background: 'var(--bg-input)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }} role="img" aria-label={`Waveform, ${formatDuration(duration)}`}>
+      <svg
+        viewBox={`0 0 ${W} ${height}`}
+        preserveAspectRatio="none"
+        width="100%"
+        height={height}
+        style={{
+          display: 'block',
+          background: 'var(--bg-input)',
+          borderRadius: 'var(--radius)',
+          border: '1px solid var(--border)',
+        }}
+        role="img"
+        aria-label={`Waveform, ${formatDuration(duration)}`}
+      >
         <path d={path} stroke={color} strokeWidth={1} opacity={0.85} />
-        {position !== null && position !== undefined && duration > 0 && <rect x={(position / duration) * W - 0.75} y={0} width={1.5} height={height} fill="var(--playhead)" />}
+        {position !== null && position !== undefined && duration > 0 && (
+          <rect
+            x={(position / duration) * W - 0.75}
+            y={0}
+            width={1.5}
+            height={height}
+            fill="var(--playhead)"
+          />
+        )}
       </svg>
     </div>
   );

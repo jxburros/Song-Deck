@@ -19,9 +19,21 @@ export const LOCAL_MODEL_CATALOG: LocalModelEntry[] = [
     sizeGb: 8,
     license: 'Apache-2.0',
     requirements: { minVramGb: 4, recommendedVramGb: 8, minRamGb: 16, cpuOk: false },
-    capabilities: ['TEXT_TO_MUSIC', 'AUDIO_TO_AUDIO', 'LYRIC_CONDITIONING', 'VOCAL_GENERATION', 'INSTRUMENTAL_ONLY', 'SECTION_GENERATION', 'REFERENCE_AUDIO', 'INPAINTING', 'OUTPAINTING', 'REGION_GENERATION'],
+    capabilities: [
+      'TEXT_TO_MUSIC',
+      'AUDIO_TO_AUDIO',
+      'LYRIC_CONDITIONING',
+      'VOCAL_GENERATION',
+      'INSTRUMENTAL_ONLY',
+      'SECTION_GENERATION',
+      'REFERENCE_AUDIO',
+      'INPAINTING',
+      'OUTPAINTING',
+      'REGION_GENERATION',
+    ],
     homepage: 'https://github.com/ace-step/ACE-Step',
-    notes: 'Local music generation with lyrics and audio conditioning; v1.5 advertises operation on under 4 GB VRAM.',
+    notes:
+      'Local music generation with lyrics and audio conditioning; v1.5 advertises operation on under 4 GB VRAM.',
   },
   {
     id: 'diffsinger-openvpi',

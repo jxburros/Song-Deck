@@ -45,8 +45,15 @@ export function useMidiRecorder(trackId: string | undefined, grid: { ticks: numb
     const t = next.tracks.find((x) => x.id === track.id)!;
     t.notes = sortNotes([...t.notes, ...notes]);
     const quantized = g.ticks > 1 ? ` (quantized to ${g.label})` : '';
-    st.commit(next, `Recorded ${notes.length} notes from a MIDI keyboard into ${track.name}${quantized}`, 'edit');
-    st.toast(blocked ? 'warning' : 'success', `Recorded ${notes.length} notes into ${track.name}.${blocked ? ` ${blocked} notes in locked material were discarded.` : ''}`);
+    st.commit(
+      next,
+      `Recorded ${notes.length} notes from a MIDI keyboard into ${track.name}${quantized}`,
+      'edit',
+    );
+    st.toast(
+      blocked ? 'warning' : 'success',
+      `Recorded ${notes.length} notes into ${track.name}.${blocked ? ` ${blocked} notes in locked material were discarded.` : ''}`,
+    );
   }, []);
 
   const start = useCallback(async () => {
@@ -70,7 +77,10 @@ export function useMidiRecorder(trackId: string | undefined, grid: { ticks: numb
       const inputs = await cap.start();
       if (!inputs) {
         cap.stop();
-        st.toast('warning', 'No MIDI keyboard is connected. Plug one in (or enable a virtual MIDI port) and press Record again.');
+        st.toast(
+          'warning',
+          'No MIDI keyboard is connected. Plug one in (or enable a virtual MIDI port) and press Record again.',
+        );
         return;
       }
     } catch (err) {
@@ -85,7 +95,10 @@ export function useMidiRecorder(trackId: string | undefined, grid: { ticks: numb
       try {
         await player.play(from);
       } catch (err) {
-        st.toast('warning', `Recording without playback: ${err instanceof Error ? err.message : String(err)}`);
+        st.toast(
+          'warning',
+          `Recording without playback: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
   }, [trackId]);

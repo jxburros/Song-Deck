@@ -3,7 +3,13 @@
  * 7, maj7, min7, dim, sus4} plus "no chord", decoded with an HMM (Viterbi) whose chord
  * changes are restricted to beat boundaries when beats are known.
  */
-import { chordToRoman, formatChordSymbol, isDiatonic, type ChordQuality, type KeySignature } from '@songdeck/core';
+import {
+  chordToRoman,
+  formatChordSymbol,
+  isDiatonic,
+  type ChordQuality,
+  type KeySignature,
+} from '@songdeck/core';
 import type { AudioData } from '../types';
 import { chromagramFromSignal, type ChromaResult } from './chroma';
 import { detectKey } from './key';
@@ -84,7 +90,10 @@ function isDiatonicLoose(root: number, quality: ChordQuality, key: KeySignature)
 }
 
 /** Per-frame similarity of every chord state (+ N) given chroma and bass chroma. */
-function frameSimilarities(chroma: ChromaResult, key: KeySignature | undefined): { sim: Float32Array[]; active: boolean[] } {
+function frameSimilarities(
+  chroma: ChromaResult,
+  key: KeySignature | undefined,
+): { sim: Float32Array[]; active: boolean[] } {
   const frames = chroma.frames;
   const sums = frames.map((f) => f.reduce((a, b) => a + b, 0));
   const loud = percentile(sums, 95);
@@ -137,7 +146,10 @@ function frameSimilarities(chroma: ChromaResult, key: KeySignature | undefined):
 }
 
 /** Chord recognition for a recording. Segments with no chord ("N") are omitted. */
-export function detectChords(buf: AudioData, opts: ChordOptions = {}): { segments: ChordSegment[]; key?: KeySignature } {
+export function detectChords(
+  buf: AudioData,
+  opts: ChordOptions = {},
+): { segments: ChordSegment[]; key?: KeySignature } {
   let chroma = opts.chroma;
   if (!chroma) {
     const { x, sr } = prepareMono(buf);
@@ -146,13 +158,18 @@ export function detectChords(buf: AudioData, opts: ChordOptions = {}): { segment
   return chordsFromChroma(chroma, opts);
 }
 
-export function chordsFromChroma(chroma: ChromaResult, opts: ChordOptions = {}): { segments: ChordSegment[]; key?: KeySignature } {
+export function chordsFromChroma(
+  chroma: ChromaResult,
+  opts: ChordOptions = {},
+): { segments: ChordSegment[]; key?: KeySignature } {
   const T = chroma.frames.length;
   if (T === 0) return { segments: [] };
-  const key = opts.key ?? (() => {
-    const k = detectKey({ frames: chroma.frames, bassFrames: chroma.bassFrames });
-    return k.confidence > 0.25 ? k.key : undefined;
-  })();
+  const key =
+    opts.key ??
+    (() => {
+      const k = detectKey({ frames: chroma.frames, bassFrames: chroma.bassFrames });
+      return k.confidence > 0.25 ? k.key : undefined;
+    })();
   const { sim } = frameSimilarities(chroma, key);
   const hop = chroma.hopSeconds;
   const S = N_STATE + 1;

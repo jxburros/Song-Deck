@@ -43,7 +43,10 @@ import { extensionFor, slugify } from './capture-files';
  */
 
 export const DSP_PROVIDER = { id: 'songdeck-dsp', name: 'On-device DSP (Song Deck audio engine)' } as const;
-export const COMPOSER_PROVIDER = { id: 'internal', name: 'On-device composer (Song Deck music engine)' } as const;
+export const COMPOSER_PROVIDER = {
+  id: 'internal',
+  name: 'On-device composer (Song Deck music engine)',
+} as const;
 
 export function uniqueTrackName(song: Pick<Song, 'tracks'>, name: string): string {
   const names = new Set(song.tracks.map((t) => t.name.toLowerCase()));
@@ -79,7 +82,17 @@ export interface IdeaSongOptions {
   customInstruments?: InstrumentProfile[];
 }
 
-export function makeMidiTrack(inst: InstrumentProfile, opts: { name: string; role?: TrackRole; fn?: MusicalFunction; notes: Note[]; origin?: string; params?: Record<string, unknown> }): Track {
+export function makeMidiTrack(
+  inst: InstrumentProfile,
+  opts: {
+    name: string;
+    role?: TrackRole;
+    fn?: MusicalFunction;
+    notes: Note[];
+    origin?: string;
+    params?: Record<string, unknown>;
+  },
+): Track {
   const role = opts.role ?? inst.defaultRole;
   return {
     id: randomId('trk'),
@@ -100,13 +113,24 @@ export function makeMidiTrack(inst: InstrumentProfile, opts: { name: string; rol
 
 /** A one-section song holding a single captured idea (new project / MIDI export). */
 export function buildIdeaSong(o: IdeaSongOptions): Song {
-  const song = createEmptySong({ title: o.title, bpm: Math.round(o.bpm * 100) / 100, meter: o.meter, key: o.key });
+  const song = createEmptySong({
+    title: o.title,
+    bpm: Math.round(o.bpm * 100) / 100,
+    meter: o.meter,
+    key: o.key,
+  });
   const barTicks = barToTick(song, 1);
   const last = o.notes.reduce((m, n) => Math.max(m, n.tick + n.duration), 0);
   const bars = Math.max(1, o.bars ?? Math.ceil(last / barTicks - 1e-9));
   song.sections = [{ id: randomId('sec'), name: o.sectionName ?? 'Idea', kind: 'verse', bars, energy: 60 }];
   const inst = getInstrument(o.instrumentId, o.customInstruments);
-  const track = makeMidiTrack(inst, { name: o.trackName ?? inst.name, role: o.role, fn: o.fn, notes: o.notes, origin: o.origin });
+  const track = makeMidiTrack(inst, {
+    name: o.trackName ?? inst.name,
+    role: o.role,
+    fn: o.fn,
+    notes: o.notes,
+    origin: o.origin,
+  });
   song.tracks = [track];
   song.mixer = { ...song.mixer, channels: { ...song.mixer.channels, [track.id]: defaultChannelStrip() } };
   return song;
@@ -148,14 +172,23 @@ function shifted(req: InsertRequest): Note[] {
   return req.notes
     .filter((n) => n.tick >= t0 && n.tick < t1)
     .map((n) => {
-      const out: Note = { ...n, tick: n.tick + offset, pitch: Math.max(0, Math.min(127, n.pitch + (req.transpose ?? 0))) };
-      if (req.sourceEndTick !== undefined && n.tick + n.duration > t1) out.duration = Math.max(1, t1 - n.tick);
+      const out: Note = {
+        ...n,
+        tick: n.tick + offset,
+        pitch: Math.max(0, Math.min(127, n.pitch + (req.transpose ?? 0))),
+      };
+      if (req.sourceEndTick !== undefined && n.tick + n.duration > t1)
+        out.duration = Math.max(1, t1 - n.tick);
       return out;
     });
 }
 
 /** Build the structured operations for an insertion (exposed for tests and the UI preview). */
-export function insertOperations(req: InsertRequest): { ops: MusicOperation[]; trackRef: string; notes: Note[] } {
+export function insertOperations(req: InsertRequest): {
+  ops: MusicOperation[];
+  trackRef: string;
+  notes: Note[];
+} {
   const notes = sortNotes(shifted(req));
   if (req.mode === 'new-track') {
     const inst = getInstrument(req.instrumentId ?? 'piano', useSettings.getState().customInstruments);
@@ -163,7 +196,14 @@ export function insertOperations(req: InsertRequest): { ops: MusicOperation[]; t
     const opNotes: OpNote[] = notes.map((n) => noteToOpNote(req.song, n));
     return {
       ops: [
-        { op: 'add_track', name, instrument_id: inst.id, role: req.role ?? inst.defaultRole, function: req.fn, reason: req.meta.title },
+        {
+          op: 'add_track',
+          name,
+          instrument_id: inst.id,
+          role: req.role ?? inst.defaultRole,
+          function: req.fn,
+          reason: req.meta.title,
+        },
         { op: 'add_notes', track: name, notes: opNotes, reason: req.meta.title },
       ],
       trackRef: name,
@@ -177,11 +217,22 @@ export function insertOperations(req: InsertRequest): { ops: MusicOperation[]; t
   const inRegion = notes.filter((n) => n.tick >= start && n.tick < end);
   let opNotes: OpNote[] = inRegion.map((n) => noteToOpNote(req.song, n));
   if (req.keepSyllables) {
-    const old = track.notes.filter((n) => n.tick >= start && n.tick < end && n.syllable).sort((a, b) => a.tick - b.tick);
-    if (old.length) opNotes = opNotes.map((o, i) => (old[i]?.syllable ? { ...o, syllable: old[i].syllable } : o));
+    const old = track.notes
+      .filter((n) => n.tick >= start && n.tick < end && n.syllable)
+      .sort((a, b) => a.tick - b.tick);
+    if (old.length)
+      opNotes = opNotes.map((o, i) => (old[i]?.syllable ? { ...o, syllable: old[i].syllable } : o));
   }
   return {
-    ops: [{ op: 'replace_notes', track: track.id, region: { start_bar: req.targetBar, end_bar: Math.max(req.targetBar, req.endBar ?? req.targetBar) }, notes: opNotes, reason: req.meta.title }],
+    ops: [
+      {
+        op: 'replace_notes',
+        track: track.id,
+        region: { start_bar: req.targetBar, end_bar: Math.max(req.targetBar, req.endBar ?? req.targetBar) },
+        notes: opNotes,
+        reason: req.meta.title,
+      },
+    ],
     trackRef: track.id,
     notes: inRegion,
   };
@@ -214,7 +265,8 @@ export function proposeInsertion(req: InsertRequest): Proposal | null {
       byClass.set(k, [...(byClass.get(k) ?? []), n]);
     }
     target.notes = target.notes.map((n) => {
-      const src = pool.get(`${n.tick}|${n.pitch}`)?.shift() ?? byClass.get(`${n.tick}|${n.pitch % 12}`)?.shift();
+      const src =
+        pool.get(`${n.tick}|${n.pitch}`)?.shift() ?? byClass.get(`${n.tick}|${n.pitch % 12}`)?.shift();
       if (!src) return n;
       const out: Note = { ...n };
       if (src.confidence !== undefined) out.confidence = src.confidence;
@@ -222,7 +274,9 @@ export function proposeInsertion(req: InsertRequest): Proposal | null {
       return out;
     });
     useStudio.setState((s) => ({
-      proposals: s.proposals.map((x) => (x.id === p.id ? { ...x, after, diff: diffSongs(x.before, after) } : x)),
+      proposals: s.proposals.map((x) =>
+        x.id === p.id ? { ...x, after, diff: diffSongs(x.before, after) } : x,
+      ),
     }));
     const st = useStudio.getState();
     st.selectTrack(target.id);
@@ -243,7 +297,12 @@ export interface SectionChoice {
 }
 
 export function sectionChoices(song: Song): SectionChoice[] {
-  return sectionLayout(song).map((s) => ({ id: s.section.id, name: s.section.name, startBar: s.startBar + 1, bars: s.endBar - s.startBar }));
+  return sectionLayout(song).map((s) => ({
+    id: s.section.id,
+    name: s.section.name,
+    startBar: s.startBar + 1,
+    bars: s.endBar - s.startBar,
+  }));
 }
 
 export function songBars(song: Song): number {
@@ -274,7 +333,10 @@ export function makeAssetMeta(o: {
     id,
     name: o.name,
     kind: o.kind,
-    path: assetPathFor(o.kind, `${slugify(o.name, o.kind)}-${id.slice(-6)}.${extensionFor(o.mimeType, 'wav')}`),
+    path: assetPathFor(
+      o.kind,
+      `${slugify(o.name, o.kind)}-${id.slice(-6)}.${extensionFor(o.mimeType, 'wav')}`,
+    ),
     mimeType: o.mimeType,
     sampleRate: o.sampleRate,
     channels: o.channels,
@@ -319,8 +381,22 @@ export function makeProvenance(o: {
   return rec;
 }
 
-export function makeAnalysisRecord(o: { kind: AnalysisRecord['kind']; summary: string; confidence?: number; sourceAssetId?: string; data: unknown }): AnalysisRecord {
-  return { id: randomId('an'), kind: o.kind, createdAt: new Date().toISOString(), sourceAssetId: o.sourceAssetId, summary: o.summary, confidence: o.confidence, data: o.data };
+export function makeAnalysisRecord(o: {
+  kind: AnalysisRecord['kind'];
+  summary: string;
+  confidence?: number;
+  sourceAssetId?: string;
+  data: unknown;
+}): AnalysisRecord {
+  return {
+    id: randomId('an'),
+    kind: o.kind,
+    createdAt: new Date().toISOString(),
+    sourceAssetId: o.sourceAssetId,
+    summary: o.summary,
+    confidence: o.confidence,
+    data: o.data,
+  };
 }
 
 export function pushAnalysis(record: AnalysisRecord) {

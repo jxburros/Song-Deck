@@ -32,7 +32,10 @@ function stripComments(text: string): string {
 type Opcodes = Record<string, string>;
 
 /** Parse SFZ text. `resolveSample` maps a (default_path-joined, '/'-separated) path to audio. */
-export function parseSfz(text: string, resolveSample: (path: string) => AudioData | undefined): SampleInstrument {
+export function parseSfz(
+  text: string,
+  resolveSample: (path: string) => AudioData | undefined,
+): SampleInstrument {
   let src = stripComments(text);
   // #define $NAME value
   const defines: Record<string, string> = {};
@@ -66,7 +69,8 @@ export function parseSfz(text: string, resolveSample: (path: string) => AudioDat
     const re = /([A-Za-z0-9_]+)\s*=/g;
     const found: { key: string; start: number; valStart: number }[] = [];
     let mm: RegExpExecArray | null;
-    while ((mm = re.exec(body))) found.push({ key: mm[1].toLowerCase(), start: mm.index, valStart: mm.index + mm[0].length });
+    while ((mm = re.exec(body)))
+      found.push({ key: mm[1].toLowerCase(), start: mm.index, valStart: mm.index + mm[0].length });
     for (let i = 0; i < found.length; i++) {
       const end = i + 1 < found.length ? found[i + 1].start : body.length;
       let val = body.slice(found[i].valStart, end).trim();
@@ -112,7 +116,8 @@ export function parseSfz(text: string, resolveSample: (path: string) => AudioDat
     const f = parseFloat(v);
     return Number.isFinite(f) ? f : d;
   };
-  const note = (o: Opcodes, k: string): number | undefined => (o[k] !== undefined ? parseNote(o[k], octaveOffset, -noteOffset) : undefined);
+  const note = (o: Opcodes, k: string): number | undefined =>
+    o[k] !== undefined ? parseNote(o[k], octaveOffset, -noteOffset) : undefined;
   const cache = new Map<string, AudioData | undefined>();
   const zones: SampleZone[] = [];
   for (const r of regions) {
@@ -137,7 +142,9 @@ export function parseSfz(text: string, resolveSample: (path: string) => AudioDat
     hikey = Math.max(lokey, Math.min(127, hikey));
     const lm = (r.loop_mode ?? r.loopmode ?? '').toLowerCase();
     const loopMode: SampleLoopMode | undefined =
-      lm === 'one_shot' || lm === 'loop_continuous' || lm === 'loop_sustain' || lm === 'no_loop' ? (lm as SampleLoopMode) : undefined;
+      lm === 'one_shot' || lm === 'loop_continuous' || lm === 'loop_sustain' || lm === 'no_loop'
+        ? (lm as SampleLoopMode)
+        : undefined;
     const loopStart = r.loop_start ?? r.loopstart;
     const loopEnd = r.loop_end ?? r.loopend;
     const trig = (r.trigger ?? 'attack').toLowerCase();
@@ -164,8 +171,10 @@ export function parseSfz(text: string, resolveSample: (path: string) => AudioDat
     };
     if (r.end !== undefined) zone.end = num(r, 'end', audio.channels[0].length - 1);
     if (loopMode) zone.loopMode = loopMode;
-    if (loopStart !== undefined) zone.loopStart = num(r, loopStart === r.loop_start ? 'loop_start' : 'loopstart', 0);
-    if (loopEnd !== undefined) zone.loopEnd = num(r, loopEnd === r.loop_end ? 'loop_end' : 'loopend', audio.channels[0].length - 1);
+    if (loopStart !== undefined)
+      zone.loopStart = num(r, loopStart === r.loop_start ? 'loop_start' : 'loopstart', 0);
+    if (loopEnd !== undefined)
+      zone.loopEnd = num(r, loopEnd === r.loop_end ? 'loop_end' : 'loopend', audio.channels[0].length - 1);
     if (r.group !== undefined) zone.group = num(r, 'group', 0);
     if (r.off_by !== undefined) zone.offBy = num(r, 'off_by', 0);
     if (r.seq_length !== undefined) zone.seqLength = num(r, 'seq_length', 1);

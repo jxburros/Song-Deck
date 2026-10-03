@@ -12,13 +12,17 @@ describe('theme contrast (WCAG AA)', () => {
     it(`${theme}: every token pair meets its minimum`, () => {
       const failures = PAIRS.map((p) => ({ ...p, ratio: measure(theme, p, tokens) }))
         .filter((p) => p.ratio < p.min)
-        .map((p) => `${p.fg} on ${p.bg}${p.on ? ` over ${p.on}` : ''}: ${p.ratio.toFixed(2)} < ${p.min} (${p.use})`);
+        .map(
+          (p) =>
+            `${p.fg} on ${p.bg}${p.on ? ` over ${p.on}` : ''}: ${p.ratio.toFixed(2)} < ${p.min} (${p.use})`,
+        );
       expect(failures).toEqual([]);
     });
 
     it(`${theme}: track colours stand out from the editor background (3:1)`, () => {
       const bg = resolve(tokens[theme], '--bg');
-      for (const c of [...TRACK_PALETTE, TRACK_NEUTRAL]) expect(contrast(parseColor(c), bg), c).toBeGreaterThanOrEqual(3);
+      for (const c of [...TRACK_PALETTE, TRACK_NEUTRAL])
+        expect(contrast(parseColor(c), bg), c).toBeGreaterThanOrEqual(3);
     });
   }
 

@@ -1,6 +1,18 @@
 import { useMemo, useState } from 'react';
 import { zipSync } from 'fflate';
-import { markersCsv, removeAsset, sectionLayout, songToMidi, tempoMapCsv, createTimeMap, type AudioAssetMeta, type Project, type ProvenanceRecord, type Song, type StemGroup } from '@songdeck/core';
+import {
+  markersCsv,
+  removeAsset,
+  sectionLayout,
+  songToMidi,
+  tempoMapCsv,
+  createTimeMap,
+  type AudioAssetMeta,
+  type Project,
+  type ProvenanceRecord,
+  type Song,
+  type StemGroup,
+} from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { assetStore, decodeAudioBytes } from '../../state/assets';
 import { useSettings } from '../../state/settings';
@@ -19,7 +31,13 @@ import {
   type GuideRenderer,
 } from '../../engine/produce-model';
 import { provenanceOfAsset, stageExternalStems } from '../../engine/produce-assets';
-import { assignSampleInstrument, loadSampleFiles, pluginSampleInstruments, removeSampleInstrument, useSampleInstruments } from '../../engine/produce-samples';
+import {
+  assignSampleInstrument,
+  loadSampleFiles,
+  pluginSampleInstruments,
+  removeSampleInstrument,
+  useSampleInstruments,
+} from '../../engine/produce-samples';
 import type { GuideImportInput, GuideInput, GuideOutput } from '../../engine/handlers/render';
 import { Badge, Button, Field, FileButton, Select, Spinner } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
@@ -40,11 +58,22 @@ export interface GuideView {
   revision?: number;
 }
 
-let cache: { song: Song; assets: Project['meta']['assets']; provenance: Project['meta']['provenance']; view: GuideView } | null = null;
+let cache: {
+  song: Song;
+  assets: Project['meta']['assets'];
+  provenance: Project['meta']['provenance'];
+  view: GuideView;
+} | null = null;
 
 /** Current guide assets and whether they are stale (cached per song + asset list: it hashes the song). */
 export function guideView(project: Project, song: Song): GuideView {
-  if (cache && cache.song === song && cache.assets === project.meta.assets && cache.provenance === project.meta.provenance) return cache.view;
+  if (
+    cache &&
+    cache.song === song &&
+    cache.assets === project.meta.assets &&
+    cache.provenance === project.meta.provenance
+  )
+    return cache.view;
   const view = computeGuideView(project, song);
   cache = { song, assets: project.meta.assets, provenance: project.meta.provenance, view };
   return view;
@@ -84,14 +113,24 @@ function guessGroup(name: string): StemGroup {
   return 'others';
 }
 
-const GROUP_OPTIONS = STEM_GROUP_ORDER.map((g) => ({ value: g, label: `${GUIDE_STEM_FILES[g].label} → ${GUIDE_STEM_FILES[g].file}` }));
+const GROUP_OPTIONS = STEM_GROUP_ORDER.map((g) => ({
+  value: g,
+  label: `${GUIDE_STEM_FILES[g].label} → ${GUIDE_STEM_FILES[g].file}`,
+}));
 
 function RendererCards({ value, onChange }: { value: GuideRenderer; onChange: (r: GuideRenderer) => void }) {
   const icons: Record<GuideRenderer, string> = { builtin: 'music', external: 'export', sampled: 'layers' };
   return (
     <div className="pd-cards three" role="radiogroup" aria-label="Guide renderer">
       {(Object.keys(GUIDE_RENDERERS) as GuideRenderer[]).map((r) => (
-        <button key={r} type="button" role="radio" aria-checked={value === r} className={`pd-choice ${value === r ? 'on' : ''}`} onClick={() => onChange(r)}>
+        <button
+          key={r}
+          type="button"
+          role="radio"
+          aria-checked={value === r}
+          className={`pd-choice ${value === r ? 'on' : ''}`}
+          onClick={() => onChange(r)}
+        >
           <span className="row" style={{ gap: 8 }}>
             <Icon name={icons[r]} />
             <strong>{GUIDE_RENDERERS[r].label}</strong>
@@ -107,7 +146,10 @@ function RendererCards({ value, onChange }: { value: GuideRenderer; onChange: (r
 function SampleInstrumentsPanel({ song }: { song: Song }) {
   const st = useSampleInstruments();
   const ext = useExtensions();
-  const tracks = useMemo(() => audibleSourceTracks(productionSourceSong(song)).filter((t) => t.kind === 'midi'), [song]);
+  const tracks = useMemo(
+    () => audibleSourceTracks(productionSourceSong(song)).filter((t) => t.kind === 'midi'),
+    [song],
+  );
   // Recomputed when the enabled plugins change; the list itself is read from the plugin registry.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const plugin = useMemo(() => pluginSampleInstruments(), [ext]);
@@ -117,8 +159,13 @@ function SampleInstrumentsPanel({ song }: { song: Song }) {
     try {
       // Sample audio needs a rights attestation before it is used (the .sfz text itself does not).
       const audioFiles = files.filter((f) => !/\.sfz$/i.test(f.name));
-      const uploads = await Promise.all(audioFiles.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })));
-      const attested = await requestAttestation(uploads, { context: 'sample-instrument', purpose: 'Load samples as an instrument' });
+      const uploads = await Promise.all(
+        audioFiles.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })),
+      );
+      const attested = await requestAttestation(uploads, {
+        context: 'sample-instrument',
+        purpose: 'Load samples as an instrument',
+      });
       if (!attested) {
         toast('info', 'Loading the samples was cancelled.');
         return;
@@ -161,16 +208,28 @@ function SampleInstrumentsPanel({ song }: { song: Song }) {
         </table>
       ) : (
         <div className="callout small" data-testid="no-plugin-instruments">
-          <strong>No plugin sample instruments are installed.</strong> Instrument plugins ship SFZ sample sets (for example the “Felt Keys” example plugin): enable one in
-          Settings → Plugins{instrumentPlugins.length ? ` (${instrumentPlugins.map((m) => m.name).join(', ')} available)` : ' — the local Song Deck server lists and serves plugin files'}. Tracks
-          using a plugin instrument then render with its samples everywhere. You can also load your own SFZ or WAV samples for this session below.
+          <strong>No plugin sample instruments are installed.</strong> Instrument plugins ship SFZ sample sets
+          (for example the “Felt Keys” example plugin): enable one in Settings → Plugins
+          {instrumentPlugins.length
+            ? ` (${instrumentPlugins.map((m) => m.name).join(', ')} available)`
+            : ' — the local Song Deck server lists and serves plugin files'}
+          . Tracks using a plugin instrument then render with its samples everywhere. You can also load your
+          own SFZ or WAV samples for this session below.
         </div>
       )}
       <div className="row wrap">
-        <FileButton accept=".sfz,.wav,.flac,.aif,.aiff,.mp3,.ogg" multiple onFile={(f) => void load(f)} icon="upload">
+        <FileButton
+          accept=".sfz,.wav,.flac,.aif,.aiff,.mp3,.ogg"
+          multiple
+          onFile={(f) => void load(f)}
+          icon="upload"
+        >
           Load SFZ / samples…
         </FileButton>
-        <span className="small dim">An .sfz file with its samples, or loose WAVs named by root note (e.g. Violin_A3.wav). Loaded for this session.</span>
+        <span className="small dim">
+          An .sfz file with its samples, or loose WAVs named by root note (e.g. Violin_A3.wav). Loaded for
+          this session.
+        </span>
         {st.loading && <Spinner />}
       </div>
       {st.error && <div className="callout danger small">{st.error}</div>}
@@ -197,7 +256,13 @@ function SampleInstrumentsPanel({ song }: { song: Song }) {
                   {i.origin}
                 </td>
                 <td className="num">
-                  <Button size="sm" variant="ghost" icon="trash" aria-label={`Remove ${i.name}`} onClick={() => removeSampleInstrument(i.id)} />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon="trash"
+                    aria-label={`Remove ${i.name}`}
+                    onClick={() => removeSampleInstrument(i.id)}
+                  />
                 </td>
               </tr>
             ))}
@@ -213,7 +278,9 @@ function SampleInstrumentsPanel({ song }: { song: Song }) {
         </thead>
         <tbody>
           {tracks.map((t) => {
-            const viaPlugin = ext.instruments.find((p) => p.id === t.instrumentId && p.patchId?.startsWith('sfz:'));
+            const viaPlugin = ext.instruments.find(
+              (p) => p.id === t.instrumentId && p.patchId?.startsWith('sfz:'),
+            );
             return (
               <tr key={t.id}>
                 <td>
@@ -224,7 +291,15 @@ function SampleInstrumentsPanel({ song }: { song: Song }) {
                     size="sm"
                     value={st.assignments[t.id] ?? ''}
                     onChange={(v) => assignSampleInstrument(t.id, v || null)}
-                    options={[{ value: '', label: viaPlugin ? `Its plugin instrument (${viaPlugin.name})` : `Built-in (${t.instrumentId})` }, ...options]}
+                    options={[
+                      {
+                        value: '',
+                        label: viaPlugin
+                          ? `Its plugin instrument (${viaPlugin.name})`
+                          : `Built-in (${t.instrumentId})`,
+                      },
+                      ...options,
+                    ]}
                     aria-label={`Sample instrument for ${t.name}`}
                   />
                 </td>
@@ -243,20 +318,32 @@ interface PendingImport {
   attestation: PendingAttestation;
 }
 
-function ExternalPanel({ song, busy, onStarted }: { song: Song; busy: boolean; onStarted: (id: string) => void }) {
+function ExternalPanel({
+  song,
+  busy,
+  onStarted,
+}: {
+  song: Song;
+  busy: boolean;
+  onStarted: (id: string) => void;
+}) {
   const project = useStudio((s) => s.project)!;
   const [pending, setPending] = useState<PendingImport[]>([]);
   const [decoding, setDecoding] = useState(false);
   const source = useMemo(() => productionSourceSong(song), [song]);
   const groups = useMemo(() => {
     const tracks = audibleSourceTracks(source).filter((t) => t.kind === 'midi');
-    return STEM_GROUP_ORDER.map((g) => ({ group: g, tracks: tracks.filter((t) => (t.stemGroup || 'others') === g) })).filter((g) => g.tracks.length);
+    return STEM_GROUP_ORDER.map((g) => ({
+      group: g,
+      tracks: tracks.filter((t) => (t.stemGroup || 'others') === g),
+    })).filter((g) => g.tracks.length);
   }, [source]);
 
   const exportMidi = () => {
     const files: Record<string, Uint8Array> = {};
     const enc = (s: string) => new TextEncoder().encode(s);
-    for (const g of groups) files[`${g.group}_stem.mid`] = songToMidi(source, { trackIds: g.tracks.map((t) => t.id) });
+    for (const g of groups)
+      files[`${g.group}_stem.mid`] = songToMidi(source, { trackIds: g.tracks.map((t) => t.id) });
     files['full_song.mid'] = songToMidi(source);
     files['tempo_map.csv'] = enc(tempoMapCsv(source));
     files['markers.csv'] = enc(markersCsv(source));
@@ -268,20 +355,35 @@ function ExternalPanel({ song, busy, onStarted }: { song: Song; busy: boolean; o
         'and export one WAV per stem starting exactly at bar 1. Then use “Import rendered stems” in',
         'Produce → Guide render and map each WAV to its stem group:',
         '',
-        ...groups.map((g) => `  ${g.group}_stem.mid  →  ${GUIDE_STEM_FILES[g.group].file}   (${g.tracks.map((t) => t.name).join(', ')})`),
+        ...groups.map(
+          (g) =>
+            `  ${g.group}_stem.mid  →  ${GUIDE_STEM_FILES[g.group].file}   (${g.tracks.map((t) => t.name).join(', ')})`,
+        ),
       ].join('\n'),
     );
-    deliverFile(`${songFileBase(song)} - stem MIDI.zip`, zipSync(files), MIME.zip, { detail: `${groups.length} stem MIDI files for external rendering` });
+    deliverFile(`${songFileBase(song)} - stem MIDI.zip`, zipSync(files), MIME.zip, {
+      detail: `${groups.length} stem MIDI files for external rendering`,
+    });
   };
 
   const addFiles = async (files: File[]) => {
     try {
-      const uploads = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })));
-      const attested = await requestAttestation(uploads, { context: 'guide-stems', purpose: 'Import rendered stems as the guide' });
+      const uploads = await Promise.all(
+        files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })),
+      );
+      const attested = await requestAttestation(uploads, {
+        context: 'guide-stems',
+        purpose: 'Import rendered stems as the guide',
+      });
       if (!attested) return useStudio.getState().toast('info', 'Stem import cancelled.');
-      setPending((p) => [...p, ...files.map((file, i) => ({ file, group: guessGroup(file.name), attestation: attested[i] }))]);
+      setPending((p) => [
+        ...p,
+        ...files.map((file, i) => ({ file, group: guessGroup(file.name), attestation: attested[i] })),
+      ]);
     } catch (err) {
-      useStudio.getState().toast('error', `Could not read the files: ${err instanceof Error ? err.message : String(err)}`);
+      useStudio
+        .getState()
+        .toast('error', `Could not read the files: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
@@ -290,14 +392,25 @@ function ExternalPanel({ song, busy, onStarted }: { song: Song; busy: boolean; o
     setDecoding(true);
     try {
       const stems = [];
-      for (const p of pending) stems.push({ fileName: p.file.name, group: p.group, audio: await decodeAudioBytes(new Uint8Array(await p.file.arrayBuffer())) });
+      for (const p of pending)
+        stems.push({
+          fileName: p.file.name,
+          group: p.group,
+          audio: await decodeAudioBytes(new Uint8Array(await p.file.arrayBuffer())),
+        });
       const stageId = stageExternalStems(stems);
       for (const p of pending) recordAttestation(p.attestation);
-      const t = startTask<GuideImportInput, GuideOutput>('produce.guideImport', `Import ${stems.length} rendered stem${stems.length === 1 ? '' : 's'} as guide`, { projectId: project.meta.id, stageId });
+      const t = startTask<GuideImportInput, GuideOutput>(
+        'produce.guideImport',
+        `Import ${stems.length} rendered stem${stems.length === 1 ? '' : 's'} as guide`,
+        { projectId: project.meta.id, stageId },
+      );
       onStarted(t.id);
       setPending([]);
     } catch (err) {
-      useStudio.getState().toast('error', `Could not read the files: ${err instanceof Error ? err.message : String(err)}`);
+      useStudio
+        .getState()
+        .toast('error', `Could not read the files: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDecoding(false);
     }
@@ -313,14 +426,19 @@ function ExternalPanel({ song, busy, onStarted }: { song: Song; busy: boolean; o
           </Button>
         </div>
         <div className="small muted">
-          One MIDI file per stem group ({groups.map((g) => g.group).join(', ')}) plus the full song, tempo map and section markers — render them with your VSTs,
-          sample libraries or hardware.
+          One MIDI file per stem group ({groups.map((g) => g.group).join(', ')}) plus the full song, tempo map
+          and section markers — render them with your VSTs, sample libraries or hardware.
         </div>
       </div>
       <div className="card col">
         <div className="row between">
           <strong>2 · Import rendered stems</strong>
-          <FileButton accept="audio/*,.wav,.flac,.aif,.aiff,.mp3,.ogg" multiple onFile={(f) => void addFiles(f)} icon="upload">
+          <FileButton
+            accept="audio/*,.wav,.flac,.aif,.aiff,.mp3,.ogg"
+            multiple
+            onFile={(f) => void addFiles(f)}
+            icon="upload"
+          >
             Choose WAV files…
           </FileButton>
         </div>
@@ -341,24 +459,51 @@ function ExternalPanel({ song, busy, onStarted }: { song: Song; busy: boolean; o
                       {p.file.name}
                     </td>
                     <td>
-                      <Select size="sm" value={p.group} onChange={(g) => setPending((all) => all.map((x, j) => (j === i ? { ...x, group: g } : x)))} options={GROUP_OPTIONS} aria-label={`Stem group for ${p.file.name}`} />
+                      <Select
+                        size="sm"
+                        value={p.group}
+                        onChange={(g) =>
+                          setPending((all) => all.map((x, j) => (j === i ? { ...x, group: g } : x)))
+                        }
+                        options={GROUP_OPTIONS}
+                        aria-label={`Stem group for ${p.file.name}`}
+                      />
                     </td>
                     <td className="num">
-                      <Button size="sm" variant="ghost" icon="close" aria-label={`Remove ${p.file.name}`} onClick={() => setPending((all) => all.filter((_, j) => j !== i))} />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon="close"
+                        aria-label={`Remove ${p.file.name}`}
+                        onClick={() => setPending((all) => all.filter((_, j) => j !== i))}
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <div className="row">
-              <Button variant="primary" icon="upload" disabled={busy || decoding} onClick={() => void importNow()}>
-                {decoding ? 'Reading files…' : `Import ${pending.length} stem${pending.length === 1 ? '' : 's'} as guide`}
+              <Button
+                variant="primary"
+                icon="upload"
+                disabled={busy || decoding}
+                onClick={() => void importNow()}
+              >
+                {decoding
+                  ? 'Reading files…'
+                  : `Import ${pending.length} stem${pending.length === 1 ? '' : 's'} as guide`}
               </Button>
-              <span className="small dim">Stems are aligned at bar 1; several files per group are summed. The guide mix is built through your master bus.</span>
+              <span className="small dim">
+                Stems are aligned at bar 1; several files per group are summed. The guide mix is built through
+                your master bus.
+              </span>
             </div>
           </>
         ) : (
-          <div className="small dim">Map each rendered WAV to a stem group; it becomes that group’s reference (drums_reference.wav …) and the guide mix is rebuilt from them.</div>
+          <div className="small dim">
+            Map each rendered WAV to a stem group; it becomes that group’s reference (drums_reference.wav …)
+            and the guide mix is rebuilt from them.
+          </div>
         )}
       </div>
     </div>
@@ -380,23 +525,32 @@ export function GuidePanel({ song }: { song: Song }) {
 
   const render = () => {
     const renderer = ui.guideRenderer === 'sampled' ? 'sampled' : 'builtin';
-    const t = startTask<GuideInput, GuideOutput>('produce.guide', `Render guide (${GUIDE_RENDERERS[renderer].label})`, {
-      projectId: project.meta.id,
-      renderer,
-      vocalTone: ui.vocalTone,
-      assignments: renderer === 'sampled' ? assignments : undefined,
-      sampleRate: prefs.sampleRate,
-      bitDepth: 16,
-    });
+    const t = startTask<GuideInput, GuideOutput>(
+      'produce.guide',
+      `Render guide (${GUIDE_RENDERERS[renderer].label})`,
+      {
+        projectId: project.meta.id,
+        renderer,
+        vocalTone: ui.vocalTone,
+        assignments: renderer === 'sampled' ? assignments : undefined,
+        sampleRate: prefs.sampleRate,
+        bitDepth: 16,
+      },
+    );
     ui.set({ guideTaskId: t.id });
   };
 
   const superseded = useMemo(() => {
-    const current = new Set([song.production.guideMixAssetId, ...Object.values(song.production.guideStemAssetIds ?? {})]);
+    const current = new Set([
+      song.production.guideMixAssetId,
+      ...Object.values(song.production.guideStemAssetIds ?? {}),
+    ]);
     const referenced = new Set<string>();
     for (const p of project.meta.provenance) for (const s of p.sources) referenced.add(s.ref);
     for (const t of song.tracks) for (const c of t.clips) referenced.add(c.assetId);
-    return project.meta.assets.filter((a) => a.kind === 'guide-render' && !current.has(a.id) && !referenced.has(a.id));
+    return project.meta.assets.filter(
+      (a) => a.kind === 'guide-render' && !current.has(a.id) && !referenced.has(a.id),
+    );
   }, [project, song]);
 
   const removeSuperseded = async () => {
@@ -404,7 +558,10 @@ export function GuidePanel({ song }: { song: Song }) {
     const ok = await st.requestConfirm({
       kind: 'generic',
       title: 'Remove superseded guide renders?',
-      body: { message: `${superseded.length} earlier guide file(s), ${fmtBytes(superseded.reduce((n, a) => n + a.bytes, 0))}. Nothing references them; older revisions that pointed at them will show the audio as missing.`, confirmLabel: 'Remove' },
+      body: {
+        message: `${superseded.length} earlier guide file(s), ${fmtBytes(superseded.reduce((n, a) => n + a.bytes, 0))}. Nothing references them; older revisions that pointed at them will show the audio as missing.`,
+        confirmLabel: 'Remove',
+      },
     });
     if (!ok) return;
     for (const a of superseded) await assetStore.remove(a.id);
@@ -413,8 +570,24 @@ export function GuidePanel({ song }: { song: Song }) {
   };
 
   const deckSources: DeckSource[] = [
-    ...(view.mix ? [{ key: 'guide:mix', label: 'Mix', sub: GUIDE_MIX_FILE, assetId: view.mix.meta.id, tone: 'guide' as const }] : []),
-    ...view.stems.map((s) => ({ key: `guide:${s.group}`, label: GUIDE_STEM_FILES[s.group].label, sub: s.meta.name, assetId: s.meta.id, tone: 'stem' as const })),
+    ...(view.mix
+      ? [
+          {
+            key: 'guide:mix',
+            label: 'Mix',
+            sub: GUIDE_MIX_FILE,
+            assetId: view.mix.meta.id,
+            tone: 'guide' as const,
+          },
+        ]
+      : []),
+    ...view.stems.map((s) => ({
+      key: `guide:${s.group}`,
+      label: GUIDE_STEM_FILES[s.group].label,
+      sub: s.meta.name,
+      assetId: s.meta.id,
+      tone: 'stem' as const,
+    })),
   ];
 
   const download = async (meta: AudioAssetMeta) => {
@@ -457,13 +630,26 @@ export function GuidePanel({ song }: { song: Song }) {
                   </div>
                 </Field>
                 <div className="spacer" />
-                <Button variant="primary" size="lg" icon="play" onClick={render} disabled={busy || !tracks.length}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  icon="play"
+                  onClick={render}
+                  disabled={busy || !tracks.length}
+                >
                   {busy ? 'Rendering…' : view.mix ? 'Re-render guide' : 'Render guide'}
                 </Button>
               </div>
             </>
           )}
-          <TaskLine id={ui.guideTaskId} onDone={() => useStudio.getState().toast('success', 'Guide rendered: guide_mix.wav and reference stems are in the project')} />
+          <TaskLine
+            id={ui.guideTaskId}
+            onDone={() =>
+              useStudio
+                .getState()
+                .toast('success', 'Guide rendered: guide_mix.wav and reference stems are in the project')
+            }
+          />
         </div>
       </div>
 
@@ -487,7 +673,15 @@ export function GuidePanel({ song }: { song: Song }) {
         <div className="panel-body col">
           {view.mix ? (
             <>
-              <CompareDeck owner="guide" sources={deckSources} markers={markers} title={<span className="small muted">Listen to each — switch instantly at the same position</span>} testId="guide-deck" />
+              <CompareDeck
+                owner="guide"
+                sources={deckSources}
+                markers={markers}
+                title={
+                  <span className="small muted">Listen to each — switch instantly at the same position</span>
+                }
+                testId="guide-deck"
+              />
               <table className="table" aria-label="Guide assets" data-testid="guide-assets">
                 <thead>
                   <tr>
@@ -499,14 +693,29 @@ export function GuidePanel({ song }: { song: Song }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...(view.mix ? [{ group: null as StemGroup | null, meta: view.mix.meta, prov: view.mix.prov }] : []), ...view.stems].map((row) => {
-                    const params = (row.prov?.parameters ?? {}) as { trackIds?: string[]; files?: string[]; renderer?: string };
-                    const names = (params.trackIds ?? []).map((id) => song.tracks.find((t) => t.id === id)?.name).filter(Boolean);
+                  {[
+                    ...(view.mix
+                      ? [{ group: null as StemGroup | null, meta: view.mix.meta, prov: view.mix.prov }]
+                      : []),
+                    ...view.stems,
+                  ].map((row) => {
+                    const params = (row.prov?.parameters ?? {}) as {
+                      trackIds?: string[];
+                      files?: string[];
+                      renderer?: string;
+                    };
+                    const names = (params.trackIds ?? [])
+                      .map((id) => song.tracks.find((t) => t.id === id)?.name)
+                      .filter(Boolean);
                     const external = params.renderer === 'external';
                     return (
                       <tr key={row.meta.id}>
                         <td className="mono small">{row.meta.name}</td>
-                        <td className="small muted ellipsis" style={{ maxWidth: 280 }} title={names.join(', ')}>
+                        <td
+                          className="small muted ellipsis"
+                          style={{ maxWidth: 280 }}
+                          title={names.join(', ')}
+                        >
                           {row.group
                             ? `${GUIDE_STEM_FILES[row.group].label}${external && params.files?.length ? ` — rendered externally (${params.files.join(', ')})` : names.length ? ` — ${names.join(', ')}` : ''}`
                             : external
@@ -516,7 +725,13 @@ export function GuidePanel({ song }: { song: Song }) {
                         <td className="num">{mmss(row.meta.durationSeconds)}</td>
                         <td className="num">{fmtBytes(row.meta.bytes)}</td>
                         <td className="num">
-                          <Button size="sm" variant="ghost" icon="download" aria-label={`Download ${row.meta.name}`} onClick={() => void download(row.meta)} />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon="download"
+                            aria-label={`Download ${row.meta.name}`}
+                            onClick={() => void download(row.meta)}
+                          />
                         </td>
                       </tr>
                     );
@@ -524,8 +739,9 @@ export function GuidePanel({ song }: { song: Song }) {
                 </tbody>
               </table>
               <div className="row small dim">
-                <Icon name="info" size={13} /> Rendered {relTime(view.mix.meta.createdAt)} by {view.mix.prov?.providerName ?? 'the guide renderer'} — every file carries provenance (song revision, tracks,
-                renderer, format).
+                <Icon name="info" size={13} /> Rendered {relTime(view.mix.meta.createdAt)} by{' '}
+                {view.mix.prov?.providerName ?? 'the guide renderer'} — every file carries provenance (song
+                revision, tracks, renderer, format).
                 {superseded.length > 0 && (
                   <Button size="sm" variant="ghost" icon="trash" onClick={() => void removeSuperseded()}>
                     Remove {superseded.length} superseded file{superseded.length === 1 ? '' : 's'}
@@ -537,8 +753,9 @@ export function GuidePanel({ song }: { song: Song }) {
             <div className="pd-empty">
               <Icon name="waveform" size={26} />
               <div>
-                <strong>No guide yet.</strong> Render the composition into <span className="mono">guide_mix.wav</span> and per-instrument references — they are the input of
-                Strategy A and the reference you compare productions against.
+                <strong>No guide yet.</strong> Render the composition into{' '}
+                <span className="mono">guide_mix.wav</span> and per-instrument references — they are the input
+                of Strategy A and the reference you compare productions against.
               </div>
             </div>
           )}

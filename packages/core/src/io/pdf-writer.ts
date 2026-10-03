@@ -8,24 +8,56 @@ import { concatBytes, latin1 } from './util';
  */
 
 export type PdfFont = 'F1' | 'F2' | 'F3';
-export const PDF_FONTS: Record<PdfFont, string> = { F1: 'Helvetica', F2: 'Helvetica-Bold', F3: 'Helvetica-Oblique' };
+export const PDF_FONTS: Record<PdfFont, string> = {
+  F1: 'Helvetica',
+  F2: 'Helvetica-Bold',
+  F3: 'Helvetica-Oblique',
+};
 
 // Adobe Core 14 AFM advance widths (1/1000 em) for WinAnsi codes 32–126.
 const HELVETICA_WIDTHS = [
-  278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667,
-  722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556,
-  278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
+  278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556,
+  556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278,
+  500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469,
+  556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500,
+  278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
 ];
 const HELVETICA_BOLD_WIDTHS = [
-  278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722,
-  722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556,
-  333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584,
+  278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556,
+  556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278,
+  556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584,
+  556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556,
+  333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584,
 ];
 
 const WIN_ANSI_EXTRA: Record<number, number> = {
-  0x20ac: 0x80, 0x201a: 0x82, 0x0192: 0x83, 0x201e: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02c6: 0x88, 0x2030: 0x89, 0x0160: 0x8a, 0x2039: 0x8b,
-  0x0152: 0x8c, 0x017d: 0x8e, 0x2018: 0x91, 0x2019: 0x92, 0x201c: 0x93, 0x201d: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02dc: 0x98, 0x2122: 0x99,
-  0x0161: 0x9a, 0x203a: 0x9b, 0x0153: 0x9c, 0x017e: 0x9e, 0x0178: 0x9f,
+  0x20ac: 0x80,
+  0x201a: 0x82,
+  0x0192: 0x83,
+  0x201e: 0x84,
+  0x2026: 0x85,
+  0x2020: 0x86,
+  0x2021: 0x87,
+  0x02c6: 0x88,
+  0x2030: 0x89,
+  0x0160: 0x8a,
+  0x2039: 0x8b,
+  0x0152: 0x8c,
+  0x017d: 0x8e,
+  0x2018: 0x91,
+  0x2019: 0x92,
+  0x201c: 0x93,
+  0x201d: 0x94,
+  0x2022: 0x95,
+  0x2013: 0x96,
+  0x2014: 0x97,
+  0x02dc: 0x98,
+  0x2122: 0x99,
+  0x0161: 0x9a,
+  0x203a: 0x9b,
+  0x0153: 0x9c,
+  0x017e: 0x9e,
+  0x0178: 0x9f,
 };
 
 /** Map a Unicode string to WinAnsi bytes (as a binary string); unmappable characters become "?". */
@@ -144,10 +176,19 @@ export class PdfCanvas {
     return this.ellipse(cx, cy, r, r);
   }
   /** Text at (x, y) baseline; align left/center/right. */
-  text(x: number, y: number, text: string, font: PdfFont, size: number, align: 'left' | 'center' | 'right' = 'left'): this {
+  text(
+    x: number,
+    y: number,
+    text: string,
+    font: PdfFont,
+    size: number,
+    align: 'left' | 'center' | 'right' = 'left',
+  ): this {
     const w = align === 'left' ? 0 : textWidth(text, font, size);
     const tx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
-    return this.raw(`BT /${font} ${fmt(size)} Tf ${fmt(tx)} ${fmt(y)} Td (${escapePdfString(toWinAnsi(text))}) Tj ET`);
+    return this.raw(
+      `BT /${font} ${fmt(size)} Tf ${fmt(tx)} ${fmt(y)} Td (${escapePdfString(toWinAnsi(text))}) Tj ET`,
+    );
   }
   toString(): string {
     return this.ops.join('\n');
@@ -201,7 +242,9 @@ export class PdfDocument {
     };
     const pushText = (s: string) => push(latin1(s));
     // Header with a binary comment so transfer tools treat the file as binary.
-    push(Uint8Array.of(0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a, 0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a));
+    push(
+      Uint8Array.of(0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a, 0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a),
+    );
 
     const pageCount = this.pages.length || 1;
     const pages = this.pages.length ? this.pages : [{ width: 612, height: 792, content: '' }];
@@ -220,9 +263,15 @@ export class PdfDocument {
     };
 
     object(1, '<< /Type /Catalog /Pages 2 0 R >>');
-    object(2, `<< /Type /Pages /Kids [${pages.map((_, i) => `${pageObj(i)} 0 R`).join(' ')}] /Count ${pageCount} >>`);
+    object(
+      2,
+      `<< /Type /Pages /Kids [${pages.map((_, i) => `${pageObj(i)} 0 R`).join(' ')}] /Count ${pageCount} >>`,
+    );
     for (const [name, base] of Object.entries(PDF_FONTS) as [PdfFont, string][]) {
-      object(fontObj[name], `<< /Type /Font /Subtype /Type1 /BaseFont /${base} /Encoding /WinAnsiEncoding >>`);
+      object(
+        fontObj[name],
+        `<< /Type /Font /Subtype /Type1 /BaseFont /${base} /Encoding /WinAnsiEncoding >>`,
+      );
     }
     const info: string[] = [];
     if (this.info.title) info.push(`/Title ${pdfTextString(this.info.title)}`);
@@ -240,13 +289,19 @@ export class PdfDocument {
       );
       const raw = latin1(p.content);
       const data = compress ? zlibSync(raw, { level: 6 }) : raw;
-      object(contentObj(i), [latin1(`<< /Length ${data.length}${compress ? ' /Filter /FlateDecode' : ''} >>\nstream\n`), data, latin1('\nendstream')]);
+      object(contentObj(i), [
+        latin1(`<< /Length ${data.length}${compress ? ' /Filter /FlateDecode' : ''} >>\nstream\n`),
+        data,
+        latin1('\nendstream'),
+      ]);
     });
     const xrefOffset = offset;
     let xref = `xref\n0 ${totalObjects + 1}\n0000000000 65535 f \n`;
     for (let n = 1; n <= totalObjects; n++) xref += `${String(offsets[n]).padStart(10, '0')} 00000 n \n`;
     pushText(xref);
-    pushText(`trailer\n<< /Size ${totalObjects + 1} /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`);
+    pushText(
+      `trailer\n<< /Size ${totalObjects + 1} /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`,
+    );
     return concatBytes(chunks);
   }
 }

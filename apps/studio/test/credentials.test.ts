@@ -10,7 +10,9 @@ describe('browser credential store', () => {
     expect(await store.put('provider:groq', 'gsk_test_0123456789abcdef', 'Groq API key')).toBe('browser');
     expect(await store.where('provider:groq')).toBe('browser');
     expect(await store.get('provider:groq')).toBe('gsk_test_0123456789abcdef');
-    expect(JSON.stringify([...kv.data.values()], (_k, v) => (v instanceof Uint8Array ? Array.from(v) : v))).not.toContain('gsk_test');
+    expect(
+      JSON.stringify([...kv.data.values()], (_k, v) => (v instanceof Uint8Array ? Array.from(v) : v)),
+    ).not.toContain('gsk_test');
     // A reload (a new store over the same database) still has it.
     expect(await new BrowserCredentialStore(kv).get('provider:groq')).toBe('gsk_test_0123456789abcdef');
     expect((await store.list()).map((r) => r.ref)).toEqual(['provider:groq']);

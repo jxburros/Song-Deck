@@ -5,7 +5,19 @@ import { Icon, type IconName } from '../../ui/icons';
 
 /** Small building blocks shared by the settings tabs. */
 
-export function TabHeader({ icon, title, lede, actions, spec }: { icon: IconName; title: string; lede: ReactNode; actions?: ReactNode; spec?: string }) {
+export function TabHeader({
+  icon,
+  title,
+  lede,
+  actions,
+  spec,
+}: {
+  icon: IconName;
+  title: string;
+  lede: ReactNode;
+  actions?: ReactNode;
+  spec?: string;
+}) {
   return (
     <header className="st-head">
       <div className="st-head-icon">
@@ -43,7 +55,12 @@ export function Panel({
   testId?: string;
 }) {
   return (
-    <section className={`panel st-panel ${className}`} id={id} data-testid={testId} aria-label={typeof title === 'string' ? title : undefined}>
+    <section
+      className={`panel st-panel ${className}`}
+      id={id}
+      data-testid={testId}
+      aria-label={typeof title === 'string' ? title : undefined}
+    >
       <div className="panel-header">
         {icon && <Icon name={icon} />}
         <div className="grow" style={{ minWidth: 0 }}>
@@ -59,7 +76,17 @@ export function Panel({
   );
 }
 
-export function Row({ name, detail, children, className = '' }: { name: ReactNode; detail?: ReactNode; children?: ReactNode; className?: string }) {
+export function Row({
+  name,
+  detail,
+  children,
+  className = '',
+}: {
+  name: ReactNode;
+  detail?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+}) {
   return (
     <div className={`st-row ${className}`}>
       <div className="grow" style={{ minWidth: 0 }}>
@@ -86,10 +113,20 @@ const STATUS_LABEL: Record<string, string> = {
   disabled: 'Disabled',
 };
 
-export function StatusPill({ status, title, label }: { status: ProviderStatus | 'disabled'; title?: string; label?: string }) {
+export function StatusPill({
+  status,
+  title,
+  label,
+}: {
+  status: ProviderStatus | 'disabled';
+  title?: string;
+  label?: string;
+}) {
   return (
     <span className={`st-status ${status}`} title={title}>
-      <span className={`status-dot ${STATUS_TONE[status] === 'success' ? 'ok' : STATUS_TONE[status] === 'warning' ? 'warn' : STATUS_TONE[status] === 'danger' ? 'err' : ''}`} />
+      <span
+        className={`status-dot ${STATUS_TONE[status] === 'success' ? 'ok' : STATUS_TONE[status] === 'warning' ? 'warn' : STATUS_TONE[status] === 'danger' ? 'err' : ''}`}
+      />
       {label ?? STATUS_LABEL[status] ?? status}
     </span>
   );
@@ -115,18 +152,36 @@ export function LocationBadge({ location }: { location: ProviderLocation }) {
   );
 }
 
-export function CapBadges({ caps, max = 6, inferred }: { caps: readonly Capability[] | readonly string[]; max?: number; inferred?: boolean }) {
+export function CapBadges({
+  caps,
+  max = 6,
+  inferred,
+}: {
+  caps: readonly Capability[] | readonly string[];
+  max?: number;
+  inferred?: boolean;
+}) {
   const list = caps as readonly string[];
   const shown = list.slice(0, max);
   return (
     <span className="st-caps">
       {shown.map((c) => (
-        <span key={c} className={`st-cap ${inferred ? 'inferred' : ''}`} title={CAPABILITY_INFO[c as Capability]?.description ?? c}>
+        <span
+          key={c}
+          className={`st-cap ${inferred ? 'inferred' : ''}`}
+          title={CAPABILITY_INFO[c as Capability]?.description ?? c}
+        >
           {CAPABILITY_INFO[c as Capability]?.label ?? c}
         </span>
       ))}
       {list.length > max && (
-        <span className="st-cap more" title={list.slice(max).map((c) => CAPABILITY_INFO[c as Capability]?.label ?? c).join(', ')}>
+        <span
+          className="st-cap more"
+          title={list
+            .slice(max)
+            .map((c) => CAPABILITY_INFO[c as Capability]?.label ?? c)
+            .join(', ')}
+        >
           +{list.length - max}
         </span>
       )}
@@ -172,11 +227,29 @@ export function ChipSet<T extends string>({
 }
 
 /** Segmented single choice. */
-export function Segmented<T extends string>({ options, value, onChange, label }: { options: readonly { value: T; label: ReactNode; title?: string }[]; value: T; onChange: (v: T) => void; label?: string }) {
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: readonly { value: T; label: ReactNode; title?: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  label?: string;
+}) {
   return (
     <div className="st-seg" role="radiogroup" aria-label={label}>
       {options.map((o) => (
-        <button key={o.value} type="button" role="radio" aria-checked={o.value === value} className={`st-seg-btn ${o.value === value ? 'on' : ''}`} title={o.title} onClick={() => onChange(o.value)}>
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={o.value === value}
+          className={`st-seg-btn ${o.value === value ? 'on' : ''}`}
+          title={o.title}
+          onClick={() => onChange(o.value)}
+        >
           {o.label}
         </button>
       ))}
@@ -184,7 +257,17 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
   );
 }
 
-export function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'warning' | 'danger' | 'success' }) {
+export function Stat({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: ReactNode;
+  tone?: 'warning' | 'danger' | 'success';
+}) {
   return (
     <div className={`st-stat ${tone ?? ''}`}>
       <div className="st-stat-label">{label}</div>
@@ -199,7 +282,13 @@ export function Meter({ value, max, warnAt }: { value: number; max?: number; war
   const frac = Math.max(0, Math.min(1, value / max));
   const tone = frac >= 1 ? 'danger' : warnAt !== undefined && frac >= warnAt ? 'warning' : '';
   return (
-    <div className={`st-meter ${tone}`} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
+    <div
+      className={`st-meter ${tone}`}
+      role="meter"
+      aria-valuemin={0}
+      aria-valuemax={max}
+      aria-valuenow={value}
+    >
       <div style={{ width: `${frac * 100}%` }} />
     </div>
   );
@@ -306,7 +395,13 @@ export function ConfirmModal({
         {requireText && (
           <label className="field">
             <span className="field-label">Type {requireText} to confirm</span>
-            <input className="input mono" value={typed} onChange={(e) => setTyped(e.target.value)} aria-label={`Type ${requireText} to confirm`} autoFocus />
+            <input
+              className="input mono"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              aria-label={`Type ${requireText} to confirm`}
+              autoFocus
+            />
           </label>
         )}
       </div>
@@ -359,7 +454,10 @@ export function OptNumber({
   size?: 'sm';
   /** Display = value / scale (e.g. ms shown as seconds with scale 1000). */
   scale?: number;
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'size' | 'min' | 'max' | 'step'>) {
+} & Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'value' | 'onChange' | 'size' | 'min' | 'max' | 'step'
+>) {
   const shown = value === undefined ? '' : String(Math.round((value / scale) * 1e6) / 1e6);
   const [draft, setDraft] = useState(shown);
   const last = useRef(shown);

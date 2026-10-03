@@ -70,9 +70,7 @@
   align-items: stretch;
   overflow: hidden;
   margin-bottom: 14px;
-  background:
-    linear-gradient(180deg, var(--row-hover), transparent 30%),
-    var(--bg-elev-1);
+  background: linear-gradient(180deg, var(--row-hover), transparent 30%), var(--bg-elev-1);
 }
 .mx-strips {
   display: flex;
@@ -115,7 +113,11 @@
 }
 .mx-strip.locked {
   background:
-    repeating-linear-gradient(135deg, color-mix(in srgb, var(--warning) 4.5%, transparent) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--warning) 4.5%, transparent) 0 6px,
+      transparent 6px 12px
+    ),
     var(--bg-elev-2);
 }
 .mx-strip.muted .mx-strip-name,
@@ -434,7 +436,13 @@
   right: 1px;
   height: 28px;
   border-radius: 5px;
-  background: linear-gradient(180deg, var(--brand-gray-light) 0%, var(--bg-elev-3) 48%, var(--bg-elev-2) 52%, var(--bg-elev-3) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--brand-gray-light) 0%,
+    var(--bg-elev-3) 48%,
+    var(--bg-elev-2) 52%,
+    var(--bg-elev-3) 100%
+  );
   border: 1px solid var(--brand-gray-light);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
 }
@@ -449,7 +457,13 @@
   background: var(--strip-color, var(--accent));
 }
 :root[data-theme='light'] .mx-fader-thumb {
-  background: linear-gradient(180deg, var(--bg-elev-1) 0%, var(--bg-elev-3) 48%, var(--border) 52%, var(--bg-elev-2) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--bg-elev-1) 0%,
+    var(--bg-elev-3) 48%,
+    var(--border) 52%,
+    var(--bg-elev-2) 100%
+  );
   border-color: var(--border-strong);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -490,7 +504,14 @@
   right: 0;
   bottom: 0;
   height: 0;
-  background: linear-gradient(to top, var(--success) 0%, var(--success) 66%, var(--warning) 84%, var(--danger) 93%, var(--danger) 100%);
+  background: linear-gradient(
+    to top,
+    var(--success) 0%,
+    var(--success) 66%,
+    var(--warning) 84%,
+    var(--danger) 93%,
+    var(--danger) 100%
+  );
   background-size: 100% var(--mh, 160px);
   background-position: bottom;
 }
@@ -932,7 +953,13 @@
   height: 10px;
   margin: 4px 0;
   border-radius: 5px;
-  background: linear-gradient(90deg, var(--bg-elev-3) 0%, color-mix(in srgb, var(--success) 25%, transparent) 45%, color-mix(in srgb, var(--warning) 30%, transparent) 75%, color-mix(in srgb, var(--danger) 35%, transparent) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-elev-3) 0%,
+    color-mix(in srgb, var(--success) 25%, transparent) 45%,
+    color-mix(in srgb, var(--warning) 30%, transparent) 75%,
+    color-mix(in srgb, var(--danger) 35%, transparent) 100%
+  );
 }
 .mx-lufs-target {
   position: absolute;

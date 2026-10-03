@@ -21,7 +21,11 @@ export class MemoryVault implements CredentialVault {
 
   async list(): Promise<VaultEntryMeta[]> {
     return [...this.entries.entries()]
-      .map(([ref, e]) => ({ ref, ...(e.label !== undefined ? { label: e.label } : {}), updatedAt: e.updatedAt }))
+      .map(([ref, e]) => ({
+        ref,
+        ...(e.label !== undefined ? { label: e.label } : {}),
+        updatedAt: e.updatedAt,
+      }))
       .sort((a, b) => a.ref.localeCompare(b.ref));
   }
 }

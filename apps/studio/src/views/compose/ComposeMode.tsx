@@ -75,7 +75,10 @@ export default function ComposeMode() {
         return { bp: res.blueprint, source: res.source };
       } catch (err) {
         if (aborted(err)) throw err;
-        st.toast('warning', `${route?.providerName ?? 'The model'} is unavailable — built the blueprint on-device from your choices. ${errText(err)}`);
+        st.toast(
+          'warning',
+          `${route?.providerName ?? 'The model'} is unavailable — built the blueprint on-device from your choices. ${errText(err)}`,
+        );
       }
     }
     return { bp: blueprintFromChoices(choices, { seed, ...custom }), source: 'On-device engine' };
@@ -96,7 +99,10 @@ export default function ComposeMode() {
 
   const compose = async (bp: Blueprint, p: CompositionPlan) => {
     const composed = composeSong({ ...bp, seed }, p, { seed, customGenres, customInstruments });
-    const song = composed.title && composed.title !== 'Untitled' ? composed : { ...composed, title: workingTitle(composed, allGenres) };
+    const song =
+      composed.title && composed.title !== 'Untitled'
+        ? composed
+        : { ...composed, title: workingTitle(composed, allGenres) };
     if (target === 'replace' && project) {
       st.commit({ ...song, id: project.song.id }, `Composed “${song.title}” (seed ${seed})`, 'generate');
     } else {
@@ -104,10 +110,14 @@ export default function ComposeMode() {
       st.commit(created.song, `Composed “${song.title}” (seed ${seed})`, 'generate');
     }
     // Up-front lyrics are the user's words: credit them (not an AI) as the lyric writer.
-    if (bp.lyrics?.sections.some((s) => s.lines.length)) st.updateProject((pr) => creditLyricWriter(pr, userName || 'Me'));
+    if (bp.lyrics?.sections.some((s) => s.lines.length))
+      st.updateProject((pr) => creditLyricWriter(pr, userName || 'Me'));
     st.selectTrack(song.tracks[0]?.id ?? null);
     st.setWorkbenchView('arrangement');
-    st.toast('success', `Composed ${song.tracks.length} tracks across ${song.sections.length} sections${song.lyrics.length ? ` · ${song.lyrics.length} lyric lines` : ''}`);
+    st.toast(
+      'success',
+      `Composed ${song.tracks.length} tracks across ${song.sections.length} sections${song.lyrics.length ? ` · ${song.lyrics.length} lyric lines` : ''}`,
+    );
   };
 
   /** Primary path: builder → blueprint → plan → MIDI in one go. */
@@ -151,13 +161,23 @@ export default function ComposeMode() {
     if (!lyrics) return;
     setBusy('Listening to your lyrics…');
     try {
-      const res = await aiDesignBlueprint('Suggest genres, style/mood tags and a tempo that suit these lyrics.', { providerChoice: planner, seed, choices: { lyrics } });
+      const res = await aiDesignBlueprint(
+        'Suggest genres, style/mood tags and a tempo that suit these lyrics.',
+        { providerChoice: planner, seed, choices: { lyrics } },
+      );
       const bp = res.blueprint;
       const tags = (bp.tags ?? []).map((id) => getTag(id)).filter((t): t is NonNullable<typeof t> => !!t);
       const cur = useComposeSession.getState().draft;
       session.patch({
-        genres: cur.genres.length ? cur.genres : bp.genreBlend.map((g) => ({ genreId: g.genreId, weight: g.weight })),
-        moods: [...cur.moods, ...tags.filter((t) => t.kind === 'mood' && !cur.moods.some((m) => m.tagId === t.id)).map((t) => ({ tagId: t.id }))],
+        genres: cur.genres.length
+          ? cur.genres
+          : bp.genreBlend.map((g) => ({ genreId: g.genreId, weight: g.weight })),
+        moods: [
+          ...cur.moods,
+          ...tags
+            .filter((t) => t.kind === 'mood' && !cur.moods.some((m) => m.tagId === t.id))
+            .map((t) => ({ tagId: t.id })),
+        ],
         tags: [...new Set([...cur.tags, ...tags.filter((t) => t.kind !== 'mood').map((t) => t.id)])],
         ...(cur.tempo === 'auto' ? { tempo: 'bpm' as const, bpm: bp.tempo } : {}),
       });
@@ -213,13 +233,23 @@ export default function ComposeMode() {
           <div className="grow">
             <h1>Compose</h1>
             <div className="lede">
-              Pick the <strong>instruments</strong>, <strong>genres</strong>, <strong>moods</strong> and settings — or start from your <strong>lyrics</strong>. You get the
-              composition first, as MIDI you can edit.{model ? ' A language model is attached: you can also describe the song in your own words.' : ''}
+              Pick the <strong>instruments</strong>, <strong>genres</strong>, <strong>moods</strong> and
+              settings — or start from your <strong>lyrics</strong>. You get the composition first, as MIDI
+              you can edit.
+              {model
+                ? ' A language model is attached: you can also describe the song in your own words.'
+                : ''}
             </div>
           </div>
           <div className="row cb-steps">
             {(['build', 'blueprint', 'plan'] as Step[]).map((s, i) => (
-              <Button key={s} size="sm" active={step === s} disabled={(s === 'blueprint' && !blueprint) || (s === 'plan' && !plan)} onClick={() => setStep(s)}>
+              <Button
+                key={s}
+                size="sm"
+                active={step === s}
+                disabled={(s === 'blueprint' && !blueprint) || (s === 'plan' && !plan)}
+                onClick={() => setStep(s)}
+              >
                 {i + 1}. {s === 'build' ? 'Build' : s === 'blueprint' ? 'Fine-tune' : 'Plan'}
               </Button>
             ))}
@@ -228,8 +258,20 @@ export default function ComposeMode() {
 
         {step === 'build' && (
           <>
-            {destination && <div className="row" style={{ marginBottom: 10 }}>{destination}</div>}
-            <Builder route={route} busy={busy} onGenerate={() => void generateSong()} onFineTune={() => void fineTune()} customGenres={customGenres} customInstruments={customInstruments} onSuggestFromLyrics={() => void suggestFromLyrics()} />
+            {destination && (
+              <div className="row" style={{ marginBottom: 10 }}>
+                {destination}
+              </div>
+            )}
+            <Builder
+              route={route}
+              busy={busy}
+              onGenerate={() => void generateSong()}
+              onFineTune={() => void fineTune()}
+              customGenres={customGenres}
+              customInstruments={customInstruments}
+              onSuggestFromLyrics={() => void suggestFromLyrics()}
+            />
           </>
         )}
 
@@ -240,11 +282,17 @@ export default function ComposeMode() {
                 <Icon name="sparkles" size={11} /> {source || 'On-device engine'}
               </Badge>
               <span className="muted small">
-                {blueprint.title} · {blueprint.tempo} BPM · {blueprint.meter.numerator}/{blueprint.meter.denominator} · {keyName(blueprint.key)}
+                {blueprint.title} · {blueprint.tempo} BPM · {blueprint.meter.numerator}/
+                {blueprint.meter.denominator} · {keyName(blueprint.key)}
               </span>
               <div className="spacer" />
               <Button onClick={() => setStep('build')}>Back</Button>
-              <Button variant="primary" icon="layers" disabled={!!busy} onClick={() => void makePlan(blueprint)}>
+              <Button
+                variant="primary"
+                icon="layers"
+                disabled={!!busy}
+                onClick={() => void makePlan(blueprint)}
+              >
                 {busy ?? 'Plan composition'}
               </Button>
             </div>
@@ -265,7 +313,10 @@ export default function ComposeMode() {
               <Badge tone="ai">
                 <Icon name="sparkles" size={11} /> Plan by {source || 'On-device engine'}
               </Badge>
-              <span className="muted small">All MIDI generators consume this same plan (spec §15). Edit harmony, energy or purpose before generating.</span>
+              <span className="muted small">
+                All MIDI generators consume this same plan (spec §15). Edit harmony, energy or purpose before
+                generating.
+              </span>
               <div className="spacer" />
               <Button onClick={() => setStep('blueprint')}>Back</Button>
               <Button icon="rebuild" disabled={!!busy} onClick={() => void makePlan(blueprint)}>
@@ -278,7 +329,13 @@ export default function ComposeMode() {
                 {destination}
                 <div className="spacer" />
                 <span className="muted small">Seed {seed}</span>
-                <Button variant="primary" size="lg" icon="midi" disabled={!!busy} onClick={() => void generate()}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  icon="midi"
+                  disabled={!!busy}
+                  onClick={() => void generate()}
+                >
                   {busy ?? 'Generate MIDI composition'}
                 </Button>
               </div>

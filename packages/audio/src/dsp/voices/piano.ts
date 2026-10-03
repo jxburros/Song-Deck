@@ -61,8 +61,10 @@ export function renderPianoNote(sr: number, pitch: number, velocity: number, p: 
       const tt = t60 * (sIdx === 0 ? 1 : 0.82);
       const d = Math.exp(-6.907755 / (tt * sr));
       const len = Math.min(n, Math.ceil(tt * sr * 1.4));
-      const cr = Math.cos(w) * d, ci = Math.sin(w) * d;
-      let re = amp * 0.5, im = 0;
+      const cr = Math.cos(w) * d,
+        ci = Math.sin(w) * d;
+      let re = amp * 0.5,
+        im = 0;
       for (let t = 0; t < len; t++) {
         out[t] += im;
         const nr = re * cr - im * ci;
@@ -87,7 +89,7 @@ export function renderPianoNote(sr: number, pitch: number, velocity: number, p: 
   const thumpD = Math.exp(-6.9 / (0.07 * sr));
   let tg = 0.03 * v * p.hammer;
   for (let t = 0; t < nLen; t++) {
-    lp += lpA * ((nextU() * 2 - 1) - lp);
+    lp += lpA * (nextU() * 2 - 1 - lp);
     out[t] += lp * g + Math.sin(thumpW * t) * tg;
     g *= nDecay;
     tg *= thumpD;

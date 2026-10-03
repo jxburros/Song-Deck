@@ -46,7 +46,9 @@ export async function serverJson<T>(path: string, init: RequestInit = {}): Promi
   try {
     res = await fetch(`${serverBase()}${path}`, init);
   } catch (err) {
-    throw new ServerApiError(`Song Deck server unreachable (${err instanceof Error ? err.message : String(err)})`);
+    throw new ServerApiError(
+      `Song Deck server unreachable (${err instanceof Error ? err.message : String(err)})`,
+    );
   }
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
@@ -101,7 +103,13 @@ export interface ModelEntry {
   version: string;
   sizeGb?: number;
   license: string;
-  requirements: { minVramGb?: number; recommendedVramGb?: number; minRamGb?: number; cpuOk?: boolean; minCpuCores?: number };
+  requirements: {
+    minVramGb?: number;
+    recommendedVramGb?: number;
+    minRamGb?: number;
+    cpuOk?: boolean;
+    minCpuCores?: number;
+  };
   capabilities: string[];
   location?: string;
   installed: boolean;
@@ -119,7 +127,13 @@ export interface ModelEntry {
 
 export interface ModelsReport {
   categories: { id: string; label: string; models: ModelEntry[] }[];
-  sources: { source: string; url?: string; status: 'ok' | 'unreachable' | 'error' | 'disabled'; count: number; error?: string }[];
+  sources: {
+    source: string;
+    url?: string;
+    status: 'ok' | 'unreachable' | 'error' | 'disabled';
+    count: number;
+    error?: string;
+  }[];
   hardware?: Partial<HardwareReport>;
   scannedAt: string;
 }
@@ -133,7 +147,11 @@ export function getModels(refresh = false): Promise<ModelsReport> {
 }
 
 export function rescanModels(): Promise<ModelsReport> {
-  return serverJson<ModelsReport>('/api/models/rescan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  return serverJson<ModelsReport>('/api/models/rescan', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +174,9 @@ export interface PluginScan {
 export async function scanPluginRecords(): Promise<PluginScan> {
   try {
     const data = await serverJson<PluginScan | PluginRecord[]>('/api/plugins');
-    const scan: PluginScan = Array.isArray(data) ? { plugins: data, errors: [] } : { plugins: data.plugins ?? [], errors: data.errors ?? [] };
+    const scan: PluginScan = Array.isArray(data)
+      ? { plugins: data, errors: [] }
+      : { plugins: data.plugins ?? [], errors: data.errors ?? [] };
     useExtensions.setState({ available: scan.plugins, scanError: undefined });
     return scan;
   } catch (err) {
@@ -231,9 +251,14 @@ function joinUrl(base: string, path: string): string {
 }
 
 /** Reachability probe for bridges without model discovery (`GET {base}/info`). */
-export async function probeEndpoint(config: ProviderConfig, path = 'info'): Promise<{ status: number; ms: number; body?: unknown }> {
+export async function probeEndpoint(
+  config: ProviderConfig,
+  path = 'info',
+): Promise<{ status: number; ms: number; body?: unknown }> {
   const useProxy = serverOnline() && useSettings.getState().useServerProxy;
-  const transport = useProxy ? new ServerProxyTransport(serverBase()) : new DirectTransport(browserCredentials);
+  const transport = useProxy
+    ? new ServerProxyTransport(serverBase())
+    : new DirectTransport(browserCredentials);
   const t0 = performance.now();
   const res = await transport.fetch(joinUrl(config.baseUrl, path), { method: 'GET' }, authForConfig(config));
   let body: unknown;
@@ -271,16 +296,31 @@ export interface ProviderCheck {
  * Discover a provider's models (or, for bridges that cannot list models, probe `GET /info`) and
  * describe the outcome. Throws on connection/auth errors (the registry records the status).
  */
-export async function checkProvider(config: ProviderConfig, mode: 'discover' | 'test' = 'test'): Promise<ProviderCheck> {
+export async function checkProvider(
+  config: ProviderConfig,
+  mode: 'discover' | 'test' = 'test',
+): Promise<ProviderCheck> {
   const reg = getRegistry();
   const inst = reg.get(config.id);
   if (!inst) throw new Error('The provider could not be created — check its configuration');
   const t0 = performance.now();
-  const listsModels = !!(inst.llm || inst.audioGeneration || inst.singing || inst.voiceConversion?.listVoices);
+  const listsModels = !!(
+    inst.llm ||
+    inst.audioGeneration ||
+    inst.singing ||
+    inst.voiceConversion?.listVoices
+  );
   if (!listsModels) {
     const probe = await probeEndpoint(config);
-    if (probe.status < 400) return { tone: 'success', text: `Reachable — HTTP ${probe.status} in ${probe.ms} ms.${mode === 'discover' ? ' This kind of provider does not list models.' : ''}` };
-    return { tone: probe.status === 404 ? 'warning' : 'danger', text: `The endpoint answered HTTP ${probe.status} (${probe.ms} ms).` };
+    if (probe.status < 400)
+      return {
+        tone: 'success',
+        text: `Reachable — HTTP ${probe.status} in ${probe.ms} ms.${mode === 'discover' ? ' This kind of provider does not list models.' : ''}`,
+      };
+    return {
+      tone: probe.status === 404 ? 'warning' : 'danger',
+      text: `The endpoint answered HTTP ${probe.status} (${probe.ms} ms).`,
+    };
   }
   const list = await reg.discoverModels(config.id, { force: true });
   const ms = Math.round(performance.now() - t0);
@@ -301,15 +341,26 @@ export async function checkProvider(config: ProviderConfig, mode: 'discover' | '
  * Validate a pasted key and list the account's models without saving anything. With the local
  * server online the check runs there (no CORS limits); otherwise straight from this page.
  */
-export async function probeKey(presetId: string, key: string, signal?: AbortSignal): Promise<ConnectProbeResult & { via: 'server' | 'browser' }> {
+export async function probeKey(
+  presetId: string,
+  key: string,
+  signal?: AbortSignal,
+): Promise<ConnectProbeResult & { via: 'server' | 'browser' }> {
   if (serverOnline()) {
-    const r = await serverJson<{ ok: boolean; result?: ConnectProbeResult; error?: { kind: ProviderErrorKind; status?: number; message: string } }>('/api/connect/probe', {
+    const r = await serverJson<{
+      ok: boolean;
+      result?: ConnectProbeResult;
+      error?: { kind: ProviderErrorKind; status?: number; message: string };
+    }>('/api/connect/probe', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ presetId, secret: key }),
       signal,
     });
-    if (!r.ok || !r.result) throw new ProviderError(r.error?.kind ?? 'unknown', r.error?.message ?? 'Validation failed', { status: r.error?.status });
+    if (!r.ok || !r.result)
+      throw new ProviderError(r.error?.kind ?? 'unknown', r.error?.message ?? 'Validation failed', {
+        status: r.error?.status,
+      });
     return { ...r.result, via: 'server' };
   }
   const ref = `connect:${presetId}`;
@@ -332,5 +383,8 @@ export async function scanLocalServices(): Promise<LocalScan> {
       /* an older server without the endpoint: fall back to the browser */
     }
   }
-  return { services: await detectLocalServices(DEFAULT_LOCAL_SERVICE_TARGETS, { timeoutMs: 1500 }), via: 'browser' };
+  return {
+    services: await detectLocalServices(DEFAULT_LOCAL_SERVICE_TARGETS, { timeoutMs: 1500 }),
+    via: 'browser',
+  };
 }

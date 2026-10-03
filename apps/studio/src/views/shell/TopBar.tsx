@@ -6,15 +6,60 @@ import { formatTime, usePlayhead, usePlayerState } from '../../hooks';
 import { CollabPresence } from '../shared/CollabPresence';
 
 const MODES: { mode: Mode; label: string; icon: IconName; needsProject?: boolean; title: string }[] = [
-  { mode: 'compose', label: 'Compose', icon: 'compose', title: 'Prompt → Blueprint → Plan → MIDI (spec §25 Compose)' },
-  { mode: 'workbench', label: 'Workbench', icon: 'workbench', needsProject: true, title: 'MIDI Workbench: arrangement, piano roll, patterns, chords, structure, theory' },
+  {
+    mode: 'compose',
+    label: 'Compose',
+    icon: 'compose',
+    title: 'Prompt → Blueprint → Plan → MIDI (spec §25 Compose)',
+  },
+  {
+    mode: 'workbench',
+    label: 'Workbench',
+    icon: 'workbench',
+    needsProject: true,
+    title: 'MIDI Workbench: arrangement, piano roll, patterns, chords, structure, theory',
+  },
   { mode: 'generate', label: 'Generate', icon: 'midi', title: 'Create individual musical assets' },
-  { mode: 'transcribe', label: 'Transcribe', icon: 'mic', title: 'Audio → MIDI: humming, singing, instruments, taps' },
-  { mode: 'rebuild', label: 'Rebuild', icon: 'rebuild', title: 'Reconstruct a recording as an editable project' },
-  { mode: 'produce', label: 'Produce', icon: 'produce', needsProject: true, title: 'Guide renders and AI production (A/B candidates)' },
-  { mode: 'vocals', label: 'Vocals', icon: 'music', needsProject: true, title: 'Lyrics, vocal melody, singing synthesis, recordings' },
-  { mode: 'mix', label: 'Mix & Master', icon: 'mixer', needsProject: true, title: 'Mixer, automation, AI mix assistant, mastering' },
-  { mode: 'export', label: 'Export', icon: 'export', needsProject: true, title: 'MIDI, audio, stems, sheets, MusicXML, DAW projects' },
+  {
+    mode: 'transcribe',
+    label: 'Transcribe',
+    icon: 'mic',
+    title: 'Audio → MIDI: humming, singing, instruments, taps',
+  },
+  {
+    mode: 'rebuild',
+    label: 'Rebuild',
+    icon: 'rebuild',
+    title: 'Reconstruct a recording as an editable project',
+  },
+  {
+    mode: 'produce',
+    label: 'Produce',
+    icon: 'produce',
+    needsProject: true,
+    title: 'Guide renders and AI production (A/B candidates)',
+  },
+  {
+    mode: 'vocals',
+    label: 'Vocals',
+    icon: 'music',
+    needsProject: true,
+    title: 'Lyrics, vocal melody, singing synthesis, recordings',
+  },
+  {
+    mode: 'mix',
+    label: 'Mix & Master',
+    icon: 'mixer',
+    needsProject: true,
+    title: 'Mixer, automation, AI mix assistant, mastering',
+  },
+  {
+    mode: 'export',
+    label: 'Export',
+    icon: 'export',
+    needsProject: true,
+    title: 'MIDI, audio, stems, sheets, MusicXML, DAW projects',
+  },
 ];
 
 function Transport() {
@@ -31,7 +76,14 @@ function Transport() {
   const st = useStudio.getState();
   return (
     <div className="transport" aria-label="Transport">
-      <Button variant="ghost" size="sm" icon="rewind" title="Return to start" onClick={() => st.seek(0)} disabled={!song} />
+      <Button
+        variant="ghost"
+        size="sm"
+        icon="rewind"
+        title="Return to start"
+        onClick={() => st.seek(0)}
+        disabled={!song}
+      />
       <Button
         variant="ghost"
         size="sm"
@@ -40,7 +92,14 @@ function Transport() {
         onClick={() => st.togglePlay()}
         disabled={!song}
       />
-      <Button variant="ghost" size="sm" icon="stop" title="Stop (Enter)" onClick={() => st.stop()} disabled={!song} />
+      <Button
+        variant="ghost"
+        size="sm"
+        icon="stop"
+        title="Stop (Enter)"
+        onClick={() => st.stop()}
+        disabled={!song}
+      />
       <Button
         variant="ghost"
         size="sm"
@@ -51,7 +110,16 @@ function Transport() {
         onClick={() => st.setLoop({ enabled: !loopEnabled })}
         disabled={!song}
       />
-      <Button variant="ghost" size="sm" icon="metronome" className="transport-extra" title="Metronome" active={metronome} onClick={() => st.toggleMetronome()} disabled={!song} />
+      <Button
+        variant="ghost"
+        size="sm"
+        icon="metronome"
+        className="transport-extra"
+        title="Metronome"
+        active={metronome}
+        onClick={() => st.toggleMetronome()}
+        disabled={!song}
+      />
       <span className="time" title="Bar.Beat · time">
         {mus.bar}.{Math.floor(mus.beat)} · {formatTime(pos)}
       </span>
@@ -89,10 +157,14 @@ export function TopBar() {
             {project.meta.name}
           </span>
           {branch && (
-            <button className="badge accent branch-badge" title="Branches & version history" onClick={() => {
-              useStudio.getState().setRightPanel('history');
-              setMode('workbench');
-            }}>
+            <button
+              className="badge accent branch-badge"
+              title="Branches & version history"
+              onClick={() => {
+                useStudio.getState().setRightPanel('history');
+                setMode('workbench');
+              }}
+            >
               <Icon name="branch" size={12} /> {branch.name}
             </button>
           )}
@@ -115,18 +187,43 @@ export function TopBar() {
           </button>
         ))}
       </nav>
-      <Select className="select mode-select" aria-label="Studio mode" value={mode} onChange={setMode} options={modeOptions} />
+      <Select
+        className="select mode-select"
+        aria-label="Studio mode"
+        value={mode}
+        onChange={setMode}
+        options={modeOptions}
+      />
       <div className="spacer" />
       <CollabPresence />
       {project && (
         <div className="row topbar-history">
-          <Button variant="ghost" size="sm" icon="undo" title="Undo (Ctrl/Cmd+Z)" onClick={() => useStudio.getState().undo()} />
-          <Button variant="ghost" size="sm" icon="redo" title="Redo (Ctrl/Cmd+Shift+Z)" onClick={() => useStudio.getState().redo()} />
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="undo"
+            title="Undo (Ctrl/Cmd+Z)"
+            onClick={() => useStudio.getState().undo()}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="redo"
+            title="Redo (Ctrl/Cmd+Shift+Z)"
+            onClick={() => useStudio.getState().redo()}
+          />
         </div>
       )}
       <div className="topbar-break" />
       <Transport />
-      <Button variant="ghost" icon="settings" className="topbar-settings" title="Settings: providers, privacy, budgets, models, plugins" onClick={() => setMode('settings')} active={mode === 'settings'} />
+      <Button
+        variant="ghost"
+        icon="settings"
+        className="topbar-settings"
+        title="Settings: providers, privacy, budgets, models, plugins"
+        onClick={() => setMode('settings')}
+        active={mode === 'settings'}
+      />
     </header>
   );
 }

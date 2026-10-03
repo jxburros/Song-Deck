@@ -33,8 +33,14 @@ export function projectAttestations(project: Pick<Project, 'meta'> | null | unde
 }
 
 /** Attestations of material that needs care (personal study, flagged or matched). */
-export function attestationsNeedingCare(project: Pick<Project, 'meta'> | null | undefined, assetIds?: readonly string[]): AudioAttestation[] {
-  return projectAttestations(project).filter((a) => attestationNeedsCare(a) && (!assetIds || (a.assetId !== undefined && assetIds.includes(a.assetId))));
+export function attestationsNeedingCare(
+  project: Pick<Project, 'meta'> | null | undefined,
+  assetIds?: readonly string[],
+): AudioAttestation[] {
+  return projectAttestations(project).filter(
+    (a) =>
+      attestationNeedsCare(a) && (!assetIds || (a.assetId !== undefined && assetIds.includes(a.assetId))),
+  );
 }
 
 /** One line for the rights metadata lists, e.g. "drums.wav — licensed / permission (Acme Samples; licence #42)". */
@@ -44,7 +50,9 @@ export function attestationRightsLine(a: AudioAttestation): string {
 }
 
 /** Which rights list an attestation belongs in. */
-export function attestationRightsList(a: AudioAttestation): 'licensedAssets' | 'samples' | 'sourceReferences' {
+export function attestationRightsList(
+  a: AudioAttestation,
+): 'licensedAssets' | 'samples' | 'sourceReferences' {
   if (a.basis === 'licensed' || a.basis === 'open-licence') return 'licensedAssets';
   if (a.context === 'sample-instrument') return 'samples';
   return 'sourceReferences';
@@ -78,13 +86,17 @@ export function attestationSummaryLines(attestations: readonly AudioAttestation[
   const out = ['Uploaded audio — rights attestations (self-declared by the user; not verified):'];
   for (const a of attestations) {
     const when = a.attestedAt.slice(0, 10);
-    out.push(`- ${a.fileName} [${a.context}]: ${ATTESTATION_BASIS_LABEL[a.basis]} — attested by ${a.attestedBy || 'unknown'} on ${when}`);
+    out.push(
+      `- ${a.fileName} [${a.context}]: ${ATTESTATION_BASIS_LABEL[a.basis]} — attested by ${a.attestedBy || 'unknown'} on ${when}`,
+    );
     if (a.rightsHolder) out.push(`    rights holder: ${a.rightsHolder}`);
     if (a.licence) out.push(`    licence / permission: ${a.licence}`);
     if (a.notes) out.push(`    notes: ${a.notes}`);
     if (a.flagged) {
       const found = a.signals.map((s) => `${s.label} ${s.value}`).slice(0, 4);
-      out.push(`    WARNING: checks suggested a commercial release${found.length ? ` (${found.join('; ')})` : ''}`);
+      out.push(
+        `    WARNING: checks suggested a commercial release${found.length ? ` (${found.join('; ')})` : ''}`,
+      );
     }
     if (a.basis === 'personal-study') out.push('    WARNING: personal study only — not cleared for release');
     out.push(`    sha256: ${a.contentHash}`);

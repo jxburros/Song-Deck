@@ -128,7 +128,8 @@ export class TaskQueue {
   }
 
   enqueue<I>(spec: TaskSpec<I>): TaskRecord<I> {
-    if (!spec || typeof spec.type !== 'string' || !spec.type) throw new Error('enqueue: a task "type" is required.');
+    if (!spec || typeof spec.type !== 'string' || !spec.type)
+      throw new Error('enqueue: a task "type" is required.');
     const id = spec.id ?? this.newId();
     if (this.tasks.has(id)) throw new Error(`enqueue: a task with id "${id}" already exists.`);
     const task: TaskRecord<I> = {
@@ -175,7 +176,8 @@ export class TaskQueue {
     this.requeue(task, 'Retry requested');
     // Dependents that failed because of this task get another chance too.
     for (const t of this.tasks.values()) {
-      if (t.status === 'failed' && t.dependsOn.includes(id) && /^dependency/i.test(t.error ?? '')) this.retry(t.id);
+      if (t.status === 'failed' && t.dependsOn.includes(id) && /^dependency/i.test(t.error ?? ''))
+        this.retry(t.id);
     }
     this.changed();
     this.schedulePump();
@@ -271,7 +273,8 @@ export class TaskQueue {
 
   /** Resolves when no task is queued or running (paused tasks are ignored). */
   idle(): Promise<void> {
-    const isIdle = () => ![...this.tasks.values()].some((t) => t.status === 'queued' || t.status === 'running');
+    const isIdle = () =>
+      ![...this.tasks.values()].some((t) => t.status === 'queued' || t.status === 'running');
     if (isIdle()) return Promise.resolve();
     return new Promise((resolve) => {
       const unsubscribe = this.subscribe(() => {
@@ -445,7 +448,12 @@ export class TaskQueue {
       if (t.status !== 'queued') continue;
       if (this.opts.awaitHandlers && !this.handlers.has(t.type)) continue;
       if (!t.dependsOn.every((d) => this.tasks.get(d)?.status === 'succeeded')) continue;
-      if (!best || t.priority > best.priority || (t.priority === best.priority && this.order.get(t.id)! < this.order.get(best.id)!)) best = t;
+      if (
+        !best ||
+        t.priority > best.priority ||
+        (t.priority === best.priority && this.order.get(t.id)! < this.order.get(best.id)!)
+      )
+        best = t;
     }
     return best;
   }
@@ -478,7 +486,11 @@ export class TaskQueue {
       },
       log: (level, message) => {
         if (!active()) return;
-        this.addLog(task, level === 'debug' || level === 'info' || level === 'warn' || level === 'error' ? level : 'info', String(message));
+        this.addLog(
+          task,
+          level === 'debug' || level === 'info' || level === 'warn' || level === 'error' ? level : 'info',
+          String(message),
+        );
         this.changed();
       },
       checkpoint: (data) => {
@@ -528,7 +540,11 @@ export class TaskQueue {
     task.error = message;
     if (task.attempts < task.maxAttempts) {
       task.status = 'queued';
-      this.addLog(task, 'warn', `Attempt ${task.attempts} failed: ${message}; retrying from the last checkpoint`);
+      this.addLog(
+        task,
+        'warn',
+        `Attempt ${task.attempts} failed: ${message}; retrying from the last checkpoint`,
+      );
       this.changed();
       this.schedulePump();
       return;
@@ -541,7 +557,9 @@ export class TaskQueue {
 }
 
 /** In-memory persistence (tests, or a base for custom stores). */
-export function createMemoryPersistence(initial: TaskRecord[] = []): TaskPersistence & { saved: TaskRecord[] } {
+export function createMemoryPersistence(
+  initial: TaskRecord[] = [],
+): TaskPersistence & { saved: TaskRecord[] } {
   const store = {
     saved: JSON.parse(JSON.stringify(initial)) as TaskRecord[],
     async load() {
@@ -555,7 +573,10 @@ export function createMemoryPersistence(initial: TaskRecord[] = []): TaskPersist
 }
 
 /** Persistence on any Storage-like object (e.g. `window.localStorage`). */
-export function createStoragePersistence(storage: { getItem(key: string): string | null; setItem(key: string, value: string): void }, key = 'songdeck.tasks'): TaskPersistence {
+export function createStoragePersistence(
+  storage: { getItem(key: string): string | null; setItem(key: string, value: string): void },
+  key = 'songdeck.tasks',
+): TaskPersistence {
   return {
     async load() {
       const raw = storage.getItem(key);

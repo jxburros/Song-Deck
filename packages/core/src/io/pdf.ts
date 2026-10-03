@@ -66,14 +66,19 @@ interface ClefPlan {
 
 function planClef(track: Track | undefined, opts: InstrumentLookupOptions): ClefPlan {
   if (!track) return { kind: 'treble', octaveBelow: false, displayShift: 0, bottom: 30 };
-  if (isDrumTrack(track, opts)) return { kind: 'percussion', octaveBelow: false, displayShift: 0, bottom: 30 };
+  if (isDrumTrack(track, opts))
+    return { kind: 'percussion', octaveBelow: false, displayShift: 0, bottom: 30 };
   const profile = lookupInstrument(track.instrumentId, opts);
   const avg = track.notes.length ? track.notes.reduce((s, n) => s + n.pitch, 0) / track.notes.length : 64;
   const octave = (profile.notationTranspose ?? 0) >= 12;
-  if (profile.clef === 'treble-8vb') return { kind: 'treble', octaveBelow: true, displayShift: 7, bottom: 30 };
-  if (profile.clef === 'bass') return { kind: 'bass', octaveBelow: octave, displayShift: octave ? 7 : 0, bottom: 18 };
+  if (profile.clef === 'treble-8vb')
+    return { kind: 'treble', octaveBelow: true, displayShift: 7, bottom: 30 };
+  if (profile.clef === 'bass')
+    return { kind: 'bass', octaveBelow: octave, displayShift: octave ? 7 : 0, bottom: 18 };
   if (profile.clef === 'treble') return { kind: 'treble', octaveBelow: false, displayShift: 0, bottom: 30 };
-  return avg < 57 ? { kind: 'bass', octaveBelow: false, displayShift: 0, bottom: 18 } : { kind: 'treble', octaveBelow: false, displayShift: 0, bottom: 30 };
+  return avg < 57
+    ? { kind: 'bass', octaveBelow: false, displayShift: 0, bottom: 18 }
+    : { kind: 'treble', octaveBelow: false, displayShift: 0, bottom: 30 };
 }
 
 interface Head {
@@ -129,7 +134,14 @@ function keySigWidth(fifths: number, s: number): number {
 const SHARP_POS = [8, 5, 9, 6, 3, 7, 4];
 const FLAT_POS = [4, 7, 3, 6, 2, 5, 1];
 
-function drawKeySignature(c: PdfCanvas, x: number, y0: number, s: number, fifths: number, clef: ClefKind): number {
+function drawKeySignature(
+  c: PdfCanvas,
+  x: number,
+  y0: number,
+  s: number,
+  fifths: number,
+  clef: ClefKind,
+): number {
   if (clef === 'percussion' || fifths === 0) return 0;
   const count = keySignatureLetters(fifths).length;
   const shift = clef === 'bass' ? -2 : 0;
@@ -162,7 +174,10 @@ function timeSigWidth(m: MeasureInfo, s: number): number {
  * page and multiple pages.
  */
 export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Uint8Array {
-  const lookup: InstrumentLookupOptions = { customInstruments: opts.customInstruments, resolveInstrument: opts.resolveInstrument };
+  const lookup: InstrumentLookupOptions = {
+    customInstruments: opts.customInstruments,
+    resolveInstrument: opts.resolveInstrument,
+  };
   const [pageW, pageH] = opts.pageSize === 'a4' ? [595.28, 841.89] : [612, 792];
   const s = opts.staffSpace ?? 6.5;
   const margin = { left: 50, right: 50, top: 50, bottom: 50 };
@@ -193,7 +208,15 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
             if (drums) {
               const d = drumDisplay(pitch);
               const diatonic = d.octave * 7 + LETTERS.indexOf(d.step as (typeof LETTERS)[number]);
-              heads.push({ pos: diatonic - clef.bottom, shape: d.notehead === 'x' || d.notehead === 'circle-x' ? 'x' : d.notehead === 'diamond' ? 'diamond' : 'normal' });
+              heads.push({
+                pos: diatonic - clef.bottom,
+                shape:
+                  d.notehead === 'x' || d.notehead === 'circle-x'
+                    ? 'x'
+                    : d.notehead === 'diamond'
+                      ? 'diamond'
+                      : 'normal',
+              });
             } else {
               const sp = spellPitch(pitch, info.key);
               const a = acc.accidentalFor(sp, ev.tieStop);
@@ -201,18 +224,24 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
             }
           }
         }
-        const mid = heads.length ? (Math.max(...heads.map((h) => h.pos)) + Math.min(...heads.map((h) => h.pos))) / 2 : 4;
+        const mid = heads.length
+          ? (Math.max(...heads.map((h) => h.pos)) + Math.min(...heads.map((h) => h.pos))) / 2
+          : 4;
         const stemUp = drums ? true : mid < 4;
         const dur = ev.duration / song.ppq;
         let width = 3.3 * s * Math.pow(Math.max(dur, 0.125), 0.55);
         if (heads.some((h) => h.acc)) width += 1.3 * s;
         width += ev.dots * 0.7 * s;
         if (stemUp && FLAG_COUNT[ev.type] && !ev.rest) width += 0.6 * s;
-        const lyricWidth = ev.lyric ? textWidth(ev.lyric.text, 'F1', lyricSize) + (ev.lyric.syllabic === 'begin' || ev.lyric.syllabic === 'middle' ? 1.6 * s : 0.9 * s) : 0;
+        const lyricWidth = ev.lyric
+          ? textWidth(ev.lyric.text, 'F1', lyricSize) +
+            (ev.lyric.syllabic === 'begin' || ev.lyric.syllabic === 'middle' ? 1.6 * s : 0.9 * s)
+          : 0;
         width = Math.max(width, lyricWidth);
         if (ev.measureRest) width = Math.max(width, 6 * s);
         const chordsHere = chords.filter((ch) => ch.offset >= ev.start && ch.offset < ev.start + ev.duration);
-        for (const ch of chordsHere) width = Math.max(width, textWidth(ch.chord.symbol, 'F2', chordSize) + 1.2 * s);
+        for (const ch of chordsHere)
+          width = Math.max(width, textWidth(ch.chord.symbol, 'F2', chordSize) + 1.2 * s);
         return { ev, heads, stemUp, width, x: 0, lyricWidth, chordsHere };
       });
     const minWidth = 1.4 * s + slots.reduce((a, b) => a + b.width, 0) + 0.6 * s;
@@ -221,7 +250,12 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
 
   // ---- systems -------------------------------------------------------------------------
   const prefixFor = (m: MeasureInfo, first: boolean) =>
-    0.8 * s + clefWidth(clef, s) + 0.8 * s + (clef.kind !== 'percussion' ? keySigWidth(m.fifths, s) : 0) + (first || m.meterChange ? timeSigWidth(m, s) + 0.6 * s : 0) + 0.6 * s;
+    0.8 * s +
+    clefWidth(clef, s) +
+    0.8 * s +
+    (clef.kind !== 'percussion' ? keySigWidth(m.fifths, s) : 0) +
+    (first || m.meterChange ? timeSigWidth(m, s) + 0.6 * s : 0) +
+    0.6 * s;
   const systems: SystemPlan[] = [];
   let i = 0;
   while (i < plans.length) {
@@ -249,7 +283,9 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
       if (inSystem && (m.info.keyChange || m.info.meterChange)) {
         m.showKey = m.info.keyChange && clef.kind !== 'percussion';
         m.showTime = m.info.meterChange;
-        extra = (m.showKey ? keySigWidth(m.info.fifths, s) + 0.8 * s : 0) + (m.showTime ? timeSigWidth(m.info, s) : 0);
+        extra =
+          (m.showKey ? keySigWidth(m.info.fifths, s) + 0.8 * s : 0) +
+          (m.showTime ? timeSigWidth(m.info, s) : 0);
       } else {
         m.showKey = false;
         m.showTime = false;
@@ -271,7 +307,11 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
     for (const m of sys.measures) {
       m.x = x;
       m.width = m.minWidth * scale;
-      let sx = x + 1.4 * s * scale + (m.showKey ? keySigWidth(m.info.fifths, s) + 0.8 * s : 0) * scale + (m.showTime ? timeSigWidth(m.info, s) : 0) * scale;
+      let sx =
+        x +
+        1.4 * s * scale +
+        (m.showKey ? keySigWidth(m.info.fifths, s) + 0.8 * s : 0) * scale +
+        (m.showTime ? timeSigWidth(m.info, s) : 0) * scale;
       for (const slot of m.slots) {
         const w = slot.width * scale;
         slot.x = slot.ev.measureRest ? x + m.width / 2 : sx + Math.min(w / 2, 1.2 * s);
@@ -288,7 +328,10 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
         const hi = Math.max(...slot.heads.map((h) => h.pos)) * (s / 2);
         const lo = Math.min(...slot.heads.map((h) => h.pos)) * (s / 2);
         const stem = slot.ev.type === 'whole' ? 0.6 * s : 3.6 * s;
-        noteTop = Math.max(noteTop, (slot.stemUp ? hi + stem : hi + 0.6 * s) + (slot.heads.some((h) => h.acc === 'flat') ? 1.6 * s : 0));
+        noteTop = Math.max(
+          noteTop,
+          (slot.stemUp ? hi + stem : hi + 0.6 * s) + (slot.heads.some((h) => h.acc === 'flat') ? 1.6 * s : 0),
+        );
         noteBottom = Math.min(noteBottom, slot.stemUp ? lo - 0.6 * s : lo - stem);
       }
     }
@@ -297,7 +340,11 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
     sys.hasLyrics = sys.measures.some((m) => m.slots.some((sl) => sl.ev.lyric));
     sys.chordY = Math.max(4 * s + 1.8 * s, noteTop + 1.0 * s);
     sys.rehearsalY = sys.chordY + (hasChords ? chordSize + 0.9 * s : 0);
-    sys.top = hasRehearsal ? sys.rehearsalY + 1.6 * s + 3 : hasChords ? sys.chordY + chordSize : Math.max(noteTop, 5 * s);
+    sys.top = hasRehearsal
+      ? sys.rehearsalY + 1.6 * s + 3
+      : hasChords
+        ? sys.chordY + chordSize
+        : Math.max(noteTop, 5 * s);
     sys.lyricY = Math.min(-2.4 * s, noteBottom - 1.8 * s) - lyricSize * 0.75;
     sys.bottom = sys.hasLyrics ? sys.lyricY - lyricSize * 0.45 : Math.min(noteBottom, -1.2 * s);
     systems.push(sys);
@@ -311,7 +358,10 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
   let cursor = pageH - margin.top - headerHeight;
   for (const sys of systems) {
     const h = sys.top - sys.bottom;
-    if (cursor - h < margin.bottom + 14 && cursor < pageH - margin.top - (page === 0 ? headerHeight : 18) - 1) {
+    if (
+      cursor - h < margin.bottom + 14 &&
+      cursor < pageH - margin.top - (page === 0 ? headerHeight : 18) - 1
+    ) {
       page++;
       cursor = pageH - margin.top - 18;
     }
@@ -344,7 +394,8 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
 
   // Flatten slots for tie / lyric continuation lookups.
   const order: { slot: Slot; sys: SystemPlan }[] = [];
-  for (const sys of systems) for (const m of sys.measures) for (const slot of m.slots) order.push({ slot, sys });
+  for (const sys of systems)
+    for (const m of sys.measures) for (const slot of m.slots) order.push({ slot, sys });
   const indexOf = new Map(order.map((o, idx) => [o.slot, idx] as const));
 
   for (const sys of systems) {
@@ -354,7 +405,10 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
     const right = margin.left + contentW;
     const Y = (pos: number) => y0 + (pos * s) / 2;
     // Staff lines (the last system may be shorter than the full width)
-    const staffRight = Math.min(right, sys.measures[sys.measures.length - 1].x + sys.measures[sys.measures.length - 1].width);
+    const staffRight = Math.min(
+      right,
+      sys.measures[sys.measures.length - 1].x + sys.measures[sys.measures.length - 1].width,
+    );
     c.lineWidth(GLYPH.staffLineWidth * s);
     for (let l = 0; l < 5; l++) c.moveTo(left, y0 + l * s).lineTo(staffRight, y0 + l * s);
     c.stroke();
@@ -364,7 +418,15 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
     px += drawClef(c, px, y0, s, clef) + 0.8 * s;
     const first = sys.measures[0].info;
     if (clef.kind !== 'percussion') px += drawKeySignature(c, px, y0, s, first.fifths, clef.kind);
-    if (sys.showTime) drawTimeSignature(c, px + (first.fifths !== 0 && clef.kind !== 'percussion' ? 0.9 : 0.3) * s, y0, s, first.numerator, first.denominator);
+    if (sys.showTime)
+      drawTimeSignature(
+        c,
+        px + (first.fifths !== 0 && clef.kind !== 'percussion' ? 0.9 : 0.3) * s,
+        y0,
+        s,
+        first.numerator,
+        first.denominator,
+      );
     if (!sys.first) c.text(left, y0 + 4 * s + 1.2 * s, String(first.index + 1), 'F3', 7);
 
     for (const m of sys.measures) {
@@ -387,7 +449,9 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
       if (m.info.section) {
         const label = m.info.section.name;
         const w = textWidth(label, 'F2', 9) + 6;
-        c.lineWidth(0.8).rect(markX, sys.rehearsalY + y0 - 3, w, 13).stroke();
+        c.lineWidth(0.8)
+          .rect(markX, sys.rehearsalY + y0 - 3, w, 13)
+          .stroke();
         c.text(markX + 3, sys.rehearsalY + y0, label, 'F2', 9);
         markX += w + 6;
       }
@@ -398,11 +462,17 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
       }
       // Chord symbols
       for (const h of m.chords) {
-        const slot = m.slots.find((sl) => h.offset >= sl.ev.start && h.offset < sl.ev.start + sl.ev.duration) ?? m.slots[0];
+        const slot =
+          m.slots.find((sl) => h.offset >= sl.ev.start && h.offset < sl.ev.start + sl.ev.duration) ??
+          m.slots[0];
         let x = m.x + 1.4 * s;
         if (slot) {
-          const frac = slot.ev.measureRest ? h.offset / slot.ev.duration : (h.offset - slot.ev.start) / slot.ev.duration;
-          const base = slot.ev.measureRest ? m.x + 1.4 * s + frac * (m.width - 2 * s) : slot.x - 0.6 * s + frac * slot.width;
+          const frac = slot.ev.measureRest
+            ? h.offset / slot.ev.duration
+            : (h.offset - slot.ev.start) / slot.ev.duration;
+          const base = slot.ev.measureRest
+            ? m.x + 1.4 * s + frac * (m.width - 2 * s)
+            : slot.x - 0.6 * s + frac * slot.width;
           x = base;
         }
         c.text(x, y0 + sys.chordY, h.chord.symbol, 'F2', chordSize);
@@ -412,7 +482,8 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
         const ev = slot.ev;
         if (ev.rest) {
           drawRest(c, slot.x, y0, s, ev.measureRest ? 'whole' : ev.type);
-          if (!ev.measureRest) for (let d = 0; d < ev.dots; d++) drawDot(c, slot.x + (1.0 + d * 0.6) * s, Y(5), s);
+          if (!ev.measureRest)
+            for (let d = 0; d < ev.dots; d++) drawDot(c, slot.x + (1.0 + d * 0.6) * s, Y(5), s);
           continue;
         }
         const x = slot.x;
@@ -453,7 +524,12 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
         for (let d = 0; d < ev.dots; d++) {
           for (const pos of new Set(positions)) {
             const dp = pos % 2 === 0 ? pos + 1 : pos;
-            drawDot(c, x + (1.05 + d * 0.55) * s + (slot.stemUp && FLAG_COUNT[ev.type] ? 0.6 * s : 0), Y(dp), s);
+            drawDot(
+              c,
+              x + (1.05 + d * 0.55) * s + (slot.stemUp && FLAG_COUNT[ev.type] ? 0.6 * s : 0),
+              Y(dp),
+              s,
+            );
           }
         }
         // Ties
@@ -472,7 +548,15 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
           const prev = order[idx - 1];
           if (prev && prev.sys !== sys) {
             const below = prev.slot.stemUp;
-            for (const pos of positions) drawTie(c, left + sys.prefixWidth - 1.6 * s, x - 0.75 * s, Y(pos) + (below ? -0.75 * s : 0.75 * s), s, below);
+            for (const pos of positions)
+              drawTie(
+                c,
+                left + sys.prefixWidth - 1.6 * s,
+                x - 0.75 * s,
+                Y(pos) + (below ? -0.75 * s : 0.75 * s),
+                s,
+                below,
+              );
           }
         }
         // Lyrics
@@ -485,14 +569,22 @@ export function songToNotationPdf(song: Song, opts: NotationPdfOptions = {}): Ui
             // Hyphen centred between this syllable and the next sung one.
             let j = idx + 1;
             while (j < order.length && !order[j].slot.ev.lyric) j++;
-            const nx = j < order.length && order[j].sys === sys ? order[j].slot.x - textWidth(order[j].slot.ev.lyric!.text, 'F1', lyricSize) / 2 : x + tw / 2 + 2.4 * s;
+            const nx =
+              j < order.length && order[j].sys === sys
+                ? order[j].slot.x - textWidth(order[j].slot.ev.lyric!.text, 'F1', lyricSize) / 2
+                : x + tw / 2 + 2.4 * s;
             const hx = (x + tw / 2 + nx) / 2;
             c.text(hx, ly, '-', 'F1', lyricSize, 'center');
           } else if (ev.lyric.extend) {
             // Melisma extender to the last note before the next syllable or rest.
             let j = idx + 1;
             let endX = x + tw / 2;
-            while (j < order.length && order[j].sys === sys && !order[j].slot.ev.rest && !order[j].slot.ev.lyric) {
+            while (
+              j < order.length &&
+              order[j].sys === sys &&
+              !order[j].slot.ev.rest &&
+              !order[j].slot.ev.lyric
+            ) {
               endX = order[j].slot.x + 0.6 * s;
               j++;
             }

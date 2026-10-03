@@ -21,7 +21,9 @@ export const SERVER_VERSION: string =
   RELEASE?.version ??
   (() => {
     try {
-      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
+      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+        version?: string;
+      };
       return pkg.version ?? '0.0.0';
     } catch {
       return '0.0.0';
@@ -155,7 +157,13 @@ export interface ResolvedConfig {
   nodeName: string;
   limits: Limits;
   proxy: { timeoutMs: number; fetch: typeof fetch };
-  discovery: { ollamaUrl: string | false; lmStudioUrl: string | false; timeoutMs: number; localServices: LocalServiceTarget[]; fetch: typeof fetch };
+  discovery: {
+    ollamaUrl: string | false;
+    lmStudioUrl: string | false;
+    timeoutMs: number;
+    localServices: LocalServiceTarget[];
+    fetch: typeof fetch;
+  };
   hardware: HardwareOptions & { cacheMs: number };
   logger: Logger;
 }
@@ -193,7 +201,9 @@ export function resolveConfig(opts: ServerOptions = {}): ResolvedConfig {
   const host = opts.host ?? DEFAULT_HOST;
   const token = opts.token?.trim() || undefined;
   if (!isLoopbackHost(host) && !token) {
-    throw new Error(`A token is required when listening on a non-loopback host (${host}); pass --token <secret>`);
+    throw new Error(
+      `A token is required when listening on a non-loopback host (${host}); pass --token <secret>`,
+    );
   }
   const dataDir = path.resolve(opts.dataDir ?? defaultDataDir());
   const cpus = Math.max(1, os.availableParallelism?.() ?? os.cpus().length);
@@ -231,7 +241,12 @@ export function resolveConfig(opts: ServerOptions = {}): ResolvedConfig {
       localServices:
         opts.discovery?.localServices === false
           ? []
-          : (opts.discovery?.localServices ?? DEFAULT_LOCAL_SERVICE_TARGETS.filter((t) => t.presetId !== 'ollama' && t.presetId !== 'lm-studio')).map((t) => ({ ...t })),
+          : (
+              opts.discovery?.localServices ??
+              DEFAULT_LOCAL_SERVICE_TARGETS.filter(
+                (t) => t.presetId !== 'ollama' && t.presetId !== 'lm-studio',
+              )
+            ).map((t) => ({ ...t })),
       fetch: opts.discovery?.fetch ?? fetchImpl,
     },
     hardware: { ...(opts.hardware ?? {}), cacheMs: opts.hardware?.cacheMs ?? 60_000 },

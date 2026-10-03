@@ -34,7 +34,10 @@ test('guide render, A/B candidates, adopt stems and regenerate a region', async 
   // ---- Produce: guide render (spec §28) -----------------------------------------------------
   await page.getByRole('button', { name: 'Produce', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Produce', exact: true })).toBeVisible();
-  await expect(page.getByRole('radio', { name: /Built-in instrument library/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: /Built-in instrument library/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   // The other renderers are available: external DAW (per-stem MIDI export + import) and sample instruments.
   await page.getByRole('radio', { name: /External DAW rendering/ }).click();
   await expect(page.getByRole('button', { name: 'Export stem MIDI (.zip)' })).toBeVisible();
@@ -45,7 +48,15 @@ test('guide render, A/B candidates, adopt stems and regenerate a region', async 
   await page.getByRole('button', { name: 'Render guide' }).click();
   const guideAssets = page.getByTestId('guide-assets');
   await expect(guideAssets).toBeVisible({ timeout: 300_000 });
-  for (const f of ['guide_mix.wav', 'drums_reference.wav', 'bass_reference.wav', 'guitar_reference.wav', 'keys_reference.wav', 'strings_reference.wav', 'vocal_melody_reference.wav']) {
+  for (const f of [
+    'guide_mix.wav',
+    'drums_reference.wav',
+    'bass_reference.wav',
+    'guitar_reference.wav',
+    'keys_reference.wav',
+    'strings_reference.wav',
+    'vocal_melody_reference.wav',
+  ]) {
     await expect(guideAssets.getByText(f, { exact: true })).toBeVisible();
   }
   await expect(page.getByText('up to date', { exact: false }).first()).toBeVisible();
@@ -54,7 +65,10 @@ test('guide render, A/B candidates, adopt stems and regenerate a region', async 
   await expect(guideDeck.getByRole('radio', { name: 'Drums', exact: true })).toBeEnabled({ timeout: 60_000 });
   await guideDeck.getByRole('button', { name: 'Play comparison' }).click();
   await guideDeck.getByRole('radio', { name: 'Drums', exact: true }).click();
-  await expect(guideDeck.getByRole('radio', { name: 'Drums', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(guideDeck.getByRole('radio', { name: 'Drums', exact: true })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   await guideDeck.getByRole('radio', { name: 'Bass', exact: true }).click();
   await guideDeck.getByRole('button', { name: 'Pause comparison' }).click();
   await page.screenshot({ path: `${SHOTS}/produce-guide.png`, fullPage: true });
@@ -62,7 +76,10 @@ test('guide render, A/B candidates, adopt stems and regenerate a region', async 
   // ---- Production: Strategy B with the on-device producer (spec §29, §30, §38, §60) ----------
   await page.getByRole('tab', { name: /Production/ }).click();
   await page.getByRole('radio', { name: /Strategy B — Stem Production/ }).click();
-  await expect(page.getByRole('radio', { name: /Strategy B — Stem Production/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: /Strategy B — Stem Production/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   await page.getByRole('combobox', { name: 'Provider' }).first().selectOption('internal');
   const provider = page.getByTestId('production-provider');
   await expect(provider).toContainText('Built-in DSP producer');
@@ -70,7 +87,9 @@ test('guide render, A/B candidates, adopt stems and regenerate a region', async 
   await expect(provider).toContainText('INPAINTING');
   // Prompt generated from the song + editable instructions.
   await expect(page.getByTestId('final-prompt')).toContainText('BPM');
-  await page.getByRole('textbox', { name: 'Production instructions' }).fill('tight punchy drums, wide guitars');
+  await page
+    .getByRole('textbox', { name: 'Production instructions' })
+    .fill('tight punchy drums, wide guitars');
   await page.getByRole('textbox', { name: 'Negative prompt' }).click();
   await expect(page.getByTestId('final-prompt')).toContainText('tight punchy drums');
   // Estimate + duration + hardware before generating.

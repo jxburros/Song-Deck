@@ -5,13 +5,25 @@
 //
 // Usage: node scripts/release/smoke.mjs dist/release/song-deck-<version>.tar.gz|.zip|<folder>
 import { execFileSync, spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { unzipSync } from 'fflate';
 import { fail } from './lib.mjs';
 
-const input = process.argv[2] ? path.resolve(process.argv[2]) : fail('usage: node scripts/release/smoke.mjs <archive or folder>');
+const input = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : fail('usage: node scripts/release/smoke.mjs <archive or folder>');
 if (!existsSync(input)) fail(`${input} does not exist`);
 
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'songdeck-smoke-'));
@@ -40,7 +52,8 @@ function unpack() {
     execFileSync('tar', ['-xzf', input, '-C', into]);
   }
   const top = readdirSync(into);
-  if (top.length !== 1) throw new Error(`expected one top-level folder in the archive, found ${top.join(', ')}`);
+  if (top.length !== 1)
+    throw new Error(`expected one top-level folder in the archive, found ${top.join(', ')}`);
   return path.join(into, top[0]);
 }
 
@@ -60,7 +73,8 @@ function sineWav(sampleRate = 22050) {
   buf.writeUInt16LE(16, 34);
   buf.write('data', 36);
   buf.writeUInt32LE(n * 2, 40);
-  for (let i = 0; i < n; i++) buf.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 0.5 * 32767), 44 + i * 2);
+  for (let i = 0; i < n; i++)
+    buf.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 0.5 * 32767), 44 + i * 2);
   return buf.toString('base64');
 }
 
@@ -78,11 +92,15 @@ async function main() {
   const printed = execFileSync(process.execPath, [entry, '--version'], { cwd: tmp, encoding: 'utf8' }).trim();
   check(printed === version, `--version prints ${version}`);
 
-  server = spawn(process.execPath, [entry, '--port', '0', '--data-dir', path.join(tmp, 'data'), '--vault', 'memory', '--workers', '1'], {
-    cwd: tmp,
-    env: { ...process.env, SONGDECK_DATA_DIR: '', SONGDECK_TOKEN: '' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  server = spawn(
+    process.execPath,
+    [entry, '--port', '0', '--data-dir', path.join(tmp, 'data'), '--vault', 'memory', '--workers', '1'],
+    {
+      cwd: tmp,
+      env: { ...process.env, SONGDECK_DATA_DIR: '', SONGDECK_TOKEN: '' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
   const url = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('the server did not start within 30 s')), 30_000);
     const onData = (chunk) => {
@@ -100,26 +118,60 @@ async function main() {
   check(true, `server started on ${url}`);
 
   const health = await (await fetch(`${url}/api/health`)).json();
-  check(health.name === 'songdeck-server' && health.version === version, `/api/health reports songdeck-server ${version}`);
-  check(['static', 'plugins', 'render-node', 'collab', 'vault'].every((f) => health.features.includes(f)), 'static studio, plugins, render node, collaboration and vault are enabled');
+  check(
+    health.name === 'songdeck-server' && health.version === version,
+    `/api/health reports songdeck-server ${version}`,
+  );
+  check(
+    ['static', 'plugins', 'render-node', 'collab', 'vault'].every((f) => health.features.includes(f)),
+    'static studio, plugins, render node, collaboration and vault are enabled',
+  );
 
   const page = await fetch(`${url}/`);
   const html = await page.text();
-  check(page.status === 200 && /text\/html/.test(page.headers.get('content-type') ?? '') && html.includes('<div id="root"'), 'serves the studio page');
+  check(
+    page.status === 200 &&
+      /text\/html/.test(page.headers.get('content-type') ?? '') &&
+      html.includes('<div id="root"'),
+    'serves the studio page',
+  );
   const script = /<script[^>]+src="([^"]+\.js)"/.exec(html)?.[1];
   const asset = script && (await fetch(new URL(script, url)));
-  check(asset?.status === 200 && /javascript/.test(asset.headers.get('content-type') ?? ''), `serves the studio bundle ${script}`);
-  check((await fetch(`${url}/workbench`, { headers: { accept: 'text/html' } })).status === 200, 'falls back to the studio for client-side routes');
+  check(
+    asset?.status === 200 && /javascript/.test(asset.headers.get('content-type') ?? ''),
+    `serves the studio bundle ${script}`,
+  );
+  check(
+    (await fetch(`${url}/workbench`, { headers: { accept: 'text/html' } })).status === 200,
+    'falls back to the studio for client-side routes',
+  );
 
-  const expected = readdirSync(path.join(root, 'plugins')).map((dir) => JSON.parse(readFileSync(path.join(root, 'plugins', dir, 'songdeck-plugin.json'), 'utf8')).id);
+  const expected = readdirSync(path.join(root, 'plugins')).map(
+    (dir) => JSON.parse(readFileSync(path.join(root, 'plugins', dir, 'songdeck-plugin.json'), 'utf8')).id,
+  );
   const plugins = (await (await fetch(`${url}/api/plugins`)).json()).plugins.map((p) => p.id);
-  check(expected.length > 0 && expected.every((id) => plugins.includes(id)), `lists the bundled plugins (${expected.join(', ')})`);
+  check(
+    expected.length > 0 && expected.every((id) => plugins.includes(id)),
+    `lists the bundled plugins (${expected.join(', ')})`,
+  );
 
-  const rendered = await fetch(`${url}/api/render`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'loudness', audio: sineWav() }) });
+  const rendered = await fetch(`${url}/api/render`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind: 'loudness', audio: sineWav() }),
+  });
   const report = await rendered.json();
-  check(rendered.status === 200 && Math.abs(report.durationSeconds - 1) < 0.01 && Number.isFinite(report.integratedLufs), 'measures loudness on the render node');
+  check(
+    rendered.status === 200 &&
+      Math.abs(report.durationSeconds - 1) < 0.01 &&
+      Number.isFinite(report.integratedLufs),
+    'measures loudness on the render node',
+  );
   const info = await (await fetch(`${url}/api/node/info`)).json();
-  check(info.mode === 'workers' && typeof info.engineVersion === 'string', `rendered in a worker thread (engine ${info.engineVersion})`);
+  check(
+    info.mode === 'workers' && typeof info.engineVersion === 'string',
+    `rendered in a worker thread (engine ${info.engineVersion})`,
+  );
   check(!/render worker/i.test(log.join('')), 'no render worker warnings');
 
   server.kill('SIGTERM');

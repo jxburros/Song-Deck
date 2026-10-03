@@ -60,7 +60,14 @@ function Console({ song }: { song: Song }) {
   const mixer = useMixer();
   const selectedTrackId = useStudio((s) => s.selectedTrackId);
   const [inspect, setInspect] = useState<string | null>(null);
-  const target = inspect === MASTER ? MASTER : inspect && song.tracks.some((t) => t.id === inspect) ? inspect : selectedTrackId && song.tracks.some((t) => t.id === selectedTrackId) ? selectedTrackId : (song.tracks[0]?.id ?? MASTER);
+  const target =
+    inspect === MASTER
+      ? MASTER
+      : inspect && song.tracks.some((t) => t.id === inspect)
+        ? inspect
+        : selectedTrackId && song.tracks.some((t) => t.id === selectedTrackId)
+          ? selectedTrackId
+          : (song.tracks[0]?.id ?? MASTER);
   if (!mixer) return null;
   const select = (id: string) => {
     if (id !== target) setInspect(id);
@@ -68,7 +75,9 @@ function Console({ song }: { song: Song }) {
   };
   const open = (id: string, _tab: InspectTab) => {
     select(id);
-    requestAnimationFrame(() => document.querySelector('.mx-inspector')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    requestAnimationFrame(() =>
+      document.querySelector('.mx-inspector')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }),
+    );
   };
   return (
     <>
@@ -88,7 +97,13 @@ function Console({ song }: { song: Song }) {
           ))}
         </div>
         <div className="mx-master-slot">
-          <MasterStripView song={song} mixer={mixer} selected={target === MASTER} onSelect={() => select(MASTER)} onOpen={(tab) => open(MASTER, tab)} />
+          <MasterStripView
+            song={song}
+            mixer={mixer}
+            selected={target === MASTER}
+            onSelect={() => select(MASTER)}
+            onOpen={(tab) => open(MASTER, tab)}
+          />
         </div>
       </div>
       <Inspector song={song} mixer={mixer} target={target} />
@@ -145,8 +160,9 @@ export default function MixMode() {
           <div className="grow">
             <h1>Mix &amp; Master</h1>
             <div className="lede">
-              A conventional mixer for every track — MIDI parts and audio stems alike — plus automation, an AI assistant that only ever makes ordinary mixer
-              moves, and modular mastering with loudness targets.
+              A conventional mixer for every track — MIDI parts and audio stems alike — plus automation, an AI
+              assistant that only ever makes ordinary mixer moves, and modular mastering with loudness
+              targets.
             </div>
           </div>
           <div className="row">

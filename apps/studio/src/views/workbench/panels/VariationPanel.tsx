@@ -13,10 +13,30 @@ import { Badge, Button, Field, NumberInput, Select, Slider, Toggle } from '../..
 import { EnergyCurve } from '../../shared/EnergyCurve';
 
 const LEVELS: { value: VariationLevel; label: string; keeps: string; changes: string }[] = [
-  { value: 'ornament', label: 'Ornament', keeps: 'Almost everything', changes: 'Fills, ornamentation, velocity, articulations' },
-  { value: 'variation', label: 'Variation', keeps: 'Harmony, motifs, structure', changes: 'Accompaniment details' },
-  { value: 'reinterpretation', label: 'Reinterpretation', keeps: 'Main melody, recognizable motifs, broad structure', changes: 'Substantially different arrangement' },
-  { value: 'mutation', label: 'Mutation', keeps: 'Only the Song DNA', changes: 'Everything else — a related song' },
+  {
+    value: 'ornament',
+    label: 'Ornament',
+    keeps: 'Almost everything',
+    changes: 'Fills, ornamentation, velocity, articulations',
+  },
+  {
+    value: 'variation',
+    label: 'Variation',
+    keeps: 'Harmony, motifs, structure',
+    changes: 'Accompaniment details',
+  },
+  {
+    value: 'reinterpretation',
+    label: 'Reinterpretation',
+    keeps: 'Main melody, recognizable motifs, broad structure',
+    changes: 'Substantially different arrangement',
+  },
+  {
+    value: 'mutation',
+    label: 'Mutation',
+    keeps: 'Only the Song DNA',
+    changes: 'Everything else — a related song',
+  },
 ];
 
 /** Generation seeds (spec §23), variation system (§24), Song DNA (§11) and branch templates (§53). */
@@ -39,14 +59,21 @@ export default function VariationPanel() {
   return (
     <div className="col">
       <h3>Variation</h3>
-      <Field label="Seed" hint={`Current composition seed: ${song.generation.seed} · engine ${song.generation.engineVersion}`}>
+      <Field
+        label="Seed"
+        hint={`Current composition seed: ${song.generation.seed} · engine ${song.generation.engineVersion}`}
+      >
         <div className="row">
           <NumberInput value={seed} onChange={(v) => setSeed(Math.round(v))} min={0} />
           <Button icon="dice" onClick={() => setSeed(randomSeed())} title="New seed" />
         </div>
       </Field>
       <Field label="Level">
-        <Select value={level} onChange={setLevel} options={LEVELS.map((l) => ({ value: l.value, label: l.label }))} />
+        <Select
+          value={level}
+          onChange={setLevel}
+          options={LEVELS.map((l) => ({ value: l.value, label: l.label }))}
+        />
       </Field>
       <div className="card small">
         <div>
@@ -56,7 +83,13 @@ export default function VariationPanel() {
           <span className="muted">Changes:</span> {info.changes}
         </div>
       </div>
-      <Slider label="Variation amount" value={amount} onChange={setAmount} format={(v) => `${Math.round(v * 100)}%`} accent />
+      <Slider
+        label="Variation amount"
+        value={amount}
+        onChange={setAmount}
+        format={(v) => `${Math.round(v * 100)}%`}
+        accent
+      />
       <Toggle on={asBranch} onChange={setAsBranch} label="Create as a new branch" />
       <Button
         variant="primary"
@@ -93,14 +126,17 @@ export default function VariationPanel() {
         </div>
         {dna.principalProgressions.slice(0, 3).map((p) => (
           <div key={p.sectionKind}>
-            <span className="muted">{p.sectionKind}:</span> <span className="mono">{p.roman.join(' – ')}</span>
+            <span className="muted">{p.sectionKind}:</span>{' '}
+            <span className="mono">{p.roman.join(' – ')}</span>
           </div>
         ))}
         <div>
-          <span className="muted">Motifs:</span> {dna.motifs.map((m) => `${m.name}${m.description ? ` (${m.description})` : ''}`).join(', ') || '—'}
+          <span className="muted">Motifs:</span>{' '}
+          {dna.motifs.map((m) => `${m.name}${m.description ? ` (${m.description})` : ''}`).join(', ') || '—'}
         </div>
         <div>
-          <span className="muted">Instrumentation:</span> {dna.instrumentation.map((i) => i.instrumentId).join(', ')}
+          <span className="muted">Instrumentation:</span>{' '}
+          {dna.instrumentation.map((i) => i.instrumentId).join(', ')}
         </div>
         <EnergyCurve values={dna.energyCurve} width={280} height={36} />
       </div>

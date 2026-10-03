@@ -22,9 +22,25 @@ import { createTimeMap } from '@songdeck/core';
 import type { AudioData } from '../../types';
 import { Biquad } from '../filters';
 import { WT_SIZE, Wavetable, wtRead } from '../oscillators';
-import { NOISE_SCALE, SINE_TABLE, SINE_SIZE, clampNum, hashString, midiToHz, seedState, sin01, xorshift } from '../utils';
+import {
+  NOISE_SCALE,
+  SINE_TABLE,
+  SINE_SIZE,
+  clampNum,
+  hashString,
+  midiToHz,
+  seedState,
+  sin01,
+  xorshift,
+} from '../utils';
 import { BANDWIDTHS_FEMALE, BANDWIDTHS_MALE, type FormantBase, scaledLocus, vowelFormants } from './formants';
-import { type PhonemeInfo, PHONEMES, phonemeInfo, syllableToArpabet, wordPhonemesBySyllable } from './phonemes';
+import {
+  type PhonemeInfo,
+  PHONEMES,
+  phonemeInfo,
+  syllableToArpabet,
+  wordPhonemesBySyllable,
+} from './phonemes';
 
 export interface SingingVoice {
   id: string;
@@ -171,7 +187,18 @@ export function resolveSingingVoice(track: Track, voiceId?: string): SingingVoic
   if (vt && BY_TYPE[vt]) return byId(BY_TYPE[vt])!;
   const pitches = track.notes.map((n) => n.pitch).sort((a, b) => a - b);
   const med = pitches.length ? pitches[Math.floor(pitches.length / 2)] : 60;
-  const id = med < 50 ? 'bass-dark' : med < 56 ? 'baritone-deep' : med < 62 ? 'tenor-warm' : med < 66 ? 'alto-soft' : med < 70 ? 'mezzo-pop' : 'soprano-bright';
+  const id =
+    med < 50
+      ? 'bass-dark'
+      : med < 56
+        ? 'baritone-deep'
+        : med < 62
+          ? 'tenor-warm'
+          : med < 66
+            ? 'alto-soft'
+            : med < 70
+              ? 'mezzo-pop'
+              : 'soprano-bright';
   return byId(id)!;
 }
 
@@ -220,7 +247,8 @@ function glottalTables(): GlottalSet {
     const phs = new Float64Array(H);
     const mask = SINE_SIZE - 1;
     for (let h = 1; h <= H; h++) {
-      let a = 0, b = 0;
+      let a = 0,
+        b = 0;
       for (let n = 0; n < N; n++) {
         const idx = (h * n) & mask;
         b += d[n] * SINE_TABLE[idx];
@@ -343,7 +371,9 @@ export function resolveNotePhonemes(notes: Note[]): (string[] | null)[] {
     const word = group.map((g) => cleanSyllable(notes[g].syllable).replace(/^-+|-+$/g, '')).join('');
     const split = group.length > 1 ? wordPhonemesBySyllable(word, group.length) : null;
     group.forEach((g, gi) => {
-      let ph = split ? split[gi] : syllableToArpabet(cleanSyllable(notes[g].syllable).replace(/^-+|-+$/g, ''));
+      let ph = split
+        ? split[gi]
+        : syllableToArpabet(cleanSyllable(notes[g].syllable).replace(/^-+|-+$/g, ''));
       if (!ph.length) ph = ['AA'];
       out[g] = ph;
     });
@@ -380,7 +410,13 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
   const vnotes: VNote[] = [];
   const toFrame = (sec: number) => Math.round((sec - opts.startSec) * sr);
 
-  const mkSeg = (start: number, end: number, init: Partial<VSeg>, F: Float64Array, F2?: Float64Array): void => {
+  const mkSeg = (
+    start: number,
+    end: number,
+    init: Partial<VSeg>,
+    F: Float64Array,
+    F2?: Float64Array,
+  ): void => {
     if (end <= start) return;
     segs.push({
       start,
@@ -447,11 +483,30 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
         firstV = lastV = list.length - 1;
       }
     }
-    const onset = melisma ? [] : list.slice(0, firstV).map((p) => PHONEMES[p]).filter(Boolean);
-    const nucleus = melisma ? [] : list.slice(firstV, lastV + 1).map((p) => PHONEMES[p]).filter((p) => p && (p.cls === 'vowel' || firstV === lastV));
-    const coda = melisma ? [] : list.slice(lastV + 1).map((p) => PHONEMES[p]).filter(Boolean);
+    const onset = melisma
+      ? []
+      : list
+          .slice(0, firstV)
+          .map((p) => PHONEMES[p])
+          .filter(Boolean);
+    const nucleus = melisma
+      ? []
+      : list
+          .slice(firstV, lastV + 1)
+          .map((p) => PHONEMES[p])
+          .filter((p) => p && (p.cls === 'vowel' || firstV === lastV));
+    const coda = melisma
+      ? []
+      : list
+          .slice(lastV + 1)
+          .map((p) => PHONEMES[p])
+          .filter(Boolean);
     const nucVowel = nucleus.find((p) => p.cls === 'vowel');
-    const nucF = melisma ? prevVowelF : nucVowel ? vowelF(nucVowel.v1) : locusF(nucleus[0] ?? PHONEMES.AH, prevVowelF);
+    const nucF = melisma
+      ? prevVowelF
+      : nucVowel
+        ? vowelF(nucVowel.v1)
+        : locusF(nucleus[0] ?? PHONEMES.AH, prevVowelF);
     // durations
     const noteSec = durF / sr;
     let onDur = onset.reduce((a, p) => a + consonantDur(p), 0);
@@ -463,7 +518,14 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
     // anticipation: put ~70 % of the onset before the beat, limited by available room
     let before = onDur * 0.7;
     if (prevNote) {
-      const room = legato ? Math.max(0, (prevNote.noteEnd - (prevVowelSegIndex >= 0 ? segs[prevVowelSegIndex].start : prevNote.noteStart)) * 0.4) / sr : (ns - prevNote.end) / sr;
+      const room = legato
+        ? Math.max(
+            0,
+            (prevNote.noteEnd -
+              (prevVowelSegIndex >= 0 ? segs[prevVowelSegIndex].start : prevNote.noteStart)) *
+              0.4,
+          ) / sr
+        : (ns - prevNote.end) / sr;
       before = Math.min(before, Math.max(0, room));
     }
     const onStart = ns - Math.round(before * sr);
@@ -475,15 +537,28 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
       segs[prevVowelSegIndex].end = Math.max(segs[prevVowelSegIndex].start + 1, onStart);
     }
     const resolvedOnset = ex.onset ?? 'normal';
-    const onsetTau = resolvedOnset === 'soft' ? 0.06 : resolvedOnset === 'hard' ? 0.004 : resolvedOnset === 'scoop' ? 0.03 : 0.022;
+    const onsetTau =
+      resolvedOnset === 'soft'
+        ? 0.06
+        : resolvedOnset === 'hard'
+          ? 0.004
+          : resolvedOnset === 'scoop'
+            ? 0.03
+            : 0.022;
     const rel = ex.release ?? 'normal';
-    const releaseTau = rel === 'cut' ? 0.006 : rel === 'breathy' ? 0.09 : rel === 'falling' || rel === 'rising' ? 0.05 : 0.04;
+    const releaseTau =
+      rel === 'cut' ? 0.006 : rel === 'breathy' ? 0.09 : rel === 'falling' || rel === 'rising' ? 0.05 : 0.04;
     const breath = clampNum(ex.breathiness ?? voice.breathiness, 0, 1);
     // onset consonants
     let t = onStart;
     const firstAmpTau = legato ? 0.008 : onsetTau;
     onset.forEach((p, k) => {
-      const share = consonantDur(p) / Math.max(1e-6, onset.reduce((a, q) => a + consonantDur(q), 0));
+      const share =
+        consonantDur(p) /
+        Math.max(
+          1e-6,
+          onset.reduce((a, q) => a + consonantDur(q), 0),
+        );
       const d = Math.max(1, Math.round((onEnd - onStart) * share));
       const fL = locusF(p, nucF);
       const at = k === 0 ? firstAmpTau : 0.005;
@@ -507,18 +582,36 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
         const v = vowels[0];
         const F = vowelF(v.v1);
         const F2 = v.v2 ? vowelF(v.v2) : F;
-        mkSeg(vStart, vEnd, { av: 1, ah: breath * 0.28, ampTau, tau: 0.02, glideFrom: v.v2 ? 0.45 : 0 }, F, F2);
+        mkSeg(
+          vStart,
+          vEnd,
+          { av: 1, ah: breath * 0.28, ampTau, tau: 0.02, glideFrom: v.v2 ? 0.45 : 0 },
+          F,
+          F2,
+        );
         prevVowelF = F2;
       } else {
         // two vowels in one syllable: second takes the last 35 %
         const split = vStart + Math.round((vEnd - vStart) * 0.65);
         const Fa = vowelF(vowels[0].v1);
         const Fa2 = vowels[0].v2 ? vowelF(vowels[0].v2) : Fa;
-        mkSeg(vStart, split, { av: 1, ah: breath * 0.28, ampTau, tau: 0.02, glideFrom: vowels[0].v2 ? 0.45 : 0 }, Fa, Fa2);
+        mkSeg(
+          vStart,
+          split,
+          { av: 1, ah: breath * 0.28, ampTau, tau: 0.02, glideFrom: vowels[0].v2 ? 0.45 : 0 },
+          Fa,
+          Fa2,
+        );
         const v2 = vowels[vowels.length - 1];
         const Fb = vowelF(v2.v1);
         const Fb2 = v2.v2 ? vowelF(v2.v2) : Fb;
-        mkSeg(split, vEnd, { av: 1, ah: breath * 0.28, ampTau: 0.008, tau: 0.035, glideFrom: v2.v2 ? 0.45 : 0 }, Fb, Fb2);
+        mkSeg(
+          split,
+          vEnd,
+          { av: 1, ah: breath * 0.28, ampTau: 0.008, tau: 0.035, glideFrom: v2.v2 ? 0.45 : 0 },
+          Fb,
+          Fb2,
+        );
         prevVowelF = Fb2;
       }
       prevVowelSegIndex = segs.length - 1;
@@ -527,7 +620,10 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
     if (rel === 'breathy' && prevVowelSegIndex >= 0) {
       const sgi = segs[prevVowelSegIndex];
       const tailStart = Math.max(sgi.start + 1, sgi.end - Math.round(0.18 * sr));
-      if (tailStart < sgi.end && (!notes[i + 1] || toFrame(tm.tickToSeconds(notes[i + 1].tick)) - ne > 0.03 * sr)) {
+      if (
+        tailStart < sgi.end &&
+        (!notes[i + 1] || toFrame(tm.tickToSeconds(notes[i + 1].tick)) - ne > 0.03 * sr)
+      ) {
         const old = sgi.end;
         sgi.end = tailStart;
         mkSeg(tailStart, old, { av: 0.45, ah: 0.55, ampTau: 0.04, tau: 0.03 }, sgi.F2);
@@ -537,12 +633,17 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
     // coda
     t = codaStart;
     coda.forEach((p) => {
-      const share = consonantDur(p) / Math.max(1e-6, coda.reduce((a, q) => a + consonantDur(q), 0));
+      const share =
+        consonantDur(p) /
+        Math.max(
+          1e-6,
+          coda.reduce((a, q) => a + consonantDur(q), 0),
+        );
       const d = Math.max(1, Math.round((ne - codaStart) * share));
       emitConsonant(p, t, Math.min(ne, t + d), locusF(p, prevVowelF), prevVowelF, 0.005, breath);
       t += d;
     });
-    const velGain = Math.pow(10, ((clampNum(n.velocity, 1, 127) - 100) / 127) * 18 / 20);
+    const velGain = Math.pow(10, (((clampNum(n.velocity, 1, 127) - 100) / 127) * 18) / 20);
     const vn: VNote = {
       start: Math.min(onStart, ns),
       end: ne,
@@ -565,7 +666,15 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
     prevNote = vn;
   }
 
-  function emitConsonant(p: PhonemeInfo, s: number, e: number, fL: Float64Array, fV: Float64Array, ampTau: number, breath: number): void {
+  function emitConsonant(
+    p: PhonemeInfo,
+    s: number,
+    e: number,
+    fL: Float64Array,
+    fV: Float64Array,
+    ampTau: number,
+    breath: number,
+  ): void {
     if (e <= s) return;
     const len = e - s;
     switch (p.cls) {
@@ -574,9 +683,22 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
         const cl = Math.max(1, Math.round((len * (p.closure ?? 0.05)) / total));
         const bu = Math.max(1, Math.round((len * 0.008) / total));
         mkSeg(s, s + cl, { av: p.voiced ? p.av : 0, lp: p.voiced ? 450 : 0, ampTau: 0.004, tau: 0.012 }, fL);
-        mkSeg(s + cl, Math.min(e, s + cl + bu), { av: p.voiced ? 0.3 : 0, af: p.burst?.amp ?? 0.4, fricF: p.burst?.f ?? 3000, fricBw: p.burst?.bw ?? 2000, ampTau: 0.0015, tau: 0.01 }, fL);
+        mkSeg(
+          s + cl,
+          Math.min(e, s + cl + bu),
+          {
+            av: p.voiced ? 0.3 : 0,
+            af: p.burst?.amp ?? 0.4,
+            fricF: p.burst?.f ?? 3000,
+            fricBw: p.burst?.bw ?? 2000,
+            ampTau: 0.0015,
+            tau: 0.01,
+          },
+          fL,
+        );
         if (s + cl + bu < e) {
-          if (p.voiced) mkSeg(s + cl + bu, e, { av: 0.9, ah: breath * 0.2, ampTau: 0.004, tau: 0.012 }, fL, fV);
+          if (p.voiced)
+            mkSeg(s + cl + bu, e, { av: 0.9, ah: breath * 0.2, ampTau: 0.004, tau: 0.012 }, fL, fV);
           else mkSeg(s + cl + bu, e, { ah: 0.5, av: 0, ampTau: 0.003, tau: 0.01 }, fV);
         }
         break;
@@ -585,11 +707,35 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
         const total = consonantDur(p);
         const cl = Math.max(1, Math.round((len * (p.closure ?? 0.04)) / total));
         mkSeg(s, s + cl, { av: p.voiced ? 0.2 : 0, lp: p.voiced ? 450 : 0, ampTau: 0.004, tau: 0.012 }, fL);
-        mkSeg(s + cl, e, { av: p.av, af: p.fric?.amp ?? 0.3, fricF: p.fric?.f ?? 3000, fricBw: p.fric?.bw ?? 2000, ampTau: 0.003, tau: 0.012 }, fL);
+        mkSeg(
+          s + cl,
+          e,
+          {
+            av: p.av,
+            af: p.fric?.amp ?? 0.3,
+            fricF: p.fric?.f ?? 3000,
+            fricBw: p.fric?.bw ?? 2000,
+            ampTau: 0.003,
+            tau: 0.012,
+          },
+          fL,
+        );
         break;
       }
       case 'fricative':
-        mkSeg(s, e, { av: p.av, af: p.fric?.amp ?? 0.2, fricF: p.fric?.f ?? 5000, fricBw: p.fric?.bw ?? 4000, ampTau, tau: 0.012 }, fL);
+        mkSeg(
+          s,
+          e,
+          {
+            av: p.av,
+            af: p.fric?.amp ?? 0.2,
+            fricF: p.fric?.f ?? 5000,
+            fricBw: p.fric?.bw ?? 4000,
+            ampTau,
+            tau: 0.012,
+          },
+          fL,
+        );
         break;
       case 'aspirate':
         mkSeg(s, e, { av: 0, ah: 0.55, ampTau, tau: 0.01 }, fV);
@@ -604,7 +750,8 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
 
   segs.sort((a, b) => a.start - b.start);
   // remove overlaps (later segments win)
-  for (let k = 0; k + 1 < segs.length; k++) if (segs[k].end > segs[k + 1].start) segs[k].end = Math.max(segs[k].start, segs[k + 1].start);
+  for (let k = 0; k + 1 < segs.length; k++)
+    if (segs[k].end > segs[k + 1].start) segs[k].end = Math.max(segs[k].start, segs[k + 1].start);
   const filtered = segs.filter((s) => s.end > s.start);
   // legato: bridge short gaps (≤ 30 ms) so phonation continues between connected notes
   const bridge = Math.round(0.03 * sr);
@@ -683,7 +830,11 @@ export class VocalEngine {
   private readonly gs: GlottalSet;
   private readonly baseGain: number;
 
-  constructor(private readonly voice: SingingVoice, sampleRate: number, seed = 1) {
+  constructor(
+    private readonly voice: SingingVoice,
+    sampleRate: number,
+    seed = 1,
+  ) {
     this.sr = sampleRate;
     this.gs = glottalTables();
     this.noise = seedState(seed ^ 0x51ed);
@@ -711,7 +862,8 @@ export class VocalEngine {
     const hfHz = Math.min(HF_HZ * voice.formantScale, sampleRate * 0.4);
     this.hf1.design('highpass', hfHz, 0.5412, 0, sampleRate);
     this.hf2.design('highpass', hfHz, 1.3066, 0, sampleRate);
-    this.hfLpA = 1 - Math.exp((-2 * Math.PI * Math.min(HF_LP * voice.formantScale, sampleRate * 0.45)) / sampleRate);
+    this.hfLpA =
+      1 - Math.exp((-2 * Math.PI * Math.min(HF_LP * voice.formantScale, sampleRate * 0.45)) / sampleRate);
     this.lpOpen = Math.log2(Math.min(20000, sampleRate * 0.45));
     this.lpLog = this.lpOpen;
     this.baseGain = 0.085 * Math.pow(10, voice.gainDb / 20);
@@ -759,7 +911,7 @@ export class VocalEngine {
     const segs = tl.segs;
     const notes = tl.notes;
     let sounding = false;
-    for (let i = 0; i < n; ) {
+    for (let i = 0; i < n;) {
       const segEnd = Math.min(n, i + CR);
       const f = frame0 + i;
       while (this.segCur < segs.length && segs[this.segCur].end <= f) this.segCur++;
@@ -771,7 +923,12 @@ export class VocalEngine {
       const note = this.noteCur < notes.length && notes[this.noteCur].start <= f ? notes[this.noteCur] : null;
       const dt = (segEnd - i) / sr;
       // ---- targets ----
-      let tAv = 0, tAh = 0, tAf = 0, tLp = 0, ampTau = 0.006, fTau = 0.02;
+      let tAv = 0,
+        tAh = 0,
+        tAf = 0,
+        tLp = 0,
+        ampTau = 0.006,
+        fTau = 0.02;
       if (seg) {
         tAv = seg.av;
         tAh = seg.ah;
@@ -823,7 +980,7 @@ export class VocalEngine {
           const amt = clampNum((tSec - 0.22) / 0.35, 0, 1);
           this.vibPhase += cur.vibRate * dt;
           if (this.vibPhase > 1) this.vibPhase -= 1;
-          p += (cur.vib * 0.75) * amt * sin01(this.vibPhase);
+          p += cur.vib * 0.75 * amt * sin01(this.vibPhase);
         }
         // drift
         this.driftTimer -= dt;
@@ -870,7 +1027,14 @@ export class VocalEngine {
         this.rB[k] = Bc;
         this.rC[k] = C;
       }
-      if (this.af > 1e-4) this.fric.design('bandpass', this.fricF, clampNum(this.fricF / Math.max(200, this.fricBw), 0.4, 8), 0, sr);
+      if (this.af > 1e-4)
+        this.fric.design(
+          'bandpass',
+          this.fricF,
+          clampNum(this.fricF / Math.max(200, this.fricBw), 0.4, 8),
+          0,
+          sr,
+        );
       const lpA = this.lpLog < this.lpOpen ? 1 - Math.exp((-2 * Math.PI * Math.pow(2, this.lpLog)) / sr) : 1;
       // tilt (one-pole lowpass blend): darker for low brightness
       const tiltA = 1 - Math.exp((-2 * Math.PI * (900 + 5000 * this.bright)) / sr);
@@ -884,17 +1048,28 @@ export class VocalEngine {
       const tb = this.gs.tables[tIdx + 1].levels[lvl];
       const flow = this.gs.flow;
       const baseInc = f0 / sr;
-      const av = this.av, ah = this.ah, af = this.af;
+      const av = this.av,
+        ah = this.ah,
+        af = this.af;
       const g = this.gain * this.baseGain;
-      const rA = this.rA, rB = this.rB, rC = this.rC, y1 = this.y1, y2 = this.y2;
+      const rA = this.rA,
+        rB = this.rB,
+        rC = this.rC,
+        y1 = this.y1,
+        y2 = this.y2;
       let ph = this.phase;
-      let ns = this.noise, ns2 = this.noise2;
-      let lp = this.lpState, tilt = this.tiltState;
+      let ns = this.noise,
+        ns2 = this.noise2;
+      let lp = this.lpState,
+        tilt = this.tiltState;
       // front vowels (high F2) carry more high-band energy than back vowels
       const hfG = HF_GAIN * (0.55 + 0.45 * clampNum((this.F[1] - 800) / 1400, 0, 1));
-      const hf1 = this.hf1, hf2 = this.hf2, hfLpA = this.hfLpA;
+      const hf1 = this.hf1,
+        hf2 = this.hf2,
+        hfLpA = this.hfLpA;
       let hfLp = this.hfLp;
-      const jitter = this.voice.jitter, shimmer = this.voice.shimmer;
+      const jitter = this.voice.jitter,
+        shimmer = this.voice.shimmer;
       for (let j = i; j < segEnd; j++) {
         ph += baseInc * this.jit;
         if (ph >= 1) {
@@ -953,7 +1128,13 @@ export class VocalEngine {
 }
 
 /** Resolve a vocal track's voice + timeline (shared by the renderer and synthesizeVocal). */
-export function prepareVocal(song: Song, track: Track, sampleRate: number, startSec: number, voiceId?: string): VocalTimeline {
+export function prepareVocal(
+  song: Song,
+  track: Track,
+  sampleRate: number,
+  startSec: number,
+  voiceId?: string,
+): VocalTimeline {
   const voice = resolveSingingVoice(track, voiceId);
   return buildVocalTimeline(song, track, { sampleRate, startSec, voice });
 }

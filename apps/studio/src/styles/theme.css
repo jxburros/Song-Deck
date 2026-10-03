@@ -3,8 +3,11 @@
    warnings), grays #4c4c4c / #636363 (borders and muted UI). Every text/background pair below is
    checked for WCAG AA by apps/studio/test/theme-contrast.test.ts. */
 :root {
-  --font-ui: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-ui:
+    'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --brand-pink: #ff299c;
   --brand-blue: #32cbff;
@@ -154,10 +157,21 @@ h4 {
   font-weight: 600;
   letter-spacing: -0.01em;
 }
-h1 { font-size: 22px; }
-h2 { font-size: 17px; }
-h3 { font-size: 14px; }
-h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+h1 {
+  font-size: 22px;
+}
+h2 {
+  font-size: 17px;
+}
+h3 {
+  font-size: 14px;
+}
+h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
 
 p {
   margin: 0 0 8px;

@@ -22,7 +22,15 @@ import { pickOnsetPeaks } from './onsets';
 import { medianFilterTime } from './separation';
 import { magnitudeSpectrogram } from './stft';
 import type { DrumHit } from './types';
-import { clamp, clamp01, median, percentile, pow2ForDuration, prepareMono, slidingMedianStrided } from './util';
+import {
+  clamp,
+  clamp01,
+  median,
+  percentile,
+  pow2ForDuration,
+  prepareMono,
+  slidingMedianStrided,
+} from './util';
 
 export interface DrumTranscriptionOptions {
   /** Onset sensitivity 0..1 (default 0.5). */
@@ -86,7 +94,13 @@ function floorShape(c: DrumClass, f: number): number {
 }
 
 /** Euclidean NMF (multiplicative updates) with fixed column count; W columns kept at unit max and capped. */
-function nmf(U: Float32Array[], W0: Float32Array[], caps: Float32Array[], floors: Float32Array[], iters = 150): Float32Array[] {
+function nmf(
+  U: Float32Array[],
+  W0: Float32Array[],
+  caps: Float32Array[],
+  floors: Float32Array[],
+  iters = 150,
+): Float32Array[] {
   const N = U.length;
   const K = W0.length;
   const B = W0[0].length;
@@ -185,7 +199,10 @@ function unitMax(v: Float32Array): Float32Array {
   return v;
 }
 
-export function transcribeDrums(buf: AudioData, opts: DrumTranscriptionOptions = {}): DrumTranscriptionResult {
+export function transcribeDrums(
+  buf: AudioData,
+  opts: DrumTranscriptionOptions = {},
+): DrumTranscriptionResult {
   const { x, sr } = prepareMono(buf);
   if (x.length < sr * 0.1) return { hits: [], confidence: 0 };
   const fftSize = pow2ForDuration(0.046, sr, 256, 4096);
@@ -274,7 +291,13 @@ export function transcribeDrums(buf: AudioData, opts: DrumTranscriptionOptions =
   const flux = new Float32Array(T);
   for (let t = 0; t < T; t++) flux[t] = Math.max(groupFlux[0][t], groupFlux[1][t], groupFlux[2][t]);
   const sens = clamp(opts.sensitivity ?? 0.5, 0, 1);
-  const onsetFrames = pickOnsetPeaks(flux, hopSec, { delta: 0.12 - 0.08 * sens, floor: 0.12 - 0.08 * sens, wait: 0.03, preAvg: 0.08, postAvg: 0.05 });
+  const onsetFrames = pickOnsetPeaks(flux, hopSec, {
+    delta: 0.12 - 0.08 * sens,
+    floor: 0.12 - 0.08 * sens,
+    wait: 0.03,
+    preAvg: 0.08,
+    postAvg: 0.05,
+  });
   if (!onsetFrames.length) return { hits: [], confidence: 0 };
 
   // ---- onset spectra (magnitude increase per band) --------------------------------------------
@@ -296,13 +319,19 @@ export function transcribeDrums(buf: AudioData, opts: DrumTranscriptionOptions =
   // leakage in the hat bands into "typical hat activity".
   const tilt = (f: number): number => (f <= 200 ? 1 : Math.sqrt(200 / f));
   const p95 = new Float32Array(NB);
-  for (let b = 0; b < NB; b++) p95[b] = percentile(incs.map((v) => v[b]), 95);
+  for (let b = 0; b < NB; b++)
+    p95[b] = percentile(
+      incs.map((v) => v[b]),
+      95,
+    );
   let maxActivity = 0;
   for (let b = 0; b < NB; b++) maxActivity = Math.max(maxActivity, p95[b] / tilt(centers[b]));
   const norm = new Float32Array(NB);
   for (let b = 0; b < NB; b++) norm[b] = Math.max(1e-9, p95[b], 0.05 * maxActivity * tilt(centers[b]));
   const U = incs.map((v) => v.map((x2, b) => x2 / norm[b]));
-  const prior = CLASSES.map((c) => unitMax(Float32Array.from({ length: NB }, (_, b) => priorShape(c, centers[b]))));
+  const prior = CLASSES.map((c) =>
+    unitMax(Float32Array.from({ length: NB }, (_, b) => priorShape(c, centers[b]))),
+  );
   // Semi-informed NMF over all onset spectra: lone hits define their component, and mixtures
   // (kick + hat) are explained as sums. Components keep their identity from the initialisation.
   const caps = CLASSES.map((c) => Float32Array.from({ length: NB }, (_, b) => capShape(c, centers[b])));
@@ -315,7 +344,11 @@ export function transcribeDrums(buf: AudioData, opts: DrumTranscriptionOptions =
     for (let b = 0; b < NB; b++) if (centers[b] >= lo && centers[b] < hi) out.push(b);
     return out;
   };
-  const gateBands: Record<DrumClass, number[]> = { low: bandsIn(0, 100), snare: bandsIn(1000, 5000), cymbal: bandsIn(5000, 1e9) };
+  const gateBands: Record<DrumClass, number[]> = {
+    low: bandsIn(0, 100),
+    snare: bandsIn(1000, 5000),
+    cymbal: bandsIn(5000, 1e9),
+  };
   const gateLevel: Record<DrumClass, number> = { low: 0.2, snare: 0.25, cymbal: 0.12 };
   const passes = (c: DrumClass, u: Float32Array): boolean => {
     const g = gateBands[c];
@@ -349,7 +382,9 @@ export function transcribeDrums(buf: AudioData, opts: DrumTranscriptionOptions =
     return peak > 0 ? later / peak : 0;
   });
   const Hs: Float32Array[] = U.map((u, i) => {
-    const allowed = CLASSES.map((c) => passes(c, u) && (c !== 'snare' || (noiseSustain[i] >= 0.12 && noiseSustain[i] <= 1)));
+    const allowed = CLASSES.map(
+      (c) => passes(c, u) && (c !== 'snare' || (noiseSustain[i] >= 0.12 && noiseSustain[i] <= 1)),
+    );
     const sub = W.filter((_, k) => allowed[k]);
     const hSub = sub.length ? nnls(sub, u) : new Float32Array(0);
     const h = new Float32Array(CLASSES.length);
@@ -395,14 +430,19 @@ export function transcribeDrums(buf: AudioData, opts: DrumTranscriptionOptions =
   // Clip-level presence: a class must be the main explanation of some onsets (within its own
   // bands — a hat sharing its onset with bass-note bleed in the mid bands is still a hat) before
   // its weaker activations, e.g. a hat under a kick, are believed.
-  const dominant = CLASSES.map((_, k) => Hs.filter((h, i) => h[k] >= 0.4 * typical[k] && localShareOf(h, k, U[i]) >= 0.6).length);
+  const dominant = CLASSES.map(
+    (_, k) => Hs.filter((h, i) => h[k] >= 0.4 * typical[k] && localShareOf(h, k, U[i]) >= 0.6).length,
+  );
   const present = CLASSES.map((_, k) => dominant[k] >= 2 || (dominant[k] >= 1 && onsetFrames.length <= 6));
   // Over-decomposition check: NMF with more components than real drums can split one drum into
   // parts (e.g. a snare's noise learned as a "cymbal", its body as a "tom"). Two components that
   // (almost) always fire together, in both directions, are one instrument: keep the stronger.
   // (A kick that always comes with a hat is different: the hat also plays alone.)
-  const active = (h: Float32Array, k: number, u: Float32Array): boolean => h[k] >= 0.3 * typical[k] && localShareOf(h, k, u) >= 0.3;
-  const activeIdx = CLASSES.map((_, k) => Hs.map((h, i) => (active(h, k, U[i]) ? i : -1)).filter((i) => i >= 0));
+  const active = (h: Float32Array, k: number, u: Float32Array): boolean =>
+    h[k] >= 0.3 * typical[k] && localShareOf(h, k, u) >= 0.3;
+  const activeIdx = CLASSES.map((_, k) =>
+    Hs.map((h, i) => (active(h, k, U[i]) ? i : -1)).filter((i) => i >= 0),
+  );
   const energyOf = (k: number, idx: number[]): number => {
     let e = 0;
     for (const i of idx) for (let b = 0; b < NB; b++) e += Hs[i][k] * W[k][b];
@@ -438,7 +478,9 @@ export function transcribeDrums(buf: AudioData, opts: DrumTranscriptionOptions =
       if (rel < REL_THRESHOLD[c] || share < 0.3) return;
 
       const velocity = Math.round(clamp(110 * Math.sqrt(Math.min(1.3, rel)), 15, 127));
-      const confidence = clamp01((0.3 + 0.4 * share + 0.2 * Math.min(1, rel) + 0.1 * Math.min(1, strength)) * 0.92);
+      const confidence = clamp01(
+        (0.3 + 0.4 * share + 0.2 * Math.min(1, rel) + 0.1 * Math.min(1, strength)) * 0.92,
+      );
       let drum: number = c === 'snare' ? GM_DRUM.SNARE : c === 'cymbal' ? GM_DRUM.HIHAT_CLOSED : GM_DRUM.KICK;
       if (c === 'low') {
         // post-attack low-band resonance (35–100 ms after the onset): kick ≲ 90 Hz, toms higher
@@ -448,7 +490,11 @@ export function transcribeDrums(buf: AudioData, opts: DrumTranscriptionOptions =
         let den = 0;
         let bk = k1;
         let bv = 0;
-        for (let t = Math.min(T - 1, t0 + 3); t <= Math.min(T - 1, t0 + Math.max(4, Math.round(0.1 / hopSec))); t++) {
+        for (
+          let t = Math.min(T - 1, t0 + 3);
+          t <= Math.min(T - 1, t0 + Math.max(4, Math.round(0.1 / hopSec)));
+          t++
+        ) {
           const o = t * nb;
           for (let kk = k1; kk <= k2; kk++) {
             const v = full[o + kk] * full[o + kk];
@@ -503,6 +549,8 @@ export function transcribeDrums(buf: AudioData, opts: DrumTranscriptionOptions =
     else if (decay >= (withSnare ? 0.4 : 0.13)) hit.drum = GM_DRUM.HIHAT_OPEN;
   });
   hits.sort((a, b) => a.time - b.time || a.drum - b.drum);
-  const confidence = hits.length ? Math.round((hits.reduce((s, h) => s + h.confidence, 0) / hits.length) * 0.95 * 1000) / 1000 : 0;
+  const confidence = hits.length
+    ? Math.round((hits.reduce((s, h) => s + h.confidence, 0) / hits.length) * 0.95 * 1000) / 1000
+    : 0;
   return { hits, confidence };
 }

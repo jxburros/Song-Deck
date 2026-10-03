@@ -10,7 +10,14 @@
  */
 import path from 'node:path';
 import { Mutex, readJsonFile, writeFileAtomic } from '../http-util';
-import { type CredentialVault, type KeychainModuleLoader, type KeyringEntry, type KeyringModule, type VaultEntryMeta, VaultError } from './types';
+import {
+  type CredentialVault,
+  type KeychainModuleLoader,
+  type KeyringEntry,
+  type KeyringModule,
+  type VaultEntryMeta,
+  VaultError,
+} from './types';
 
 export const KEYCHAIN_SERVICE = 'songdeck';
 
@@ -76,7 +83,12 @@ export class KeychainVault implements CredentialVault {
     } catch {
       parsed = undefined;
     }
-    if (!parsed || parsed.format !== 'songdeck-vault-index' || typeof parsed.refs !== 'object' || parsed.refs === null) {
+    if (
+      !parsed ||
+      parsed.format !== 'songdeck-vault-index' ||
+      typeof parsed.refs !== 'object' ||
+      parsed.refs === null
+    ) {
       return { format: 'songdeck-vault-index', version: 1, refs: {} };
     }
     return parsed;
@@ -87,7 +99,9 @@ export class KeychainVault implements CredentialVault {
   }
 
   async get(ref: string): Promise<string | undefined> {
-    const value = await withTimeout(this.timeoutMs, 'a read', (signal) => this.entry(ref).getPassword(signal));
+    const value = await withTimeout(this.timeoutMs, 'a read', (signal) =>
+      this.entry(ref).getPassword(signal),
+    );
     return value === null || value === undefined ? undefined : value;
   }
 
@@ -119,7 +133,11 @@ export class KeychainVault implements CredentialVault {
   async list(): Promise<VaultEntryMeta[]> {
     const index = await this.readIndex();
     return Object.entries(index.refs)
-      .map(([ref, e]) => ({ ref, ...(typeof e.label === 'string' ? { label: e.label } : {}), updatedAt: String(e.updatedAt) }))
+      .map(([ref, e]) => ({
+        ref,
+        ...(typeof e.label === 'string' ? { label: e.label } : {}),
+        updatedAt: String(e.updatedAt),
+      }))
       .sort((a, b) => a.ref.localeCompare(b.ref));
   }
 }
@@ -128,17 +146,22 @@ export class KeychainVault implements CredentialVault {
  * Verify that the keychain really works (write, read back, delete a probe entry). Throws with a
  * readable reason otherwise (no D-Bus session, locked keychain, missing native binary…).
  */
-export async function probeKeychain(mod: KeyringModule, entryOptions: unknown, timeoutMs = 5000): Promise<void> {
+export async function probeKeychain(
+  mod: KeyringModule,
+  entryOptions: unknown,
+  timeoutMs = 5000,
+): Promise<void> {
   const account = `__songdeck_probe__${process.pid}`;
   const value = `probe-${Date.now()}`;
   const entry = new mod.AsyncEntry(KEYCHAIN_SERVICE, account, entryOptions);
   await withTimeout(timeoutMs, 'the probe write', (signal) => entry.setPassword(value, signal));
   try {
     const read = await withTimeout(timeoutMs, 'the probe read', (signal) => entry.getPassword(signal));
-    if (read !== value) throw new VaultError('keychain-unreliable', 'OS keychain returned a different value than was stored');
+    if (read !== value)
+      throw new VaultError('keychain-unreliable', 'OS keychain returned a different value than was stored');
   } finally {
-    await withTimeout(timeoutMs, 'the probe delete', (signal) => (entry.deleteCredential ?? entry.deletePassword).call(entry, signal)).catch(
-      () => undefined,
-    );
+    await withTimeout(timeoutMs, 'the probe delete', (signal) =>
+      (entry.deleteCredential ?? entry.deletePassword).call(entry, signal),
+    ).catch(() => undefined);
   }
 }

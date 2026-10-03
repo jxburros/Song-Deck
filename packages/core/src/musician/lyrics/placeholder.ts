@@ -20,8 +20,30 @@ interface Bank {
 
 const BANKS: Record<string, Bank> = {
   melancholy: {
-    nouns: ['rain', 'shadow', 'memory', 'silence', 'window', 'river', 'winter', 'echo', 'letter', 'candle', 'distance', 'harbor'],
-    plurals: ['shadows', 'memories', 'streetlights', 'letters', 'echoes', 'raindrops', 'footsteps', 'photographs'],
+    nouns: [
+      'rain',
+      'shadow',
+      'memory',
+      'silence',
+      'window',
+      'river',
+      'winter',
+      'echo',
+      'letter',
+      'candle',
+      'distance',
+      'harbor',
+    ],
+    plurals: [
+      'shadows',
+      'memories',
+      'streetlights',
+      'letters',
+      'echoes',
+      'raindrops',
+      'footsteps',
+      'photographs',
+    ],
     adjs: ['empty', 'faded', 'broken', 'quiet', 'cold', 'gray', 'hollow', 'distant', 'fragile', 'lonely'],
     verbs: ['fade', 'wait', 'wonder', 'drift', 'remember', 'fall', 'break', 'cry'],
   },
@@ -86,27 +108,153 @@ interface RhymeWord {
 }
 
 const RHYMES: RhymeWord[][] = [
-  [{ w: 'night', pos: 'n' }, { w: 'light', pos: 'n' }, { w: 'tonight', pos: 'd' }, { w: 'fight', pos: 'v' }, { w: 'bright', pos: 'a' }, { w: 'alright', pos: 'a' }, { w: 'sight', pos: 'n' }, { w: 'white', pos: 'a' }],
-  [{ w: 'rain', pos: 'n' }, { w: 'pain', pos: 'n' }, { w: 'again', pos: 'd' }, { w: 'remain', pos: 'v' }, { w: 'chain', pos: 'n' }, { w: 'train', pos: 'n' }],
-  [{ w: 'away', pos: 'd' }, { w: 'stay', pos: 'v' }, { w: 'day', pos: 'n' }, { w: 'today', pos: 'd' }, { w: 'gray', pos: 'a' }, { w: 'pray', pos: 'v' }],
-  [{ w: 'fire', pos: 'n' }, { w: 'higher', pos: 'd' }, { w: 'desire', pos: 'n' }, { w: 'wire', pos: 'n' }],
-  [{ w: 'down', pos: 'd' }, { w: 'town', pos: 'n' }, { w: 'crown', pos: 'n' }, { w: 'drown', pos: 'v' }],
-  [{ w: 'go', pos: 'v' }, { w: 'know', pos: 'v' }, { w: 'slow', pos: 'a' }, { w: 'glow', pos: 'n' }, { w: 'below', pos: 'd' }, { w: 'snow', pos: 'n' }, { w: 'grow', pos: 'v' }],
-  [{ w: 'heart', pos: 'n' }, { w: 'apart', pos: 'd' }, { w: 'start', pos: 'v' }, { w: 'dark', pos: 'n' }],
-  [{ w: 'free', pos: 'a' }, { w: 'see', pos: 'v' }, { w: 'sea', pos: 'n' }, { w: 'be', pos: 'v' }, { w: 'me', pos: 'd' }],
-  [{ w: 'song', pos: 'n' }, { w: 'long', pos: 'a' }, { w: 'strong', pos: 'a' }, { w: 'wrong', pos: 'a' }, { w: 'along', pos: 'd' }, { w: 'belong', pos: 'v' }],
-  [{ w: 'alive', pos: 'a' }, { w: 'survive', pos: 'v' }, { w: 'arrive', pos: 'v' }, { w: 'drive', pos: 'v' }],
-  [{ w: 'mind', pos: 'n' }, { w: 'find', pos: 'v' }, { w: 'behind', pos: 'd' }, { w: 'kind', pos: 'a' }, { w: 'blind', pos: 'a' }],
-  [{ w: 'here', pos: 'd' }, { w: 'near', pos: 'a' }, { w: 'fear', pos: 'n' }, { w: 'clear', pos: 'a' }, { w: 'year', pos: 'n' }, { w: 'disappear', pos: 'v' }],
-  [{ w: 'inside', pos: 'd' }, { w: 'ride', pos: 'n' }, { w: 'hide', pos: 'v' }, { w: 'tide', pos: 'n' }, { w: 'wide', pos: 'a' }, { w: 'collide', pos: 'v' }],
-  [{ w: 'name', pos: 'n' }, { w: 'flame', pos: 'n' }, { w: 'same', pos: 'a' }, { w: 'frame', pos: 'n' }, { w: 'game', pos: 'n' }],
-  [{ w: 'cold', pos: 'a' }, { w: 'hold', pos: 'v' }, { w: 'gold', pos: 'n' }, { w: 'old', pos: 'a' }, { w: 'bold', pos: 'a' }],
-  [{ w: 'sleep', pos: 'n' }, { w: 'deep', pos: 'a' }, { w: 'keep', pos: 'v' }, { w: 'weep', pos: 'v' }],
-  [{ w: 'fall', pos: 'v' }, { w: 'call', pos: 'v' }, { w: 'wall', pos: 'n' }, { w: 'small', pos: 'a' }],
-  [{ w: 'alone', pos: 'a' }, { w: 'stone', pos: 'n' }, { w: 'home', pos: 'n' }, { w: 'unknown', pos: 'a' }],
-  [{ w: 'true', pos: 'a' }, { w: 'blue', pos: 'a' }, { w: 'through', pos: 'd' }, { w: 'new', pos: 'a' }],
-  [{ w: 'face', pos: 'n' }, { w: 'place', pos: 'n' }, { w: 'space', pos: 'n' }, { w: 'grace', pos: 'n' }],
-  [{ w: 'stars', pos: 'n' }, { w: 'scars', pos: 'n' }, { w: 'cars', pos: 'n' }, { w: 'ours', pos: 'a' }],
+  [
+    { w: 'night', pos: 'n' },
+    { w: 'light', pos: 'n' },
+    { w: 'tonight', pos: 'd' },
+    { w: 'fight', pos: 'v' },
+    { w: 'bright', pos: 'a' },
+    { w: 'alright', pos: 'a' },
+    { w: 'sight', pos: 'n' },
+    { w: 'white', pos: 'a' },
+  ],
+  [
+    { w: 'rain', pos: 'n' },
+    { w: 'pain', pos: 'n' },
+    { w: 'again', pos: 'd' },
+    { w: 'remain', pos: 'v' },
+    { w: 'chain', pos: 'n' },
+    { w: 'train', pos: 'n' },
+  ],
+  [
+    { w: 'away', pos: 'd' },
+    { w: 'stay', pos: 'v' },
+    { w: 'day', pos: 'n' },
+    { w: 'today', pos: 'd' },
+    { w: 'gray', pos: 'a' },
+    { w: 'pray', pos: 'v' },
+  ],
+  [
+    { w: 'fire', pos: 'n' },
+    { w: 'higher', pos: 'd' },
+    { w: 'desire', pos: 'n' },
+    { w: 'wire', pos: 'n' },
+  ],
+  [
+    { w: 'down', pos: 'd' },
+    { w: 'town', pos: 'n' },
+    { w: 'crown', pos: 'n' },
+    { w: 'drown', pos: 'v' },
+  ],
+  [
+    { w: 'go', pos: 'v' },
+    { w: 'know', pos: 'v' },
+    { w: 'slow', pos: 'a' },
+    { w: 'glow', pos: 'n' },
+    { w: 'below', pos: 'd' },
+    { w: 'snow', pos: 'n' },
+    { w: 'grow', pos: 'v' },
+  ],
+  [
+    { w: 'heart', pos: 'n' },
+    { w: 'apart', pos: 'd' },
+    { w: 'start', pos: 'v' },
+    { w: 'dark', pos: 'n' },
+  ],
+  [
+    { w: 'free', pos: 'a' },
+    { w: 'see', pos: 'v' },
+    { w: 'sea', pos: 'n' },
+    { w: 'be', pos: 'v' },
+    { w: 'me', pos: 'd' },
+  ],
+  [
+    { w: 'song', pos: 'n' },
+    { w: 'long', pos: 'a' },
+    { w: 'strong', pos: 'a' },
+    { w: 'wrong', pos: 'a' },
+    { w: 'along', pos: 'd' },
+    { w: 'belong', pos: 'v' },
+  ],
+  [
+    { w: 'alive', pos: 'a' },
+    { w: 'survive', pos: 'v' },
+    { w: 'arrive', pos: 'v' },
+    { w: 'drive', pos: 'v' },
+  ],
+  [
+    { w: 'mind', pos: 'n' },
+    { w: 'find', pos: 'v' },
+    { w: 'behind', pos: 'd' },
+    { w: 'kind', pos: 'a' },
+    { w: 'blind', pos: 'a' },
+  ],
+  [
+    { w: 'here', pos: 'd' },
+    { w: 'near', pos: 'a' },
+    { w: 'fear', pos: 'n' },
+    { w: 'clear', pos: 'a' },
+    { w: 'year', pos: 'n' },
+    { w: 'disappear', pos: 'v' },
+  ],
+  [
+    { w: 'inside', pos: 'd' },
+    { w: 'ride', pos: 'n' },
+    { w: 'hide', pos: 'v' },
+    { w: 'tide', pos: 'n' },
+    { w: 'wide', pos: 'a' },
+    { w: 'collide', pos: 'v' },
+  ],
+  [
+    { w: 'name', pos: 'n' },
+    { w: 'flame', pos: 'n' },
+    { w: 'same', pos: 'a' },
+    { w: 'frame', pos: 'n' },
+    { w: 'game', pos: 'n' },
+  ],
+  [
+    { w: 'cold', pos: 'a' },
+    { w: 'hold', pos: 'v' },
+    { w: 'gold', pos: 'n' },
+    { w: 'old', pos: 'a' },
+    { w: 'bold', pos: 'a' },
+  ],
+  [
+    { w: 'sleep', pos: 'n' },
+    { w: 'deep', pos: 'a' },
+    { w: 'keep', pos: 'v' },
+    { w: 'weep', pos: 'v' },
+  ],
+  [
+    { w: 'fall', pos: 'v' },
+    { w: 'call', pos: 'v' },
+    { w: 'wall', pos: 'n' },
+    { w: 'small', pos: 'a' },
+  ],
+  [
+    { w: 'alone', pos: 'a' },
+    { w: 'stone', pos: 'n' },
+    { w: 'home', pos: 'n' },
+    { w: 'unknown', pos: 'a' },
+  ],
+  [
+    { w: 'true', pos: 'a' },
+    { w: 'blue', pos: 'a' },
+    { w: 'through', pos: 'd' },
+    { w: 'new', pos: 'a' },
+  ],
+  [
+    { w: 'face', pos: 'n' },
+    { w: 'place', pos: 'n' },
+    { w: 'space', pos: 'n' },
+    { w: 'grace', pos: 'n' },
+  ],
+  [
+    { w: 'stars', pos: 'n' },
+    { w: 'scars', pos: 'n' },
+    { w: 'cars', pos: 'n' },
+    { w: 'ours', pos: 'a' },
+  ],
 ];
 
 interface Template {
@@ -177,7 +325,27 @@ const FILLERS: { text: string; syl: number }[] = [
   { text: 'Oh, and now', syl: 3 },
 ];
 
-const STOP = new Set(['the', 'and', 'with', 'about', 'from', 'that', 'this', 'into', 'your', 'their', 'song', 'songs', 'some', 'very', 'over', 'when', 'what', 'where', 'love-song']);
+const STOP = new Set([
+  'the',
+  'and',
+  'with',
+  'about',
+  'from',
+  'that',
+  'this',
+  'into',
+  'your',
+  'their',
+  'song',
+  'songs',
+  'some',
+  'very',
+  'over',
+  'when',
+  'what',
+  'where',
+  'love-song',
+]);
 
 function resolveBank(mood?: string): Bank {
   const m = (mood ?? '').toLowerCase();
@@ -212,7 +380,15 @@ function schemeFor(kind: SectionKind, lines: number, rng: Rng): string[] {
   return out;
 }
 
-function fill(template: string, bank: Bank, theme: string[], rng: Rng, rhyme: string, useTheme: boolean, avoid: Set<string>): { line: string; words: string[] } {
+function fill(
+  template: string,
+  bank: Bank,
+  theme: string[],
+  rng: Rng,
+  rhyme: string,
+  useTheme: boolean,
+  avoid: Set<string>,
+): { line: string; words: string[] } {
   let themeUsed = false;
   const words: string[] = [];
   // Prefer bank words this section has not sung yet, so placeholder verses don't repeat themselves.
@@ -252,7 +428,11 @@ const SHORT_SHAPES: Record<Pos, string[]> = {
 };
 
 /** A line of exactly `target` syllables ending on a rhyme word, or null when none fits. */
-function shortLine(pool: RhymeWord[], target: number, rng: { shuffle<T>(a: readonly T[]): T[] }): { line: string; word: string } | null {
+function shortLine(
+  pool: RhymeWord[],
+  target: number,
+  rng: { shuffle<T>(a: readonly T[]): T[] },
+): { line: string; word: string } | null {
   for (const r of rng.shuffle(pool)) {
     for (const shape of rng.shuffle(SHORT_SHAPES[r.pos])) {
       const line = shape.replace('{R}', r.w);
@@ -284,9 +464,17 @@ export function generatePlaceholderLyrics(opts: PlaceholderLyricsOptions): strin
   const out: string[] = [];
   for (let i = 0; i < lines; i++) {
     const letter = scheme[i];
-    const target = opts.syllablesPerLine?.length ? Math.max(1, opts.syllablesPerLine[i % opts.syllablesPerLine.length]) : defaultSyllables(kind);
+    const target = opts.syllablesPerLine?.length
+      ? Math.max(1, opts.syllablesPerLine[i % opts.syllablesPerLine.length])
+      : defaultSyllables(kind);
     // Hook: the chorus repeats its first line (same rhyme letter in ABAB) when it fits the phrase.
-    if (chorus && lines >= 4 && i % 4 === 2 && out[i - 2] && (!opts.syllablesPerLine?.length || countSyllables(out[i - 2]) === target)) {
+    if (
+      chorus &&
+      lines >= 4 &&
+      i % 4 === 2 &&
+      out[i - 2] &&
+      (!opts.syllablesPerLine?.length || countSyllables(out[i - 2]) === target)
+    ) {
       out.push(out[i - 2]);
       continue;
     }

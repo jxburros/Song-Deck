@@ -1,4 +1,10 @@
-import { createProvider, ProviderError, ServerProxyTransport, ServerVaultClient, type ProviderConfig } from '@songdeck/ai';
+import {
+  createProvider,
+  ProviderError,
+  ServerProxyTransport,
+  ServerVaultClient,
+  type ProviderConfig,
+} from '@songdeck/ai';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { guardedFetch } from '../src/managed';
 import { json, startMock, startServer, type MockServer, type TestServer } from './helpers';
@@ -13,7 +19,9 @@ async function startMockOpenAI(): Promise<MockServer> {
     const url = new URL(req.url ?? '/', 'http://x');
     if (req.method === 'GET' && url.pathname === '/v1/models') {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ object: 'list', data: [{ id: 'mock-model', object: 'model', owned_by: 'test' }] }));
+      res.end(
+        JSON.stringify({ object: 'list', data: [{ id: 'mock-model', object: 'model', owned_by: 'test' }] }),
+      );
       return;
     }
     if (req.method === 'POST' && url.pathname === '/v1/chat/completions') {
@@ -29,7 +37,13 @@ async function startMockOpenAI(): Promise<MockServer> {
         JSON.stringify({
           id: 'chatcmpl-1',
           model: 'mock-model',
-          choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: `Hello from mock (${last.length} chars)` } }],
+          choices: [
+            {
+              index: 0,
+              finish_reason: 'stop',
+              message: { role: 'assistant', content: `Hello from mock (${last.length} chars)` },
+            },
+          ],
           usage: { prompt_tokens: 12, completion_tokens: 5, total_tokens: 17 },
         }),
       );
@@ -60,12 +74,20 @@ function providerConfig(location: 'cloud' | 'local'): ProviderConfig {
 async function configure(location: 'cloud' | 'local') {
   const vault = new ServerVaultClient(srv.url);
   await vault.setSecret('provider:mock-llm', SECRET, 'Mock key');
-  const res = await fetch(`${srv.url}/api/providers`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ providers: [providerConfig(location)] }) });
+  const res = await fetch(`${srv.url}/api/providers`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ providers: [providerConfig(location)] }),
+  });
   expect(res.status).toBe(200);
 }
 
 function managedLlm(body: Record<string, unknown>) {
-  return fetch(`${srv.url}/api/managed/llm`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  return fetch(`${srv.url}/api/managed/llm`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 const llmBody = (privacy: Record<string, unknown> = {}) => ({
@@ -102,7 +124,10 @@ describe('managed "Automatic" gateway', () => {
     await configure('cloud');
     const never = await managedLlm(llmBody({ neverUpload: ['song-description'] }));
     expect(never.status).toBe(503);
-    expect(await json(never)).toMatchObject({ code: 'no-compatible-provider', error: expect.stringMatching(/No compatible provider/) });
+    expect(await json(never)).toMatchObject({
+      code: 'no-compatible-provider',
+      error: expect.stringMatching(/No compatible provider/),
+    });
     const offline = await managedLlm({ ...llmBody(), offline: true });
     expect(offline.status).toBe(503);
     const localOnly = await managedLlm(llmBody({ localOnly: true }));
@@ -111,14 +136,22 @@ describe('managed "Automatic" gateway', () => {
     const audio = await fetch(`${srv.url}/api/managed/audio`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ role: 'production', quality: 'draft', request: { op: 'generateMusic', params: { prompt: 'lofi', durationSeconds: 10 } }, privacy: { neverUpload: [], dataKinds: ['song-description'] } }),
+      body: JSON.stringify({
+        role: 'production',
+        quality: 'draft',
+        request: { op: 'generateMusic', params: { prompt: 'lofi', durationSeconds: 10 } },
+        privacy: { neverUpload: [], dataKinds: ['song-description'] },
+      }),
     });
     expect(audio.status).toBe(503);
   });
 
   it('serves offline requests from local providers', async () => {
     await configure('local');
-    const res = await managedLlm({ ...llmBody({ neverUpload: ['song-description', 'midi'] }), offline: true });
+    const res = await managedLlm({
+      ...llmBody({ neverUpload: ['song-description', 'midi'] }),
+      offline: true,
+    });
     expect(res.status).toBe(200);
     expect((await json(res)).provenance).toMatchObject({ providerId: 'mock-llm', cloud: false });
   });
@@ -129,11 +162,24 @@ describe('managed "Automatic" gateway', () => {
     expect(status.roles.composition).toMatchObject({ available: false, localAvailable: false });
     await configure('cloud');
     status = await json(await fetch(`${srv.url}/api/managed/status`));
-    expect(status.providers).toEqual([expect.objectContaining({ id: 'mock-llm', status: 'ready', location: 'cloud' })]);
-    expect(status.roles.composition).toMatchObject({ available: true, providerId: 'mock-llm', location: 'cloud', localAvailable: false });
+    expect(status.providers).toEqual([
+      expect.objectContaining({ id: 'mock-llm', status: 'ready', location: 'cloud' }),
+    ]);
+    expect(status.roles.composition).toMatchObject({
+      available: true,
+      providerId: 'mock-llm',
+      location: 'cloud',
+      localAvailable: false,
+    });
     expect(status.roles.production.available).toBe(false);
     expect(status.roles.vocals.available).toBe(false);
-    const models = await json(await fetch(`${srv.url}/api/managed/models`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }));
+    const models = await json(
+      await fetch(`${srv.url}/api/managed/models`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      }),
+    );
     expect(models.providers.map((p: { id: string }) => p.id)).toEqual(['mock-llm']);
     expect(models.capabilities).toContain('TEXT_REASONING');
   });
@@ -142,7 +188,21 @@ describe('managed "Automatic" gateway', () => {
     await fetch(`${srv.url}/api/providers`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ providers: [{ id: 'auto', name: 'Automatic', adapter: 'managed', enabled: true, location: 'cloud', baseUrl: srv.url, auth: { type: 'none' }, timeoutMs: 1000, concurrency: 1 }] }),
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'auto',
+            name: 'Automatic',
+            adapter: 'managed',
+            enabled: true,
+            location: 'cloud',
+            baseUrl: srv.url,
+            auth: { type: 'none' },
+            timeoutMs: 1000,
+            concurrency: 1,
+          },
+        ],
+      }),
     });
     const res = await managedLlm(llmBody());
     expect(res.status).toBe(503);
@@ -156,14 +216,22 @@ describe('@songdeck/ai ServerProxyTransport ↔ /api/proxy', () => {
   it('lets a browser-side provider call through the proxy without holding the key', async () => {
     await configure('cloud');
     const transport = new ServerProxyTransport(srv.url);
-    const provider = createProvider(providerConfig('cloud'), { transport, retry: { retries: 0, baseDelayMs: 0 } });
-    const out = await provider.llm!.complete({ messages: [{ role: 'user', content: 'hello' }], maxTokens: 16 });
+    const provider = createProvider(providerConfig('cloud'), {
+      transport,
+      retry: { retries: 0, baseDelayMs: 0 },
+    });
+    const out = await provider.llm!.complete({
+      messages: [{ role: 'user', content: 'hello' }],
+      maxTokens: 16,
+    });
     expect(out.text).toMatch(/^Hello from mock/);
     const models = await provider.llm!.listModels();
     expect(models.map((m) => m.id)).toContain('mock-model');
     // A vault miss surfaces as an auth ProviderError on the client.
     await new ServerVaultClient(srv.url).deleteSecret('provider:mock-llm');
-    const err = await provider.llm!.complete({ messages: [{ role: 'user', content: 'hello' }] }).catch((e: unknown) => e);
+    const err = await provider
+      .llm!.complete({ messages: [{ role: 'user', content: 'hello' }] })
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ProviderError);
     expect((err as ProviderError).kind).toBe('auth');
   });

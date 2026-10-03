@@ -35,7 +35,8 @@ export function throwIfAborted(signal?: AbortSignal): void {
 
 export function requireProject(projectId: string): Project {
   const project = useStudio.getState().project;
-  if (!project || project.meta.id !== projectId) throw new Error('The project for this task is not open. Open it and retry the task.');
+  if (!project || project.meta.id !== projectId)
+    throw new Error('The project for this task is not open. Open it and retry the task.');
   return project;
 }
 
@@ -47,14 +48,23 @@ export function revisionNumber(project: Project, revisionId: string | undefined)
   return revisionId ? project.history.revisions.find((r) => r.id === revisionId)?.number : undefined;
 }
 
-export function assetMeta(project: Project | null | undefined, id: string | undefined): AudioAssetMeta | undefined {
+export function assetMeta(
+  project: Project | null | undefined,
+  id: string | undefined,
+): AudioAssetMeta | undefined {
   return id && project ? project.meta.assets.find((a) => a.id === id) : undefined;
 }
 
-export function provenanceOfAsset(project: Project | null | undefined, id: string | undefined): ProvenanceRecord | undefined {
+export function provenanceOfAsset(
+  project: Project | null | undefined,
+  id: string | undefined,
+): ProvenanceRecord | undefined {
   if (!project || !id) return undefined;
   const meta = assetMeta(project, id);
-  return (meta?.provenanceId ? project.meta.provenance.find((p) => p.id === meta.provenanceId) : undefined) ?? project.meta.provenance.find((p) => p.artifactId === id);
+  return (
+    (meta?.provenanceId ? project.meta.provenance.find((p) => p.id === meta.provenanceId) : undefined) ??
+    project.meta.provenance.find((p) => p.artifactId === id)
+  );
 }
 
 /** Decoded audio of a project asset (throws when the bytes are missing). */
@@ -72,7 +82,12 @@ export function audioSeconds(a: AudioData | null | undefined): number {
 }
 
 /** A package path for `fileName` that no other asset uses (packages store one file per path). */
-export function uniqueAssetPath(project: Project, kind: AssetKind, fileName: string, exceptId?: string): string {
+export function uniqueAssetPath(
+  project: Project,
+  kind: AssetKind,
+  fileName: string,
+  exceptId?: string,
+): string {
   const taken = new Set(project.meta.assets.filter((a) => a.id !== exceptId).map((a) => a.path));
   let path = assetPathFor(kind, fileName);
   if (!taken.has(path)) return path;
@@ -86,9 +101,19 @@ export function uniqueAssetPath(project: Project, kind: AssetKind, fileName: str
   return assetPathFor(kind, `${stem}-${randomId('v')}${ext}`);
 }
 
-export async function wavOf(audio: AudioData, bitDepth: 16 | 24 | 32 = 16, signal?: AbortSignal): Promise<EncodedAudio> {
+export async function wavOf(
+  audio: AudioData,
+  bitDepth: 16 | 24 | 32 = 16,
+  signal?: AbortSignal,
+): Promise<EncodedAudio> {
   const data = await encodeWavBytes(audio, bitDepth, { signal });
-  return { mimeType: 'audio/wav', data, sampleRate: audio.sampleRate, channels: audio.channels.length, durationSeconds: audioSeconds(audio) };
+  return {
+    mimeType: 'audio/wav',
+    data,
+    sampleRate: audio.sampleRate,
+    channels: audio.channels.length,
+    durationSeconds: audioSeconds(audio),
+  };
 }
 
 export type ProvenanceSpec = {
@@ -170,7 +195,11 @@ export async function storeAudio(o: StoreAudioOptions): Promise<AudioAssetMeta> 
 }
 
 /** Commit a change to `song.production` on top of the LATEST working copy (tasks run concurrently). */
-export function commitProduction(projectId: string, change: (production: Song['production'], song: Song) => Song['production'], message: string): void {
+export function commitProduction(
+  projectId: string,
+  change: (production: Song['production'], song: Song) => Song['production'],
+  message: string,
+): void {
   const st = useStudio.getState();
   const cur = st.project;
   if (!cur || cur.meta.id !== projectId) throw new Error('The project was closed during production.');
@@ -185,8 +214,14 @@ export function commitProduction(projectId: string, change: (production: Song['p
 export function supersedeGuidePaths(projectId: string, keepIds: Set<string>): void {
   const st = useStudio.getState();
   const project = requireProject(projectId);
-  const canonical = new Set([GUIDE_MIX_FILE, ...Object.values(GUIDE_STEM_FILES).map((f) => f.file)].map((f) => assetPathFor('guide-render', f)));
-  const stale = project.meta.assets.filter((a) => a.kind === 'guide-render' && canonical.has(a.path) && !keepIds.has(a.id));
+  const canonical = new Set(
+    [GUIDE_MIX_FILE, ...Object.values(GUIDE_STEM_FILES).map((f) => f.file)].map((f) =>
+      assetPathFor('guide-render', f),
+    ),
+  );
+  const stale = project.meta.assets.filter(
+    (a) => a.kind === 'guide-render' && canonical.has(a.path) && !keepIds.has(a.id),
+  );
   if (!stale.length) return;
   st.updateProject((p) => {
     let assets = p.meta.assets;

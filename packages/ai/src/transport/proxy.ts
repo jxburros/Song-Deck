@@ -60,18 +60,30 @@ export async function encodeBodyForEnvelope(
   if (body === undefined || body === null) return {};
   if (typeof body === 'string') return { body, bodyEncoding: 'utf8' };
   if (body instanceof Uint8Array) return { body: bytesToBase64(body), bodyEncoding: 'base64' };
-  if (body instanceof ArrayBuffer) return { body: bytesToBase64(new Uint8Array(body)), bodyEncoding: 'base64' };
+  if (body instanceof ArrayBuffer)
+    return { body: bytesToBase64(new Uint8Array(body)), bodyEncoding: 'base64' };
   if (ArrayBuffer.isView(body)) {
     const view = body as ArrayBufferView;
-    return { body: bytesToBase64(new Uint8Array(view.buffer, view.byteOffset, view.byteLength)), bodyEncoding: 'base64' };
+    return {
+      body: bytesToBase64(new Uint8Array(view.buffer, view.byteOffset, view.byteLength)),
+      bodyEncoding: 'base64',
+    };
   }
   if (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) {
-    return { body: body.toString(), bodyEncoding: 'utf8', contentType: 'application/x-www-form-urlencoded;charset=UTF-8' };
+    return {
+      body: body.toString(),
+      bodyEncoding: 'utf8',
+      contentType: 'application/x-www-form-urlencoded;charset=UTF-8',
+    };
   }
   // Blob, FormData, ReadableStream: let Response serialize it (also yields the multipart boundary).
   const r = new Response(body as ConstructorParameters<typeof Response>[0]);
   const bytes = new Uint8Array(await r.arrayBuffer());
-  return { body: bytesToBase64(bytes), bodyEncoding: 'base64', contentType: r.headers.get('content-type') ?? undefined };
+  return {
+    body: bytesToBase64(bytes),
+    bodyEncoding: 'base64',
+    contentType: r.headers.get('content-type') ?? undefined,
+  };
 }
 
 function headersToRecord(h: RequestInit['headers'] | undefined): Record<string, string> {
@@ -82,7 +94,11 @@ function headersToRecord(h: RequestInit['headers'] | undefined): Record<string, 
   return out;
 }
 
-export async function buildProxyEnvelope(url: string, init: RequestInit = {}, auth?: TransportAuth): Promise<ProxyEnvelope> {
+export async function buildProxyEnvelope(
+  url: string,
+  init: RequestInit = {},
+  auth?: TransportAuth,
+): Promise<ProxyEnvelope> {
   const headers = headersToRecord(init.headers);
   const encoded = await encodeBodyForEnvelope(init.body);
   if (encoded.contentType && !headers['content-type']) headers['content-type'] = encoded.contentType;
@@ -97,7 +113,11 @@ export async function buildProxyEnvelope(url: string, init: RequestInit = {}, au
   }
   if (auth && auth.type !== 'none') {
     envelope.credentialRef = auth.credentialRef;
-    envelope.auth = { type: auth.type, ...(auth.name ? { name: auth.name } : {}), ...(auth.prefix !== undefined ? { prefix: auth.prefix } : {}) };
+    envelope.auth = {
+      type: auth.type,
+      ...(auth.name ? { name: auth.name } : {}),
+      ...(auth.prefix !== undefined ? { prefix: auth.prefix } : {}),
+    };
   } else if (auth) {
     envelope.auth = { type: 'none' };
   }
@@ -132,7 +152,11 @@ export class ServerProxyTransport implements Transport {
     } catch (err) {
       const e = err as { name?: string; message?: string };
       if (e?.name === 'AbortError' || e?.name === 'TimeoutError') throw err;
-      throw new ProviderError('network', `Song Deck server unreachable at ${this.endpoint}: ${e?.message ?? String(err)}`, { cause: err });
+      throw new ProviderError(
+        'network',
+        `Song Deck server unreachable at ${this.endpoint}: ${e?.message ?? String(err)}`,
+        { cause: err },
+      );
     }
     if (res.headers.get(PROXY_ERROR_HEADER)) {
       const bytes = new Uint8Array(await res.arrayBuffer());
@@ -143,10 +167,14 @@ export class ServerProxyTransport implements Transport {
       } catch {
         /* not JSON */
       }
-      throw new ProviderError(/credential|secret|vault/i.test(message) ? 'auth' : 'network', message, { status: res.status });
+      throw new ProviderError(/credential|secret|vault/i.test(message) ? 'auth' : 'network', message, {
+        status: res.status,
+      });
     }
     // Rebuild a standalone Response so callers can read the (binary) body regardless of runtime.
-    const bytes = NULL_BODY_STATUS.has(res.status) ? null : toArrayBufferBytes(new Uint8Array(await res.arrayBuffer()));
+    const bytes = NULL_BODY_STATUS.has(res.status)
+      ? null
+      : toArrayBufferBytes(new Uint8Array(await res.arrayBuffer()));
     const headers = new Headers(res.headers);
     headers.delete('content-encoding');
     headers.delete('content-length');

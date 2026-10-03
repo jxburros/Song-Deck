@@ -94,7 +94,12 @@ export function describeProvider(id: string, modelId?: string): ResolvedProvider
 
 /** Capability sets tried (in order) when the router chooses the provider ("Auto"). */
 const AUTO_CAP_SETS: Record<ProductionStrategy, Capability[][]> = {
-  full: [['AUDIO_TO_AUDIO'], ['TEXT_TO_MUSIC', 'STEM_CONDITIONING'], ['TEXT_TO_MUSIC'], ['MIDI_CONDITIONING']],
+  full: [
+    ['AUDIO_TO_AUDIO'],
+    ['TEXT_TO_MUSIC', 'STEM_CONDITIONING'],
+    ['TEXT_TO_MUSIC'],
+    ['MIDI_CONDITIONING'],
+  ],
   stems: [['AUDIO_TO_AUDIO'], ['STEM_CONDITIONING'], ['TEXT_TO_MUSIC']],
   hybrid: [['AUDIO_TO_AUDIO'], ['STEM_CONDITIONING'], ['TEXT_TO_MUSIC']],
 };
@@ -104,7 +109,12 @@ function neverUpload(): DataKind[] {
 }
 
 /** Resolve the provider for a production and how it would be used for the strategy. */
-export function resolveProduction(choice: string | undefined, modelId: string | undefined, strategy: ProductionStrategy, ctx: Omit<PlanContext, 'hasInpaint'>): ProductionResolution {
+export function resolveProduction(
+  choice: string | undefined,
+  modelId: string | undefined,
+  strategy: ProductionStrategy,
+  ctx: Omit<PlanContext, 'hasInpaint'>,
+): ProductionResolution {
   let provider: ResolvedProvider | undefined;
   let error: string | undefined;
   if (!choice || choice === 'auto') {
@@ -126,16 +136,40 @@ export function resolveProduction(choice: string | undefined, modelId: string | 
     const id = providerIdForChoice(choice)!;
     provider = describeProvider(id, modelId);
     if (!provider) error = `Provider “${choice}” is not installed`;
-    else if (provider.status !== 'ready') error = `${provider.name} is ${provider.status}${provider.error ? ` (${provider.error})` : ''}`;
+    else if (provider.status !== 'ready')
+      error = `${provider.name} is ${provider.status}${provider.error ? ` (${provider.error})` : ''}`;
   }
-  const plan = planStrategy(strategy, provider?.capabilities ?? [], { ...ctx, hasInpaint: provider?.hasInpaint ?? false });
+  const plan = planStrategy(strategy, provider?.capabilities ?? [], {
+    ...ctx,
+    hasInpaint: provider?.hasInpaint ?? false,
+  });
   return { provider, plan, error };
 }
 
 /** Cost estimate for `generations` audio generations of `durationSeconds` each (spec §60). */
-export function productionEstimate(provider: ResolvedProvider | undefined, durationSeconds: number, generations: number): CostEstimate {
-  if (!provider || generations <= 0) return { minUsd: 0, maxUsd: 0, basis: generations <= 0 ? 'the provider is not called' : 'no provider', known: true, currency: 'USD' };
-  return estimateCost({ location: provider.location, pricing: provider.pricing, defaultModel: provider.defaultModel, name: provider.name }, { kind: 'audio', durationSeconds, generations }, provider.modelId);
+export function productionEstimate(
+  provider: ResolvedProvider | undefined,
+  durationSeconds: number,
+  generations: number,
+): CostEstimate {
+  if (!provider || generations <= 0)
+    return {
+      minUsd: 0,
+      maxUsd: 0,
+      basis: generations <= 0 ? 'the provider is not called' : 'no provider',
+      known: true,
+      currency: 'USD',
+    };
+  return estimateCost(
+    {
+      location: provider.location,
+      pricing: provider.pricing,
+      defaultModel: provider.defaultModel,
+      name: provider.name,
+    },
+    { kind: 'audio', durationSeconds, generations },
+    provider.modelId,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +201,12 @@ export async function runProduction<T>(o: ProductionRunOptions<T>): Promise<Orch
   let predicted = providerIdForChoice(o.choice);
   if (!predicted) {
     try {
-      predicted = getRouter().select({ role: 'production', capabilities: o.caps, dataKinds: o.dataKinds, neverUpload: never }).providerId;
+      predicted = getRouter().select({
+        role: 'production',
+        capabilities: o.caps,
+        dataKinds: o.dataKinds,
+        neverUpload: never,
+      }).providerId;
     } catch {
       predicted = undefined;
     }
@@ -208,11 +247,18 @@ async function exclusive<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /** Whether the orchestrator will show the data-flow confirmation for this provider and data. */
-function confirmationNeeded(providerId: string | undefined, dataKinds: DataKind[], role: 'production' | 'vocals' = 'production'): boolean {
+function confirmationNeeded(
+  providerId: string | undefined,
+  dataKinds: DataKind[],
+  role: 'production' | 'vocals' = 'production',
+): boolean {
   const d = providerId ? describeProvider(providerId) : undefined;
   if (!d) return false;
   const mode = useSettings.getState().routing?.privacyConfirm ?? DEFAULT_ROUTING_SETTINGS.privacyConfirm;
-  return needsPrivacyConfirmation(mode, describeDataFlow({ dataKinds, role }, { providerId: d.id, providerName: d.name, location: d.location }));
+  return needsPrivacyConfirmation(
+    mode,
+    describeDataFlow({ dataKinds, role }, { providerId: d.id, providerName: d.name, location: d.location }),
+  );
 }
 
 /**
@@ -220,7 +266,8 @@ function confirmationNeeded(providerId: string | undefined, dataKinds: DataKind[
  * runs that will ask for confirmation take turns so concurrent candidates never open two dialogs.
  */
 export function singingTurn<T>(choice: string | undefined, fn: () => Promise<T>): Promise<T> {
-  let id: string | undefined = !choice || choice === 'auto' ? undefined : choice === 'internal' ? INTERNAL_FOR_ROLE.vocals : choice;
+  let id: string | undefined =
+    !choice || choice === 'auto' ? undefined : choice === 'internal' ? INTERNAL_FOR_ROLE.vocals : choice;
   if (!id) {
     try {
       id = getRouter().select({ role: 'vocals', neverUpload: neverUpload() }).providerId;
@@ -231,7 +278,12 @@ export function singingTurn<T>(choice: string | undefined, fn: () => Promise<T>)
   return confirmationNeeded(id, ['midi', 'lyrics'], 'vocals') ? exclusive(fn) : fn();
 }
 
-function runOrchestrated<T>(o: ProductionRunOptions<T>, never: DataKind[], providerId: string | undefined, skip: boolean): Promise<OrchestratorResult<T>> {
+function runOrchestrated<T>(
+  o: ProductionRunOptions<T>,
+  never: DataKind[],
+  providerId: string | undefined,
+  skip: boolean,
+): Promise<OrchestratorResult<T>> {
   return getOrchestrator().run<T>({
     role: 'production',
     // A reused consent pins the provider it was given for (no silent fallback elsewhere).
@@ -257,10 +309,14 @@ function friendlyError(err: unknown, predicted: string | undefined): unknown {
   const local = entry?.instance.descriptor.location === 'local';
   const at = local && entry?.config?.baseUrl ? ` at ${entry.config.baseUrl}` : '';
   let message: string | undefined;
-  if (err.kind === 'network') message = `${name} is not reachable${at} (${err.message}). ${local ? 'Start the local model / bridge, then retry.' : 'Check your connection, then retry.'}`;
-  else if (err.kind === 'auth') message = `${name} rejected the request (${err.message}). Check its API key in Settings → Providers.`;
-  else if (err.kind === 'rate-limit') message = `${name} is rate-limiting requests (${err.message}). Retry in a moment.`;
-  else if (err.kind === 'unavailable') message = `${name} is unavailable right now (${err.message}). Retry later or choose another provider.`;
+  if (err.kind === 'network')
+    message = `${name} is not reachable${at} (${err.message}). ${local ? 'Start the local model / bridge, then retry.' : 'Check your connection, then retry.'}`;
+  else if (err.kind === 'auth')
+    message = `${name} rejected the request (${err.message}). Check its API key in Settings → Providers.`;
+  else if (err.kind === 'rate-limit')
+    message = `${name} is rate-limiting requests (${err.message}). Retry in a moment.`;
+  else if (err.kind === 'unavailable')
+    message = `${name} is unavailable right now (${err.message}). Retry later or choose another provider.`;
   if (!message) return err;
   return new ProviderError(err.kind, message, { providerId: err.providerId, status: err.status, cause: err });
 }
@@ -277,14 +333,25 @@ export interface ServerModelEntry {
   version?: string;
   sizeGb?: number;
   license?: string;
-  requirements?: { minVramGb?: number; recommendedVramGb?: number; minRamGb?: number; cpuOk?: boolean; minCpuCores?: number };
+  requirements?: {
+    minVramGb?: number;
+    recommendedVramGb?: number;
+    minRamGb?: number;
+    cpuOk?: boolean;
+    minCpuCores?: number;
+  };
   capabilities?: string[];
   installed?: boolean;
   compatibility?: CompatibilityResult;
   presetId?: string;
 }
 
-export type ServerHardware = HardwareInfo & { freeRamGb?: number; platform?: string; os?: string; detectedAt?: string };
+export type ServerHardware = HardwareInfo & {
+  freeRamGb?: number;
+  platform?: string;
+  os?: string;
+  detectedAt?: string;
+};
 
 interface HardwareState {
   status: 'idle' | 'loading' | 'ok' | 'offline' | 'error';
@@ -322,18 +389,29 @@ export async function refreshHardware(force = false): Promise<void> {
     const base = serverBase();
     const [hardware, report] = await Promise.all([
       fetchJson<ServerHardware>(`${base}/api/hardware`),
-      fetchJson<{ categories?: { models?: ServerModelEntry[] }[] }>(`${base}/api/models`).catch(() => undefined),
+      fetchJson<{ categories?: { models?: ServerModelEntry[] }[] }>(`${base}/api/models`).catch(
+        () => undefined,
+      ),
     ]);
     const models = report?.categories?.flatMap((c) => c.models ?? []) ?? [];
     useHardware.setState({ status: 'ok', hardware, models, fetchedAt: Date.now(), error: undefined });
   } catch (err) {
-    useHardware.setState({ status: 'error', error: err instanceof Error ? err.message : String(err), fetchedAt: Date.now() });
+    useHardware.setState({
+      status: 'error',
+      error: err instanceof Error ? err.message : String(err),
+      fetchedAt: Date.now(),
+    });
   }
 }
 
-export function catalogEntryFor(provider: Pick<ResolvedProvider, 'presetId' | 'name'>): LocalModelEntry | undefined {
+export function catalogEntryFor(
+  provider: Pick<ResolvedProvider, 'presetId' | 'name'>,
+): LocalModelEntry | undefined {
   const audio = LOCAL_MODEL_CATALOG.filter((m) => m.category === 'audio');
-  return audio.find((m) => provider.presetId && m.presetId === provider.presetId) ?? audio.find((m) => provider.name.toLowerCase().includes(m.name.split(' ')[0].toLowerCase()));
+  return (
+    audio.find((m) => provider.presetId && m.presetId === provider.presetId) ??
+    audio.find((m) => provider.name.toLowerCase().includes(m.name.split(' ')[0].toLowerCase()))
+  );
 }
 
 export interface HardwareLine {
@@ -351,14 +429,26 @@ export interface HardwareView {
   note?: string;
 }
 
-const supported = (caps: Capability[], ...any: Capability[]) => (any.some((c) => caps.includes(c)) ? 'Supported' : 'Not supported');
+const supported = (caps: Capability[], ...any: Capability[]) =>
+  any.some((c) => caps.includes(c)) ? 'Supported' : 'Not supported';
 
 /** The "hardware requirements before generation" panel (spec §31 example, §61 classification). */
 export function hardwareView(provider: ResolvedProvider, hw: HardwareState): HardwareView {
   const caps = provider.capabilities;
   const common: HardwareLine[] = [
-    { label: 'Generation type', value: caps.includes('TEXT_TO_MUSIC') || caps.includes('AUDIO_TO_AUDIO') ? 'Music' : caps.includes('STEM_GENERATION') ? 'Stems (DSP production)' : 'Music' },
-    { label: 'Audio conditioning', value: supported(caps, 'AUDIO_TO_AUDIO', 'STEM_CONDITIONING', 'REFERENCE_AUDIO', 'MIDI_CONDITIONING') },
+    {
+      label: 'Generation type',
+      value:
+        caps.includes('TEXT_TO_MUSIC') || caps.includes('AUDIO_TO_AUDIO')
+          ? 'Music'
+          : caps.includes('STEM_GENERATION')
+            ? 'Stems (DSP production)'
+            : 'Music',
+    },
+    {
+      label: 'Audio conditioning',
+      value: supported(caps, 'AUDIO_TO_AUDIO', 'STEM_CONDITIONING', 'REFERENCE_AUDIO', 'MIDI_CONDITIONING'),
+    },
     { label: 'Lyrics', value: supported(caps, 'LYRIC_CONDITIONING') },
   ];
   if (provider.location === 'internal') {
@@ -381,17 +471,29 @@ export function hardwareView(provider: ResolvedProvider, hw: HardwareState): Har
     return {
       kind: 'cloud',
       title: `${provider.name} · Cloud`,
-      lines: [{ label: 'Runs on', value: `${provider.name} servers` }, { label: 'Local hardware', value: 'Not needed' }, ...common],
+      lines: [
+        { label: 'Runs on', value: `${provider.name} servers` },
+        { label: 'Local hardware', value: 'Not needed' },
+        ...common,
+      ],
       reasons: [],
       note: 'Song data (and audio, when the strategy sends it) leaves this device — you confirm the data flow before anything is sent.',
     };
   }
   const entry = catalogEntryFor(provider);
-  const server = hw.models?.find((m) => (provider.presetId && m.presetId === provider.presetId && m.category === 'audio') || (entry && m.id === entry.id));
+  const server = hw.models?.find(
+    (m) =>
+      (provider.presetId && m.presetId === provider.presetId && m.category === 'audio') ||
+      (entry && m.id === entry.id),
+  );
   const req = server?.requirements ?? entry?.requirements;
   const lines: HardwareLine[] = [{ label: 'Runs on', value: 'This machine (local model)' }];
   if (req) {
-    const vram = req.minVramGb ? `~${req.minVramGb} GB+${req.recommendedVramGb && req.recommendedVramGb > req.minVramGb ? ` (${req.recommendedVramGb} GB recommended)` : ''}` : req.cpuOk ? 'None (CPU)' : 'unknown';
+    const vram = req.minVramGb
+      ? `~${req.minVramGb} GB+${req.recommendedVramGb && req.recommendedVramGb > req.minVramGb ? ` (${req.recommendedVramGb} GB recommended)` : ''}`
+      : req.cpuOk
+        ? 'None (CPU)'
+        : 'unknown';
     lines.push({ label: 'VRAM requirement', value: vram });
     if (req.minRamGb) lines.push({ label: 'RAM requirement', value: `${req.minRamGb} GB` });
   } else lines.push({ label: 'VRAM requirement', value: 'Not published for this model' });
@@ -405,14 +507,21 @@ export function hardwareView(provider: ResolvedProvider, hw: HardwareState): Har
       compat = undefined;
     }
   }
-  const view: HardwareView = { kind: 'local', title: `${entry?.name ?? provider.name} · Local`, lines, reasons: compat?.reasons ?? [] };
+  const view: HardwareView = {
+    kind: 'local',
+    title: `${entry?.name ?? provider.name} · Local`,
+    lines,
+    reasons: compat?.reasons ?? [],
+  };
   if (compat) {
     view.rating = compat.rating;
     view.ratingLabel = COMPATIBILITY_LABELS[compat.rating];
-    if (compat.suggestedQuantization) view.reasons = [...view.reasons, `Suggested quantization: ${compat.suggestedQuantization}`];
+    if (compat.suggestedQuantization)
+      view.reasons = [...view.reasons, `Suggested quantization: ${compat.suggestedQuantization}`];
   }
   if (server?.installed === false) view.note = 'The Model Manager does not see this model installed yet.';
-  if (hw.status === 'offline') view.note = 'Hardware unknown — start the Song Deck server (apps/server) to detect GPU, VRAM and RAM.';
+  if (hw.status === 'offline')
+    view.note = 'Hardware unknown — start the Song Deck server (apps/server) to detect GPU, VRAM and RAM.';
   else if (hw.status === 'error') view.note = `Hardware detection failed: ${hw.error ?? 'unknown error'}`;
   else if (hw.status === 'loading' || hw.status === 'idle') view.note = 'Detecting hardware…';
   return view;

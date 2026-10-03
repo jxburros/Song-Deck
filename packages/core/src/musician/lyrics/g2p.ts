@@ -8,72 +8,444 @@ import { syllabify } from './syllables';
  */
 
 const DICT_SRC: Record<string, string> = {
-  the: 'DH AH', a: 'AH', an: 'AE N', and: 'AE N D', i: 'AY', you: 'Y UW', your: 'Y AO R', "you're": 'Y UH R', yours: 'Y AO R Z',
-  me: 'M IY', my: 'M AY', mine: 'M AY N', we: 'W IY', us: 'AH S', our: 'AW ER', they: 'DH EY', them: 'DH EH M', their: 'DH EH R',
-  there: 'DH EH R', here: 'HH IY R', where: 'W EH R', he: 'HH IY', she: 'SH IY', his: 'HH IH Z', her: 'HH ER', it: 'IH T', its: 'IH T S',
-  "it's": 'IH T S', is: 'IH Z', was: 'W AA Z', are: 'AA R', were: 'W ER', be: 'B IY', been: 'B IH N', being: 'B IY IH NG', to: 'T UW',
-  too: 'T UW', two: 'T UW', of: 'AH V', off: 'AO F', for: 'F AO R', from: 'F R AH M', in: 'IH N', on: 'AA N', at: 'AE T', by: 'B AY',
-  with: 'W IH DH', without: 'W IH TH AW T', all: 'AO L', love: 'L AH V', loved: 'L AH V D', loving: 'L AH V IH NG', lover: 'L AH V ER',
-  heart: 'HH AA R T', hearts: 'HH AA R T S', fire: 'F AY ER', night: 'N AY T', light: 'L AY T', tonight: 'T AH N AY T', time: 'T AY M',
-  life: 'L AY F', world: 'W ER L D', know: 'N OW', known: 'N OW N', knew: 'N UW', go: 'G OW', gone: 'G AO N', so: 'S OW', no: 'N OW',
-  oh: 'OW', ooh: 'UW', yeah: 'Y AE', whoa: 'W OW', one: 'W AH N', once: 'W AH N S', come: 'K AH M', some: 'S AH M', someone: 'S AH M W AH N',
-  something: 'S AH M TH IH NG', nothing: 'N AH TH IH NG', everything: 'EH V R IY TH IH NG', anything: 'EH N IY TH IH NG', done: 'D AH N',
-  none: 'N AH N', home: 'HH OW M', alone: 'AH L OW N', away: 'AH W EY', again: 'AH G EH N', against: 'AH G EH N S T', said: 'S EH D',
-  says: 'S EH Z', does: 'D AH Z', do: 'D UW', "don't": 'D OW N T', "can't": 'K AE N T', "won't": 'W OW N T', "i'm": 'AY M', "i'll": 'AY L',
-  "i've": 'AY V', "i'd": 'AY D', "we're": 'W IH R', "they're": 'DH EH R', can: 'K AE N', could: 'K UH D', would: 'W UH D', should: 'SH UH D',
-  want: 'W AA N T', what: 'W AH T', when: 'W EH N', why: 'W AY', who: 'HH UW', whose: 'HH UW Z', how: 'HH AW', now: 'N AW', never: 'N EH V ER',
-  ever: 'EH V ER', forever: 'F ER EH V ER', every: 'EH V R IY', heaven: 'HH EH V AH N', eye: 'AY', eyes: 'AY Z', sky: 'S K AY', cry: 'K R AY',
-  die: 'D AY', true: 'T R UW', blue: 'B L UW', new: 'N UW', through: 'TH R UW', though: 'DH OW', thought: 'TH AO T', enough: 'IH N AH F',
-  tough: 'T AH F', rough: 'R AH F', laugh: 'L AE F', give: 'G IH V', given: 'G IH V AH N', live: 'L IH V', living: 'L IH V IH NG',
-  believe: 'B IH L IY V', people: 'P IY P AH L', only: 'OW N L IY', very: 'V EH R IY', maybe: 'M EY B IY', baby: 'B EY B IY',
-  friend: 'F R EH N D', friends: 'F R EH N D Z', heard: 'HH ER D', word: 'W ER D', words: 'W ER D Z', work: 'W ER K', water: 'W AO T ER',
-  breathe: 'B R IY DH', breath: 'B R EH TH', touch: 'T AH CH', young: 'Y AH NG', move: 'M UW V', prove: 'P R UW V', lose: 'L UW Z',
-  above: 'AH B AH V', whole: 'HH OW L', hour: 'AW ER', sure: 'SH UH R', listen: 'L IH S AH N', dream: 'D R IY M', dreams: 'D R IY M Z',
-  soul: 'S OW L', hold: 'HH OW L D', cold: 'K OW L D', broken: 'B R OW K AH N', burn: 'B ER N', walk: 'W AO K', talk: 'T AO K',
-  real: 'R IY L', feel: 'F IY L', free: 'F R IY', see: 'S IY', sea: 'S IY', rain: 'R EY N', pain: 'P EY N', stay: 'S T EY', day: 'D EY',
-  say: 'S EY', way: 'W EY', still: 'S T IH L', mind: 'M AY N D', find: 'F AY N D', kind: 'K AY N D', behind: 'B IH HH AY N D',
-  gonna: 'G AA N AH', wanna: 'W AA N AH', gotta: 'G AA T AH', because: 'B IH K AH Z', cause: 'K AH Z', beautiful: 'B Y UW T AH F AH L',
-  music: 'M Y UW Z IH K', song: 'S AO NG', sing: 'S IH NG', voice: 'V OY S', door: 'D AO R', floor: 'F L AO R', four: 'F AO R',
-  more: 'M AO R', before: 'B IH F AO R', pour: 'P AO R', tour: 'T UH R', other: 'AH DH ER', mother: 'M AH DH ER', brother: 'B R AH DH ER',
-  father: 'F AA DH ER', together: 'T AH G EH DH ER', fall: 'F AO L', call: 'K AO L', star: 'S T AA R', stars: 'S T AA R Z',
-  remember: 'R IH M EH M B ER', tomorrow: 'T AH M AA R OW', yesterday: 'Y EH S T ER D EY', goodbye: 'G UH D B AY', hello: 'HH AH L OW',
-  good: 'G UH D', blood: 'B L AH D', food: 'F UW D', book: 'B UH K', look: 'L UH K', foot: 'F UH T', girl: 'G ER L', boy: 'B OY',
-  get: 'G EH T', got: 'G AA T', begin: 'B IH G IH N', forget: 'F ER G EH T', forgive: 'F ER G IH V', answer: 'AE N S ER',
-  ocean: 'OW SH AH N', open: 'OW P AH N', truth: 'T R UW TH', youth: 'Y UW TH', color: 'K AH L ER', wonder: 'W AH N D ER',
-  country: 'K AH N T R IY', trouble: 'T R AH B AH L', double: 'D AH B AH L', woman: 'W UH M AH N', women: 'W IH M AH N',
-  child: 'CH AY L D', children: 'CH IH L D R AH N', idea: 'AY D IY AH', quiet: 'K W AY AH T', piano: 'P IY AE N OW',
-  violin: 'V AY AH L IH N', guitar: 'G IH T AA R', choir: 'K W AY ER', chorus: 'K AO R AH S', echo: 'EH K OW', school: 'S K UW L',
-  ache: 'EY K', bear: 'B EH R', wear: 'W EH R', swear: 'S W EH R', tear: 'T IH R', tears: 'T IH R Z', year: 'Y IH R', years: 'Y IH R Z',
-  ear: 'IH R', dear: 'D IH R', clear: 'K L IH R', near: 'N IH R', fear: 'F IH R', desire: 'D IH Z AY ER', higher: 'HH AY ER',
-  power: 'P AW ER', flower: 'F L AW ER', tower: 'T AW ER', lower: 'L OW ER', shadow: 'SH AE D OW', window: 'W IH N D OW',
-  follow: 'F AA L OW', city: 'S IH T IY', pretty: 'P R IH T IY', busy: 'B IH Z IY', any: 'EH N IY', many: 'M EH N IY', body: 'B AA D IY',
-  nobody: 'N OW B AA D IY', everybody: 'EH V R IY B AA D IY', mountain: 'M AW N T AH N', around: 'AH R AW N D', ground: 'G R AW N D',
-  sound: 'S AW N D', down: 'D AW N', town: 'T AW N', crown: 'K R AW N', drown: 'D R AW N', own: 'OW N', grown: 'G R OW N', show: 'SH OW',
-  slow: 'S L OW', grow: 'G R OW', glow: 'G L OW', below: 'B IH L OW', snow: 'S N OW', low: 'L OW', blow: 'B L OW', throw: 'TH R OW',
-  allow: 'AH L AW', wow: 'W AW', shine: 'SH AY N', smile: 'S M AY L', while: 'W AY L', inside: 'IH N S AY D', outside: 'AW T S AY D',
-  side: 'S AY D', ride: 'R AY D', hide: 'HH AY D', wide: 'W AY D', paradise: 'P EH R AH D AY S', great: 'G R EY T', break: 'B R EY K',
-  steak: 'S T EY K', head: 'HH EH D', dead: 'D EH D', bread: 'B R EH D', ready: 'R EH D IY', heavy: 'HH EH V IY', learn: 'L ER N',
-  early: 'ER L IY', earth: 'ER TH', search: 'S ER CH', wild: 'W AY L D', wind: 'W IH N D', weight: 'W EY T', eight: 'EY T',
-  height: 'HH AY T', either: 'IY DH ER', neither: 'N IY DH ER', whether: 'W EH DH ER', weather: 'W EH DH ER', rather: 'R AE DH ER',
-  gather: 'G AE DH ER', tongue: 'T AH NG', danger: 'D EY N JH ER', stranger: 'S T R EY N JH ER', angel: 'EY N JH AH L',
-  angels: 'EY N JH AH L Z', finger: 'F IH NG G ER', anger: 'AE NG G ER', longer: 'L AO NG G ER', stronger: 'S T R AO NG G ER',
-  hungry: 'HH AH NG G R IY', island: 'AY L AH N D', honest: 'AA N AH S T', listen_: 'L IH S AH N', often: 'AO F AH N',
-  christmas: 'K R IH S M AH S', rhythm: 'R IH DH AH M', business: 'B IH Z N AH S', minute: 'M IH N AH T', machine: 'M AH SH IY N',
-  police: 'P AH L IY S', dove: 'D AH V', glove: 'G L AH V', shove: 'SH AH V', worry: 'W ER IY', sorry: 'S AA R IY', carry: 'K EH R IY',
-  marry: 'M EH R IY', story: 'S T AO R IY', glory: 'G L AO R IY', hurry: 'HH ER IY', journey: 'JH ER N IY', money: 'M AH N IY',
-  honey: 'HH AH N IY', worth: 'W ER TH', world_: 'W ER L D', bright: 'B R AY T', fight: 'F AY T', right: 'R AY T', sight: 'S AY T',
-  flight: 'F L AY T', alright: 'AO L R AY T', tight: 'T AY T', might: 'M AY T', fly: 'F L AY', try: 'T R AY', dry: 'D R AY',
-  shy: 'SH AY', animal: 'AE N AH M AH L', animals: 'AE N AH M AH L Z', amazing: 'AH M EY Z IH NG', alive: 'AH L AY V', high: 'HH AY', sigh: 'S AY', bye: 'B AY', lie: 'L AY', put: 'P UH T', become: 'B IH K AH M', self: 'S EH L F',
-  selves: 'S EH L V Z', empty: 'EH M P T IY', happy: 'HH AE P IY', lonely: 'L OW N L IY', beauty: 'B Y UW T IY', angry: 'AE NG G R IY',
+  the: 'DH AH',
+  a: 'AH',
+  an: 'AE N',
+  and: 'AE N D',
+  i: 'AY',
+  you: 'Y UW',
+  your: 'Y AO R',
+  "you're": 'Y UH R',
+  yours: 'Y AO R Z',
+  me: 'M IY',
+  my: 'M AY',
+  mine: 'M AY N',
+  we: 'W IY',
+  us: 'AH S',
+  our: 'AW ER',
+  they: 'DH EY',
+  them: 'DH EH M',
+  their: 'DH EH R',
+  there: 'DH EH R',
+  here: 'HH IY R',
+  where: 'W EH R',
+  he: 'HH IY',
+  she: 'SH IY',
+  his: 'HH IH Z',
+  her: 'HH ER',
+  it: 'IH T',
+  its: 'IH T S',
+  "it's": 'IH T S',
+  is: 'IH Z',
+  was: 'W AA Z',
+  are: 'AA R',
+  were: 'W ER',
+  be: 'B IY',
+  been: 'B IH N',
+  being: 'B IY IH NG',
+  to: 'T UW',
+  too: 'T UW',
+  two: 'T UW',
+  of: 'AH V',
+  off: 'AO F',
+  for: 'F AO R',
+  from: 'F R AH M',
+  in: 'IH N',
+  on: 'AA N',
+  at: 'AE T',
+  by: 'B AY',
+  with: 'W IH DH',
+  without: 'W IH TH AW T',
+  all: 'AO L',
+  love: 'L AH V',
+  loved: 'L AH V D',
+  loving: 'L AH V IH NG',
+  lover: 'L AH V ER',
+  heart: 'HH AA R T',
+  hearts: 'HH AA R T S',
+  fire: 'F AY ER',
+  night: 'N AY T',
+  light: 'L AY T',
+  tonight: 'T AH N AY T',
+  time: 'T AY M',
+  life: 'L AY F',
+  world: 'W ER L D',
+  know: 'N OW',
+  known: 'N OW N',
+  knew: 'N UW',
+  go: 'G OW',
+  gone: 'G AO N',
+  so: 'S OW',
+  no: 'N OW',
+  oh: 'OW',
+  ooh: 'UW',
+  yeah: 'Y AE',
+  whoa: 'W OW',
+  one: 'W AH N',
+  once: 'W AH N S',
+  come: 'K AH M',
+  some: 'S AH M',
+  someone: 'S AH M W AH N',
+  something: 'S AH M TH IH NG',
+  nothing: 'N AH TH IH NG',
+  everything: 'EH V R IY TH IH NG',
+  anything: 'EH N IY TH IH NG',
+  done: 'D AH N',
+  none: 'N AH N',
+  home: 'HH OW M',
+  alone: 'AH L OW N',
+  away: 'AH W EY',
+  again: 'AH G EH N',
+  against: 'AH G EH N S T',
+  said: 'S EH D',
+  says: 'S EH Z',
+  does: 'D AH Z',
+  do: 'D UW',
+  "don't": 'D OW N T',
+  "can't": 'K AE N T',
+  "won't": 'W OW N T',
+  "i'm": 'AY M',
+  "i'll": 'AY L',
+  "i've": 'AY V',
+  "i'd": 'AY D',
+  "we're": 'W IH R',
+  "they're": 'DH EH R',
+  can: 'K AE N',
+  could: 'K UH D',
+  would: 'W UH D',
+  should: 'SH UH D',
+  want: 'W AA N T',
+  what: 'W AH T',
+  when: 'W EH N',
+  why: 'W AY',
+  who: 'HH UW',
+  whose: 'HH UW Z',
+  how: 'HH AW',
+  now: 'N AW',
+  never: 'N EH V ER',
+  ever: 'EH V ER',
+  forever: 'F ER EH V ER',
+  every: 'EH V R IY',
+  heaven: 'HH EH V AH N',
+  eye: 'AY',
+  eyes: 'AY Z',
+  sky: 'S K AY',
+  cry: 'K R AY',
+  die: 'D AY',
+  true: 'T R UW',
+  blue: 'B L UW',
+  new: 'N UW',
+  through: 'TH R UW',
+  though: 'DH OW',
+  thought: 'TH AO T',
+  enough: 'IH N AH F',
+  tough: 'T AH F',
+  rough: 'R AH F',
+  laugh: 'L AE F',
+  give: 'G IH V',
+  given: 'G IH V AH N',
+  live: 'L IH V',
+  living: 'L IH V IH NG',
+  believe: 'B IH L IY V',
+  people: 'P IY P AH L',
+  only: 'OW N L IY',
+  very: 'V EH R IY',
+  maybe: 'M EY B IY',
+  baby: 'B EY B IY',
+  friend: 'F R EH N D',
+  friends: 'F R EH N D Z',
+  heard: 'HH ER D',
+  word: 'W ER D',
+  words: 'W ER D Z',
+  work: 'W ER K',
+  water: 'W AO T ER',
+  breathe: 'B R IY DH',
+  breath: 'B R EH TH',
+  touch: 'T AH CH',
+  young: 'Y AH NG',
+  move: 'M UW V',
+  prove: 'P R UW V',
+  lose: 'L UW Z',
+  above: 'AH B AH V',
+  whole: 'HH OW L',
+  hour: 'AW ER',
+  sure: 'SH UH R',
+  listen: 'L IH S AH N',
+  dream: 'D R IY M',
+  dreams: 'D R IY M Z',
+  soul: 'S OW L',
+  hold: 'HH OW L D',
+  cold: 'K OW L D',
+  broken: 'B R OW K AH N',
+  burn: 'B ER N',
+  walk: 'W AO K',
+  talk: 'T AO K',
+  real: 'R IY L',
+  feel: 'F IY L',
+  free: 'F R IY',
+  see: 'S IY',
+  sea: 'S IY',
+  rain: 'R EY N',
+  pain: 'P EY N',
+  stay: 'S T EY',
+  day: 'D EY',
+  say: 'S EY',
+  way: 'W EY',
+  still: 'S T IH L',
+  mind: 'M AY N D',
+  find: 'F AY N D',
+  kind: 'K AY N D',
+  behind: 'B IH HH AY N D',
+  gonna: 'G AA N AH',
+  wanna: 'W AA N AH',
+  gotta: 'G AA T AH',
+  because: 'B IH K AH Z',
+  cause: 'K AH Z',
+  beautiful: 'B Y UW T AH F AH L',
+  music: 'M Y UW Z IH K',
+  song: 'S AO NG',
+  sing: 'S IH NG',
+  voice: 'V OY S',
+  door: 'D AO R',
+  floor: 'F L AO R',
+  four: 'F AO R',
+  more: 'M AO R',
+  before: 'B IH F AO R',
+  pour: 'P AO R',
+  tour: 'T UH R',
+  other: 'AH DH ER',
+  mother: 'M AH DH ER',
+  brother: 'B R AH DH ER',
+  father: 'F AA DH ER',
+  together: 'T AH G EH DH ER',
+  fall: 'F AO L',
+  call: 'K AO L',
+  star: 'S T AA R',
+  stars: 'S T AA R Z',
+  remember: 'R IH M EH M B ER',
+  tomorrow: 'T AH M AA R OW',
+  yesterday: 'Y EH S T ER D EY',
+  goodbye: 'G UH D B AY',
+  hello: 'HH AH L OW',
+  good: 'G UH D',
+  blood: 'B L AH D',
+  food: 'F UW D',
+  book: 'B UH K',
+  look: 'L UH K',
+  foot: 'F UH T',
+  girl: 'G ER L',
+  boy: 'B OY',
+  get: 'G EH T',
+  got: 'G AA T',
+  begin: 'B IH G IH N',
+  forget: 'F ER G EH T',
+  forgive: 'F ER G IH V',
+  answer: 'AE N S ER',
+  ocean: 'OW SH AH N',
+  open: 'OW P AH N',
+  truth: 'T R UW TH',
+  youth: 'Y UW TH',
+  color: 'K AH L ER',
+  wonder: 'W AH N D ER',
+  country: 'K AH N T R IY',
+  trouble: 'T R AH B AH L',
+  double: 'D AH B AH L',
+  woman: 'W UH M AH N',
+  women: 'W IH M AH N',
+  child: 'CH AY L D',
+  children: 'CH IH L D R AH N',
+  idea: 'AY D IY AH',
+  quiet: 'K W AY AH T',
+  piano: 'P IY AE N OW',
+  violin: 'V AY AH L IH N',
+  guitar: 'G IH T AA R',
+  choir: 'K W AY ER',
+  chorus: 'K AO R AH S',
+  echo: 'EH K OW',
+  school: 'S K UW L',
+  ache: 'EY K',
+  bear: 'B EH R',
+  wear: 'W EH R',
+  swear: 'S W EH R',
+  tear: 'T IH R',
+  tears: 'T IH R Z',
+  year: 'Y IH R',
+  years: 'Y IH R Z',
+  ear: 'IH R',
+  dear: 'D IH R',
+  clear: 'K L IH R',
+  near: 'N IH R',
+  fear: 'F IH R',
+  desire: 'D IH Z AY ER',
+  higher: 'HH AY ER',
+  power: 'P AW ER',
+  flower: 'F L AW ER',
+  tower: 'T AW ER',
+  lower: 'L OW ER',
+  shadow: 'SH AE D OW',
+  window: 'W IH N D OW',
+  follow: 'F AA L OW',
+  city: 'S IH T IY',
+  pretty: 'P R IH T IY',
+  busy: 'B IH Z IY',
+  any: 'EH N IY',
+  many: 'M EH N IY',
+  body: 'B AA D IY',
+  nobody: 'N OW B AA D IY',
+  everybody: 'EH V R IY B AA D IY',
+  mountain: 'M AW N T AH N',
+  around: 'AH R AW N D',
+  ground: 'G R AW N D',
+  sound: 'S AW N D',
+  down: 'D AW N',
+  town: 'T AW N',
+  crown: 'K R AW N',
+  drown: 'D R AW N',
+  own: 'OW N',
+  grown: 'G R OW N',
+  show: 'SH OW',
+  slow: 'S L OW',
+  grow: 'G R OW',
+  glow: 'G L OW',
+  below: 'B IH L OW',
+  snow: 'S N OW',
+  low: 'L OW',
+  blow: 'B L OW',
+  throw: 'TH R OW',
+  allow: 'AH L AW',
+  wow: 'W AW',
+  shine: 'SH AY N',
+  smile: 'S M AY L',
+  while: 'W AY L',
+  inside: 'IH N S AY D',
+  outside: 'AW T S AY D',
+  side: 'S AY D',
+  ride: 'R AY D',
+  hide: 'HH AY D',
+  wide: 'W AY D',
+  paradise: 'P EH R AH D AY S',
+  great: 'G R EY T',
+  break: 'B R EY K',
+  steak: 'S T EY K',
+  head: 'HH EH D',
+  dead: 'D EH D',
+  bread: 'B R EH D',
+  ready: 'R EH D IY',
+  heavy: 'HH EH V IY',
+  learn: 'L ER N',
+  early: 'ER L IY',
+  earth: 'ER TH',
+  search: 'S ER CH',
+  wild: 'W AY L D',
+  wind: 'W IH N D',
+  weight: 'W EY T',
+  eight: 'EY T',
+  height: 'HH AY T',
+  either: 'IY DH ER',
+  neither: 'N IY DH ER',
+  whether: 'W EH DH ER',
+  weather: 'W EH DH ER',
+  rather: 'R AE DH ER',
+  gather: 'G AE DH ER',
+  tongue: 'T AH NG',
+  danger: 'D EY N JH ER',
+  stranger: 'S T R EY N JH ER',
+  angel: 'EY N JH AH L',
+  angels: 'EY N JH AH L Z',
+  finger: 'F IH NG G ER',
+  anger: 'AE NG G ER',
+  longer: 'L AO NG G ER',
+  stronger: 'S T R AO NG G ER',
+  hungry: 'HH AH NG G R IY',
+  island: 'AY L AH N D',
+  honest: 'AA N AH S T',
+  listen_: 'L IH S AH N',
+  often: 'AO F AH N',
+  christmas: 'K R IH S M AH S',
+  rhythm: 'R IH DH AH M',
+  business: 'B IH Z N AH S',
+  minute: 'M IH N AH T',
+  machine: 'M AH SH IY N',
+  police: 'P AH L IY S',
+  dove: 'D AH V',
+  glove: 'G L AH V',
+  shove: 'SH AH V',
+  worry: 'W ER IY',
+  sorry: 'S AA R IY',
+  carry: 'K EH R IY',
+  marry: 'M EH R IY',
+  story: 'S T AO R IY',
+  glory: 'G L AO R IY',
+  hurry: 'HH ER IY',
+  journey: 'JH ER N IY',
+  money: 'M AH N IY',
+  honey: 'HH AH N IY',
+  worth: 'W ER TH',
+  world_: 'W ER L D',
+  bright: 'B R AY T',
+  fight: 'F AY T',
+  right: 'R AY T',
+  sight: 'S AY T',
+  flight: 'F L AY T',
+  alright: 'AO L R AY T',
+  tight: 'T AY T',
+  might: 'M AY T',
+  fly: 'F L AY',
+  try: 'T R AY',
+  dry: 'D R AY',
+  shy: 'SH AY',
+  animal: 'AE N AH M AH L',
+  animals: 'AE N AH M AH L Z',
+  amazing: 'AH M EY Z IH NG',
+  alive: 'AH L AY V',
+  high: 'HH AY',
+  sigh: 'S AY',
+  bye: 'B AY',
+  lie: 'L AY',
+  put: 'P UH T',
+  become: 'B IH K AH M',
+  self: 'S EH L F',
+  selves: 'S EH L V Z',
+  empty: 'EH M P T IY',
+  happy: 'HH AE P IY',
+  lonely: 'L OW N L IY',
+  beauty: 'B Y UW T IY',
+  angry: 'AE NG G R IY',
 };
-const DICT: Record<string, string[]> = Object.fromEntries(Object.entries(DICT_SRC).map(([k, v]) => [k.replace(/_$/, ''), v.split(' ')]));
+const DICT: Record<string, string[]> = Object.fromEntries(
+  Object.entries(DICT_SRC).map(([k, v]) => [k.replace(/_$/, ''), v.split(' ')]),
+);
 
 const VOWELS = 'aeiou';
 const isV = (c: string | undefined) => !!c && VOWELS.includes(c);
 const isCons = (c: string | undefined) => !!c && /[a-z]/.test(c) && !VOWELS.includes(c);
 const VOICELESS_END = /(p|t|k|f|th|ch|sh|s|x|ck|gh)$/;
-const AW_FINAL = new Set(['now', 'how', 'cow', 'wow', 'vow', 'allow', 'plow', 'brow', 'chow', 'somehow', 'anyhow', 'endow']);
-const AW_OWN = new Set(['down', 'town', 'crown', 'brown', 'drown', 'gown', 'frown', 'clown', 'downtown', 'renown']);
+const AW_FINAL = new Set([
+  'now',
+  'how',
+  'cow',
+  'wow',
+  'vow',
+  'allow',
+  'plow',
+  'brow',
+  'chow',
+  'somehow',
+  'anyhow',
+  'endow',
+]);
+const AW_OWN = new Set([
+  'down',
+  'town',
+  'crown',
+  'brown',
+  'drown',
+  'gown',
+  'frown',
+  'clown',
+  'downtown',
+  'renown',
+]);
 const LABIAL_VELAR = new Set(['p', 'b', 'f', 'v', 'm', 'k', 'c', 'g', 'h']);
 const PREFIXES = ['a', 'be', 'de', 're', 'un', 'in', 'ex', 'to', 'for', 'mis', 'dis', 'pre'];
 
@@ -89,7 +461,15 @@ function stressIndex(sylls: string[], w: string): number {
   return 0;
 }
 
-function consumeVowelTeam(w: string, i: number, sylStart: number, sylEnd: number, stressed: boolean, isLastSyl: boolean, sylCount: number): { ph: string[]; len: number } | null {
+function consumeVowelTeam(
+  w: string,
+  i: number,
+  sylStart: number,
+  sylEnd: number,
+  stressed: boolean,
+  isLastSyl: boolean,
+  sylCount: number,
+): { ph: string[]; len: number } | null {
   const rest = w.slice(i);
   const prev = w[i - 1];
   const after = (n: number) => w.slice(i + n);
@@ -133,7 +513,8 @@ function consumeVowelTeam(w: string, i: number, sylStart: number, sylEnd: number
     case 'ie': {
       const tail = after(2);
       const mono = sylCount === 1;
-      if (tail === '' || ((tail === 's' || tail === 'd') && mono)) return { ph: mono ? ['AY'] : ['IY'], len: 2 };
+      if (tail === '' || ((tail === 's' || tail === 'd') && mono))
+        return { ph: mono ? ['AY'] : ['IY'], len: 2 };
       return { ph: ['IY'], len: 2 };
     }
     case 'oa':
@@ -145,11 +526,16 @@ function consumeVowelTeam(w: string, i: number, sylStart: number, sylEnd: number
       return { ph: ['OY'], len: 2 };
     case 'oo': {
       if (rest.startsWith('oor')) return { ph: ['AO', 'R'], len: 3 };
-      if (/^oo(k|d|t)/.test(rest) && !/^oo(d)$/.test(rest.slice(0, 3) + (w[i + 3] ?? ''))) return { ph: ['UH'], len: 2 };
+      if (/^oo(k|d|t)/.test(rest) && !/^oo(d)$/.test(rest.slice(0, 3) + (w[i + 3] ?? '')))
+        return { ph: ['UH'], len: 2 };
       return { ph: ['UW'], len: 2 };
     }
     case 'ou': {
-      if (rest.startsWith('our')) return { ph: isLastSyl && (i + 3 === wordLen || after(3) === 's') ? ['AW', 'ER'] : ['AO', 'R'], len: 3 };
+      if (rest.startsWith('our'))
+        return {
+          ph: isLastSyl && (i + 3 === wordLen || after(3) === 's') ? ['AW', 'ER'] : ['AO', 'R'],
+          len: 3,
+        };
       if (rest.startsWith('oul')) return { ph: /^oul(d)/.test(rest) ? ['UH'] : ['OW'], len: 2 };
       if (/^ou(ch|ble|ple|ntry|ng|sin)/.test(rest)) return { ph: ['AH'], len: 2 };
       if (/^ous$/.test(rest) || (/^ous/.test(rest) && !stressed)) return { ph: ['AH'], len: 2 };
@@ -157,7 +543,8 @@ function consumeVowelTeam(w: string, i: number, sylStart: number, sylEnd: number
     }
     case 'ow': {
       const tail = after(2);
-      if (tail === '' || tail === 's') return { ph: AW_FINAL.has(w.replace(/s$/, '')) ? ['AW'] : ['OW'], len: 2 };
+      if (tail === '' || tail === 's')
+        return { ph: AW_FINAL.has(w.replace(/s$/, '')) ? ['AW'] : ['OW'], len: 2 };
       if (/^n(s)?$/.test(tail)) return { ph: AW_OWN.has(w.replace(/s$/, '')) ? ['AW'] : ['OW'], len: 2 };
       if (/^(er|l|d|el|ard)/.test(tail)) return { ph: ['AW'], len: 2 };
       return { ph: ['OW'], len: 2 };
@@ -178,27 +565,52 @@ function hasMagicE(w: string, i: number): boolean {
   if (w.startsWith('ch', j) || w.startsWith('sh', j)) {
     if (w.slice(j + 2) === 'es' || w.slice(j + 2) === 'ed') return false;
   }
-  if (w.startsWith('th', j) || w.startsWith('ch', j) || w.startsWith('sh', j) || w.startsWith('ph', j)) j += 2;
+  if (w.startsWith('th', j) || w.startsWith('ch', j) || w.startsWith('sh', j) || w.startsWith('ph', j))
+    j += 2;
   else if (isCons(w[j]) && w[j] !== 'w' && w[j] !== 'x' && w[j] !== 'y') j += 1;
   else return false;
   if (w[j] !== 'e') return false;
   const tail = w.slice(j + 1);
-  return tail === '' || tail === 's' || tail === 'd' || tail === 'ly' || tail === 'ful' || tail === 'less' || tail === 'ness' || tail === 'ment';
+  return (
+    tail === '' ||
+    tail === 's' ||
+    tail === 'd' ||
+    tail === 'ly' ||
+    tail === 'ful' ||
+    tail === 'less' ||
+    tail === 'ness' ||
+    tail === 'ment'
+  );
 }
 
-function singleVowel(w: string, i: number, sylEnd: number, stressed: boolean, sylCount: number): { ph: string[]; len: number } {
+function singleVowel(
+  w: string,
+  i: number,
+  sylEnd: number,
+  stressed: boolean,
+  sylCount: number,
+): { ph: string[]; len: number } {
   const c = w[i];
   const next = w[i + 1];
   const prev = w[i - 1];
-  const beforeGlide = /^.(sion|tion|cial|tial|cious|tious|cian)/.test(w.slice(i)) || /^.s(sion)/.test(w.slice(i));
+  const beforeGlide =
+    /^.(sion|tion|cial|tial|cious|tious|cian)/.test(w.slice(i)) || /^.s(sion)/.test(w.slice(i));
   if (beforeGlide && (c === 'e' || c === 'i')) return { ph: [c === 'e' ? 'EH' : 'IH'], len: 1 };
   // Trisyllabic laxing: stressed open first syllable of a 3+ syllable word is short (me-lo-dy, fa-mi-ly).
-  const laxed = sylCount >= 3 && i + 1 === sylEnd && stressed && (c === 'e' || c === 'a' || c === 'i') && !hasMagicE(w, i) && !isV(next) && next !== 'y';
+  const laxed =
+    sylCount >= 3 &&
+    i + 1 === sylEnd &&
+    stressed &&
+    (c === 'e' || c === 'a' || c === 'i') &&
+    !hasMagicE(w, i) &&
+    !isV(next) &&
+    next !== 'y';
   if (laxed) return { ph: [c === 'e' ? 'EH' : c === 'a' ? 'AE' : 'IH'], len: 1 };
   const open = i + 1 === sylEnd && i + 1 < w.length;
   const finalLetter = i + 1 === w.length;
   const magic = hasMagicE(w, i);
-  const rCtrl = next === 'r' && (!isV(w[i + 2]) || (w[i + 2] === 'e' && i + 3 === w.length)) && w[i + 2] !== 'r';
+  const rCtrl =
+    next === 'r' && (!isV(w[i + 2]) || (w[i + 2] === 'e' && i + 3 === w.length)) && w[i + 2] !== 'r';
   switch (c) {
     case 'a': {
       if (rCtrl) {
@@ -207,8 +619,10 @@ function singleVowel(w: string, i: number, sylEnd: number, stressed: boolean, sy
         return { ph: ['AA', 'R'], len: 2 };
       }
       if (next === 'r' && isV(w[i + 2])) return { ph: stressed ? ['EH'] : ['AH'], len: 1 };
-      if (/^al(l|k|t|so|ways|most|ready)/.test(w.slice(i))) return { ph: ['AO'], len: /^alk/.test(w.slice(i)) ? 2 : 1 };
-      if (prev === 'w' && isCons(next) && next !== 'y' && next !== 'g' && next !== 'v') return { ph: ['AA'], len: 1 };
+      if (/^al(l|k|t|so|ways|most|ready)/.test(w.slice(i)))
+        return { ph: ['AO'], len: /^alk/.test(w.slice(i)) ? 2 : 1 };
+      if (prev === 'w' && isCons(next) && next !== 'y' && next !== 'g' && next !== 'v')
+        return { ph: ['AA'], len: 1 };
       if (magic) return { ph: ['EY'], len: 1 };
       if (finalLetter) return { ph: sylCount > 1 ? ['AH'] : ['EY'], len: 1 };
       if (open) return { ph: stressed ? ['EY'] : ['AH'], len: 1 };
@@ -230,7 +644,8 @@ function singleVowel(w: string, i: number, sylEnd: number, stressed: boolean, sy
         if (w[i + 2] === 'e' && i + 3 === w.length) return { ph: ['AY', 'ER'], len: 3 };
         return { ph: ['ER'], len: 2 };
       }
-      if (/^i(nd|ld)$/.test(w.slice(i)) || /^i(nd|ld)(s|ed|er|ing|ly)?$/.test(w.slice(i))) return { ph: ['AY'], len: 1 };
+      if (/^i(nd|ld)$/.test(w.slice(i)) || /^i(nd|ld)(s|ed|er|ing|ly)?$/.test(w.slice(i)))
+        return { ph: ['AY'], len: 1 };
       if (magic) return { ph: ['AY'], len: 1 };
       if (finalLetter) return { ph: sylCount === 1 ? ['AY'] : ['IY'], len: 1 };
       if (open) return { ph: stressed ? ['AY'] : ['IH'], len: 1 };
@@ -243,7 +658,15 @@ function singleVowel(w: string, i: number, sylEnd: number, stressed: boolean, sy
         return { ph: stressed || sylCount === 1 ? ['AO', 'R'] : ['ER'], len: 2 };
       }
       if (/^o(ld|lt|ll)/.test(w.slice(i)) && !/^oll(y|ar)/.test(w.slice(i))) return { ph: ['OW'], len: 1 };
-      if (/^ost/.test(w.slice(i))) return { ph: /^(m|p|h|gh)$/.test(w.slice(Math.max(0, i - 2), i).replace(/^.(?=.)/, '')) || /(m|p|h)$/.test(w.slice(0, i)) ? ['OW'] : ['AO'], len: 1 };
+      if (/^ost/.test(w.slice(i)))
+        return {
+          ph:
+            /^(m|p|h|gh)$/.test(w.slice(Math.max(0, i - 2), i).replace(/^.(?=.)/, '')) ||
+            /(m|p|h)$/.test(w.slice(0, i))
+              ? ['OW']
+              : ['AO'],
+          len: 1,
+        };
       if (/^ong/.test(w.slice(i))) return { ph: ['AO'], len: 1 };
       if (/^ove$/.test(w.slice(i))) return { ph: ['AH'], len: 1 };
       if (/^oth/.test(w.slice(i)) && w[i + 3] === 'e' && w[i + 4] === 'r') return { ph: ['AH'], len: 1 };
@@ -254,7 +677,8 @@ function singleVowel(w: string, i: number, sylEnd: number, stressed: boolean, sy
     }
     case 'u': {
       if (rCtrl) {
-        if (w[i + 2] === 'e' && i + 3 === w.length) return { ph: prev && LABIAL_VELAR.has(prev) ? ['Y', 'UH', 'R'] : ['UH', 'R'], len: 3 };
+        if (w[i + 2] === 'e' && i + 3 === w.length)
+          return { ph: prev && LABIAL_VELAR.has(prev) ? ['Y', 'UH', 'R'] : ['UH', 'R'], len: 3 };
         return { ph: ['ER'], len: 2 };
       }
       if (/^u(ll|sh)/.test(w.slice(i)) && /[pbf]/.test(prev ?? '')) return { ph: ['UH'], len: 1 };
@@ -294,7 +718,8 @@ function ruleWord(w: string): string[] {
   const silent = new Set<number>();
   let i = 0;
   const push = (...p: string[]) => {
-    for (const x of p) if (x && (out[out.length - 1] !== x || !/^[BCDFGHJKLMNPRSTVWZ]/.test(x) || x === 'R')) out.push(x);
+    for (const x of p)
+      if (x && (out[out.length - 1] !== x || !/^[BCDFGHJKLMNPRSTVWZ]/.test(x) || x === 'R')) out.push(x);
   };
   while (i < w.length) {
     if (silent.has(i)) {
@@ -374,7 +799,13 @@ function ruleWord(w: string): string[] {
         continue;
       }
       // Silent final e (and e in -es / -ed endings after magic vowels).
-      if (c === 'e' && i > 0 && (i + 1 === w.length || (i + 2 === w.length && (w[i + 1] === 's' || w[i + 1] === 'd'))) && sylCount >= 1 && out.some((p) => /^[AEIOU]/.test(p))) {
+      if (
+        c === 'e' &&
+        i > 0 &&
+        (i + 1 === w.length || (i + 2 === w.length && (w[i + 1] === 's' || w[i + 1] === 'd'))) &&
+        sylCount >= 1 &&
+        out.some((p) => /^[AEIOU]/.test(p))
+      ) {
         if (i + 1 === w.length) {
           i++;
           continue;
@@ -414,37 +845,45 @@ function ruleConsonant(w: string, i: number, push: (...p: string[]) => void): nu
   const rest = w.slice(i);
   const prev = w[i - 1];
   const next = w[i + 1];
-  if (rest.startsWith('tch')) return push('CH'), 3;
-  if (rest.startsWith('sch')) return push('S', 'K'), 3;
-  if (rest.startsWith('chr') || (rest.startsWith('ch') && /^(chorus|chaos|character|christ|chord|chem)/.test(w))) return push('K'), 2;
-  if (rest.startsWith('ch')) return push('CH'), 2;
-  if (rest.startsWith('sh')) return push('SH'), 2;
+  if (rest.startsWith('tch')) return (push('CH'), 3);
+  if (rest.startsWith('sch')) return (push('S', 'K'), 3);
+  if (
+    rest.startsWith('chr') ||
+    (rest.startsWith('ch') && /^(chorus|chaos|character|christ|chord|chem)/.test(w))
+  )
+    return (push('K'), 2);
+  if (rest.startsWith('ch')) return (push('CH'), 2);
+  if (rest.startsWith('sh')) return (push('SH'), 2);
   if (rest.startsWith('th')) {
-    const dh = /^th(e|is|at|ese|ose|ey|em|en|an|ere|eir|ough|us)$/.test(w) || /^ther/.test(w.slice(i)) || (rest === 'the' && i > 0) || /^the[sd]$/.test(rest);
-    return push(dh ? 'DH' : 'TH'), 2;
+    const dh =
+      /^th(e|is|at|ese|ose|ey|em|en|an|ere|eir|ough|us)$/.test(w) ||
+      /^ther/.test(w.slice(i)) ||
+      (rest === 'the' && i > 0) ||
+      /^the[sd]$/.test(rest);
+    return (push(dh ? 'DH' : 'TH'), 2);
   }
-  if (rest.startsWith('ph')) return push('F'), 2;
-  if (rest.startsWith('wh')) return push('W'), 2;
+  if (rest.startsWith('ph')) return (push('F'), 2);
+  if (rest.startsWith('wh')) return (push('W'), 2);
   if (rest.startsWith('gh')) {
     if (i === 0) push('G');
     return 2;
   }
-  if (rest.startsWith('ck')) return push('K'), 2;
-  if (rest.startsWith('ng')) return push('NG'), 2;
-  if (rest.startsWith('nk')) return push('NG', 'K'), 2;
-  if (rest.startsWith('qu')) return push('K', 'W'), 2;
-  if (i === 0 && rest.startsWith('kn')) return push('N'), 2;
-  if (i === 0 && rest.startsWith('wr')) return push('R'), 2;
-  if (i === 0 && rest.startsWith('gn')) return push('N'), 2;
-  if (i === 0 && rest.startsWith('ps')) return push('S'), 2;
-  if (rest === 'mb' || rest === 'mbs') return push('M'), rest.length;
-  if (rest === 'gn' || rest === 'gns') return push('N'), rest.length;
+  if (rest.startsWith('ck')) return (push('K'), 2);
+  if (rest.startsWith('ng')) return (push('NG'), 2);
+  if (rest.startsWith('nk')) return (push('NG', 'K'), 2);
+  if (rest.startsWith('qu')) return (push('K', 'W'), 2);
+  if (i === 0 && rest.startsWith('kn')) return (push('N'), 2);
+  if (i === 0 && rest.startsWith('wr')) return (push('R'), 2);
+  if (i === 0 && rest.startsWith('gn')) return (push('N'), 2);
+  if (i === 0 && rest.startsWith('ps')) return (push('S'), 2);
+  if (rest === 'mb' || rest === 'mbs') return (push('M'), rest.length);
+  if (rest === 'gn' || rest === 'gns') return (push('N'), rest.length);
   if (/^(t|s|c|x)i[aou]/.test(rest) && i > 0) {
     push(c === 's' && isV(prev) ? 'ZH' : c === 'x' ? 'K' : 'SH');
     if (c === 'x') push('SH');
     return 2;
   }
-  if (rest.startsWith('gu') && isV(w[i + 2])) return push('G'), 2;
+  if (rest.startsWith('gu') && isV(w[i + 2])) return (push('G'), 2);
   // Doubled consonants sound once.
   if (next === c && c !== 'c') {
     ruleConsonant(w.slice(0, i) + w.slice(i + 1), i, push);
@@ -469,7 +908,14 @@ function ruleConsonant(w: string, i: number, push: (...p: string[]) => void): nu
       push('F');
       return 1;
     case 'g':
-      push(/[eiy]/.test(next ?? '') && !/^(get|give|girl|gift|begin|forget|tiger|target|together|geese|gear)/.test(w.slice(Math.max(0, i - 3))) ? 'JH' : 'G');
+      push(
+        /[eiy]/.test(next ?? '') &&
+          !/^(get|give|girl|gift|begin|forget|tiger|target|together|geese|gear)/.test(
+            w.slice(Math.max(0, i - 3)),
+          )
+          ? 'JH'
+          : 'G',
+      );
       return 1;
     case 'h':
       if (isV(next) || next === 'y') push('HH');
@@ -526,7 +972,11 @@ function ruleConsonant(w: string, i: number, push: (...p: string[]) => void): nu
 }
 
 function wordPhonemes(raw: string): string[] {
-  const w = raw.toLowerCase().replace(/[’‘`]/g, "'").replace(/[^a-z']/g, '').replace(/^'+|'+$/g, '');
+  const w = raw
+    .toLowerCase()
+    .replace(/[’‘`]/g, "'")
+    .replace(/[^a-z']/g, '')
+    .replace(/^'+|'+$/g, '');
   if (!w) return [];
   if (DICT[w]) return [...DICT[w]];
   // Contractions.
@@ -561,16 +1011,27 @@ function wordPhonemes(raw: string): string[] {
   };
   const hasVowelLetters = (x: string) => /[aeiouy]/.test(x);
   const restoreE = (base: string) => {
-    if (base.length >= 3 && base[base.length - 1] === base[base.length - 2] && !/[lsfz]/.test(base[base.length - 1])) return base.slice(0, -1);
+    if (
+      base.length >= 3 &&
+      base[base.length - 1] === base[base.length - 2] &&
+      !/[lsfz]/.test(base[base.length - 1])
+    )
+      return base.slice(0, -1);
     if (DICT[base]) return base;
     if (DICT[base + 'e']) return base + 'e';
     const groups = base.match(/[aeiouy]+/g) ?? [];
     if (/[^aeiou]c$|[aeiou]c$/.test(base) && groups.length >= 1) return base + 'e';
-    if (groups.length === 1 && /[^aeiouy][aeiou][^aeiouywx]$/.test(base) && !/(ck|ng|nk|sh|ch|th)$/.test(base)) return base + 'e';
+    if (
+      groups.length === 1 &&
+      /[^aeiouy][aeiou][^aeiouywx]$/.test(base) &&
+      !/(ck|ng|nk|sh|ch|th)$/.test(base)
+    )
+      return base + 'e';
     return base;
   };
   let sm: RegExpExecArray | null;
-  if ((sm = /^(.{2,}?)ing$/.exec(w)) && hasVowelLetters(sm[1])) return [...wordPhonemes(restoreE(sm[1])), 'IH', 'NG'];
+  if ((sm = /^(.{2,}?)ing$/.exec(w)) && hasVowelLetters(sm[1]))
+    return [...wordPhonemes(restoreE(sm[1])), 'IH', 'NG'];
   if (!/eed$/.test(w) && (sm = /^(.{2,}?)ed$/.exec(w)) && hasVowelLetters(sm[1]) && sm[1].length >= 3) {
     const b = wordPhonemes(restoreE(sm[1]));
     return [...b, ...pastTense(b)];
@@ -579,9 +1040,13 @@ function wordPhonemes(raw: string): string[] {
     const b = wordPhonemes(sm[1]);
     return [...b, 'IH', 'Z'];
   }
-  if ((sm = /^(.{2,}?)(?:i)es$/.exec(w)) && hasVowelLetters(sm[1]) && DICT[sm[1] + 'y']) return [...DICT[sm[1] + 'y'], 'Z'];
+  if ((sm = /^(.{2,}?)(?:i)es$/.exec(w)) && hasVowelLetters(sm[1]) && DICT[sm[1] + 'y'])
+    return [...DICT[sm[1] + 'y'], 'Z'];
   if ((sm = /^(.{3,}?)s$/.exec(w)) && !/(s|u|i)$/.test(sm[1]) && hasVowelLetters(sm[1])) {
-    const b = sm[1].endsWith('e') && DICT[sm[1].slice(0, -1)] ? wordPhonemes(sm[1].slice(0, -1)) : wordPhonemes(sm[1]);
+    const b =
+      sm[1].endsWith('e') && DICT[sm[1].slice(0, -1)]
+        ? wordPhonemes(sm[1].slice(0, -1))
+        : wordPhonemes(sm[1]);
     return [...b, ...voicedPlural(b)];
   }
   for (const [suf, ph] of [
@@ -608,12 +1073,21 @@ function wordPhonemes(raw: string): string[] {
   for (let k = 2; k <= w.length - 2; k++) {
     const a = w.slice(0, k);
     const b = w.slice(k);
-    if (a.length >= 2 && b.length >= 2 && DICT[a] && DICT[b] && !['a', 'i'].includes(a) && a.length + b.length >= 5) return [...DICT[a], ...DICT[b]];
+    if (
+      a.length >= 2 &&
+      b.length >= 2 &&
+      DICT[a] &&
+      DICT[b] &&
+      !['a', 'i'].includes(a) &&
+      a.length + b.length >= 5
+    )
+      return [...DICT[a], ...DICT[b]];
   }
   for (let k = 2; k <= w.length - 2; k++) {
     const a = w.slice(0, k);
     const b = w.slice(k);
-    if (a.length < 3 || b.length < 3 || !/^[^aeiou]/.test(b) || !hasVowelLetters(a) || !hasVowelLetters(b)) continue;
+    if (a.length < 3 || b.length < 3 || !/^[^aeiou]/.test(b) || !hasVowelLetters(a) || !hasVowelLetters(b))
+      continue;
     const both = DICT[a] && DICT[b];
     const longA = DICT[a] && a.length >= 4 && b.length >= 4;
     const longB = DICT[b] && b.length >= 4 && a.length >= 3;
@@ -659,8 +1133,30 @@ const FUNCTION_WORDS = new Set(
 
 /** Words the stress heuristic gets wrong (index of the stressed syllable as `syllabify` splits them). */
 const STRESS_EXCEPTIONS: Record<string, number> = {
-  into: 0, onto: 0, unto: 0, under: 0, even: 0, over: 0, only: 0, ever: 0, every: 0, never: 0, any: 0, many: 0, very: 0,
-  inner: 0, enter: 0, entire: 1, indeed: 1, instead: 1, between: 1, believe: 1, become: 1, because: 1, without: 1, within: 1,
+  into: 0,
+  onto: 0,
+  unto: 0,
+  under: 0,
+  even: 0,
+  over: 0,
+  only: 0,
+  ever: 0,
+  every: 0,
+  never: 0,
+  any: 0,
+  many: 0,
+  very: 0,
+  inner: 0,
+  enter: 0,
+  entire: 1,
+  indeed: 1,
+  instead: 1,
+  between: 1,
+  believe: 1,
+  become: 1,
+  because: 1,
+  without: 1,
+  within: 1,
 };
 
 /**
@@ -669,7 +1165,10 @@ const STRESS_EXCEPTIONS: Record<string, number> = {
  * one-syllable words carry the stress.
  */
 export function wordStress(word: string): number[] {
-  const w = word.toLowerCase().replace(/[’‘`]/g, "'").replace(/[^a-z']/g, '');
+  const w = word
+    .toLowerCase()
+    .replace(/[’‘`]/g, "'")
+    .replace(/[^a-z']/g, '');
   const sylls = syllabify(word).map((s) => s.toLowerCase());
   if (sylls.length <= 1) return [FUNCTION_WORDS.has(w) ? 0 : 1];
   const letters = w.replace(/[^a-z]/g, '');

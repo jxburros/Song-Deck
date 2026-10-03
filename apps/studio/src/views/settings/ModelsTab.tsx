@@ -4,7 +4,15 @@ import { useSettings } from '../../state/settings';
 import { useRuntime, checkServer } from '../../engine/runtime';
 import { Badge, Button, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
-import { getHardware, getModels, rescanModels, type CompatibilityRating, type HardwareReport, type ModelEntry, type ModelsReport } from './api';
+import {
+  getHardware,
+  getModels,
+  rescanModels,
+  type CompatibilityRating,
+  type HardwareReport,
+  type ModelEntry,
+  type ModelsReport,
+} from './api';
 import { openSettings } from './nav';
 import { CapBadges, Empty, Panel, Segmented, TabHeader, errorMessage, timeAgo } from './ui';
 
@@ -19,17 +27,22 @@ const CATEGORIES = [
   { id: 'mastering', label: 'Mastering' },
 ] as const;
 
-const RATING: Record<CompatibilityRating, { label: string; tone: 'success' | 'ai' | 'warning' | 'danger' }> = {
-  excellent: { label: 'Excellent', tone: 'success' },
-  compatible: { label: 'Compatible', tone: 'ai' },
-  slow: { label: 'Slow', tone: 'warning' },
-  insufficient: { label: 'Insufficient Hardware', tone: 'danger' },
-};
+const RATING: Record<CompatibilityRating, { label: string; tone: 'success' | 'ai' | 'warning' | 'danger' }> =
+  {
+    excellent: { label: 'Excellent', tone: 'success' },
+    compatible: { label: 'Compatible', tone: 'ai' },
+    slow: { label: 'Slow', tone: 'warning' },
+    insufficient: { label: 'Insufficient Hardware', tone: 'danger' },
+  };
 
 function requirementText(r: ModelEntry['requirements']): string {
   const parts: string[] = [];
   if (r.recommendedVramGb !== undefined && r.recommendedVramGb > 0) {
-    parts.push(r.minVramGb && r.minVramGb !== r.recommendedVramGb ? `${r.minVramGb}–${r.recommendedVramGb} GB VRAM` : `${r.recommendedVramGb} GB VRAM`);
+    parts.push(
+      r.minVramGb && r.minVramGb !== r.recommendedVramGb
+        ? `${r.minVramGb}–${r.recommendedVramGb} GB VRAM`
+        : `${r.recommendedVramGb} GB VRAM`,
+    );
   } else if (r.cpuOk) parts.push('CPU');
   if (r.minRamGb) parts.push(`${r.minRamGb} GB RAM`);
   if (r.cpuOk && (r.recommendedVramGb ?? 0) > 0) parts.push('CPU possible');
@@ -50,7 +63,10 @@ function catalogAsEntries(): ModelEntry[] {
     capabilities: m.capabilities,
     installed: false,
     updateStatus: 'unknown',
-    compatibility: { rating: 'compatible', reasons: ['hardware unknown — start the local server to detect it'] },
+    compatibility: {
+      rating: 'compatible',
+      reasons: ['hardware unknown — start the local server to detect it'],
+    },
     source: 'catalog',
     description: m.notes,
     homepage: m.homepage,
@@ -90,13 +106,21 @@ export default function ModelsTab() {
   const online = server === 'online';
   /** Compatibility ratings exist only when the server's model manager answered. */
   const rated = online && !!report;
-  const entries = useMemo<ModelEntry[]>(() => (rated && report ? report.categories.flatMap((c) => c.models.map((m) => ({ ...m, category: c.id }))) : catalogAsEntries()), [rated, report]);
+  const entries = useMemo<ModelEntry[]>(
+    () =>
+      rated && report
+        ? report.categories.flatMap((c) => c.models.map((m) => ({ ...m, category: c.id })))
+        : catalogAsEntries(),
+    [rated, report],
+  );
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
     for (const e of entries) out[e.category] = (out[e.category] ?? 0) + 1;
     return out;
   }, [entries]);
-  const visible = entries.filter((e) => (cat === 'all' || e.category === cat) && (!installedOnly || e.installed));
+  const visible = entries.filter(
+    (e) => (cat === 'all' || e.category === cat) && (!installedOnly || e.installed),
+  );
 
   return (
     <>
@@ -120,8 +144,9 @@ export default function ModelsTab() {
 
       {!online && (
         <div className="callout warning" data-testid="models-offline">
-          <strong>Start the local server to detect your hardware.</strong> The browser cannot see your GPU, VRAM, RAM or installed models. Run{' '}
-          <code>npx tsx apps/server/src/cli.ts</code> — the catalog below shows each model’s requirements in the meantime.
+          <strong>Start the local server to detect your hardware.</strong> The browser cannot see your GPU,
+          VRAM, RAM or installed models. Run <code>npx tsx apps/server/src/cli.ts</code> — the catalog below
+          shows each model’s requirements in the meantime.
         </div>
       )}
       {error && <div className="callout danger">Could not read the model manager: {error}</div>}
@@ -132,17 +157,30 @@ export default function ModelsTab() {
         title="Model manager"
         icon="layers"
         testId="model-manager"
-        sub={online && report ? `Scanned ${timeAgo(report.scannedAt)} · compatibility rated against this machine.` : 'Curated catalog of local models (requirements are guidance).'}
-        actions={online ? <Toggle on={installedOnly} onChange={setInstalledOnly} label="Installed only" /> : undefined}
+        sub={
+          online && report
+            ? `Scanned ${timeAgo(report.scannedAt)} · compatibility rated against this machine.`
+            : 'Curated catalog of local models (requirements are guidance).'
+        }
+        actions={
+          online ? (
+            <Toggle on={installedOnly} onChange={setInstalledOnly} label="Installed only" />
+          ) : undefined
+        }
       >
         <Segmented
           label="Category"
           value={cat}
           onChange={setCat}
-          options={[{ value: 'all', label: `All (${entries.length})` }, ...CATEGORIES.map((c) => ({ value: c.id, label: `${c.label} (${counts[c.id] ?? 0})` }))]}
+          options={[
+            { value: 'all', label: `All (${entries.length})` },
+            ...CATEGORIES.map((c) => ({ value: c.id, label: `${c.label} (${counts[c.id] ?? 0})` })),
+          ]}
         />
         {visible.length === 0 ? (
-          <Empty icon="layers">{installedOnly ? 'No installed models in this category.' : 'No models in this category.'}</Empty>
+          <Empty icon="layers">
+            {installedOnly ? 'No installed models in this category.' : 'No models in this category.'}
+          </Empty>
         ) : (
           <div className="st-model-list">
             {CATEGORIES.filter((c) => cat === 'all' || c.id === cat).map((c) => {
@@ -166,11 +204,15 @@ export default function ModelsTab() {
           <div className="st-sources">
             {report.sources.map((s) => (
               <div key={`${s.source}-${s.url ?? ''}`} className="st-source">
-                <span className={`status-dot ${s.status === 'ok' ? 'ok' : s.status === 'disabled' ? '' : s.status === 'unreachable' ? 'warn' : 'err'}`} />
+                <span
+                  className={`status-dot ${s.status === 'ok' ? 'ok' : s.status === 'disabled' ? '' : s.status === 'unreachable' ? 'warn' : 'err'}`}
+                />
                 <strong>{s.source}</strong>
                 {s.url && <span className="mono small dim">{s.url}</span>}
                 <span className="grow" />
-                <span className="small muted">{s.status === 'ok' ? `${s.count} found` : (s.error ?? s.status)}</span>
+                <span className="small muted">
+                  {s.status === 'ok' ? `${s.count} found` : (s.error ?? s.status)}
+                </span>
               </div>
             ))}
           </div>
@@ -181,10 +223,20 @@ export default function ModelsTab() {
 }
 
 function HardwarePanel({ hw, loading }: { hw: HardwareReport | null; loading: boolean }) {
-  if (loading || !hw) return <Panel title="This machine" icon="cpu">Detecting hardware…</Panel>;
+  if (loading || !hw)
+    return (
+      <Panel title="This machine" icon="cpu">
+        Detecting hardware…
+      </Panel>
+    );
   const backends = hw.accelerationBackends ?? hw.backends ?? [];
   return (
-    <Panel title="This machine" icon="cpu" testId="hardware" sub={`${hw.os ?? hw.platform ?? ''}${hw.arch ? ` · ${hw.arch}` : ''}${hw.detectedAt ? ` · detected ${timeAgo(hw.detectedAt)}` : ''}`}>
+    <Panel
+      title="This machine"
+      icon="cpu"
+      testId="hardware"
+      sub={`${hw.os ?? hw.platform ?? ''}${hw.arch ? ` · ${hw.arch}` : ''}${hw.detectedAt ? ` · detected ${timeAgo(hw.detectedAt)}` : ''}`}
+    >
       <div className="st-hw">
         <div className="st-hw-tile">
           <div className="st-hw-label">
@@ -209,8 +261,12 @@ function HardwarePanel({ hw, loading }: { hw: HardwareReport | null; loading: bo
           <div className="st-hw-label">
             <Icon name="grid" size={13} /> VRAM
           </div>
-          <div className="st-hw-value">{hw.gpus.length ? `${Math.max(...hw.gpus.map((g) => g.vramGb))} GB` : '—'}</div>
-          <div className="small dim">{hw.unifiedMemory ? 'unified memory (uses system RAM)' : 'largest dedicated GPU'}</div>
+          <div className="st-hw-value">
+            {hw.gpus.length ? `${Math.max(...hw.gpus.map((g) => g.vramGb))} GB` : '—'}
+          </div>
+          <div className="small dim">
+            {hw.unifiedMemory ? 'unified memory (uses system RAM)' : 'largest dedicated GPU'}
+          </div>
         </div>
         <div className="st-hw-tile">
           <div className="st-hw-label">
@@ -224,7 +280,8 @@ function HardwarePanel({ hw, loading }: { hw: HardwareReport | null; loading: bo
             <Icon name="cpu" size={13} /> CPU
           </div>
           <div className="st-hw-value">
-            {hw.cpu.cores} cores{hw.cpu.threads && hw.cpu.threads !== hw.cpu.cores ? ` / ${hw.cpu.threads} threads` : ''}
+            {hw.cpu.cores} cores
+            {hw.cpu.threads && hw.cpu.threads !== hw.cpu.cores ? ` / ${hw.cpu.threads} threads` : ''}
           </div>
           <div className="small dim ellipsis" title={hw.cpu.model}>
             {hw.cpu.model ?? ''}
@@ -234,7 +291,9 @@ function HardwarePanel({ hw, loading }: { hw: HardwareReport | null; loading: bo
           <div className="st-hw-label">
             <Icon name="folder" size={13} /> Storage
           </div>
-          <div className="st-hw-value">{hw.storageFreeGb !== undefined ? `${Math.round(hw.storageFreeGb)} GB free` : '—'}</div>
+          <div className="st-hw-value">
+            {hw.storageFreeGb !== undefined ? `${Math.round(hw.storageFreeGb)} GB free` : '—'}
+          </div>
           <div className="small dim">where models are stored</div>
         </div>
         <div className="st-hw-tile">
@@ -242,7 +301,15 @@ function HardwarePanel({ hw, loading }: { hw: HardwareReport | null; loading: bo
             <Icon name="sparkles" size={13} /> Acceleration
           </div>
           <div className="row wrap" style={{ gap: 4 }}>
-            {backends.length ? backends.map((b) => <Badge key={b} tone={b === 'cpu' ? undefined : 'success'}>{b}</Badge>) : <span className="muted">CPU only</span>}
+            {backends.length ? (
+              backends.map((b) => (
+                <Badge key={b} tone={b === 'cpu' ? undefined : 'success'}>
+                  {b}
+                </Badge>
+              ))
+            ) : (
+              <span className="muted">CPU only</span>
+            )}
           </div>
         </div>
       </div>
@@ -263,7 +330,9 @@ function ModelRow({ m, online }: { m: ModelEntry; online: boolean }) {
           <strong>{m.name}</strong>
           <span className="small dim">
             {m.provider} · v{m.installedVersion ?? m.version}
-            {m.sizeGb !== undefined ? ` · ${m.sizeGb < 1 ? `${Math.round(m.sizeGb * 1000)} MB` : `${m.sizeGb} GB`}` : ''}
+            {m.sizeGb !== undefined
+              ? ` · ${m.sizeGb < 1 ? `${Math.round(m.sizeGb * 1000)} MB` : `${m.sizeGb} GB`}`
+              : ''}
           </span>
         </div>
         <span className="st-model-req small muted">{requirementText(m.requirements)}</span>
@@ -319,7 +388,9 @@ function ModelRow({ m, online }: { m: ModelEntry; online: boolean }) {
             {m.quantizations && m.quantizations.length > 0 && (
               <>
                 <dt>Variants</dt>
-                <dd className="mono small">{m.quantizations.map((q) => `${q.id} ${q.sizeGb} GB / ${q.vramGb} GB VRAM`).join(' · ')}</dd>
+                <dd className="mono small">
+                  {m.quantizations.map((q) => `${q.id} ${q.sizeGb} GB / ${q.vramGb} GB VRAM`).join(' · ')}
+                </dd>
               </>
             )}
             <dt>Location</dt>
@@ -358,7 +429,12 @@ function ModelRow({ m, online }: { m: ModelEntry; online: boolean }) {
               (configured ? (
                 <Badge tone="success">Provider configured</Badge>
               ) : (
-                <Button size="sm" variant="primary" icon="plug" onClick={() => openSettings('providers', `add:${m.presetId}`)}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon="plug"
+                  onClick={() => openSettings('providers', `add:${m.presetId}`)}
+                >
                   Connect as a provider
                 </Button>
               ))}

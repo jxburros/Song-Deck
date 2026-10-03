@@ -63,7 +63,11 @@ interface Header {
 }
 
 function headerKind(word: string): SectionKind | null {
-  const w = word.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+  const w = word
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   for (const [re, kind] of HEADER_WORDS) if (re.test(w)) return kind;
   return null;
 }
@@ -128,10 +132,16 @@ export function parseSectionHeader(line: string): Header | null {
   const label = titleCase(words.replace(/\s+/g, ' ').trim())
     .replace(/^Pre ?-? ?(Chorus|Hook)$/, 'Pre-$1')
     .replace(/^Post ?-? ?(Chorus|Hook)$/, 'Post-$1');
-  return { kind, name: `${label}${num ? ` ${num}` : ''}`, repeat: Math.max(1, repeat || 1), ...(rest ? { rest } : {}) };
+  return {
+    kind,
+    name: `${label}${num ? ` ${num}` : ''}`,
+    repeat: Math.max(1, repeat || 1),
+    ...(rest ? { rest } : {}),
+  };
 }
 
-const CHORD_TOKEN = /^\(?[A-G](?:#|b|♯|♭)?(?:maj|min|mi|ma|m|M|dim|aug|sus|add|\+|°|ø|Δ)?\d{0,2}(?:(?:add|sus|maj|b|#|\+|-)\d{1,2})*(?:\([^)]*\))?(?:\/[A-G](?:#|b|♯|♭)?)?\)?$/;
+const CHORD_TOKEN =
+  /^\(?[A-G](?:#|b|♯|♭)?(?:maj|min|mi|ma|m|M|dim|aug|sus|add|\+|°|ø|Δ)?\d{0,2}(?:(?:add|sus|maj|b|#|\+|-)\d{1,2})*(?:\([^)]*\))?(?:\/[A-G](?:#|b|♯|♭)?)?\)?$/;
 
 /** A line made only of chord symbols / bar lines ("Am  F  C  G", "| G | D/F# |", "N.C."). */
 export function isChordLine(line: string): boolean {
@@ -139,7 +149,8 @@ export function isChordLine(line: string): boolean {
   if (!tokens.length) return false;
   let chords = 0;
   for (const tok of tokens) {
-    if (/^[|:/\\.\-–—]+$/.test(tok) || /^[x×]\d+$/i.test(tok) || /^\d+[x×]$/i.test(tok) || /^%$/.test(tok)) continue;
+    if (/^[|:/\\.\-–—]+$/.test(tok) || /^[x×]\d+$/i.test(tok) || /^\d+[x×]$/i.test(tok) || /^%$/.test(tok))
+      continue;
     if (/^N\.?C\.?$/i.test(tok)) {
       chords++;
       continue;
@@ -160,16 +171,25 @@ const DIRECTION_WORDS =
 const META_LINE =
   /^(?:(?:written|lyrics|music|words|produced|composed|transcribed|tabbed|submitted)\s+by\b|title\s*:|artist\s*:|album\s*:|key\s*:|capo\b|tuning\s*:|tempo\s*:|bpm\s*:|chords?\s*:|copyright\b|©|\(c\)\s|you might also like\b|see .* live\b|get tickets\b|\d*\s*embed$|\d+\s+contributors?\b|translations?\b)/i;
 
-type LineClass = { type: 'blank' } | { type: 'header'; header: Header } | { type: 'lyric'; text: string } | { type: 'instrumental'; kind: SectionKind; name: string } | { type: 'skip' };
+type LineClass =
+  | { type: 'blank' }
+  | { type: 'header'; header: Header }
+  | { type: 'lyric'; text: string }
+  | { type: 'instrumental'; kind: SectionKind; name: string }
+  | { type: 'skip' };
 
 function classify(raw: string): LineClass {
-  const line = raw.replace(/\t/g, ' ').replace(/\u00a0/g, ' ').trimEnd();
+  const line = raw
+    .replace(/\t/g, ' ')
+    .replace(/\u00a0/g, ' ')
+    .trimEnd();
   const t = line.trim();
   if (!t) return { type: 'blank' };
   if (META_LINE.test(t)) return { type: 'skip' };
   const header = parseSectionHeader(t);
   if (header) {
-    if (INSTRUMENTAL.includes(header.kind)) return { type: 'instrumental', kind: header.kind, name: header.name };
+    if (INSTRUMENTAL.includes(header.kind))
+      return { type: 'instrumental', kind: header.kind, name: header.name };
     return { type: 'header', header };
   }
   if (isChordLine(t)) return { type: 'skip' };
@@ -297,7 +317,8 @@ function inferKinds(stanzas: readonly string[][], fixed: readonly (SectionKind |
   for (let i = 0; i < n; i++) {
     if (group[i] >= 0) continue;
     group[i] = groups;
-    for (let j = i + 1; j < n; j++) if (group[j] < 0 && stanzaSimilarity(stanzas[i], stanzas[j]) >= SIMILAR) group[j] = groups;
+    for (let j = i + 1; j < n; j++)
+      if (group[j] < 0 && stanzaSimilarity(stanzas[i], stanzas[j]) >= SIMILAR) group[j] = groups;
     groups++;
   }
   const members = (g: number) => group.map((x, i) => (x === g ? i : -1)).filter((i) => i >= 0);
@@ -315,7 +336,13 @@ function inferKinds(stanzas: readonly string[][], fixed: readonly (SectionKind |
     if (m.some((i) => fixed[i] !== null)) continue;
     const count = m.length;
     const lines = stanzas[m[0]].length;
-    if (count > bestCount || (count === bestCount && count > 1 && chorusGroup >= 0 && lines > stanzas[members(chorusGroup)[0]].length)) {
+    if (
+      count > bestCount ||
+      (count === bestCount &&
+        count > 1 &&
+        chorusGroup >= 0 &&
+        lines > stanzas[members(chorusGroup)[0]].length)
+    ) {
       chorusGroup = g;
       bestCount = count;
     }
@@ -331,20 +358,37 @@ function inferKinds(stanzas: readonly string[][], fixed: readonly (SectionKind |
     if (m.every((i) => i + 1 < n && isChorus(i + 1))) for (const i of m) kinds[i] = 'pre-chorus';
     else if (m.every((i) => i > 0 && isChorus(i - 1))) for (const i of m) kinds[i] = 'post-chorus';
   }
-  const chorusIdx = kinds.map((k, i) => (k === 'chorus' || k === 'final-chorus' ? i : -1)).filter((i) => i >= 0);
+  const chorusIdx = kinds
+    .map((k, i) => (k === 'chorus' || k === 'final-chorus' ? i : -1))
+    .filter((i) => i >= 0);
   const anyChorus = chorusIdx.length > 0 || hasFixedChorus;
-  const avgSyl = (lines: readonly string[]) => lines.reduce((t, l) => t + countSyllables(l), 0) / Math.max(1, lines.length);
+  const avgSyl = (lines: readonly string[]) =>
+    lines.reduce((t, l) => t + countSyllables(l), 0) / Math.max(1, lines.length);
   // Shaped like an earlier verse (line count and syllables per line): a further verse, not a bridge.
   const verseLike = (i: number) =>
-    kinds.some((k, j) => j < i && k === 'verse' && Math.abs(stanzas[j].length - stanzas[i].length) <= 1 && Math.abs(avgSyl(stanzas[j]) - avgSyl(stanzas[i])) <= 0.3 * Math.max(1, avgSyl(stanzas[j])));
+    kinds.some(
+      (k, j) =>
+        j < i &&
+        k === 'verse' &&
+        Math.abs(stanzas[j].length - stanzas[i].length) <= 1 &&
+        Math.abs(avgSyl(stanzas[j]) - avgSyl(stanzas[i])) <= 0.3 * Math.max(1, avgSyl(stanzas[j])),
+    );
   for (let i = 0; i < n; i++) {
     if (kinds[i] !== null) continue;
     const unique = members(group[i]).length === 1;
     const before = chorusIdx.filter((c) => c < i).length;
     const after = chorusIdx.filter((c) => c > i).length;
-    if (anyChorus && unique && before >= 2 && after === 0 && i === n - 1 && stanzas[i].length <= 2) kinds[i] = 'outro';
+    if (anyChorus && unique && before >= 2 && after === 0 && i === n - 1 && stanzas[i].length <= 2)
+      kinds[i] = 'outro';
     // Late in the song (after two choruses, or past 60% after one) and not a full verse-shaped stanza: the bridge.
-    else if (anyChorus && unique && !kinds.includes('bridge') && (before >= 2 || (before >= 1 && i >= Math.ceil(n * 0.6))) && !(verseLike(i) && stanzas[i].length >= 3)) kinds[i] = 'bridge';
+    else if (
+      anyChorus &&
+      unique &&
+      !kinds.includes('bridge') &&
+      (before >= 2 || (before >= 1 && i >= Math.ceil(n * 0.6))) &&
+      !(verseLike(i) && stanzas[i].length >= 3)
+    )
+      kinds[i] = 'bridge';
     else kinds[i] = 'verse';
   }
   return kinds as SectionKind[];
@@ -375,7 +419,9 @@ export function parseLyricSheet(text: string): BlueprintLyrics {
   for (const s of stanzas) {
     const prev = merged[merged.length - 1];
     if (labelled && !s.header && !s.instrumental && prev?.header) {
-      const repeatsKnown = merged.some((m) => m !== prev && m.lines.length && stanzaSimilarity(m.lines, s.lines) >= SIMILAR);
+      const repeatsKnown = merged.some(
+        (m) => m !== prev && m.lines.length && stanzaSimilarity(m.lines, s.lines) >= SIMILAR,
+      );
       const repeatsPrev = prev.lines.length > 0 && stanzaSimilarity(prev.lines, s.lines) >= SIMILAR;
       if (!repeatsKnown && !repeatsPrev) {
         prev.lines.push(...s.lines);
@@ -388,7 +434,16 @@ export function parseLyricSheet(text: string): BlueprintLyrics {
   const resolved: Stanza[] = [];
   for (const s of merged) {
     if (s.header && !s.lines.length) {
-      const src = [...resolved].reverse().find((r) => r.header && r.lines.length && (r.header.name === s.header!.name || r.header.kind === s.header!.kind || (s.header!.kind === 'final-chorus' && r.header.kind === 'chorus')));
+      const src = [...resolved]
+        .reverse()
+        .find(
+          (r) =>
+            r.header &&
+            r.lines.length &&
+            (r.header.name === s.header!.name ||
+              r.header.kind === s.header!.kind ||
+              (s.header!.kind === 'final-chorus' && r.header.kind === 'chorus')),
+        );
       if (src) {
         resolved.push({ header: s.header, lines: [...src.lines] });
         continue;

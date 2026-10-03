@@ -169,11 +169,24 @@
   border-radius: 50%;
   background: var(--text-dim);
 }
-.status-dot.ok { background: var(--success); }
-.status-dot.warn { background: var(--warning); }
-.status-dot.err { background: var(--danger); }
-.status-dot.busy { background: var(--ai); animation: pulse 1.2s infinite; }
-@keyframes pulse { 50% { opacity: 0.35; } }
+.status-dot.ok {
+  background: var(--success);
+}
+.status-dot.warn {
+  background: var(--warning);
+}
+.status-dot.err {
+  background: var(--danger);
+}
+.status-dot.busy {
+  background: var(--ai);
+  animation: pulse 1.2s infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
 
 /* Workbench: track list | editor | right panel */
 .workbench {
@@ -342,8 +355,18 @@
 .hero {
   padding: 26px 26px 22px;
   border-radius: var(--radius-lg);
-  background: radial-gradient(1200px 300px at 0% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
-    radial-gradient(800px 300px at 100% 100%, color-mix(in srgb, var(--ai-fill) 12%, transparent), transparent 60%), var(--bg-elev-1);
+  background:
+    radial-gradient(
+      1200px 300px at 0% 0%,
+      color-mix(in srgb, var(--accent) 14%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      800px 300px at 100% 100%,
+      color-mix(in srgb, var(--ai-fill) 12%, transparent),
+      transparent 60%
+    ),
+    var(--bg-elev-1);
   border: 1px solid var(--border);
   margin-bottom: 18px;
 }

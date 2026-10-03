@@ -79,9 +79,19 @@ function drums(): Note[] {
     out.push({ id: nid('k'), pitch: 36, tick: t0 + 2 * BEAT, duration: 120, velocity: 96 });
     out.push({ id: nid('s'), pitch: 38, tick: t0 + BEAT, duration: 120, velocity: 104 });
     out.push({ id: nid('s'), pitch: 38, tick: t0 + 3 * BEAT, duration: 120, velocity: 106 });
-    for (let e = 0; e < 8; e++) out.push({ id: nid('h'), pitch: 42, tick: t0 + e * 240, duration: 60, velocity: e % 2 ? 62 : 84 });
-    if (bar < 8 && bar % 2 === 1) out.push({ id: nid('g'), pitch: 38, tick: t0 + BEAT + 360, duration: 60, velocity: 34, articulation: 'ghost' });
-    if ([0, 8, 12, 20, 28].includes(bar)) out.push({ id: nid('c'), pitch: 49, tick: t0, duration: 480, velocity: 110 });
+    for (let e = 0; e < 8; e++)
+      out.push({ id: nid('h'), pitch: 42, tick: t0 + e * 240, duration: 60, velocity: e % 2 ? 62 : 84 });
+    if (bar < 8 && bar % 2 === 1)
+      out.push({
+        id: nid('g'),
+        pitch: 38,
+        tick: t0 + BEAT + 360,
+        duration: 60,
+        velocity: 34,
+        articulation: 'ghost',
+      });
+    if ([0, 8, 12, 20, 28].includes(bar))
+      out.push({ id: nid('c'), pitch: 49, tick: t0, duration: 480, velocity: 110 });
   }
   return out.sort((a, b) => a.tick - b.tick || a.pitch - b.pitch);
 }
@@ -93,7 +103,13 @@ function bass(chords: ChordEvent[]): Note[] {
     const root = ROOT_BASS[c.symbol];
     if (bar < 12) {
       out.push({ id: nid('b'), pitch: root, tick: bar * BAR, duration: 2 * BEAT - 20, velocity: 92 });
-      out.push({ id: nid('b'), pitch: root, tick: bar * BAR + 2 * BEAT, duration: 2 * BEAT - 20, velocity: 88 });
+      out.push({
+        id: nid('b'),
+        pitch: root,
+        tick: bar * BAR + 2 * BEAT,
+        duration: 2 * BEAT - 20,
+        velocity: 88,
+      });
     } else out.push({ id: nid('b'), pitch: root, tick: bar * BAR, duration: BAR - 20, velocity: 95 });
   }
   return out;
@@ -103,13 +119,24 @@ function piano(chords: ChordEvent[]): Note[] {
   const out: Note[] = [];
   for (let bar = 0; bar < 36; bar++) {
     const c = chords.find((x) => x.tick <= bar * BAR && bar * BAR < x.tick + x.duration)!;
-    for (const p of TRIADS[c.symbol]) out.push({ id: nid('p'), pitch: p, tick: bar * BAR, duration: BAR - 30, velocity: 70 });
+    for (const p of TRIADS[c.symbol])
+      out.push({ id: nid('p'), pitch: p, tick: bar * BAR, duration: BAR - 30, velocity: 70 });
   }
   return out;
 }
 
-export const VERSE_LINES = ['Walking down the empty road', 'Counting every passing car', 'Waiting for the morning light', 'Hoping you will find me there'];
-export const CHORUS_LINES = ['Hold on to the night sky', 'Fire in my heart tonight', 'Never let the light go', 'We will never let go'];
+export const VERSE_LINES = [
+  'Walking down the empty road',
+  'Counting every passing car',
+  'Waiting for the morning light',
+  'Hoping you will find me there',
+];
+export const CHORUS_LINES = [
+  'Hold on to the night sky',
+  'Fire in my heart tonight',
+  'Never let the light go',
+  'We will never let go',
+];
 
 const CHORUS_SYLLABLES = [
   ['Hold', 'on', 'to', 'the', 'night', 'sky'],
@@ -138,7 +165,14 @@ function vocal(): Note[] {
     ph.forEach((p, k) => {
       const tick = i * 2 * BAR + verseBeats[k] * BEAT;
       const next = k + 1 < verseBeats.length ? verseBeats[k + 1] : verseBeats[k] + 1;
-      out.push({ id: nid('v'), pitch: p, tick, duration: Math.round((next - verseBeats[k]) * BEAT) - 20, velocity: 84, lyricLineId: `ly-v${i + 1}` });
+      out.push({
+        id: nid('v'),
+        pitch: p,
+        tick,
+        duration: Math.round((next - verseBeats[k]) * BEAT) - 20,
+        velocity: 84,
+        lyricLineId: `ly-v${i + 1}`,
+      });
     });
   });
   // Choruses: 4 phrases of 6 quarter notes with syllables, rest on beats 7-8 of every 2-bar phrase.
@@ -167,7 +201,9 @@ function vocal(): Note[] {
 function violin(vocalNotes: Note[]): Note[] {
   const out: Note[] = [];
   // Verse: long notes (2 bars each).
-  [71, 67, 74, 69].forEach((p, i) => out.push({ id: nid('vn'), pitch: p, tick: i * 2 * BAR, duration: 2 * BAR - 40, velocity: 70 }));
+  [71, 67, 74, 69].forEach((p, i) =>
+    out.push({ id: nid('vn'), pitch: p, tick: i * 2 * BAR, duration: 2 * BAR - 40, velocity: 70 }),
+  );
   // Chorus 1: doubles the vocal an octave up.
   for (const v of vocalNotes.filter((n) => n.tick >= 12 * BAR && n.tick < 20 * BAR)) {
     out.push({ id: nid('vn'), pitch: v.pitch + 12, tick: v.tick, duration: v.duration, velocity: 78 });
@@ -175,7 +211,14 @@ function violin(vocalNotes: Note[]): Note[] {
   return out;
 }
 
-function track(id: string, name: string, role: Track['role'], instrumentId: string, notes: Note[], extra: Partial<Track> = {}): Track {
+function track(
+  id: string,
+  name: string,
+  role: Track['role'],
+  instrumentId: string,
+  notes: Note[],
+  extra: Partial<Track> = {},
+): Track {
   return {
     id,
     name,
@@ -186,28 +229,65 @@ function track(id: string, name: string, role: Track['role'], instrumentId: stri
     notes: notes.sort((a, b) => a.tick - b.tick || a.pitch - b.pitch),
     clips: [],
     color: '#888888',
-    stemGroup: role === 'drums' ? 'drums' : role === 'bass' ? 'bass' : role === 'vocal' ? 'vocals' : role === 'strings' ? 'strings' : 'keys',
+    stemGroup:
+      role === 'drums'
+        ? 'drums'
+        : role === 'bass'
+          ? 'bass'
+          : role === 'vocal'
+            ? 'vocals'
+            : role === 'strings'
+              ? 'strings'
+              : 'keys',
     ...extra,
   };
 }
 
 export function makeSong(): Song {
   noteCounter = 0;
-  const song = createEmptySong({ title: 'Fixture Song', bpm: 120, key: { tonic: 7, mode: 'major' }, id: 'song-fixture', seed: 4242 });
+  const song = createEmptySong({
+    title: 'Fixture Song',
+    bpm: 120,
+    key: { tonic: 7, mode: 'major' },
+    id: 'song-fixture',
+    seed: 4242,
+  });
   song.sections = SECTIONS.map((s) => ({ ...s }));
   song.chords = fixtureChords();
   const voc = vocal();
   song.tracks = [
     track('t-drums', 'Drums', 'drums', 'drum-kit', drums(), { midiChannel: 9 }),
     track('t-bass', 'Bass', 'bass', 'electric-bass', bass(song.chords)),
-    track('t-vocal', 'Lead Vocal', 'vocal', 'lead-vocal', voc, { vocal: { voiceType: 'tenor', mode: 'melody-only' }, constraints: { function: 'melody' } }),
-    track('t-violin', 'Violin', 'strings', 'violin', violin(voc), { constraints: { function: 'counter-melody' } }),
-    track('t-piano', 'Piano', 'keys', 'piano', piano(song.chords), { constraints: { function: 'accompaniment' } }),
+    track('t-vocal', 'Lead Vocal', 'vocal', 'lead-vocal', voc, {
+      vocal: { voiceType: 'tenor', mode: 'melody-only' },
+      constraints: { function: 'melody' },
+    }),
+    track('t-violin', 'Violin', 'strings', 'violin', violin(voc), {
+      constraints: { function: 'counter-melody' },
+    }),
+    track('t-piano', 'Piano', 'keys', 'piano', piano(song.chords), {
+      constraints: { function: 'accompaniment' },
+    }),
   ];
   const lyrics: LyricLine[] = [
-    ...VERSE_LINES.map((text, i) => ({ id: `ly-v${i + 1}`, sectionId: 'sec-verse1', text, trackId: 't-vocal' })),
-    ...CHORUS_LINES.map((text, i) => ({ id: `ly-c1-${i + 1}`, sectionId: 'sec-chorus1', text, trackId: 't-vocal' })),
-    ...CHORUS_LINES.map((text, i) => ({ id: `ly-c2-${i + 1}`, sectionId: 'sec-chorus2', text, trackId: 't-vocal' })),
+    ...VERSE_LINES.map((text, i) => ({
+      id: `ly-v${i + 1}`,
+      sectionId: 'sec-verse1',
+      text,
+      trackId: 't-vocal',
+    })),
+    ...CHORUS_LINES.map((text, i) => ({
+      id: `ly-c1-${i + 1}`,
+      sectionId: 'sec-chorus1',
+      text,
+      trackId: 't-vocal',
+    })),
+    ...CHORUS_LINES.map((text, i) => ({
+      id: `ly-c2-${i + 1}`,
+      sectionId: 'sec-chorus2',
+      text,
+      trackId: 't-vocal',
+    })),
   ];
   song.lyrics = lyrics;
   return song;

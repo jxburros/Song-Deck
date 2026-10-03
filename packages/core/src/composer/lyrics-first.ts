@@ -14,9 +14,25 @@ import { countSyllables } from '../musician/lyrics/syllables';
 import { nameSections } from './blueprint';
 
 /** Section kinds that carry no lyrics of their own when the structure is built around lyrics. */
-export const INSTRUMENTAL_KINDS: readonly SectionKind[] = ['intro', 'outro', 'solo', 'interlude', 'breakdown', 'build', 'drop'];
+export const INSTRUMENTAL_KINDS: readonly SectionKind[] = [
+  'intro',
+  'outro',
+  'solo',
+  'interlude',
+  'breakdown',
+  'build',
+  'drop',
+];
 
-const INSTRUMENTAL_BARS: Partial<Record<SectionKind, number>> = { intro: 4, outro: 4, solo: 8, interlude: 4, breakdown: 8, build: 8, drop: 8 };
+const INSTRUMENTAL_BARS: Partial<Record<SectionKind, number>> = {
+  intro: 4,
+  outro: 4,
+  solo: 8,
+  interlude: 4,
+  breakdown: 8,
+  build: 8,
+  drop: 8,
+};
 
 export interface LyricsStructureOptions {
   tempo: number;
@@ -28,7 +44,10 @@ export interface LyricsStructureOptions {
 }
 
 /** Syllables comfortably sung in one bar at a tempo (with room to breathe), at least 4. */
-export function syllablesPerBar(tempo: number, meter: { numerator: number; denominator: number } = { numerator: 4, denominator: 4 }): number {
+export function syllablesPerBar(
+  tempo: number,
+  meter: { numerator: number; denominator: number } = { numerator: 4, denominator: 4 },
+): number {
   const beats = (meter.numerator * 4) / (meter.denominator || 4);
   const barSeconds = (beats * 60) / Math.max(30, tempo || 120);
   return Math.max(4, Math.round(barSeconds * 2.4));
@@ -38,7 +57,11 @@ export function syllablesPerBar(tempo: number, meter: { numerator: number; denom
  * Bars for one stanza: one bar per line that fits in a bar at this tempo, two for longer lines;
  * rounded up to an even number of bars (minimum 2) so phrases stay paired.
  */
-export function lyricSectionBars(lines: readonly string[], tempo: number, meter?: { numerator: number; denominator: number }): number {
+export function lyricSectionBars(
+  lines: readonly string[],
+  tempo: number,
+  meter?: { numerator: number; denominator: number },
+): number {
   const cap = syllablesPerBar(tempo, meter);
   let bars = 0;
   for (const l of lines) {
@@ -56,7 +79,10 @@ const chorusLike = (k: SectionKind) => k === 'chorus' || k === 'final-chorus';
  * plus an instrumental intro/outro when the lyrics do not open/close with one. The last chorus
  * (after the last verse) becomes the final chorus. Energies are left to the caller.
  */
-export function structureFromLyrics(lyrics: Pick<BlueprintLyrics, 'sections'>, opts: LyricsStructureOptions): BlueprintSection[] {
+export function structureFromLyrics(
+  lyrics: Pick<BlueprintLyrics, 'sections'>,
+  opts: LyricsStructureOptions,
+): BlueprintSection[] {
   const meter = opts.meter ?? { numerator: 4, denominator: 4 };
   const out: { kind: SectionKind; bars: number }[] = lyrics.sections.map((s) => ({
     kind: s.kind,
@@ -66,9 +92,15 @@ export function structureFromLyrics(lyrics: Pick<BlueprintLyrics, 'sections'>, o
   const choruses = out.map((s, i) => (chorusLike(s.kind) ? i : -1)).filter((i) => i >= 0);
   const lastVerse = out.map((s) => s.kind).lastIndexOf('verse');
   const last = choruses[choruses.length - 1];
-  if (choruses.length >= 2 && last > lastVerse && out[last].kind === 'chorus') out[last] = { ...out[last], kind: 'final-chorus' };
-  if (opts.intro !== false && out[0].kind !== 'intro') out.unshift({ kind: 'intro', bars: typeof opts.intro === 'number' ? opts.intro : opts.tempo <= 80 ? 2 : 4 });
-  if (opts.outro !== false && out[out.length - 1].kind !== 'outro') out.push({ kind: 'outro', bars: typeof opts.outro === 'number' ? opts.outro : 4 });
+  if (choruses.length >= 2 && last > lastVerse && out[last].kind === 'chorus')
+    out[last] = { ...out[last], kind: 'final-chorus' };
+  if (opts.intro !== false && out[0].kind !== 'intro')
+    out.unshift({
+      kind: 'intro',
+      bars: typeof opts.intro === 'number' ? opts.intro : opts.tempo <= 80 ? 2 : 4,
+    });
+  if (opts.outro !== false && out[out.length - 1].kind !== 'outro')
+    out.push({ kind: 'outro', bars: typeof opts.outro === 'number' ? opts.outro : 4 });
   return nameSections(out);
 }
 
@@ -77,9 +109,16 @@ export function structureFromLyrics(lyrics: Pick<BlueprintLyrics, 'sections'>, o
  * room left): stanzas are matched in order to the next section of the same kind (chorus ≈ final
  * chorus), else to the next section that is not instrumental.
  */
-export function matchLyricsToSections(lyricSections: Pick<BlueprintLyrics['sections'][number], 'kind' | 'lines'>[], sections: readonly { kind: SectionKind }[]): number[] {
+export function matchLyricsToSections(
+  lyricSections: Pick<BlueprintLyrics['sections'][number], 'kind' | 'lines'>[],
+  sections: readonly { kind: SectionKind }[],
+): number[] {
   const used = new Set<number>();
-  const wanted = new Set<SectionKind>(lyricSections.filter((s) => s.lines.length).flatMap((s) => (chorusLike(s.kind) ? (['chorus', 'final-chorus'] as SectionKind[]) : [s.kind])));
+  const wanted = new Set<SectionKind>(
+    lyricSections
+      .filter((s) => s.lines.length)
+      .flatMap((s) => (chorusLike(s.kind) ? (['chorus', 'final-chorus'] as SectionKind[]) : [s.kind])),
+  );
   let from = 0;
   return lyricSections.map((ls) => {
     if (!ls.lines.length) {
@@ -91,10 +130,14 @@ export function matchLyricsToSections(lyricSections: Pick<BlueprintLyrics['secti
       }
       return -1;
     }
-    const same = (k: SectionKind) => k === ls.kind || (chorusLike(k) && chorusLike(ls.kind)) || k === 'custom' || ls.kind === 'custom';
+    const same = (k: SectionKind) =>
+      k === ls.kind || (chorusLike(k) && chorusLike(ls.kind)) || k === 'custom' || ls.kind === 'custom';
     let j = sections.findIndex((s, k) => k >= from && !used.has(k) && same(s.kind));
     // No section of this kind left: borrow a free vocal section no stanza asks for by kind (never another stanza's place).
-    if (j < 0) j = sections.findIndex((s, k) => k >= from && !used.has(k) && !INSTRUMENTAL_KINDS.includes(s.kind) && !wanted.has(s.kind));
+    if (j < 0)
+      j = sections.findIndex(
+        (s, k) => k >= from && !used.has(k) && !INSTRUMENTAL_KINDS.includes(s.kind) && !wanted.has(s.kind),
+      );
     if (j < 0) return -1;
     used.add(j);
     from = j + 1;
@@ -105,7 +148,10 @@ export function matchLyricsToSections(lyricSections: Pick<BlueprintLyrics['secti
 /** The lead (melody) vocal track of a song, if any. */
 export function leadVocalTrack(song: Pick<Song, 'tracks'>): Song['tracks'][number] | undefined {
   const vocals = song.tracks.filter((t) => t.role === 'vocal' && t.instrumentId !== 'choir');
-  return vocals.find((t) => t.constraints?.function === 'melody') ?? vocals.find((t) => !t.constraints?.function && t.instrumentId === 'lead-vocal');
+  return (
+    vocals.find((t) => t.constraints?.function === 'melody') ??
+    vocals.find((t) => !t.constraints?.function && t.instrumentId === 'lead-vocal')
+  );
 }
 
 /**
@@ -114,7 +160,11 @@ export function leadVocalTrack(song: Pick<Song, 'tracks'>): Song['tracks'][numbe
  * lyrics unless `lyrics.lock === false`. Deterministic ids from the seed. Mutates `song`.
  * Returns the stanzas that found no section.
  */
-export function placeBlueprintLyrics(song: Song, lyrics: BlueprintLyrics, seed: number): { placed: number; unplaced: string[] } {
+export function placeBlueprintLyrics(
+  song: Song,
+  lyrics: BlueprintLyrics,
+  seed: number,
+): { placed: number; unplaced: string[] } {
   const ids = new IdFactory(seed, 'lyrics');
   const vocal = leadVocalTrack(song);
   const match = matchLyricsToSections(lyrics.sections, song.sections);
@@ -141,7 +191,9 @@ export function placeBlueprintLyrics(song: Song, lyrics: BlueprintLyrics, seed: 
   });
   // Keep song order: lines sorted by section position (stable within a section).
   const order = new Map(song.sections.map((s, i) => [s.id, i] as const));
-  song.lyrics = [...song.lyrics.filter((l) => !out.some((o) => o.sectionId === l.sectionId)), ...out].sort((a, b) => (order.get(a.sectionId) ?? 0) - (order.get(b.sectionId) ?? 0));
+  song.lyrics = [...song.lyrics.filter((l) => !out.some((o) => o.sectionId === l.sectionId)), ...out].sort(
+    (a, b) => (order.get(a.sectionId) ?? 0) - (order.get(b.sectionId) ?? 0),
+  );
   song.locks = locks;
   return { placed, unplaced };
 }
@@ -152,5 +204,8 @@ export function creditLyricWriter(project: Project, writer: string): Project {
   if (!name) return project;
   const cur = project.meta.rights.lyricWriters ?? [];
   if (cur.some((w) => w.toLowerCase() === name.toLowerCase())) return project;
-  return { ...project, meta: { ...project.meta, rights: { ...project.meta.rights, lyricWriters: [...cur, name] } } };
+  return {
+    ...project,
+    meta: { ...project.meta, rights: { ...project.meta.rights, lyricWriters: [...cur, name] } },
+  };
 }

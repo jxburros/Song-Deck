@@ -105,25 +105,49 @@ const renderGuide: TaskHandler<GuideInput, GuideOutput> = async (ctx) => {
   const renderer: GuideRenderer = input.renderer === 'sampled' ? 'sampled' : 'builtin';
   const prev = ctx.previousCheckpoint as GuideCheckpoint | undefined;
   const done: Record<string, string> =
-    prev?.hash === hash ? Object.fromEntries(Object.entries(prev.assets).filter(([, id]) => project.meta.assets.some((a) => a.id === id))) : {};
-  if (Object.keys(done).length) ctx.log('info', `Resuming: ${Object.keys(done).length} file(s) were rendered by the previous attempt`);
+    prev?.hash === hash
+      ? Object.fromEntries(
+          Object.entries(prev.assets).filter(([, id]) => project.meta.assets.some((a) => a.id === id)),
+        )
+      : {};
+  if (Object.keys(done).length)
+    ctx.log('info', `Resuming: ${Object.keys(done).length} file(s) were rendered by the previous attempt`);
 
-  const groups = STEM_GROUP_ORDER.map((group) => ({ group, tracks: tracks.filter((t) => (t.stemGroup || 'others') === group) })).filter((g) => g.tracks.length);
+  const groups = STEM_GROUP_ORDER.map((group) => ({
+    group,
+    tracks: tracks.filter((t) => (t.stemGroup || 'others') === group),
+  })).filter((g) => g.tracks.length);
 
   const patchOverrides: Record<string, string> = {};
   let sampleInstruments: Record<string, SampleInstrument> = {};
   let usedSamples: { trackId: string; name: string }[] = [];
   if (renderer === 'sampled') {
-    const o = sampleRenderOptions(input.assignments ?? {}, tracks.map((t) => t.id));
+    const o = sampleRenderOptions(
+      input.assignments ?? {},
+      tracks.map((t) => t.id),
+    );
     Object.assign(patchOverrides, o.patchOverrides);
     sampleInstruments = o.sampleInstruments;
     usedSamples = o.used;
-    if (o.missing.length) ctx.log('warn', `${o.missing.length} assigned sample instrument(s) are no longer loaded — those tracks use built-in instruments`);
-    if (!o.used.length) ctx.log('warn', 'No sample instruments are assigned — every track uses the built-in instrument library');
-    for (const u of o.used) ctx.log('info', `${source.tracks.find((t) => t.id === u.trackId)?.name ?? u.trackId}: sample instrument “${u.name}”`);
+    if (o.missing.length)
+      ctx.log(
+        'warn',
+        `${o.missing.length} assigned sample instrument(s) are no longer loaded — those tracks use built-in instruments`,
+      );
+    if (!o.used.length)
+      ctx.log(
+        'warn',
+        'No sample instruments are assigned — every track uses the built-in instrument library',
+      );
+    for (const u of o.used)
+      ctx.log(
+        'info',
+        `${source.tracks.find((t) => t.id === u.trackId)?.name ?? u.trackId}: sample instrument “${u.name}”`,
+      );
   }
   if (input.vocalTone === 'melody') {
-    for (const t of tracks) if (t.kind === 'midi' && t.role === 'vocal' && !patchOverrides[t.id]) patchOverrides[t.id] = 'flute';
+    for (const t of tracks)
+      if (t.kind === 'midi' && t.role === 'vocal' && !patchOverrides[t.id]) patchOverrides[t.id] = 'flute';
   }
 
   ctx.progress(0.02, 'Collecting audio clips');
@@ -133,10 +157,25 @@ const renderGuide: TaskHandler<GuideInput, GuideOutput> = async (ctx) => {
   const revision = headRevisionNumber(project);
 
   const jobs = [
-    { key: 'mix', fileName: GUIDE_MIX_FILE, trackIds: tracks.map((t) => t.id), applyMaster: true, label: 'guide mix' },
-    ...groups.map((g) => ({ key: g.group as string, fileName: GUIDE_STEM_FILES[g.group].file, trackIds: g.tracks.map((t) => t.id), applyMaster: false, label: GUIDE_STEM_FILES[g.group].label.toLowerCase() })),
+    {
+      key: 'mix',
+      fileName: GUIDE_MIX_FILE,
+      trackIds: tracks.map((t) => t.id),
+      applyMaster: true,
+      label: 'guide mix',
+    },
+    ...groups.map((g) => ({
+      key: g.group as string,
+      fileName: GUIDE_STEM_FILES[g.group].file,
+      trackIds: g.tracks.map((t) => t.id),
+      applyMaster: false,
+      label: GUIDE_STEM_FILES[g.group].label.toLowerCase(),
+    })),
   ];
-  ctx.log('info', `${GUIDE_RENDERERS[renderer].label}: ${GUIDE_MIX_FILE} + ${groups.length} reference stems at ${sampleRate} Hz / ${bitDepth}-bit`);
+  ctx.log(
+    'info',
+    `${GUIDE_RENDERERS[renderer].label}: ${GUIDE_MIX_FILE} + ${groups.length} reference stems at ${sampleRate} Hz / ${bitDepth}-bit`,
+  );
   const progress = new ProgressMix((p, m) => ctx.progress(0.04 + p * 0.93, m));
   const parts = jobs.map((j) => progress.part(j.key, j.key === 'mix' ? 1.4 : 1, `Rendering ${j.label}`));
   const results: Record<string, string> = { ...done };
@@ -148,7 +187,17 @@ const renderGuide: TaskHandler<GuideInput, GuideOutput> = async (ctx) => {
         return;
       }
       const audio = await renderProduction(
-        { song: source, assets, sampleRate, trackIds: j.trackIds, applyMaster: j.applyMaster, ignoreMuteSolo: true, tailSeconds: 2, patchOverrides, sampleInstruments },
+        {
+          song: source,
+          assets,
+          sampleRate,
+          trackIds: j.trackIds,
+          applyMaster: j.applyMaster,
+          ignoreMuteSolo: true,
+          tailSeconds: 2,
+          patchOverrides,
+          sampleInstruments,
+        },
         { signal, onProgress: parts[i] },
       );
       throwIfAborted(signal);
@@ -186,14 +235,20 @@ const renderGuide: TaskHandler<GuideInput, GuideOutput> = async (ctx) => {
     producePool.size,
   );
 
-  const stemAssetIds: Record<string, string> = Object.fromEntries(groups.map((g) => [g.group, results[g.group]]));
+  const stemAssetIds: Record<string, string> = Object.fromEntries(
+    groups.map((g) => [g.group, results[g.group]]),
+  );
   commitProduction(
     input.projectId,
     (prod) => ({ ...prod, guideMixAssetId: results.mix, guideStemAssetIds: stemAssetIds }),
     `Rendered guide (${GUIDE_RENDERERS[renderer].label.toLowerCase()}): ${GUIDE_MIX_FILE} + ${groups.length} reference stems`,
   );
   ctx.progress(1, 'Done');
-  return { mixAssetId: results.mix, stemAssetIds, summary: `${GUIDE_MIX_FILE} + ${groups.map((g) => GUIDE_STEM_FILES[g.group].file).join(', ')}` };
+  return {
+    mixAssetId: results.mix,
+    stemAssetIds,
+    summary: `${GUIDE_MIX_FILE} + ${groups.map((g) => GUIDE_STEM_FILES[g.group].file).join(', ')}`,
+  };
 };
 
 export interface GuideImportInput {
@@ -208,7 +263,10 @@ const importGuide: TaskHandler<GuideImportInput, GuideOutput> = async (ctx) => {
   const { input, signal } = ctx;
   const project = requireProject(input.projectId);
   const stems = stagedExternalStems(input.stageId);
-  if (!stems?.length) throw new Error('The imported files are no longer in memory (the app was reloaded). Import the rendered stems again.');
+  if (!stems?.length)
+    throw new Error(
+      'The imported files are no longer in memory (the app was reloaded). Import the rendered stems again.',
+    );
   const song = project.song;
   const source = renderableSong(productionSourceSong(song));
   const hash = guideHash(song);
@@ -228,9 +286,13 @@ const importGuide: TaskHandler<GuideImportInput, GuideOutput> = async (ctx) => {
   let i = 0;
   for (const group of groups) {
     const files = byGroup.get(group)!;
-    ctx.progress(0.05 + (0.75 * i) / groups.length, `Importing ${GUIDE_STEM_FILES[group].label.toLowerCase()}`);
+    ctx.progress(
+      0.05 + (0.75 * i) / groups.length,
+      `Importing ${GUIDE_STEM_FILES[group].label.toLowerCase()}`,
+    );
     let groupAudio: AudioData | null = null;
-    for (const f of files) groupAudio = accumulate(groupAudio, await conformAudio(f.audio, sampleRate, { signal }));
+    for (const f of files)
+      groupAudio = accumulate(groupAudio, await conformAudio(f.audio, sampleRate, { signal }));
     throwIfAborted(signal);
     const meta = await storeAudio({
       projectId: input.projectId,
@@ -242,8 +304,19 @@ const importGuide: TaskHandler<GuideImportInput, GuideOutput> = async (ctx) => {
       provenance: {
         providerId: 'external-daw',
         providerName: GUIDE_RENDERERS.external.providerName,
-        sources: [{ kind: 'song', ref: song.id, revision }, ...files.map((f) => ({ kind: 'file', ref: f.fileName }))],
-        parameters: { renderer: 'external', stemGroup: group, files: files.map((f) => f.fileName), sampleRate, bitDepth, guideHash: hash, compositionHash: composition },
+        sources: [
+          { kind: 'song', ref: song.id, revision },
+          ...files.map((f) => ({ kind: 'file', ref: f.fileName })),
+        ],
+        parameters: {
+          renderer: 'external',
+          stemGroup: group,
+          files: files.map((f) => f.fileName),
+          sampleRate,
+          bitDepth,
+          guideHash: hash,
+          compositionHash: composition,
+        },
       },
     });
     stemAssetIds[group] = meta.id;
@@ -267,7 +340,14 @@ const importGuide: TaskHandler<GuideImportInput, GuideOutput> = async (ctx) => {
       providerName: GUIDE_RENDERERS.external.providerName,
       artifactKind: 'mix',
       sources: [{ kind: 'song', ref: song.id, revision }, ...stemSources],
-      parameters: { renderer: 'external', sampleRate, bitDepth, guideHash: hash, compositionHash: composition, master: true },
+      parameters: {
+        renderer: 'external',
+        sampleRate,
+        bitDepth,
+        guideHash: hash,
+        compositionHash: composition,
+        master: true,
+      },
     },
   });
   commitProduction(

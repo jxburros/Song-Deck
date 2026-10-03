@@ -32,7 +32,13 @@ function nearestGrid(tick: number, barStart: number): number {
   return bestD <= PPQ / 8 ? best : tick;
 }
 
-function transformTrack(song: Song, track: Track, before: MacroSettings, after: MacroSettings, seed: number): void {
+function transformTrack(
+  song: Song,
+  track: Track,
+  before: MacroSettings,
+  after: MacroSettings,
+  seed: number,
+): void {
   const spans = sectionLayout(song);
   const inst = getInstrument(track.instrumentId);
   const maxTicks = inst.isDrumKit ? 8 : inst.family === 'synth' ? 3 : 12;
@@ -107,7 +113,12 @@ function transformTrack(song: Song, track: Track, before: MacroSettings, after: 
   }
   // Jitter must not create same-pitch overlaps either (drums, chords); locked notes never move.
   const original = new Map(track.notes.map((n) => [n.id, n]));
-  track.notes = resolveSamePitchOverlaps(all, (n) => isNoteLocked(song, track, original.get(n.id) ?? n), 'shift', spans.length ? spans[spans.length - 1].endTick : Infinity);
+  track.notes = resolveSamePitchOverlaps(
+    all,
+    (n) => isNoteLocked(song, track, original.get(n.id) ?? n),
+    'shift',
+    spans.length ? spans[spans.length - 1].endTick : Infinity,
+  );
 }
 
 /**
@@ -117,7 +128,8 @@ function transformTrack(song: Song, track: Track, before: MacroSettings, after: 
 export function applyMacroTransforms(song: Song, macros: Partial<MacroSettings>, trackId?: string): Song {
   const next = cloneSong(song);
   const clean: Partial<MacroSettings> = {};
-  for (const [k, v] of Object.entries(macros) as [keyof MacroSettings, number][]) if (Number.isFinite(v)) clean[k] = clamp01(v);
+  for (const [k, v] of Object.entries(macros) as [keyof MacroSettings, number][])
+    if (Number.isFinite(v)) clean[k] = clamp01(v);
   const seed = hashSeed(next.generation?.seed ?? 1, 'macros');
   const targets = trackId ? next.tracks.filter((t) => t.id === trackId) : next.tracks;
   const befores = new Map(targets.map((t) => [t.id, effectiveMacros(next, t)]));

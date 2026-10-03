@@ -1,5 +1,13 @@
 import type { AudioData, LoudnessReport } from '@songdeck/audio';
-import type { MasterSumArgs, MatchLoudnessResult, PrintStemArgs, ProduceJobMethod, ProduceJobRequest, ProduceJobResponse, RenderArgs } from './produce-render.worker';
+import type {
+  MasterSumArgs,
+  MatchLoudnessResult,
+  PrintStemArgs,
+  ProduceJobMethod,
+  ProduceJobRequest,
+  ProduceJobResponse,
+  RenderArgs,
+} from './produce-render.worker';
 import type { RenderInstrumentConfig } from './render-config';
 import { currentRenderInstruments } from './render-instruments';
 
@@ -16,7 +24,10 @@ interface Pending {
   worker: Worker;
 }
 
-const POOL_SIZE = Math.max(1, Math.min(3, (typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2) - 1));
+const POOL_SIZE = Math.max(
+  1,
+  Math.min(3, (typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2) - 1),
+);
 
 function abortError(message = 'Cancelled'): Error {
   const e = new Error(message);
@@ -59,7 +70,8 @@ class ProducePool {
       }
       this.load.set(w, 0);
     };
-    if (this.config) w.postMessage({ id: 0, method: 'configure', args: this.config } satisfies ProduceJobRequest);
+    if (this.config)
+      w.postMessage({ id: 0, method: 'configure', args: this.config } satisfies ProduceJobRequest);
     this.workers.push(w);
     this.load.set(w, 0);
     return w;
@@ -77,10 +89,12 @@ class ProducePool {
       return;
     }
     const key = cfg.instruments.map((i) => `${i.id}=${i.patchId}`).join('|');
-    if (this.config && key === this.configKey && cfg.sampleInstruments === this.config.sampleInstruments) return;
+    if (this.config && key === this.configKey && cfg.sampleInstruments === this.config.sampleInstruments)
+      return;
     this.config = cfg;
     this.configKey = key;
-    for (const w of this.workers) w.postMessage({ id: 0, method: 'configure', args: cfg } satisfies ProduceJobRequest);
+    for (const w of this.workers)
+      w.postMessage({ id: 0, method: 'configure', args: cfg } satisfies ProduceJobRequest);
   }
 
   private pick(): Worker {
@@ -92,14 +106,23 @@ class ProducePool {
     return best;
   }
 
-  call<T>(method: Exclude<ProduceJobMethod, 'cancel' | 'configure'>, args: unknown, opts: { onProgress?: (p: number) => void; signal?: AbortSignal; transfer?: Transferable[] } = {}): Promise<T> {
+  call<T>(
+    method: Exclude<ProduceJobMethod, 'cancel' | 'configure'>,
+    args: unknown,
+    opts: { onProgress?: (p: number) => void; signal?: AbortSignal; transfer?: Transferable[] } = {},
+  ): Promise<T> {
     if (opts.signal?.aborted) return Promise.reject(abortError());
     if (method === 'render' || method === 'printStem' || method === 'masterSum') this.syncInstruments();
     const worker = this.pick();
     const id = this.nextId++;
     this.load.set(worker, (this.load.get(worker) ?? 0) + 1);
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onProgress: opts.onProgress, worker });
+      this.pending.set(id, {
+        resolve: resolve as (v: unknown) => void,
+        reject,
+        onProgress: opts.onProgress,
+        worker,
+      });
       if (opts.signal) {
         opts.signal.addEventListener(
           'abort',
@@ -134,41 +157,75 @@ export function masterSum(args: MasterSumArgs, opts: Opts = {}): Promise<AudioDa
 }
 
 export function conformAudio(audio: AudioData, sampleRate: number, opts: Opts = {}): Promise<AudioData> {
-  if (Math.round(audio.sampleRate) === Math.round(sampleRate) && audio.channels.length === 2) return Promise.resolve(audio);
+  if (Math.round(audio.sampleRate) === Math.round(sampleRate) && audio.channels.length === 2)
+    return Promise.resolve(audio);
   return producePool.call<AudioData>('conform', { audio, sampleRate }, opts);
 }
 
-export function spliceAudio(base: AudioData, insert: AudioData, atSeconds: number, crossfadeSeconds: number, opts: Opts = {}): Promise<AudioData> {
+export function spliceAudio(
+  base: AudioData,
+  insert: AudioData,
+  atSeconds: number,
+  crossfadeSeconds: number,
+  opts: Opts = {},
+): Promise<AudioData> {
   return producePool.call<AudioData>('splice', { base, insert, atSeconds, crossfadeSeconds }, opts);
 }
 
-export function sliceAudioJob(audio: AudioData, startSeconds: number, endSeconds?: number, opts: Opts = {}): Promise<AudioData> {
+export function sliceAudioJob(
+  audio: AudioData,
+  startSeconds: number,
+  endSeconds?: number,
+  opts: Opts = {},
+): Promise<AudioData> {
   return producePool.call<AudioData>('slice', { audio, startSeconds, endSeconds }, opts);
 }
 
-export function matchLoudness(audio: AudioData, reference: AudioData, opts: Opts & { maxGainDb?: number } = {}): Promise<MatchLoudnessResult> {
-  return producePool.call<MatchLoudnessResult>('matchLoudness', { audio, reference, maxGainDb: opts.maxGainDb }, opts);
+export function matchLoudness(
+  audio: AudioData,
+  reference: AudioData,
+  opts: Opts & { maxGainDb?: number } = {},
+): Promise<MatchLoudnessResult> {
+  return producePool.call<MatchLoudnessResult>(
+    'matchLoudness',
+    { audio, reference, maxGainDb: opts.maxGainDb },
+    opts,
+  );
 }
 
 export function loudnessOf(audio: AudioData, opts: Opts = {}): Promise<LoudnessReport> {
   return producePool.call<LoudnessReport>('loudness', audio, opts);
 }
 
-export function encodeWavBytes(audio: AudioData, bitDepth: 16 | 24 | 32 = 24, opts: Opts = {}): Promise<Uint8Array> {
+export function encodeWavBytes(
+  audio: AudioData,
+  bitDepth: 16 | 24 | 32 = 24,
+  opts: Opts = {},
+): Promise<Uint8Array> {
   return producePool.call<Uint8Array>('encodeWav', { audio, bitDepth }, opts);
 }
 
 /** Add `src` into the stereo accumulator `acc` (same sample rate), growing it when needed. */
 export function accumulate(acc: AudioData | null, src: AudioData): AudioData {
   const n = src.channels[0]?.length ?? 0;
-  if (!acc) return { sampleRate: src.sampleRate, channels: [Float32Array.from(src.channels[0] ?? []), Float32Array.from(src.channels[1] ?? src.channels[0] ?? [])] };
+  if (!acc)
+    return {
+      sampleRate: src.sampleRate,
+      channels: [
+        Float32Array.from(src.channels[0] ?? []),
+        Float32Array.from(src.channels[1] ?? src.channels[0] ?? []),
+      ],
+    };
   let out = acc;
   if ((acc.channels[0]?.length ?? 0) < n) {
-    out = { sampleRate: acc.sampleRate, channels: acc.channels.map((c) => {
-      const grown = new Float32Array(n);
-      grown.set(c);
-      return grown;
-    }) };
+    out = {
+      sampleRate: acc.sampleRate,
+      channels: acc.channels.map((c) => {
+        const grown = new Float32Array(n);
+        grown.set(c);
+        return grown;
+      }),
+    };
   }
   for (let c = 0; c < 2; c++) {
     const s = src.channels[Math.min(c, src.channels.length - 1)];

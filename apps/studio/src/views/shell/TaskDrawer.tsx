@@ -33,11 +33,19 @@ export function TaskDrawer() {
       </div>
       <div className="row" style={{ flex: 1, minHeight: 0, alignItems: 'stretch' }}>
         <div className="scroll grow" style={{ padding: 8 }}>
-          {ordered.length === 0 && <div className="muted" style={{ padding: 12 }}>No tasks yet. Renders, generations, transcriptions and rebuilds appear here.</div>}
+          {ordered.length === 0 && (
+            <div className="muted" style={{ padding: 12 }}>
+              No tasks yet. Renders, generations, transcriptions and rebuilds appear here.
+            </div>
+          )}
           <table className="table">
             <tbody>
               {ordered.map((t) => (
-                <tr key={t.id} onClick={() => setInspect(t.id)} style={{ cursor: 'pointer', background: inspect === t.id ? 'var(--bg-elev-3)' : undefined }}>
+                <tr
+                  key={t.id}
+                  onClick={() => setInspect(t.id)}
+                  style={{ cursor: 'pointer', background: inspect === t.id ? 'var(--bg-elev-3)' : undefined }}
+                >
                   <td style={{ width: 90 }}>
                     <Badge tone={TONE[t.status]}>{t.status}</Badge>
                   </td>
@@ -50,7 +58,11 @@ export function TaskDrawer() {
                       {t.message ? ` · ${t.message}` : ''}
                     </div>
                   </td>
-                  <td style={{ width: 160 }}>{t.status === 'running' || t.status === 'paused' ? <Progress value={t.progress} ai /> : null}</td>
+                  <td style={{ width: 160 }}>
+                    {t.status === 'running' || t.status === 'paused' ? (
+                      <Progress value={t.progress} ai />
+                    ) : null}
+                  </td>
                   <td style={{ width: 210, textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                     {(t.status === 'running' || t.status === 'queued') && (
                       <>
@@ -82,7 +94,10 @@ export function TaskDrawer() {
           </table>
         </div>
         {current && (
-          <div className="scroll" style={{ width: 380, borderLeft: '1px solid var(--border)', padding: 10, fontSize: 12 }}>
+          <div
+            className="scroll"
+            style={{ width: 380, borderLeft: '1px solid var(--border)', padding: 10, fontSize: 12 }}
+          >
             <h4>Inspect</h4>
             <div className="kv" style={{ marginBottom: 8 }}>
               <dt>Task</dt>
@@ -116,7 +131,9 @@ export function TaskDrawer() {
             </div>
             <h4>Log</h4>
             <pre className="mono small" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-              {current.logs.map((l) => `${l.t.slice(11, 19)} ${l.level.toUpperCase()} ${l.message}`).join('\n') || '—'}
+              {current.logs
+                .map((l) => `${l.t.slice(11, 19)} ${l.level.toUpperCase()} ${l.message}`)
+                .join('\n') || '—'}
             </pre>
           </div>
         )}

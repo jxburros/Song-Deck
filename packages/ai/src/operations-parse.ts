@@ -153,7 +153,10 @@ function normalizeKeys(v: unknown): unknown {
 function num(v: unknown): number | undefined {
   if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
   if (typeof v === 'string' && v.trim() !== '') {
-    const t = v.trim().replace(/(bpm|db|hz|ms|%)$/i, '').trim();
+    const t = v
+      .trim()
+      .replace(/(bpm|db|hz|ms|%)$/i, '')
+      .trim();
     const n = Number(t);
     return Number.isFinite(n) ? n : undefined;
   }
@@ -190,20 +193,43 @@ function strList(v: unknown): string[] | undefined {
   return undefined;
 }
 
-const normEnum = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, '-');
+const normEnum = (s: string) =>
+  s
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-');
 
-function enumValue<T extends string>(v: unknown, values: readonly T[], aliases: Record<string, T> = {}): T | undefined {
+function enumValue<T extends string>(
+  v: unknown,
+  values: readonly T[],
+  aliases: Record<string, T> = {},
+): T | undefined {
   if (typeof v !== 'string') return undefined;
   const n = normEnum(v);
   return values.find((x) => normEnum(x) === n) ?? aliases[n];
 }
 
-const MODE_ALIASES: Record<string, ModeName> = { ionian: 'major', aeolian: 'minor', maj: 'major', min: 'minor', m: 'minor', 'natural-minor': 'minor' };
-const KIND_ALIASES: Record<string, SectionKind> = { prechorus: 'pre-chorus', 'pre chorus': 'pre-chorus', refrain: 'chorus', hook: 'chorus', 'final chorus': 'final-chorus', instrumental: 'interlude', coda: 'outro' };
+const MODE_ALIASES: Record<string, ModeName> = {
+  ionian: 'major',
+  aeolian: 'minor',
+  maj: 'major',
+  min: 'minor',
+  m: 'minor',
+  'natural-minor': 'minor',
+};
+const KIND_ALIASES: Record<string, SectionKind> = {
+  prechorus: 'pre-chorus',
+  'pre chorus': 'pre-chorus',
+  refrain: 'chorus',
+  hook: 'chorus',
+  'final chorus': 'final-chorus',
+  instrumental: 'interlude',
+  coda: 'outro',
+};
 const ROLE_ALIASES: Record<string, TrackRole> = {
   guitar: 'rhythm-guitar',
-  'guitars': 'rhythm-guitar',
-  'lead': 'lead-guitar',
+  guitars: 'rhythm-guitar',
+  lead: 'lead-guitar',
   piano: 'keys',
   keyboard: 'keys',
   pad: 'synth-pad',
@@ -286,15 +312,20 @@ class ItemParser {
       return undefined;
     }
     const pitchRaw = raw.pitch ?? raw.note ?? raw.midi ?? raw.name;
-    const pitch = typeof pitchRaw === 'number' || typeof pitchRaw === 'string' ? parsePitch(pitchRaw as number | string) : null;
+    const pitch =
+      typeof pitchRaw === 'number' || typeof pitchRaw === 'string'
+        ? parsePitch(pitchRaw as number | string)
+        : null;
     const bar = int(raw.bar);
     const beat = num(raw.beat ?? 1);
     const dur = num(raw.duration_beats ?? raw.duration ?? raw.length ?? raw.beats);
     const problems: string[] = [];
-    if (pitch === null || pitch < 0 || pitch > 127) problems.push(`invalid pitch ${JSON.stringify(pitchRaw)}`);
+    if (pitch === null || pitch < 0 || pitch > 127)
+      problems.push(`invalid pitch ${JSON.stringify(pitchRaw)}`);
     if (bar === undefined || bar < 1) problems.push(`invalid bar ${JSON.stringify(raw.bar)} (1-based)`);
     if (beat === undefined || beat < 1) problems.push(`invalid beat ${JSON.stringify(raw.beat)} (1-based)`);
-    if (dur === undefined || dur <= 0) problems.push(`invalid duration ${JSON.stringify(raw.duration_beats ?? raw.duration)}`);
+    if (dur === undefined || dur <= 0)
+      problems.push(`invalid duration ${JSON.stringify(raw.duration_beats ?? raw.duration)}`);
     if (problems.length) {
       this.warnings.push(`note ${idx}: ${problems.join(', ')} (dropped)`);
       return undefined;
@@ -309,9 +340,11 @@ class ItemParser {
     if (raw.articulation !== undefined) {
       const a = enumValue<Articulation>(raw.articulation, ARTICULATIONS);
       if (a) note.articulation = a;
-      else this.warnings.push(`note ${idx}: unknown articulation ${JSON.stringify(raw.articulation)} ignored`);
+      else
+        this.warnings.push(`note ${idx}: unknown articulation ${JSON.stringify(raw.articulation)} ignored`);
     }
-    const syl = typeof raw.syllable === 'string' ? raw.syllable : typeof raw.lyric === 'string' ? raw.lyric : undefined;
+    const syl =
+      typeof raw.syllable === 'string' ? raw.syllable : typeof raw.lyric === 'string' ? raw.lyric : undefined;
     if (syl) note.syllable = syl;
     if (isPlainObject(raw.expression)) {
       const e = this.expression(raw.expression);
@@ -383,7 +416,10 @@ class ItemParser {
     const changes: Record<string, number | boolean> = {};
     const add = (paramRaw: unknown, valueRaw: unknown) => {
       if (typeof paramRaw !== 'string') return;
-      const param = MIXER_PARAMS.find((p) => p.toLowerCase() === paramRaw.trim().toLowerCase() || snake(p) === paramRaw.trim().toLowerCase());
+      const param = MIXER_PARAMS.find(
+        (p) =>
+          p.toLowerCase() === paramRaw.trim().toLowerCase() || snake(p) === paramRaw.trim().toLowerCase(),
+      );
       if (!param) {
         this.warnings.push(`unknown mixer parameter ${JSON.stringify(paramRaw)} ignored`);
         return;
@@ -402,7 +438,8 @@ class ItemParser {
       changes[param] = clampMixer(param, n);
     };
     const list = this.item.mixer ?? this.item.mixer_changes;
-    if (Array.isArray(list)) for (const c of list) if (isPlainObject(c)) add(c.param ?? c.name ?? c.parameter, c.value);
+    if (Array.isArray(list))
+      for (const c of list) if (isPlainObject(c)) add(c.param ?? c.name ?? c.parameter, c.value);
     const obj = this.item.changes ?? (isPlainObject(this.item.mixer) ? this.item.mixer : undefined);
     if (isPlainObject(obj)) for (const [k, v] of Object.entries(obj)) add(k, v);
     return Object.keys(changes).length ? (changes as MixerChange) : undefined;
@@ -440,7 +477,8 @@ class ItemParser {
 function clampMixer(param: string, v: number): number {
   if (param === 'volumeDb') return clamp(v, -96, 12);
   if (param === 'pan') return clamp(v > 1 || v < -1 ? v / 100 : v, -1, 1);
-  if (param === 'reverbSend' || param === 'delaySend' || param === 'drive') return clamp(v > 1 ? v / 100 : v, 0, 1);
+  if (param === 'reverbSend' || param === 'delaySend' || param === 'drive')
+    return clamp(v > 1 ? v / 100 : v, 0, 1);
   if (param === 'width') return clamp(v, 0, 2);
   if (/Db$/.test(param) && param.startsWith('eq.')) return clamp(v, -24, 24);
   if (/Hz$/.test(param)) return clamp(v, 0, 22000);
@@ -451,7 +489,11 @@ function clampMixer(param: string, v: number): number {
 function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warnings: string[]; name?: string } {
   const p = new ItemParser(item);
   const name = normalizeOpName(item.op ?? item.operation ?? item.type ?? item.action);
-  if (!name) return { errors: [`unknown operation ${JSON.stringify(item.op ?? item.operation ?? item.type ?? null)}`], warnings: [] };
+  if (!name)
+    return {
+      errors: [`unknown operation ${JSON.stringify(item.op ?? item.operation ?? item.type ?? null)}`],
+      warnings: [],
+    };
   const reason = str(item.reason);
   let op: MusicOperation | undefined;
   switch (name) {
@@ -461,7 +503,8 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
       const notes = p.notes(true, true);
       if (track && region && notes) {
         const outside = notes.filter((n) => n.bar < region.start_bar || n.bar > region.end_bar);
-        if (outside.length) p.warnings.push(`${outside.length} note(s) outside region ${region.start_bar}-${region.end_bar}`);
+        if (outside.length)
+          p.warnings.push(`${outside.length} note(s) outside region ${region.start_bar}-${region.end_bar}`);
         op = { op: name, track, region, notes };
       }
       break;
@@ -481,7 +524,8 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
       const pl = lo !== undefined ? parsePitch(lo as number | string) : null;
       const ph = hi !== undefined ? parsePitch(hi as number | string) : null;
       if (track) {
-        if (!region && !note_ids && pl === null && ph === null) p.fail('delete_notes needs a region, note_ids or a pitch range');
+        if (!region && !note_ids && pl === null && ph === null)
+          p.fail('delete_notes needs a region, note_ids or a pitch range');
         else {
           const o: Extract<MusicOperation, { op: 'delete_notes' }> = { op: name, track };
           if (region) o.region = region;
@@ -522,7 +566,14 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
               p.warnings.push(`chord ${i}: invalid symbol ${JSON.stringify(c.symbol ?? null)} (dropped)`);
               return undefined;
             }
-            if (bar === undefined || bar < 1 || beat === undefined || beat < 1 || dur === undefined || dur <= 0) {
+            if (
+              bar === undefined ||
+              bar < 1 ||
+              beat === undefined ||
+              beat < 1 ||
+              dur === undefined ||
+              dur <= 0
+            ) {
               p.warnings.push(`chord ${i}: invalid position/duration (dropped)`);
               return undefined;
             }
@@ -533,7 +584,10 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
       }
       let region = p.region(false);
       if (!region && chords.length) {
-        region = { start_bar: Math.min(...chords.map((c) => c.bar)), end_bar: Math.max(...chords.map((c) => c.bar)) };
+        region = {
+          start_bar: Math.min(...chords.map((c) => c.bar)),
+          end_bar: Math.max(...chords.map((c) => c.bar)),
+        };
         p.warnings.push('region inferred from chord positions');
       }
       if (region && chords.length) op = { op: name, region, chords };
@@ -562,7 +616,8 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
           mode = mode ?? enumValue<ModeName>(m[2] || 'major', MODE_NAMES, MODE_ALIASES);
         }
       }
-      if (!tonic || pitchClassFromName(tonic) === null) p.fail(`invalid tonic ${JSON.stringify(item.tonic ?? null)}`);
+      if (!tonic || pitchClassFromName(tonic) === null)
+        p.fail(`invalid tonic ${JSON.stringify(item.tonic ?? null)}`);
       else if (!mode) p.fail(`invalid mode ${JSON.stringify(item.mode ?? null)}`);
       else {
         const o: Extract<MusicOperation, { op: 'set_key' }> = { op: name, tonic, mode };
@@ -578,7 +633,8 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
       const numerator = int(item.numerator);
       const denominator = int(item.denominator);
       if (numerator === undefined || numerator < 1 || numerator > 32) p.fail('invalid numerator');
-      else if (denominator === undefined || ![1, 2, 4, 8, 16, 32].includes(denominator)) p.fail('invalid denominator');
+      else if (denominator === undefined || ![1, 2, 4, 8, 16, 32].includes(denominator))
+        p.fail('invalid denominator');
       else {
         const o: Extract<MusicOperation, { op: 'set_meter' }> = { op: name, numerator, denominator };
         const at = int(item.at_bar);
@@ -632,13 +688,19 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
       else if (!kind) p.fail('insert_section needs a valid kind');
       else if (bars === undefined || bars < 1 || bars > 256) p.fail('insert_section needs bars >= 1');
       else {
-        const section: Extract<MusicOperation, { op: 'insert_section' }>['section'] = { name: sname, kind, bars };
+        const section: Extract<MusicOperation, { op: 'insert_section' }>['section'] = {
+          name: sname,
+          kind,
+          bars,
+        };
         const energy = num(spec.energy ?? item.energy);
         if (energy !== undefined) section.energy = clamp(energy, 0, 100);
         const purpose = str(spec.purpose ?? item.purpose);
         if (purpose) section.purpose = purpose;
         const o: Extract<MusicOperation, { op: 'insert_section' }> = { op: name, section };
-        const after = str(item.after ?? item.after_section ?? (typeof item.section === 'string' ? item.section : undefined));
+        const after = str(
+          item.after ?? item.after_section ?? (typeof item.section === 'string' ? item.section : undefined),
+        );
         if (after) o.after = after;
         const copy = str(item.copy_from);
         if (copy) o.copy_from = copy;
@@ -660,7 +722,14 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
     }
     case 'set_lyrics': {
       const section = p.section();
-      const lines = Array.isArray(item.lines) ? item.lines.map((l) => (typeof l === 'string' ? l : str(l) ?? '')).filter((l) => l !== '') : typeof item.lines === 'string' ? item.lines.split(/\n/).map((l) => l.trim()).filter(Boolean) : undefined;
+      const lines = Array.isArray(item.lines)
+        ? item.lines.map((l) => (typeof l === 'string' ? l : (str(l) ?? ''))).filter((l) => l !== '')
+        : typeof item.lines === 'string'
+          ? item.lines
+              .split(/\n/)
+              .map((l) => l.trim())
+              .filter(Boolean)
+          : undefined;
       if (!lines) p.fail('set_lyrics needs "lines"');
       else if (section) op = { op: name, section, lines };
       break;
@@ -674,11 +743,26 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
     }
     case 'set_automation': {
       const track = p.track();
-      const param = enumValue<AutomationParam>(item.param ?? item.parameter, AUTOMATION_PARAMS) ?? (AUTOMATION_PARAMS.find((x) => x.toLowerCase() === String(item.param ?? '').toLowerCase()) as AutomationParam | undefined);
+      const param =
+        enumValue<AutomationParam>(item.param ?? item.parameter, AUTOMATION_PARAMS) ??
+        (AUTOMATION_PARAMS.find((x) => x.toLowerCase() === String(item.param ?? '').toLowerCase()) as
+          AutomationParam | undefined);
       const pts = Array.isArray(item.points)
         ? item.points
-            .map((pt) => (isPlainObject(pt) ? { bar: int(pt.bar), beat: num(pt.beat ?? 1), value: num(pt.value) } : undefined))
-            .filter((pt): pt is { bar: number; beat: number; value: number } => !!pt && pt.bar !== undefined && pt.bar >= 1 && pt.beat !== undefined && pt.beat >= 1 && pt.value !== undefined)
+            .map((pt) =>
+              isPlainObject(pt)
+                ? { bar: int(pt.bar), beat: num(pt.beat ?? 1), value: num(pt.value) }
+                : undefined,
+            )
+            .filter(
+              (pt): pt is { bar: number; beat: number; value: number } =>
+                !!pt &&
+                pt.bar !== undefined &&
+                pt.bar >= 1 &&
+                pt.beat !== undefined &&
+                pt.beat >= 1 &&
+                pt.value !== undefined,
+            )
         : [];
       if (!param) p.fail(`invalid automation param ${JSON.stringify(item.param ?? null)}`);
       else if (!pts.length) p.fail('set_automation needs points');
@@ -707,7 +791,12 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
       else if (!instrument) p.fail('add_track needs instrument_id');
       else if (!role) p.fail(`add_track needs a valid role (got ${JSON.stringify(item.role ?? null)})`);
       else {
-        const o: Extract<MusicOperation, { op: 'add_track' }> = { op: name, name: tname, instrument_id: instrument, role };
+        const o: Extract<MusicOperation, { op: 'add_track' }> = {
+          op: name,
+          name: tname,
+          instrument_id: instrument,
+          role,
+        };
         const fn = enumValue<MusicalFunction>(item.function, MUSICAL_FUNCTIONS);
         if (fn) o.function = fn;
         op = o;
@@ -767,7 +856,12 @@ function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warning
 }
 
 /** Pull the operation list (and explanation/confidence) out of whatever envelope the model used. */
-function envelope(json: unknown): { items: unknown[]; explanation?: string; confidence?: number; error?: string } {
+function envelope(json: unknown): {
+  items: unknown[];
+  explanation?: string;
+  confidence?: number;
+  error?: string;
+} {
   if (typeof json === 'string') {
     const ex = extractJson(json);
     if (!ex.ok) return { items: [], error: ex.error };
@@ -777,10 +871,12 @@ function envelope(json: unknown): { items: unknown[]; explanation?: string; conf
   if (!isPlainObject(json)) return { items: [], error: 'Model output is not an object or list' };
   const explanation = str(json.explanation ?? json.summary ?? json.answer);
   const confRaw = num(json.confidence);
-  const confidence = confRaw === undefined ? undefined : clamp(confRaw > 1 && confRaw <= 100 ? confRaw / 100 : confRaw, 0, 1);
+  const confidence =
+    confRaw === undefined ? undefined : clamp(confRaw > 1 && confRaw <= 100 ? confRaw / 100 : confRaw, 0, 1);
   const list = json.operations ?? json.ops ?? json.changes ?? json.edits ?? json.actions;
   if (Array.isArray(list)) return { items: list, explanation, confidence };
-  if (json.op !== undefined || json.operation !== undefined) return { items: [json], explanation, confidence };
+  if (json.op !== undefined || json.operation !== undefined)
+    return { items: [json], explanation, confidence };
   return { items: [], explanation, confidence };
 }
 
@@ -791,7 +887,11 @@ export function parseOperations(json: unknown, opts: ParseOperationsOptions = {}
   if (env.confidence !== undefined) result.confidence = env.confidence;
   if (env.error) result.errors.push({ index: -1, message: env.error });
   const max = opts.maxOperations ?? 200;
-  if (env.items.length > max) result.errors.push({ index: -1, message: `too many operations (${env.items.length}); only the first ${max} were read` });
+  if (env.items.length > max)
+    result.errors.push({
+      index: -1,
+      message: `too many operations (${env.items.length}); only the first ${max} were read`,
+    });
   const allowed = opts.allowedOps ? new Set<string>(opts.allowedOps) : undefined;
   env.items.slice(0, max).forEach((raw, index) => {
     const normalized = normalizeKeys(unfoldParams(raw, OPERATION_ITEM_SCHEMA));
@@ -806,7 +906,11 @@ export function parseOperations(json: unknown, opts: ParseOperationsOptions = {}
       return;
     }
     if (allowed && !allowed.has(parsed.op.op)) {
-      result.errors.push({ index, op: parsed.op.op, message: `operation "${parsed.op.op}" is not allowed here` });
+      result.errors.push({
+        index,
+        op: parsed.op.op,
+        message: `operation "${parsed.op.op}" is not allowed here`,
+      });
       return;
     }
     result.operations.push(parsed.op);
@@ -816,5 +920,7 @@ export function parseOperations(json: unknown, opts: ParseOperationsOptions = {}
 
 /** One-line description of parse problems (for repair prompts and UI). */
 export function describeOperationErrors(errors: readonly OperationParseError[]): string[] {
-  return errors.map((e) => `${e.index >= 0 ? `operation ${e.index}` : 'output'}${e.op ? ` (${e.op})` : ''}: ${e.message}`);
+  return errors.map(
+    (e) => `${e.index >= 0 ? `operation ${e.index}` : 'output'}${e.op ? ` (${e.op})` : ''}: ${e.message}`,
+  );
 }

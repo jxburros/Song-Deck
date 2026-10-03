@@ -14,7 +14,8 @@ function wav(channels: Float32Array[], sampleRate: number): Buffer {
   const nch = channels.length;
   const data = Buffer.alloc(frames * nch * 2);
   for (let i = 0; i < frames; i++)
-    for (let c = 0; c < nch; c++) data.writeInt16LE(Math.round(Math.max(-1, Math.min(1, channels[c][i])) * 32767), (i * nch + c) * 2);
+    for (let c = 0; c < nch; c++)
+      data.writeInt16LE(Math.round(Math.max(-1, Math.min(1, channels[c][i])) * 32767), (i * nch + c) * 2);
   const h = Buffer.alloc(44);
   h.write('RIFF', 0);
   h.writeUInt32LE(36 + data.length, 4);
@@ -69,7 +70,10 @@ function taggedMix(): Buffer {
     const s0 = Math.round(b * beat * sr);
     for (let j = 0; j < 0.12 * sr && s0 + j < n; j++) {
       const t = j / sr;
-      const kick = b % 2 === 0 ? Math.sin(2 * Math.PI * (60 + 80 * Math.exp(-t * 30)) * t) * Math.exp(-t * 18) * 0.8 : rnd() * Math.exp(-t * 25) * 0.4;
+      const kick =
+        b % 2 === 0
+          ? Math.sin(2 * Math.PI * (60 + 80 * Math.exp(-t * 30)) * t) * Math.exp(-t * 18) * 0.8
+          : rnd() * Math.exp(-t * 25) * 0.4;
       L[s0 + j] += kick;
       R[s0 + j] += kick;
     }
@@ -93,14 +97,17 @@ function collectErrors(page: Page): string[] {
 
 const SHOTS = process.env.SHOTS_DIR ?? '/tmp/claude-0';
 
-const modeTab = (page: Page, label: string) => page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name: new RegExp(`^${label}`) });
+const modeTab = (page: Page, label: string) =>
+  page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name: new RegExp(`^${label}`) });
 
 async function openInspector(page: Page) {
   await page.locator('.right-tabs .tab', { hasText: 'Inspector' }).click();
   await expect(page.getByTestId('rights-attestations')).toBeVisible();
 }
 
-test('Transcribe: a copyright-tagged upload warns, needs an attestation and is remembered', async ({ page }) => {
+test('Transcribe: a copyright-tagged upload warns, needs an attestation and is remembered', async ({
+  page,
+}) => {
   const errors = collectErrors(page);
   const file = { name: 'tagged-melody.wav', mimeType: 'audio/wav', buffer: taggedMelody() };
   await page.goto('/');
@@ -126,7 +133,11 @@ test('Transcribe: a copyright-tagged upload warns, needs an attestation and is r
 
   // Attest as personal study → the transcription runs.
   await input.setInputFiles(file);
-  await attestUpload(page, { basis: 'Personal study only, not for release', attestedBy: 'E2E Tester', expectWarning: 'Copyright 2020 Example Records' });
+  await attestUpload(page, {
+    basis: 'Personal study only, not for release',
+    attestedBy: 'E2E Tester',
+    expectWarning: 'Copyright 2020 Example Records',
+  });
   await expect(page.getByTestId('capture-summary')).toBeVisible();
   await expect(page.getByTestId('transcription-summary')).toBeVisible({ timeout: 60_000 });
   await page.getByTestId('new-project-from-idea').click();
@@ -147,7 +158,10 @@ test('Transcribe: a copyright-tagged upload warns, needs an attestation and is r
   // Re-uploading the same file pre-fills the answer: one click.
   await modeTab(page, 'Transcribe').click();
   await page.getByRole('tab', { name: 'Upload' }).click();
-  await page.getByTestId('upload-drop').locator('input[type=file]').setInputFiles({ ...file, name: 'same-file-renamed.wav' });
+  await page
+    .getByTestId('upload-drop')
+    .locator('input[type=file]')
+    .setInputFiles({ ...file, name: 'same-file-renamed.wav' });
   await expect(page.getByTestId('attestation-prefilled')).toBeVisible();
   await expect(dialog.getByRole('radio', { name: 'Personal study only, not for release' })).toBeChecked();
   await expect(dialog.getByRole('textbox', { name: 'Attested by' })).toHaveValue('E2E Tester');
@@ -157,14 +171,23 @@ test('Transcribe: a copyright-tagged upload warns, needs an attestation and is r
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
-test('Rebuild: a copyright-tagged upload warns and its attestation travels into the project', async ({ page }) => {
+test('Rebuild: a copyright-tagged upload warns and its attestation travels into the project', async ({
+  page,
+}) => {
   test.setTimeout(240_000);
   const errors = collectErrors(page);
   await page.goto('/');
   await modeTab(page, 'Rebuild').click();
-  await page.getByTestId('rebuild-drop').locator('input[type=file]').setInputFiles({ name: 'tagged-mix.wav', mimeType: 'audio/wav', buffer: taggedMix() });
+  await page
+    .getByTestId('rebuild-drop')
+    .locator('input[type=file]')
+    .setInputFiles({ name: 'tagged-mix.wav', mimeType: 'audio/wav', buffer: taggedMix() });
   await expect(page.getByTestId('rebuild-source')).toHaveCount(0); // not used before the attestation
-  await attestUpload(page, { basis: 'I have a licence or written permission', licence: 'Sync licence #42', expectWarning: '(P) 2019 Some Label' });
+  await attestUpload(page, {
+    basis: 'I have a licence or written permission',
+    licence: 'Sync licence #42',
+    expectWarning: '(P) 2019 Some Label',
+  });
   await expect(page.getByTestId('rebuild-source')).toBeVisible();
   await page.getByLabel('Project title').fill('E2E Rights Rebuild');
   await page.getByTestId('start-rebuild').click();

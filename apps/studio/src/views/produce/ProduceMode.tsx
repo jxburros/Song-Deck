@@ -3,7 +3,14 @@ import { keyAtTick, keyName, meterAtBar, songDurationSeconds, type Song } from '
 import { useStudio } from '../../state/store';
 import { useSettings } from '../../state/settings';
 import { initAi } from '../../engine/ai';
-import { GUIDE_RENDERERS, audibleSourceTracks, compositionHash, headRevisionOf, productionSourceSong, strategyInfo } from '../../engine/produce-model';
+import {
+  GUIDE_RENDERERS,
+  audibleSourceTracks,
+  compositionHash,
+  headRevisionOf,
+  productionSourceSong,
+  strategyInfo,
+} from '../../engine/produce-model';
 import { Badge, Button, EmptyState, Tabs } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { GuidePanel, guideView } from './GuidePanel';
@@ -52,26 +59,41 @@ function SummaryRail({ song }: { song: Song }) {
         <div className="pd-kv small">
           <span>Form</span>
           <span>
-            {audibleSourceTracks(source).length} tracks · {source.sections.length} sections · {mmss(songDurationSeconds(source))}
+            {audibleSourceTracks(source).length} tracks · {source.sections.length} sections ·{' '}
+            {mmss(songDurationSeconds(source))}
           </span>
         </div>
         <div className="pd-kv small">
           <span>Feel</span>
           <span>
-            {Math.round(source.tempoMap[0]?.bpm ?? 120)} BPM · {keyName(keyAtTick(source, 0))} · {meter.numerator}/{meter.denominator}
+            {Math.round(source.tempoMap[0]?.bpm ?? 120)} BPM · {keyName(keyAtTick(source, 0))} ·{' '}
+            {meter.numerator}/{meter.denominator}
           </span>
         </div>
-        <div className="pd-kv small" title="Productions made from the same composition share this fingerprint">
+        <div
+          className="pd-kv small"
+          title="Productions made from the same composition share this fingerprint"
+        >
           <span>Fingerprint</span>
           <span className="mono dim">{hash}</span>
         </div>
       </div>
       <div className="pd-rail-card">
         <h4>Pipeline</h4>
-        <button type="button" className={`pd-step ${guide.mix ? (guide.stale ? 'warn' : 'done') : ''}`} onClick={() => set({ tab: 'guide' })}>
+        <button
+          type="button"
+          className={`pd-step ${guide.mix ? (guide.stale ? 'warn' : 'done') : ''}`}
+          onClick={() => set({ tab: 'guide' })}
+        >
           <Icon name={guide.mix && !guide.stale ? 'check' : guide.stale ? 'alert' : 'waveform'} size={14} />
           <span className="grow">Guide render</span>
-          <span className="small dim">{guide.mix ? (guide.stale ? 'out of date' : GUIDE_RENDERERS[guide.renderer ?? 'builtin']?.label.split(' ')[0]) : 'not yet'}</span>
+          <span className="small dim">
+            {guide.mix
+              ? guide.stale
+                ? 'out of date'
+                : GUIDE_RENDERERS[guide.renderer ?? 'builtin']?.label.split(' ')[0]
+              : 'not yet'}
+          </span>
         </button>
         <button type="button" className="pd-step done" onClick={() => set({ tab: 'production' })}>
           <Icon name="layers" size={14} />
@@ -80,17 +102,36 @@ function SummaryRail({ song }: { song: Song }) {
           </span>
           <SourceTone location={r.resolution.provider?.location} />
         </button>
-        <button type="button" className={`pd-step ${song.production.candidates.length ? 'done' : ''}`} onClick={() => set({ tab: 'candidates' })}>
+        <button
+          type="button"
+          className={`pd-step ${song.production.candidates.length ? 'done' : ''}`}
+          onClick={() => set({ tab: 'candidates' })}
+        >
           <Icon name="produce" size={14} />
           <span className="grow">Candidates</span>
-          <span className="small dim">{song.production.candidates.length ? song.production.candidates.map((c) => c.label).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join(' ') : 'none'}</span>
+          <span className="small dim">
+            {song.production.candidates.length
+              ? song.production.candidates
+                  .map((c) => c.label)
+                  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+                  .join(' ')
+              : 'none'}
+          </span>
         </button>
-        <button type="button" className={`pd-step ${selected ? 'done' : ''}`} onClick={() => set({ tab: 'candidates' })}>
+        <button
+          type="button"
+          className={`pd-step ${selected ? 'done' : ''}`}
+          onClick={() => set({ tab: 'candidates' })}
+        >
           <Icon name="check" size={14} />
           <span className="grow">Selected</span>
           <span className="small dim">{selected ? selected.label : '—'}</span>
         </button>
-        <button type="button" className={`pd-step ${adopted ? 'done' : ''}`} onClick={() => useStudio.getState().setMode('mix')}>
+        <button
+          type="button"
+          className={`pd-step ${adopted ? 'done' : ''}`}
+          onClick={() => useStudio.getState().setMode('mix')}
+        >
           <Icon name="mixer" size={14} />
           <span className="grow">In Mix &amp; Master</span>
           <span className="small dim">{adopted ? `${adopted.label} stems` : 'MIDI guide'}</span>
@@ -112,7 +153,9 @@ function SummaryRail({ song }: { song: Song }) {
             ${budget.perGenerationUsd}/gen · ${budget.dailyUsd}/day · ${budget.monthlyUsd}/mo
           </span>
         </div>
-        <div className="small dim">Cloud runs ask before data leaves the device and stop at your budget (Settings).</div>
+        <div className="small dim">
+          Cloud runs ask before data leaves the device and stop at your budget (Settings).
+        </div>
       </div>
     </aside>
   );
@@ -157,8 +200,9 @@ export default function ProduceMode() {
           <div className="grow">
             <h1>Produce</h1>
             <div className="lede">
-              <strong>Perform and produce this composition</strong> — not “invent a song resembling this prompt”. Render a guide, choose a strategy and provider,
-              generate A/B candidates of the identical composition, keep the best, and regenerate just the bars you want.
+              <strong>Perform and produce this composition</strong> — not “invent a song resembling this
+              prompt”. Render a guide, choose a strategy and provider, generate A/B candidates of the
+              identical composition, keep the best, and regenerate just the bars you want.
             </div>
           </div>
           <div className="row">
@@ -168,7 +212,11 @@ export default function ProduceMode() {
           </div>
         </div>
         <div className="pd-tabbar">
-          <Tabs value={tab} onChange={(v) => set({ tab: v })} tabs={tabs.map((t) => ({ value: t.value, label: t.label, icon: t.icon }))} />
+          <Tabs
+            value={tab}
+            onChange={(v) => set({ tab: v })}
+            tabs={tabs.map((t) => ({ value: t.value, label: t.label, icon: t.icon }))}
+          />
         </div>
         {tab === 'guide' && <GuidePanel song={song} />}
         {tab === 'production' && <ProductionPanel song={song} />}

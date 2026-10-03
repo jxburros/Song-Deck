@@ -4,11 +4,17 @@
  * `suggestedModels` are UI hints only; routing always uses discovered/configured models.
  */
 import { type Capability, LLM_BASE_CAPABILITIES } from './capabilities';
-import { defaultCredentialRef, type ProviderConfig, type ProviderExtra, type StructuredOutputMode } from './config';
+import {
+  defaultCredentialRef,
+  type ProviderConfig,
+  type ProviderExtra,
+  type StructuredOutputMode,
+} from './config';
 import { ConfigurationError } from './errors';
 import type { AdapterKind, AuthSpec, PricingInfo } from './types';
 
-export type PresetCategory = 'llm' | 'music' | 'singing' | 'transcription' | 'separation' | 'voice-conversion' | 'mastering' | 'managed';
+export type PresetCategory =
+  'llm' | 'music' | 'singing' | 'transcription' | 'separation' | 'voice-conversion' | 'mastering' | 'managed';
 
 export interface ProviderPreset {
   id: string;
@@ -59,7 +65,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'llm',
     adapter: 'openai-compatible',
     location: 'cloud',
-    description: 'OpenAI chat models via the Chat Completions API with strict JSON-schema structured outputs.',
+    description:
+      'OpenAI chat models via the Chat Completions API with strict JSON-schema structured outputs.',
     baseUrl: 'https://api.openai.com/v1',
     auth: BEARER,
     requiresCredential: true,
@@ -101,7 +108,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'llm',
     adapter: 'anthropic',
     location: 'cloud',
-    description: 'Claude models through the official Anthropic SDK (structured outputs via output_config, effort control, refusal fallbacks).',
+    description:
+      'Claude models through the official Anthropic SDK (structured outputs via output_config, effort control, refusal fallbacks).',
     baseUrl: 'https://api.anthropic.com',
     auth: { type: 'header', name: 'x-api-key' },
     requiresCredential: true,
@@ -164,7 +172,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       },
     },
     docsUrl: 'https://ai.google.dev/api/generate-content',
-    setupNotes: ['Create an API key in Google AI Studio (aistudio.google.com → Get API key).', 'Audio analysis sends the audio inline (WAV) — check the data-flow indicator.'],
+    setupNotes: [
+      'Create an API key in Google AI Studio (aistudio.google.com → Get API key).',
+      'Audio analysis sends the audio inline (WAV) — check the data-flow indicator.',
+    ],
   },
   {
     id: 'moonshot',
@@ -172,7 +183,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'llm',
     adapter: 'openai-compatible',
     location: 'cloud',
-    description: 'Kimi models through Moonshot\'s OpenAI-compatible API.',
+    description: "Kimi models through Moonshot's OpenAI-compatible API.",
     baseUrl: 'https://api.moonshot.ai/v1',
     auth: BEARER,
     requiresCredential: true,
@@ -183,10 +194,18 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     timeoutMs: 180_000,
     concurrency: 4,
     qualityTier: 4,
-    pricing: { currency: 'USD', note: PRICE_NOTE, asOf: '2025-08', models: { 'kimi-k2': { inputPerMTok: 0.6, outputPerMTok: 2.5 } } },
+    pricing: {
+      currency: 'USD',
+      note: PRICE_NOTE,
+      asOf: '2025-08',
+      models: { 'kimi-k2': { inputPerMTok: 0.6, outputPerMTok: 2.5 } },
+    },
     extra: { maxTokensParam: 'max_tokens', schemaDialect: 'openai-strict' },
     docsUrl: 'https://platform.moonshot.ai/docs/api/chat',
-    setupNotes: ['Create an API key at platform.moonshot.ai.', 'JSON mode (json_object) is used; the schema is described in the prompt.'],
+    setupNotes: [
+      'Create an API key at platform.moonshot.ai.',
+      'JSON mode (json_object) is used; the schema is described in the prompt.',
+    ],
   },
   {
     id: 'llama-api',
@@ -226,7 +245,12 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     timeoutMs: 180_000,
     concurrency: 4,
     qualityTier: 3,
-    pricing: { currency: 'USD', note: PRICE_NOTE, asOf: '2025-08', models: { 'meta-llama/Llama-3.3-70B-Instruct-Turbo': { inputPerMTok: 0.88, outputPerMTok: 0.88 } } },
+    pricing: {
+      currency: 'USD',
+      note: PRICE_NOTE,
+      asOf: '2025-08',
+      models: { 'meta-llama/Llama-3.3-70B-Instruct-Turbo': { inputPerMTok: 0.88, outputPerMTok: 0.88 } },
+    },
     extra: { maxTokensParam: 'max_tokens', schemaDialect: 'openai-strict' },
     docsUrl: 'https://docs.together.ai/docs/openai-api-compatibility',
     setupNotes: ['Create an API key at api.together.ai/settings/api-keys.'],
@@ -237,7 +261,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'llm',
     adapter: 'openai-compatible',
     location: 'cloud',
-    description: 'Very fast inference of open models on Groq\'s OpenAI-compatible API — good for cheap drafts.',
+    description:
+      "Very fast inference of open models on Groq's OpenAI-compatible API — good for cheap drafts.",
     baseUrl: 'https://api.groq.com/openai/v1',
     auth: BEARER,
     requiresCredential: true,
@@ -252,7 +277,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       currency: 'USD',
       note: PRICE_NOTE,
       asOf: '2025-08',
-      models: { 'llama-3.3-70b-versatile': { inputPerMTok: 0.59, outputPerMTok: 0.79 }, 'llama-3.1-8b-instant': { inputPerMTok: 0.05, outputPerMTok: 0.08 } },
+      models: {
+        'llama-3.3-70b-versatile': { inputPerMTok: 0.59, outputPerMTok: 0.79 },
+        'llama-3.1-8b-instant': { inputPerMTok: 0.05, outputPerMTok: 0.08 },
+      },
     },
     extra: { maxTokensParam: 'max_completion_tokens', schemaDialect: 'openai-strict' },
     docsUrl: 'https://console.groq.com/docs/openai',
@@ -292,7 +320,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'llm',
     adapter: 'openai-compatible',
     location: 'local',
-    description: 'llama.cpp\'s llama-server (OpenAI-compatible, grammar-constrained JSON schema).',
+    description: "llama.cpp's llama-server (OpenAI-compatible, grammar-constrained JSON schema).",
     baseUrl: 'http://localhost:8080/v1',
     auth: NONE,
     requiresCredential: false,
@@ -304,7 +332,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     qualityTier: 2,
     extra: { maxTokensParam: 'max_tokens', schemaDialect: 'json-schema' },
     docsUrl: 'https://github.com/ggml-org/llama.cpp/tree/master/tools/server',
-    setupNotes: ['Start `llama-server -m model.gguf --port 8080 -c 8192`.', 'If you start it with --api-key, switch auth to Bearer and store the key.'],
+    setupNotes: [
+      'Start `llama-server -m model.gguf --port 8080 -c 8192`.',
+      'If you start it with --api-key, switch auth to Bearer and store the key.',
+    ],
   },
   {
     id: 'lm-studio',
@@ -312,7 +343,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'llm',
     adapter: 'openai-compatible',
     location: 'local',
-    description: 'Models served by LM Studio\'s local OpenAI-compatible server.',
+    description: "Models served by LM Studio's local OpenAI-compatible server.",
     baseUrl: 'http://localhost:1234/v1',
     auth: NONE,
     requiresCredential: false,
@@ -323,7 +354,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     qualityTier: 2,
     extra: { maxTokensParam: 'max_tokens', schemaDialect: 'json-schema' },
     docsUrl: 'https://lmstudio.ai/docs/app/api/endpoints/openai',
-    setupNotes: ['In LM Studio open the Developer tab and start the server (default port 1234).', 'Load a model before generating.'],
+    setupNotes: [
+      'In LM Studio open the Developer tab and start the server (default port 1234).',
+      'Load a model before generating.',
+    ],
   },
   {
     id: 'vllm',
@@ -342,7 +376,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     qualityTier: 3,
     extra: { maxTokensParam: 'max_tokens', schemaDialect: 'json-schema' },
     docsUrl: 'https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html',
-    setupNotes: ['Start `vllm serve <model> --port 8000`.', 'If you pass --api-key, switch auth to Bearer and store the key.'],
+    setupNotes: [
+      'Start `vllm serve <model> --port 8000`.',
+      'If you pass --api-key, switch auth to Bearer and store the key.',
+    ],
   },
   {
     id: 'custom-llm-http',
@@ -390,14 +427,23 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     auth: { type: 'header', name: 'xi-api-key' },
     requiresCredential: true,
     credentialLabel: 'API key',
-    capabilities: ['TEXT_TO_MUSIC', 'LYRIC_CONDITIONING', 'VOCAL_GENERATION', 'SECTION_GENERATION', 'INSTRUMENTAL_ONLY'],
+    capabilities: [
+      'TEXT_TO_MUSIC',
+      'LYRIC_CONDITIONING',
+      'VOCAL_GENERATION',
+      'SECTION_GENERATION',
+      'INSTRUMENTAL_ONLY',
+    ],
     defaultModel: 'music_v1',
     timeoutMs: 600_000,
     concurrency: 2,
     qualityTier: 5,
     extra: { outputFormat: 'mp3_44100_128' },
     docsUrl: 'https://elevenlabs.io/docs/api-reference/music/compose',
-    setupNotes: ['Create an API key at elevenlabs.io → Developers → API keys (music access depends on your plan).', 'Song Deck sends a composition plan built from your sections, tempo map and lyrics.'],
+    setupNotes: [
+      'Create an API key at elevenlabs.io → Developers → API keys (music access depends on your plan).',
+      'Song Deck sends a composition plan built from your sections, tempo map and lyrics.',
+    ],
   },
   {
     id: 'stability-audio',
@@ -416,10 +462,18 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     timeoutMs: 600_000,
     concurrency: 2,
     qualityTier: 4,
-    pricing: { currency: 'USD', perGenerationUsd: 0.2, note: '20 credits ($0.01 each) per generation; verify current pricing.', asOf: '2025-08' },
+    pricing: {
+      currency: 'USD',
+      perGenerationUsd: 0.2,
+      note: '20 credits ($0.01 each) per generation; verify current pricing.',
+      asOf: '2025-08',
+    },
     extra: { outputFormat: 'wav' },
     docsUrl: 'https://platform.stability.ai/docs/api-reference#tag/Text-to-Audio',
-    setupNotes: ['Create an API key at platform.stability.ai/account/keys.', 'Audio-to-audio uses the guide render as input; "strength" controls how far it may depart.'],
+    setupNotes: [
+      'Create an API key at platform.stability.ai/account/keys.',
+      'Audio-to-audio uses the guide render as input; "strength" controls how far it may depart.',
+    ],
   },
   {
     id: 'google-lyria',
@@ -437,7 +491,13 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     timeoutMs: 300_000,
     concurrency: 2,
     qualityTier: 4,
-    pricing: { currency: 'USD', perClipUsd: 0.06, clipSeconds: 30, note: '$0.06 per 30-second clip; verify current pricing.', asOf: '2025-08' },
+    pricing: {
+      currency: 'USD',
+      perClipUsd: 0.06,
+      clipSeconds: 30,
+      note: '$0.06 per 30-second clip; verify current pricing.',
+      asOf: '2025-08',
+    },
     extra: { vertexProject: '', vertexLocation: 'us-central1' },
     docsUrl: 'https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/lyria-music-generation',
     setupNotes: [
@@ -456,7 +516,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'music',
     adapter: 'local-music',
     location: 'local',
-    description: 'ACE-Step local music generation through the Song Deck music bridge (lyrics + audio conditioning).',
+    description:
+      'ACE-Step local music generation through the Song Deck music bridge (lyrics + audio conditioning).',
     baseUrl: 'http://127.0.0.1:8810',
     auth: NONE,
     requiresCredential: false,
@@ -477,7 +538,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     concurrency: 1,
     qualityTier: 3,
     docsUrl: 'https://github.com/ace-step/ACE-Step',
-    setupNotes: ['Install ACE-Step and run the Song Deck bridge script (implements the music bridge contract) on port 8810.', 'Needs ~4 GB+ VRAM (see Model Manager for compatibility).'],
+    setupNotes: [
+      'Install ACE-Step and run the Song Deck bridge script (implements the music bridge contract) on port 8810.',
+      'Needs ~4 GB+ VRAM (see Model Manager for compatibility).',
+    ],
   },
   {
     id: 'diffsinger-local',
@@ -485,7 +549,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'singing',
     adapter: 'singing-http',
     location: 'local',
-    description: 'OpenVPI DiffSinger singing synthesis (lyrics + MIDI + expression) through the Song Deck singing bridge.',
+    description:
+      'OpenVPI DiffSinger singing synthesis (lyrics + MIDI + expression) through the Song Deck singing bridge.',
     baseUrl: 'http://127.0.0.1:8811',
     auth: NONE,
     requiresCredential: false,
@@ -494,7 +559,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     concurrency: 1,
     qualityTier: 4,
     docsUrl: 'https://github.com/openvpi/DiffSinger',
-    setupNotes: ['Install DiffSinger (OpenVPI) with a voicebank and run the Song Deck singing bridge on port 8811.'],
+    setupNotes: [
+      'Install DiffSinger (OpenVPI) with a voicebank and run the Song Deck singing bridge on port 8811.',
+    ],
   },
   {
     id: 'demucs-local',
@@ -511,7 +578,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     concurrency: 1,
     qualityTier: 4,
     docsUrl: 'https://github.com/adefossez/demucs',
-    setupNotes: ['`pip install demucs` and run the Song Deck separation bridge on port 8812.', 'Runs on CPU (slow) or GPU.'],
+    setupNotes: [
+      '`pip install demucs` and run the Song Deck separation bridge on port 8812.',
+      'Runs on CPU (slow) or GPU.',
+    ],
   },
   {
     id: 'basic-pitch-local',
@@ -528,7 +598,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     concurrency: 1,
     qualityTier: 3,
     docsUrl: 'https://github.com/spotify/basic-pitch',
-    setupNotes: ['`pip install basic-pitch` and run the Song Deck transcription bridge on port 8813 (CPU is fine).'],
+    setupNotes: [
+      '`pip install basic-pitch` and run the Song Deck transcription bridge on port 8813 (CPU is fine).',
+    ],
   },
   {
     id: 'rvc-local',
@@ -536,7 +608,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'voice-conversion',
     adapter: 'voice-conversion-http',
     location: 'local',
-    description: 'Retrieval-based Voice Conversion to an AUTHORIZED target voice (consent required, spec §36).',
+    description:
+      'Retrieval-based Voice Conversion to an AUTHORIZED target voice (consent required, spec §36).',
     baseUrl: 'http://127.0.0.1:8814',
     auth: NONE,
     requiresCredential: false,
@@ -545,7 +618,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     concurrency: 1,
     qualityTier: 3,
     docsUrl: 'https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI',
-    setupNotes: ['Run the Song Deck voice-conversion bridge on port 8814 with your RVC models.', 'Only use voices you are authorized to use; Song Deck records consent and voice provenance.'],
+    setupNotes: [
+      'Run the Song Deck voice-conversion bridge on port 8814 with your RVC models.',
+      'Only use voices you are authorized to use; Song Deck records consent and voice provenance.',
+    ],
   },
   {
     id: 'mastering-local',
@@ -570,7 +646,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'music',
     adapter: 'local-music',
     location: 'local',
-    description: 'Any music model that implements the Song Deck music bridge contract (GET /info, POST /generate …).',
+    description:
+      'Any music model that implements the Song Deck music bridge contract (GET /info, POST /generate …).',
     baseUrl: 'http://127.0.0.1:8820',
     auth: NONE,
     requiresCredential: false,
@@ -578,7 +655,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     timeoutMs: 900_000,
     concurrency: 1,
     qualityTier: 3,
-    setupNotes: ['The bridge reports its capabilities from GET /info; they override the defaults.', 'Set location to "cloud" if the server is remote.'],
+    setupNotes: [
+      'The bridge reports its capabilities from GET /info; they override the defaults.',
+      'Set location to "cloud" if the server is remote.',
+    ],
   },
 
   // -------------------------------------------------------------------------
@@ -590,7 +670,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'managed',
     adapter: 'managed',
     location: 'cloud',
-    description: 'Let the Song Deck service choose models by quality, cost, latency, availability, task and your privacy settings.',
+    description:
+      'Let the Song Deck service choose models by quality, cost, latency, availability, task and your privacy settings.',
     baseUrl: '',
     auth: NONE,
     requiresCredential: false,
@@ -613,7 +694,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     timeoutMs: 900_000,
     concurrency: 4,
     qualityTier: 4,
-    setupNotes: ['Base URL is the Song Deck server ("" = same origin). The server routes among its own configured providers.'],
+    setupNotes: [
+      'Base URL is the Song Deck server ("" = same origin). The server routes among its own configured providers.',
+    ],
   },
 ];
 
@@ -650,6 +733,7 @@ export function configFromPreset(presetId: string, overrides: Partial<ProviderCo
     ...overrides,
   };
   // `extra` is merged key by key so overriding one adapter setting keeps the preset's others.
-  if (preset.extra && overrides.extra) config.extra = { ...structuredClone(preset.extra), ...overrides.extra };
+  if (preset.extra && overrides.extra)
+    config.extra = { ...structuredClone(preset.extra), ...overrides.extra };
   return config;
 }

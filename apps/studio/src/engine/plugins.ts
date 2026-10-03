@@ -16,7 +16,14 @@ import { loadSfzInstrument } from './sfz-loader';
  * genre profiles and exporters.
  */
 
-export type PluginKind = 'ai-provider' | 'music-model' | 'singing-engine' | 'transcription-engine' | 'instrument' | 'genre-profile' | 'exporter';
+export type PluginKind =
+  | 'ai-provider'
+  | 'music-model'
+  | 'singing-engine'
+  | 'transcription-engine'
+  | 'instrument'
+  | 'genre-profile'
+  | 'exporter';
 
 export interface PluginManifest {
   id: string;
@@ -115,7 +122,17 @@ interface Owned {
 const owned = new Map<string, Owned>();
 function ownedBy(pluginId: string): Owned {
   let o = owned.get(pluginId);
-  if (!o) owned.set(pluginId, (o = { genres: new Set(), instruments: new Set(), samples: new Set(), exporters: new Set(), providers: new Set() }));
+  if (!o)
+    owned.set(
+      pluginId,
+      (o = {
+        genres: new Set(),
+        instruments: new Set(),
+        samples: new Set(),
+        exporters: new Set(),
+        providers: new Set(),
+      }),
+    );
   return o;
 }
 
@@ -134,9 +151,14 @@ export async function scanPlugins(): Promise<PluginManifest[]> {
   try {
     const res = await fetch(`${serverBase()}/api/plugins`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { plugins?: PluginManifest[]; errors?: ExtensionsState['scanErrors'] } | PluginManifest[];
+    const data = (await res.json()) as
+      { plugins?: PluginManifest[]; errors?: ExtensionsState['scanErrors'] } | PluginManifest[];
     const list = Array.isArray(data) ? data : (data.plugins ?? []);
-    useExtensions.setState({ available: list, scanError: undefined, scanErrors: Array.isArray(data) ? [] : (data.errors ?? []) });
+    useExtensions.setState({
+      available: list,
+      scanError: undefined,
+      scanErrors: Array.isArray(data) ? [] : (data.errors ?? []),
+    });
     return list;
   } catch (err) {
     useExtensions.setState({ scanError: err instanceof Error ? err.message : String(err) });
@@ -147,16 +169,24 @@ export async function scanPlugins(): Promise<PluginManifest[]> {
 export async function loadPlugin(manifest: PluginManifest): Promise<void> {
   const contributions: string[] = [];
   const mine = ownedBy(manifest.id);
-  const fileUrl = (p: string) => `${serverBase()}/api/plugins/${encodeURIComponent(manifest.id)}/files/${p.split('/').map(encodeURIComponent).join('/')}`;
+  const fileUrl = (p: string) =>
+    `${serverBase()}/api/plugins/${encodeURIComponent(manifest.id)}/files/${p.split('/').map(encodeURIComponent).join('/')}`;
   // The whole core namespace and the provider factory are only needed once a plugin loads, so they
   // are fetched here instead of weighing down the studio's entry chunk.
-  const [coreModule, { createInternalProvider }] = await Promise.all([import('@songdeck/core'), import('@songdeck/ai')]);
+  const [coreModule, { createInternalProvider }] = await Promise.all([
+    import('@songdeck/core'),
+    import('@songdeck/ai'),
+  ]);
   const api: SongDeckPluginApi = {
     apiVersion: 1,
     core: coreModule,
     ai: {
       createProvider({ location, pricing, ...spec }) {
-        const inst = createInternalProvider({ ...spec, id: spec.id ?? manifest.id, name: spec.name ?? manifest.name });
+        const inst = createInternalProvider({
+          ...spec,
+          id: spec.id ?? manifest.id,
+          name: spec.name ?? manifest.name,
+        });
         return {
           ...inst,
           descriptor: {
@@ -169,12 +199,16 @@ export async function loadPlugin(manifest: PluginManifest): Promise<void> {
       },
     },
     registerGenre(profile) {
-      useExtensions.setState((s) => ({ genres: [...s.genres.filter((g) => g.id !== profile.id), { ...profile, builtIn: false }] }));
+      useExtensions.setState((s) => ({
+        genres: [...s.genres.filter((g) => g.id !== profile.id), { ...profile, builtIn: false }],
+      }));
       mine.genres.add(profile.id);
       contributions.push(`genre ${profile.name}`);
     },
     registerInstrument(profile) {
-      useExtensions.setState((s) => ({ instruments: [...s.instruments.filter((i) => i.id !== profile.id), { ...profile, custom: true }] }));
+      useExtensions.setState((s) => ({
+        instruments: [...s.instruments.filter((i) => i.id !== profile.id), { ...profile, custom: true }],
+      }));
       mine.instruments.add(profile.id);
       contributions.push(`instrument ${profile.name}`);
     },
@@ -186,20 +220,32 @@ export async function loadPlugin(manifest: PluginManifest): Promise<void> {
         return new Uint8Array(await res.arrayBuffer());
       });
       useExtensions.setState((s) => ({
-        sampleInstruments: { ...s.sampleInstruments, [patchId]: { ...loaded.instrument, name: loaded.instrument.name ?? profile.name } },
-        instruments: [...s.instruments.filter((i) => i.id !== profile.id), { ...profile, patchId, custom: true }],
+        sampleInstruments: {
+          ...s.sampleInstruments,
+          [patchId]: { ...loaded.instrument, name: loaded.instrument.name ?? profile.name },
+        },
+        instruments: [
+          ...s.instruments.filter((i) => i.id !== profile.id),
+          { ...profile, patchId, custom: true },
+        ],
       }));
       mine.samples.add(patchId);
       mine.instruments.add(profile.id);
-      contributions.push(`sampled instrument ${profile.name} (${loaded.samples} samples, ${Math.round(loaded.bytes / 1024)} KB)`);
+      contributions.push(
+        `sampled instrument ${profile.name} (${loaded.samples} samples, ${Math.round(loaded.bytes / 1024)} KB)`,
+      );
     },
     registerExporter(exporter) {
-      useExtensions.setState((s) => ({ exporters: [...s.exporters.filter((e) => e.id !== exporter.id), exporter] }));
+      useExtensions.setState((s) => ({
+        exporters: [...s.exporters.filter((e) => e.id !== exporter.id), exporter],
+      }));
       mine.exporters.add(exporter.id);
       contributions.push(`exporter ${exporter.name}`);
     },
     registerProvider(instance) {
-      useExtensions.setState((s) => ({ providers: [...s.providers.filter((p) => p.descriptor.id !== instance.descriptor.id), instance] }));
+      useExtensions.setState((s) => ({
+        providers: [...s.providers.filter((p) => p.descriptor.id !== instance.descriptor.id), instance],
+      }));
       mine.providers.add(instance.descriptor.id);
       contributions.push(`provider ${instance.descriptor.name}`);
       for (const l of providerListeners) l(useExtensions.getState().providers);
@@ -211,14 +257,27 @@ export async function loadPlugin(manifest: PluginManifest): Promise<void> {
   };
   try {
     if (!manifest.entry) throw new Error('Manifest has no entry module');
-    const mod = (await import(/* @vite-ignore */ fileUrl(manifest.entry))) as { register?: (api: SongDeckPluginApi) => void | Promise<void>; default?: { register?: (api: SongDeckPluginApi) => void } };
+    const mod = (await import(/* @vite-ignore */ fileUrl(manifest.entry))) as {
+      register?: (api: SongDeckPluginApi) => void | Promise<void>;
+      default?: { register?: (api: SongDeckPluginApi) => void };
+    };
     const register = mod.register ?? mod.default?.register;
     if (typeof register !== 'function') throw new Error('Entry module does not export register(api)');
     await register(api);
-    useExtensions.setState((s) => ({ loaded: { ...s.loaded, [manifest.id]: { manifest, status: 'loaded', contributions } } }));
+    useExtensions.setState((s) => ({
+      loaded: { ...s.loaded, [manifest.id]: { manifest, status: 'loaded', contributions } },
+    }));
   } catch (err) {
     useExtensions.setState((s) => ({
-      loaded: { ...s.loaded, [manifest.id]: { manifest, status: 'error', error: err instanceof Error ? err.message : String(err), contributions } },
+      loaded: {
+        ...s.loaded,
+        [manifest.id]: {
+          manifest,
+          status: 'error',
+          error: err instanceof Error ? err.message : String(err),
+          contributions,
+        },
+      },
     }));
   }
 }
@@ -246,7 +305,8 @@ export function unloadPlugin(id: string): void {
       providers: s.providers.filter((p) => !mine.providers.has(p.descriptor.id)),
     };
   });
-  if (mine?.providers.size) for (const l of providerListeners) l(useExtensions.getState().providers, [...mine.providers]);
+  if (mine?.providers.size)
+    for (const l of providerListeners) l(useExtensions.getState().providers, [...mine.providers]);
 }
 
 /** Load every plugin the user has enabled (called at startup and after toggling). */
@@ -262,13 +322,23 @@ export async function loadEnabledPlugins(): Promise<void> {
 /** All custom genre profiles: user-defined (settings) + project-bundled + plugin-provided. */
 export function allCustomGenres(projectGenres: GenreProfile[] = []): GenreProfile[] {
   const byId = new Map<string, GenreProfile>();
-  for (const g of [...useExtensions.getState().genres, ...useSettings.getState().customGenres, ...projectGenres]) byId.set(g.id, g);
+  for (const g of [
+    ...useExtensions.getState().genres,
+    ...useSettings.getState().customGenres,
+    ...projectGenres,
+  ])
+    byId.set(g.id, g);
   return Array.from(byId.values());
 }
 
 /** All custom instrument profiles: user-defined + project-bundled + plugin-provided. */
 export function allCustomInstruments(projectInstruments: InstrumentProfile[] = []): InstrumentProfile[] {
   const byId = new Map<string, InstrumentProfile>();
-  for (const i of [...useExtensions.getState().instruments, ...useSettings.getState().customInstruments, ...projectInstruments]) byId.set(i.id, i);
+  for (const i of [
+    ...useExtensions.getState().instruments,
+    ...useSettings.getState().customInstruments,
+    ...projectInstruments,
+  ])
+    byId.set(i.id, i);
   return Array.from(byId.values());
 }

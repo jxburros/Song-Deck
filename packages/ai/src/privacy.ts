@@ -8,15 +8,27 @@ import type { DataKind, ProviderLocation, TaskRole } from './types';
 import { DATA_KINDS } from './types';
 
 export const DATA_KIND_INFO: Record<DataKind, { label: string; description: string; audio: boolean }> = {
-  'song-description': { label: 'Song description', description: 'Title, style, moods, structure and instructions.', audio: false },
+  'song-description': {
+    label: 'Song description',
+    description: 'Title, style, moods, structure and instructions.',
+    audio: false,
+  },
   'chord-progression': { label: 'Chord progression', description: 'Chords and harmonic plan.', audio: false },
   midi: { label: 'MIDI', description: 'Notes of the selected tracks/regions.', audio: false },
   lyrics: { label: 'Lyrics', description: 'Lyric lines.', audio: false },
   'recorded-vocals': { label: 'Recorded vocals', description: 'Your recorded voice.', audio: true },
-  'reference-audio': { label: 'Reference audio', description: 'Imported reference tracks or recordings.', audio: true },
+  'reference-audio': {
+    label: 'Reference audio',
+    description: 'Imported reference tracks or recordings.',
+    audio: true,
+  },
   'guide-audio': { label: 'Guide audio', description: 'Guide renders of your composition.', audio: true },
   stems: { label: 'Stems', description: 'Rendered or produced stems / mixes.', audio: true },
-  'project-metadata': { label: 'Project metadata', description: 'Mixer settings, track names, project settings.', audio: false },
+  'project-metadata': {
+    label: 'Project metadata',
+    description: 'Mixer settings, track names, project settings.',
+    audio: false,
+  },
   analysis: { label: 'Analysis results', description: 'Transcription and analysis data.', audio: false },
 };
 
@@ -83,7 +95,12 @@ export function describeDataFlow(request: DataFlowRequest, target: DataFlowTarge
 
 /** Text rendering with ✓/✗ marks (spec §50 example). */
 export function formatDataFlow(flow: DataFlowDescriptor): string {
-  const where = flow.location === 'cloud' ? 'cloud — data leaves this device' : flow.location === 'local' ? 'local — stays on this machine' : 'built-in engine — stays on this device';
+  const where =
+    flow.location === 'cloud'
+      ? 'cloud — data leaves this device'
+      : flow.location === 'local'
+        ? 'local — stays on this machine'
+        : 'built-in engine — stays on this device';
   return [
     flow.title,
     '',
@@ -110,7 +127,10 @@ export function needsPrivacyConfirmation(mode: PrivacyConfirmMode, flow: DataFlo
 }
 
 /** Data kinds that may not leave the device under "never upload" settings. */
-export function blockedDataKinds(dataKinds: readonly DataKind[], neverUpload: readonly DataKind[]): DataKind[] {
+export function blockedDataKinds(
+  dataKinds: readonly DataKind[],
+  neverUpload: readonly DataKind[],
+): DataKind[] {
   const blocked = new Set(neverUpload);
   return dataKinds.filter((k) => blocked.has(k));
 }

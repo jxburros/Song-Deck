@@ -22,7 +22,12 @@ export function melToHz(mel: number): number {
   return 700 * (Math.pow(10, mel / 2595) - 1);
 }
 
-function triangularBank(edgesHz: number[], fftSize: number, sampleRate: number, normalize: boolean): Filterbank {
+function triangularBank(
+  edgesHz: number[],
+  fftSize: number,
+  sampleRate: number,
+  normalize: boolean,
+): Filterbank {
   const numBands = edgesHz.length - 2;
   const binHz = sampleRate / fftSize;
   const nb = (fftSize >> 1) + 1;
@@ -63,7 +68,14 @@ function triangularBank(edgesHz: number[], fftSize: number, sampleRate: number, 
 }
 
 /** Mel-spaced triangular filterbank. */
-export function melFilterbank(numBands: number, fMin: number, fMax: number, fftSize: number, sampleRate: number, normalize = true): Filterbank {
+export function melFilterbank(
+  numBands: number,
+  fMin: number,
+  fMax: number,
+  fftSize: number,
+  sampleRate: number,
+  normalize = true,
+): Filterbank {
   const mMin = hzToMel(fMin);
   const mMax = hzToMel(Math.min(fMax, sampleRate / 2));
   const edges: number[] = [];
@@ -72,7 +84,14 @@ export function melFilterbank(numBands: number, fMin: number, fMax: number, fftS
 }
 
 /** Log-frequency-spaced triangular filterbank. */
-export function logFilterbank(numBands: number, fMin: number, fMax: number, fftSize: number, sampleRate: number, normalize = true): Filterbank {
+export function logFilterbank(
+  numBands: number,
+  fMin: number,
+  fMax: number,
+  fftSize: number,
+  sampleRate: number,
+  normalize = true,
+): Filterbank {
   const lMin = Math.log(fMin);
   const lMax = Math.log(Math.min(fMax, sampleRate / 2));
   const edges: number[] = [];
@@ -81,7 +100,14 @@ export function logFilterbank(numBands: number, fMin: number, fMax: number, fftS
 }
 
 /** Apply a filterbank to one frame of a (power or magnitude) spectrum. */
-export function applyFilterbank(fb: Filterbank, frame: ArrayLike<number>, frameOffset: number, out: Float32Array, outOffset = 0, square = false): void {
+export function applyFilterbank(
+  fb: Filterbank,
+  frame: ArrayLike<number>,
+  frameOffset: number,
+  out: Float32Array,
+  outOffset = 0,
+  square = false,
+): void {
   for (let b = 0; b < fb.numBands; b++) {
     const w = fb.weights[b];
     const s = fb.start[b] + frameOffset;
@@ -101,12 +127,18 @@ export function applyFilterbank(fb: Filterbank, frame: ArrayLike<number>, frameO
 /** Band energies (power) for every frame of a magnitude spectrogram: [frame * numBands + band]. */
 export function bandEnergies(spec: MagnitudeSpectrogram, fb: Filterbank): Float32Array {
   const out = new Float32Array(spec.numFrames * fb.numBands);
-  for (let t = 0; t < spec.numFrames; t++) applyFilterbank(fb, spec.mag, t * spec.numBins, out, t * fb.numBands, true);
+  for (let t = 0; t < spec.numFrames; t++)
+    applyFilterbank(fb, spec.mag, t * spec.numBins, out, t * fb.numBands, true);
   return out;
 }
 
 /** Spectral centroid (Hz) of one magnitude frame. */
-export function spectralCentroid(mag: ArrayLike<number>, offset: number, numBins: number, binHz: number): number {
+export function spectralCentroid(
+  mag: ArrayLike<number>,
+  offset: number,
+  numBins: number,
+  binHz: number,
+): number {
   let num = 0;
   let den = 0;
   for (let k = 1; k < numBins; k++) {
@@ -133,7 +165,13 @@ export function spectralFlatness(mag: ArrayLike<number>, offset: number, k0: num
 }
 
 /** Frequency below which `fraction` of the spectral energy lies. */
-export function spectralRolloff(mag: ArrayLike<number>, offset: number, numBins: number, binHz: number, fraction = 0.85): number {
+export function spectralRolloff(
+  mag: ArrayLike<number>,
+  offset: number,
+  numBins: number,
+  binHz: number,
+  fraction = 0.85,
+): number {
   let total = 0;
   for (let k = 0; k < numBins; k++) total += mag[offset + k] * mag[offset + k];
   if (total <= 0) return 0;
@@ -169,7 +207,7 @@ export function zeroCrossingRate(x: Float32Array, frameSize: number, hop: number
     const a = Math.max(1, t * hop - half);
     const b = Math.min(x.length, t * hop + half);
     let z = 0;
-    for (let i = a; i < b; i++) if ((x[i] >= 0) !== (x[i - 1] >= 0)) z++;
+    for (let i = a; i < b; i++) if (x[i] >= 0 !== x[i - 1] >= 0) z++;
     out[t] = b > a ? z / (b - a) : 0;
   }
   return out;
@@ -179,7 +217,13 @@ export function zeroCrossingRate(x: Float32Array, frameSize: number, hop: number
  * Positive spectral flux of log-compressed band energies (rows = frames). Uses a ±1 band
  * maximum filter on the previous frame (SuperFlux-style vibrato suppression).
  */
-export function logBandFlux(bands: Float32Array, numBands: number, numFrames: number, lag = 1, maxFilter = true): Float32Array {
+export function logBandFlux(
+  bands: Float32Array,
+  numBands: number,
+  numFrames: number,
+  lag = 1,
+  maxFilter = true,
+): Float32Array {
   const flux = new Float32Array(numFrames);
   for (let t = lag; t < numFrames; t++) {
     const o = t * numBands;
@@ -200,10 +244,18 @@ export function logBandFlux(bands: Float32Array, numBands: number, numFrames: nu
 }
 
 /** DCT-II of log band energies → cepstral (MFCC-like) coefficients, c0 excluded. */
-export function cepstrum(logBands: ArrayLike<number>, offset: number, numBands: number, numCoeffs: number, out: Float32Array, outOffset = 0): void {
+export function cepstrum(
+  logBands: ArrayLike<number>,
+  offset: number,
+  numBands: number,
+  numCoeffs: number,
+  out: Float32Array,
+  outOffset = 0,
+): void {
   for (let c = 1; c <= numCoeffs; c++) {
     let s = 0;
-    for (let b = 0; b < numBands; b++) s += logBands[offset + b] * Math.cos((Math.PI * c * (b + 0.5)) / numBands);
+    for (let b = 0; b < numBands; b++)
+      s += logBands[offset + b] * Math.cos((Math.PI * c * (b + 0.5)) / numBands);
     out[outOffset + c - 1] = s * Math.sqrt(2 / numBands);
   }
 }
