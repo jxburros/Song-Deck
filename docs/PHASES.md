@@ -2,13 +2,14 @@
 
 This document maps every item in the specification's delivery phases (`Song Deck.md` §66–§70)
 to the code that implements it, how it is verified, and what its honest limitations are.
-Paths are relative to the repository root. "On-device" means it runs with no AI provider,
-no network and no local server.
+Paths are relative to the repository root; `views/…` and `engine/…` are short for
+`apps/studio/src/views/…` and `apps/studio/src/engine/…`. "On-device" means it runs with no AI
+provider, no network and no local server.
 
 | Phase | Theme | Status |
 | --- | --- | --- |
 | 1 (§66) | Composition, MIDI workbench, providers | Implemented |
-| 2 (§67) | Audio → MIDI, separation, rebuild, theory, custom genres | Implemented |
+| 2 (§67) | Audio → MIDI, separation, rebuild, theory, custom genres | Implemented (see limitations) |
 | 3 (§68) | Production | Implemented (see limitations) |
 | 4 (§69) | Vocals | Implemented (see limitations) |
 | 5 (§70) | Professional workflow | Implemented (see limitations) |
@@ -126,7 +127,38 @@ Limitations (honest):
 
 ---
 
-<!-- PHASE-4 -->
+## Phase 4 — Vocals (§69)
+
+Vocals are an independent subsystem (§32): lyrics, the vocal melody (`vocal.mid`), expression, the
+voice and its render are separate layers that can each be changed or regenerated without the
+production model ever generating the singer. Vocals mode offers the six §33 modes (no vocal,
+melody only, placeholder, AI singer, voice conversion, recorded).
+
+| Spec item | Where | Notes |
+| --- | --- | --- |
+| Vocal melody | `packages/core/src/composer/generators/vocal.ts`, Vocals → Melody (`apps/studio/src/views/vocals/MelodyPanel.tsx`) | The lead vocal is its own MIDI track, composed against the harmony and lyric syllable counts; it can be regenerated per section without touching the instrumentation and exported as `vocal.mid`. |
+| Lyric alignment | `packages/core/src/musician/lyrics/` (`syllables`, `g2p`, `align`, `placeholder`), `views/vocals/LyricsPanel.tsx` | Per-section lyric editor with live syllable counts against the vocal notes and a phoneme preview; syllables are aligned to notes, or the melody's rhythm is fitted to the lyrics as a reviewable proposal. AI-written or placeholder lyrics are labelled as such; lyric locks are respected and authorship is recorded in the rights metadata (§48, §65). |
+| Dedicated singing synthesis | `packages/audio/src/dsp/singing/`, `adapters/singing-http.ts` + `bridges/diffsinger_bridge.py`, `views/vocals/RenderPanel.tsx`, `engine/vocal-render.ts` | A SINGING_SYNTHESIS provider sings from lyrics, phonemes, the MIDI melody, tempo, expression and voice to `lead_vocal-vN.wav`, which becomes an audio track mixed like any stem, with provenance as in the §64 example. The built-in formant singer (six stock voices) always works offline. |
+| Vocal expression | `VocalExpression` in the IR, piano-roll expression lanes, `views/vocals/ExpressionPanel.tsx` | Breathiness, tension, vibrato depth and rate, energy, onset and release as defaults plus per-phrase or per-selection overrides, applied as validated operations; the panel shows which parameters the chosen singer honours (§35). |
+| Vocal regeneration | `views/vocals/RegeneratePanel.tsx`, `engine/vocal-sync.ts`, `packages/core/src/musician/vocal-commands.ts` | Instructions such as the §37 examples become proposals; accepting one re-sings only the changed phrase or section and splices it into the current render with crossfades in the surrounding rests — the instrumentation is never touched. |
+| Authorized voice models | `views/vocals/VoicesPanel.tsx`, `ConversionPanel.tsx`, `packages/ai/src/consent.ts`, preset `rvc-local` | Stock, user-trained, imported and third-party voices. Every non-stock voice needs an authorization attestation (who attests, rights holder, basis, evidence, scope) before it can be used, stored with the project as voice provenance and in the rights metadata; conversion providers are wrapped so they refuse to run without consent (§36). |
+| User-recorded vocals | `views/vocals/RecordingPanel.tsx`, `engine/vocal-recorder.ts`, `vocal-takes.ts` | Record takes over the playing song with a count-in and latency compensation; takes are kept as recording assets on a takes track, one is chosen as active, and a take can be transcribed back into the vocal MIDI as a proposal so the symbolic layer stays in sync. |
+
+Verified by: `packages/core/test/musician-{lyrics,mix-vocal}.test.ts`, `packages/audio/test/dsp-vocal.test.ts`
+(pitch accuracy per stock voice, vowel formants, consonants), `packages/ai/test/audio-adapters.test.ts`
+and the singing and voice-conversion cases of `packages/ai/test/bridges.integration.test.ts` (consent
+is enforced before a request leaves the studio), and
+`apps/studio/e2e/vocals.spec.ts` (lyrics, alignment, singing render, phrase and section regeneration,
+consent, takes, expression, voices, take transcription).
+
+Limitations (honest):
+
+* The built-in singer is a formant synthesizer: intelligible and expressive, but clearly synthetic.
+  Natural singing needs a singing model (for example DiffSinger behind its bridge) or a cloud
+  provider; voice conversion always needs a provider.
+* Syllables and pronunciations come from English rules plus a small dictionary, without stress
+  marks; placeholder lyrics are template-based.
+
 
 ## Phase 5 — Professional workflow (§70)
 
