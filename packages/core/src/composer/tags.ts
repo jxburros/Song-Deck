@@ -68,7 +68,7 @@ export interface TagEffect {
     /** Instrument ids to drop from the pool. */
     remove?: string[];
   };
-  /** Added to the macros (each result clamped to 0..1). */
+  /** Macro deltas: +d moves a macro d of the way toward 1, −d d of the way toward 0. */
   macros?: Partial<MacroSettings>;
   /** Added to every section's energy (-100..100). */
   energyShift?: number;
@@ -156,6 +156,12 @@ export function tagParents(ids: readonly string[] | undefined): GenreWeight[] {
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
+/**
+ * A tag's macro delta, applied softly: +d moves a value d of the way toward 1, −d moves it d of the
+ * way toward 0. Tags never pin a macro at its bound, so the user's own macro edits keep working.
+ */
+const shiftMacro = (v: number, d: number) => clamp01(d >= 0 ? v + d * (1 - v) : v + d * v);
+
 /** Apply tag effects (in order) to a copy of a genre profile. */
 export function applyTagsToGenre(genre: GenreProfile, ids: readonly string[] | undefined): GenreProfile {
   const tags = normalizeTagIds(ids).map((id) => BY_ID.get(id)!);
@@ -215,7 +221,7 @@ export function applyTagsToGenre(genre: GenreProfile, ids: readonly string[] | u
     }
     if (e.macros) {
       const m: Partial<MacroSettings> = { ...(g.macros ?? {}) };
-      for (const [k, v] of Object.entries(e.macros) as [keyof MacroSettings, number][]) m[k] = clamp01((m[k] ?? 0.5) + v);
+      for (const [k, v] of Object.entries(e.macros) as [keyof MacroSettings, number][]) m[k] = shiftMacro(m[k] ?? 0.5, v);
       g.macros = m;
     }
     if (e.production) {
@@ -228,13 +234,13 @@ export function applyTagsToGenre(genre: GenreProfile, ids: readonly string[] | u
   return g;
 }
 
-/** Shift macros by the tags' macro deltas (clamped to 0..1). */
+/** Shift macros by the tags' macro deltas (soft: see shiftMacro; results stay in 0..1). */
 export function applyTagsToMacros(macros: MacroSettings, ids: readonly string[] | undefined): MacroSettings {
   const out = { ...macros };
   for (const id of normalizeTagIds(ids)) {
     const d = BY_ID.get(id)!.effect.macros;
     if (!d) continue;
-    for (const [k, v] of Object.entries(d) as [keyof MacroSettings, number][]) out[k] = clamp01(out[k] + v);
+    for (const [k, v] of Object.entries(d) as [keyof MacroSettings, number][]) out[k] = shiftMacro(out[k], v);
   }
   return out;
 }

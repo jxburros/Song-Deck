@@ -114,7 +114,7 @@ const ROCK_TAGS: StyleTag[] = [
     tempo: tp(130, 180, 156), harmony: { extensionRate: 0, progressions: [pr('I IV V IV', 2), pr('I bVII IV I', 1.5)] },
     instruments: { add: [add('organ', 'keys', 0.4, 'pad')], remove: ['synth-pad', 'string-ensemble'] },
     macros: { humanization: 0.25, complexity: -0.15, energy: 0.1 }, production: { keywords: ['garage rock', 'raw', 'fuzz', 'lo-fi'], reverb: 0.15 },
-  }, { parents: 'rock:0.6 punk:0.4', aliases: ['garage'] }),
+  }, { parents: 'rock:0.6 punk:0.4' }),
   rock('psychedelic-rock', 'Psychedelic rock', 'Modal drones, swirling organ, phased guitars and long jams', {
     tempo: tp(90, 135, 112), modes: md('mixolydian:0.5 dorian:0.4'), harmony: { borrowedChordRate: 0.3, progressions: [pr('I bVII IV I', 1.5), pr('i IV', 1.5)] },
     instruments: { add: [add('organ', 'keys', 0.8, 'pad'), add('electric-guitar-lead', 'lead-guitar', 0.7, 'solo')] },
@@ -454,7 +454,7 @@ const POP_TAGS: StyleTag[] = [
     tempo: tp(150, 190, 172), harmony: { harmonicRhythm: 2, progressions: [pr('IVmaj7 V7 iii7 vi', 3), pr('bVI bVII I I', 1.5)] },
     instruments: { add: [add('electric-guitar-distorted', 'rhythm-guitar', 0.8, 'rhythm'), add('string-ensemble', 'strings', 0.5, 'pad')] },
     macros: { energy: 0.2, density: 0.15, complexity: 0.1 }, energyShift: 6, production: { keywords: ['anime', 'anime opening', 'dramatic', 'op'] },
-  }, { parents: 'j-pop:1', aliases: ['anime op', 'anime theme', 'anisong'] }),
+  }, { parents: 'j-pop:1', aliases: ['anime', 'anime op', 'anime theme', 'anisong'] }),
   pop('vocaloid', 'Vocaloid', 'Hyper-fast, dense J-pop with synthesized voice, glittering synths and rock drums', {
     tempo: tp(150, 210, 180), instruments: { add: [add('synth-lead', 'synth-lead', 0.7, 'hook'), add('synth-arp', 'synth-arp', 0.7, 'texture')] },
     macros: { complexity: 0.2, melodicMovement: 0.2, density: 0.2, humanization: -0.2 }, production: { keywords: ['vocaloid', 'synthesized vocals', 'fast', 'dense'] },
@@ -1762,7 +1762,7 @@ const PRODUCTION_TAGS: StyleTag[] = [
     macros: { density: -0.1, humanization: -0.1 }, production: { keywords: ['dry', 'upfront', 'close-miked'], reverb: 0.05 },
   }, { aliases: ['close-miked', 'dead room', 'upfront'] }),
   prod('reverb-drenched', 'Reverb-drenched', 'Huge spaces: long tails, washes, cathedral ambience', {
-    macros: { density: -0.1 }, production: { keywords: ['reverb-drenched', 'cavernous', 'washy'], reverb: 0.8 },
+    macros: { density: -0.2, humanization: 0.1 }, production: { keywords: ['reverb-drenched', 'cavernous', 'washy'], reverb: 0.8 },
   }, { aliases: ['washed out', 'cavernous', 'drenched in reverb', 'spacious'] }),
   prod('vinyl', 'Vinyl', 'Record-crackle texture and a gentle, sample-like warmth', {
     macros: { humanization: 0.1 }, rhythm: { swing: 0.15 }, production: { keywords: ['vinyl crackle', 'record', 'sampled'] },
@@ -1806,6 +1806,10 @@ const PRODUCTION_TAGS: StyleTag[] = [
   prod('raw', 'Raw', 'Unpolished first-take energy: loose, live, unprocessed', {
     macros: { humanization: 0.3, complexity: -0.1 }, production: { keywords: ['raw', 'unpolished', 'first take'], masteringTarget: 'dynamic' },
   }, { aliases: ['unpolished', 'first take'] }),
+  prod('brushed-drums', 'Brushed drums', 'Drums played with brushes: soft swishing snare, feathered kick, no crashing', {
+    instruments: { add: [add('drum-kit', 'drums', 1, 'rhythm', true)], remove: ['electronic-kit'] }, macros: { energy: -0.1, dynamics: -0.1, humanization: 0.1 },
+    production: { keywords: ['brushes', 'brushed drums', 'soft'] },
+  }, { aliases: ['brushes', 'brushed', 'brush kit'] }),
   prod('crisp', 'Crisp', 'Bright, clean, tight transients and sparkle', {
     macros: { humanization: -0.1, density: -0.05 }, production: { keywords: ['crisp', 'clean', 'bright'] },
   }, { aliases: ['sparkly', 'bright mix'] }),
@@ -1864,7 +1868,7 @@ const VOCAL_TAGS: StyleTag[] = [
     instruments: { add: [add('synth-lead', 'synth-lead', 0.6, 'hook')] }, macros: { syncopation: 0.15 }, production: { keywords: ['vocal chops', 'chopped vocals'] },
   }, { aliases: ['chopped vocals', 'vocal samples'] }),
   vox('call-and-response', 'Call and response', 'Lead lines answered by a group or instrument', {
-    instruments: { add: [add('backing-vocal', 'vocal', 0.8, 'harmony')] }, macros: { repetition: -0.1, syncopation: 0.1 }, production: { keywords: ['call and response'] },
+    instruments: { add: [add('backing-vocal', 'vocal', 0.8, 'harmony')] }, macros: { repetition: -0.2, syncopation: 0.15, melodicMovement: 0.1 }, production: { keywords: ['call and response'] },
   }, { aliases: ['call-and-response', 'call & response'] }),
   vox('duet', 'Duet', 'Two lead voices trading lines and harmonizing', {
     instruments: { add: [add('backing-vocal', 'vocal', 1, 'harmony', true)] }, macros: { melodicMovement: 0.05 }, production: { keywords: ['duet', 'two voices'] },
@@ -1953,7 +1957,7 @@ const REGION_TAGS: StyleTag[] = [
     instruments: { add: [add('trumpet', 'custom', 0.5, 'counter-melody'), add('accordion', 'keys', 0.4, 'counter-melody')] }, macros: { energy: 0.1 }, production: { keywords: ['mexico', 'mexican'] },
   }, { aliases: ['mexican'] }),
   place('colombia', 'Colombia', 'Cumbia, vallenato and champeta: accordion and tropical percussion', {
-    instruments: { add: [add('accordion', 'keys', 0.6, 'counter-melody'), add('percussion', 'percussion', 0.6, 'rhythm')] }, macros: { syncopation: 0.1 }, production: { keywords: ['colombia', 'colombian'] },
+    instruments: { add: [add('accordion', 'keys', 0.6, 'counter-melody'), add('percussion', 'percussion', 0.6, 'rhythm')] }, rhythm: { syncopation: 0.65 }, macros: { syncopation: 0.2 }, production: { keywords: ['colombia', 'colombian'] },
   }, { aliases: ['colombian', 'medellín', 'medellin'] }),
   place('argentina', 'Argentina', 'Tango bandoneon drama and rock nacional', {
     instruments: { add: [add('accordion', 'keys', 0.6, 'counter-melody'), add('violin', 'strings', 0.4, 'counter-melody')] }, modes: md('harmonic-minor:0.3'), macros: { dynamics: 0.15 }, production: { keywords: ['argentina', 'buenos aires'] },
@@ -2025,7 +2029,7 @@ const RHYTHM_TAGS: StyleTag[] = [
   groove('swing', 'Swing', 'Swung eighths and a lilt in every part', {
     rhythm: { swing: 0.55 }, macros: { syncopation: 0.1 }, production: { keywords: ['swing', 'swung'] },
   }, { aliases: ['swung', 'swing feel'] }),
-  groove('straight', 'Straight', 'Straight, even eighths: no swing', {
+  groove('straight', 'Straight feel', 'Straight, even eighths: no swing', {
     rhythm: { swing: 0 }, macros: { syncopation: -0.15 }, production: { keywords: ['straight eighths'] },
   }, { aliases: ['straight eighths', 'even eighths'] }),
   groove('odd-meter', 'Odd meter', 'Asymmetric time signatures (5/4, 7/8) keep the listener guessing', {
@@ -2061,14 +2065,14 @@ const RHYTHM_TAGS: StyleTag[] = [
   groove('laid-back', 'Behind the beat', 'Lazy, late-sitting groove: relaxed and human', {
     tempo: { shift: -4 }, rhythm: { swing: 0.2 }, macros: { humanization: 0.25, energy: -0.1 }, production: { keywords: ['behind the beat', 'laid back groove'] },
   }, { aliases: ['behind the beat', 'lazy groove'] }),
-  groove('driving', 'Driving', 'Relentless eighth-note momentum', {
+  groove('driving', 'Driving rhythm', 'Relentless eighth-note momentum', {
     rhythm: { bassStyle: 'eighths' }, macros: { energy: 0.15, syncopation: -0.1 }, production: { keywords: ['driving'] },
-  }, { aliases: ['propulsive'] }),
+  }, { aliases: ['propulsive', 'driving beat', 'driving groove', 'driving eighths'] }),
   groove('motorik', 'Motorik', 'Krautrock autobahn beat: steady, hypnotic, unchanging', {
     rhythm: { drumStyle: 'indie', bassStyle: 'eighths' }, macros: { repetition: -0.25 }, production: { keywords: ['motorik'] },
   }, { aliases: ['motorik beat', 'apache beat'] }),
   groove('triplet-flow', 'Triplet feel', 'Triplets in the hats and melody: rolling, Migos-style flow', {
-    rhythm: { subdivision: 12 }, macros: { syncopation: 0.1 }, production: { keywords: ['triplet flow', 'triplets'] },
+    rhythm: { subdivision: 12, swing: 0.33 }, macros: { syncopation: 0.1 }, production: { keywords: ['triplet flow', 'triplets'] },
   }, { aliases: ['triplets', 'triplet flow', 'migos flow'] }),
   groove('blast-beats', 'Blast beats', 'Extreme-metal 16th blasting at high tempo', {
     rhythm: { drumStyle: 'metal' }, tempo: { shift: 30 }, macros: { energy: 0.3, density: 0.2 }, energyShift: 8, production: { keywords: ['blast beats'] },

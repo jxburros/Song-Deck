@@ -1044,6 +1044,16 @@ export function generateDrums(c: Cell): RawNote[] {
     else if (h.vel >= 118) n.articulation = 'accent';
     return n;
   });
+  // Brushes: a swishing, softer snare, feathered kick, ride instead of crashes, no claps.
+  if (/brush/i.test(c.track.name) || c.g.genre.production.keywords.includes('brushes')) {
+    for (const n of notes) {
+      if (n.pitch === D.CLAP) n.pitch = d.snare;
+      if (n.pitch === D.CRASH || n.pitch === D.CRASH_2 || n.pitch === D.CHINA) n.pitch = D.RIDE;
+      const scale = n.pitch === d.snare || n.pitch === D.SIDE_STICK ? 0.7 : n.pitch === d.kick ? 0.75 : 0.8;
+      n.velocity = toVelocity(n.velocity * scale);
+      if (n.pitch === d.snare) n.duration = Math.max(n.duration, PPQ / 2);
+    }
+  }
   humanize(notes, c.macros.humanization, c.vrng.fork('humanize'), { start: c.span.startTick, end: c.span.endTick, maxTicks: 8, maxVelocity: 8 });
   return notes;
 }
