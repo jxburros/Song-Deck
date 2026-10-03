@@ -90,6 +90,28 @@ describe('attestation memory', () => {
   });
 });
 
+describe('online identification', () => {
+  it('sends nothing in offline mode', async () => {
+    const { useSettings } = await import('../src/state/settings');
+    const prev = useSettings.getState().routing;
+    useSettings.setState({ routing: { ...prev, offline: true } });
+    let fetched = false;
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      fetched = true;
+      throw new Error('should not fetch');
+    }) as typeof fetch;
+    try {
+      const r = await rights.checkFileOnline({ name: 'a.wav', bytes: new Uint8Array(8) });
+      expect(r).toEqual({ online: 'error', onlineError: 'Offline mode is on, so nothing was sent.' });
+      expect(fetched).toBe(false);
+    } finally {
+      globalThis.fetch = orig;
+      useSettings.setState({ routing: prev });
+    }
+  });
+});
+
 describe('data-flow rights reminder', () => {
   function project(): Project {
     let p = createProject('P', createEmptySong());

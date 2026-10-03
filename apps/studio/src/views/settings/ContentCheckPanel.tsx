@@ -59,7 +59,7 @@ export function ContentCheckPanel() {
         <div className="small muted">
           When on, Song Deck computes an audio fingerprint on this device and sends <strong>only the fingerprint and the duration</strong> — never the audio — to
           AcoustID (acoustid.org), which looks it up and returns MusicBrainz recording titles/artists. A match is shown as a warning in the attestation dialog; it never
-          blocks the upload.{offline ? ' Offline mode is on, so the lookup will fail until you go online.' : ''}
+          blocks the upload.{offline ? ' Offline mode is on, so no lookup is made until you turn it off.' : ''}
         </div>
         <div className="callout warning small">
           AcoustID’s API is free for <strong>non-commercial use only</strong> and needs your own application API key (register one at acoustid.org). If you use Song Deck

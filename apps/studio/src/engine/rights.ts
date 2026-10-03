@@ -223,7 +223,16 @@ function lookupViaServer(): boolean {
 }
 
 /** Look a fingerprint up at AcoustID: through the local server's vault key, or directly with a session key. */
+let lastLookupAt = 0;
+/** AcoustID allows 3 requests per second: keep lookups at least 350 ms apart. */
+async function throttleLookup(): Promise<void> {
+  const wait = lastLookupAt + 350 - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastLookupAt = Date.now();
+}
+
 export async function identifyFingerprint(fingerprint: string, durationSeconds: number, signal?: AbortSignal): Promise<ContentIdResult> {
+  await throttleLookup();
   if (lookupViaServer()) {
     const res = await fetch(`${serverBase()}/api/content-check/acoustid`, {
       method: 'POST',
@@ -240,6 +249,8 @@ export async function identifyFingerprint(fingerprint: string, durationSeconds: 
 
 /** Optional online identification of one file (fingerprint computed on this device). */
 export async function checkFileOnline(file: UploadFile, signal?: AbortSignal): Promise<Pick<CheckedFile, 'online' | 'onlineError' | 'match'>> {
+  // Offline mode (spec §51): nothing leaves the device, not even a fingerprint.
+  if (useSettings.getState().routing.offline) return { online: 'error', onlineError: 'Offline mode is on, so nothing was sent.' };
   try {
     const audio = file.audio ?? (await decodeAudioBytes(file.bytes));
     const fp = await jobs.call<{ fingerprint: string; durationSeconds: number }>('fingerprint', { audio }, { signal });
