@@ -480,18 +480,20 @@ function explainSpan(song: Song, layout: SectionSpan[], idx: number, withCompari
   if (rhythm) narrative.push(`Rhythm: ${rhythm.description}`);
 
   // 6) Comparisons.
+  // Each fact is stated once: a sentence promoted to the narrative is not repeated here.
   const comparisons: string[] = [];
   if (withComparisons) {
     const partners = contrastPartners(layout, idx);
     const myCenter = emphasisCenter(song, span);
+    const energy = `${sec.energy}${sec.energyEnd !== undefined ? `→${sec.energyEnd}` : ''}`;
     partners.forEach((p, i) => {
       const pName = p.section.name;
       const pe = p.section.energy;
       const de = sec.energy - pe;
       comparisons.push(
         Math.abs(de) < 5
-          ? `Energy ${sec.energy} is about the same as ${pName} (${pe}) — little dynamic contrast.`
-          : `Energy ${sec.energy} vs ${pe} in ${pName} (${de > 0 ? '+' : ''}${de}): ${de > 0 ? (de >= 25 ? 'a big lift' : 'a step up') : de <= -25 ? 'a big drop' : 'a step down'}.`,
+          ? `Energy ${energy} is about the same as ${pName} (${pe}) — little dynamic contrast.`
+          : `Energy ${energy} vs ${pe} in ${pName} (${de > 0 ? '+' : ''}${de}): ${de > 0 ? (de >= 25 ? 'a big lift' : 'a step up') : de <= -25 ? 'a big drop' : 'a step down'}.`,
       );
       const pm = melodyStats(song, p, keyAtBar(song, p.startBar));
       if (mel && pm) {
@@ -513,14 +515,11 @@ function explainSpan(song: Song, layout: SectionSpan[], idx: number, withCompari
         else if (sameSig && pc.spec.quality === 'maj' && myCenter.spec.quality === 'min')
           sentence = `The ${pk} leans on ${pc.name} while the ${kw} shifts its weight to ${myCenter.name}, darkening the mood without leaving the key.`;
         else sentence = `The ${pk} centres on ${pc.name} while the ${kw} centres on ${myCenter.name}, moving the harmonic centre of gravity.`;
-        comparisons.push(sentence);
+        // A lift or darkening is the headline of the section, so it reads in the narrative instead.
         if (sentence.includes('emotional lift') || sentence.includes('darkening')) narrative.push(sentence);
+        else comparisons.push(sentence);
       }
     });
-    if (layout[idx - 1]) {
-      const prevE = layout[idx - 1].section;
-      narrative.push(`Energy ${sec.energy}${sec.energyEnd !== undefined ? `→${sec.energyEnd}` : ''} (${sec.energy >= prevE.energy ? 'up' : 'down'} from ${prevE.energy} in ${prevE.name}).`);
-    }
   }
 
   return {
