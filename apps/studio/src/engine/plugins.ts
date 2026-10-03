@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as core from '@songdeck/core';
 import type { GenreProfile, InstrumentProfile, Song } from '@songdeck/core';
-import type { ProviderInstance } from '@songdeck/ai';
+import { createInternalProvider, type InternalProviderSpec, type PricingInfo, type ProviderInstance } from '@songdeck/ai';
 import type { SampleInstrument } from '@songdeck/audio';
 import { serverBase, useSettings } from '../state/settings';
 import { loadSfzInstrument } from './sfz-loader';
@@ -40,9 +40,23 @@ export interface Exporter {
   export(song: Song): Uint8Array | string | Promise<Uint8Array | string>;
 }
 
+/** A provider implemented by a plugin (spec §57: AI providers, music models, singing and transcription engines). */
+export interface PluginProviderSpec extends InternalProviderSpec {
+  /**
+   * Where the provider sends data: 'local' (this machine or network) or 'cloud' (a remote
+   * service — privacy confirmation, offline mode and budgets then apply, spec §50, §60).
+   */
+  location: 'local' | 'cloud';
+  pricing?: PricingInfo;
+}
+
 export interface SongDeckPluginApi {
   apiVersion: 1;
   core: typeof core;
+  ai: {
+    /** Build a provider instance to pass to `registerProvider`. */
+    createProvider(spec: PluginProviderSpec): ProviderInstance;
+  };
   registerGenre(profile: GenreProfile): void;
   registerInstrument(profile: InstrumentProfile): void;
   /**
@@ -117,6 +131,20 @@ export async function loadPlugin(manifest: PluginManifest): Promise<void> {
   const api: SongDeckPluginApi = {
     apiVersion: 1,
     core,
+    ai: {
+      createProvider({ location, pricing, ...spec }) {
+        const inst = createInternalProvider({ ...spec, id: spec.id ?? manifest.id, name: spec.name ?? manifest.name });
+        return {
+          ...inst,
+          descriptor: {
+            ...inst.descriptor,
+            location,
+            pricing: pricing ?? (location === 'cloud' ? undefined : inst.descriptor.pricing),
+            description: spec.description ?? `Provided by the ${manifest.name} plugin`,
+          },
+        };
+      },
+    },
     registerGenre(profile) {
       useExtensions.setState((s) => ({ genres: [...s.genres.filter((g) => g.id !== profile.id), { ...profile, builtIn: false }] }));
       contributions.push(`genre ${profile.name}`);

@@ -35,7 +35,7 @@ npm run e2e            # Playwright end-to-end tests (Chromium)
 | `packages/ai` | AI Orchestrator: capability taxonomy, provider registry & capability router, profiles, routing rules, privacy data-flow, cost & budgets, MusicContext, structured output, adapters (OpenAI-compatible, Anthropic, Gemini, Ollama, custom HTTP, ElevenLabs Music, Stable Audio, Lyria, local model bridges) |
 | `apps/studio` | The workstation UI (React + Vite) |
 | `apps/server` | Local runtime server (Node) |
-| `plugins/` | Example plugins (genre profile, exporter) |
+| `plugins/` | Example plugins: a genre profile, an exporter (ABC notation) and an SFZ sampled instrument |
 | `bridges/` | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC) |
 
 ## License
