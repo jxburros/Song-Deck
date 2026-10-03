@@ -17,6 +17,7 @@ export { generateAsset, type GenerateAssetOptions } from './asset';
 export {
   blueprintFromChoices,
   applyBuilderConstraints,
+  describeChoices,
   normalizeGenreWeights,
   resolveTagIds,
   builderTagIds,

@@ -5,6 +5,7 @@ import {
   blueprintFromChoices,
   builderGenre,
   composeSong,
+  describeChoices,
   getGenre,
   getTag,
   listTags,
@@ -289,5 +290,27 @@ describe('applyBuilderConstraints', () => {
       expect(bp.structure.length, g.id).toBeGreaterThan(0);
       expect(bp.tempo, g.id).toBeGreaterThanOrEqual(30);
     }
+  });
+});
+
+describe('describeChoices', () => {
+  it('lists only what the user fixed, in plain language', () => {
+    expect(describeChoices({})).toEqual([]);
+    const lines = describeChoices({
+      instruments: [{ instrumentId: 'acoustic-guitar', count: 2 }],
+      genres: [{ genreId: 'folk', weight: 3 }, { genreId: 'country', weight: 1 }],
+      moods: [{ tagId: MOOD.id, section: 'chorus' }],
+      tempo: 'slow',
+      key: { tonic: 4, mode: 'minor' },
+      vocal: 'none',
+    });
+    expect(lines).toEqual([
+      'Instruments, exactly these tracks and counts: Acoustic Guitar (acoustic-guitar) × 2',
+      'Genre blend: folk 75%, country 25%',
+      `Moods: ${MOOD.id} (chorus only)`,
+      'Tempo feel: slow',
+      'Key: E minor',
+      'Vocal: none (instrumental)',
+    ]);
   });
 });

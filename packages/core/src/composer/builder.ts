@@ -356,6 +356,43 @@ function applyMoods(structure: BlueprintSection[], choices: BuilderChoices): Blu
   });
 }
 
+const PC_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+/**
+ * The choices the user fixed, as plain-language lines (for a language model's prompt and for
+ * summaries). Open choices are not listed.
+ */
+export function describeChoices(choices: BuilderChoices, opts: Omit<BuilderOptions, 'seed'> = {}): string[] {
+  const out: string[] = [];
+  const inst = (choices.instruments ?? [])
+    .map((i) => {
+      const p = findInstrumentProfile(i.instrumentId, opts.customInstruments);
+      if (!p || !(i.count > 0)) return '';
+      const extra = [i.role ? `role ${i.role}` : '', i.function ? `plays ${i.function}` : ''].filter(Boolean).join(', ');
+      return `${p.name} (${p.id}) × ${Math.round(i.count)}${extra ? ` [${extra}]` : ''}`;
+    })
+    .filter(Boolean);
+  if (inst.length) out.push(`Instruments, exactly these tracks and counts: ${inst.join('; ')}`);
+  const blend = normalizeGenreWeights(choices.genres, opts.customGenres);
+  if (blend.length) out.push(`Genre blend: ${blend.map((g) => `${g.genreId} ${Math.round(g.weight * 100)}%`).join(', ')}`);
+  const moods = moodTags(choices);
+  if (moods.length) out.push(`Moods: ${moods.map((m) => (m.section ? `${m.tag.id} (${m.section} only)` : m.tag.id)).join(', ')}`);
+  const tags = resolveTagIds(choices.tags);
+  if (tags.length) out.push(`Tags: ${tags.join(', ')}`);
+  if (typeof choices.tempo === 'number') out.push(`Tempo: ${Math.round(choices.tempo)} BPM`);
+  else if (choices.tempo) out.push(`Tempo feel: ${choices.tempo}`);
+  if (choices.key?.tonic !== undefined || choices.key?.mode) out.push(`Key: ${choices.key.tonic !== undefined ? PC_NAMES[choices.key.tonic] ?? '' : 'any tonic'} ${choices.key.mode ?? ''}`.trim());
+  if (choices.meter) out.push(`Meter: ${choices.meter.numerator}/${choices.meter.denominator}`);
+  if (choices.length && choices.length !== 'standard') out.push(`Length: ${typeof choices.length === 'string' ? choices.length : `${choices.length.minutes} minutes`}`);
+  if (choices.structure) out.push(`Structure template: ${choices.structure}`);
+  if (choices.vocal === 'none') out.push('Vocal: none (instrumental)');
+  else if (choices.vocal) out.push(`Vocal: ${choices.vocal.voiceType}, ${choices.vocal.mode}`);
+  if (choices.title?.trim()) out.push(`Title: ${choices.title.trim()}`);
+  if (choices.lyricsTheme?.trim()) out.push(`Lyrics theme: ${choices.lyricsTheme.trim()}`);
+  if (choices.lyrics?.sections.length) out.push(`Structure follows the user's lyrics: ${choices.lyrics.sections.map((s) => s.name).join(', ')}`);
+  return out;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Builder → Blueprint
 // ---------------------------------------------------------------------------------------------
