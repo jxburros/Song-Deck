@@ -1,5 +1,5 @@
-import { useState, type KeyboardEvent } from 'react';
-import { LockKeys, type MixerState, type Song, type Track } from '@songdeck/core';
+import { memo, useState, type KeyboardEvent } from 'react';
+import { LockKeys, type ChannelStrip, type MixerState, type Song, type Track } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { LockButton } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
@@ -7,7 +7,7 @@ import { Fader, Knob } from './controls';
 import { EqThumb } from './EqEditor';
 import { MASTER_METER, MeterBar } from './meters';
 import { applyMixer, commitMixer, commitMixerSoon, previewMixer } from './mixDraft';
-import { FIELD_META, MASTER, fmtDb, fmtPan, fmtPct, isStripLocked, setStripField, stripOf } from './mixModel';
+import { FIELD_META, MASTER, fmtDb, fmtPan, fmtPct, isStripLocked, setStripField } from './mixModel';
 
 /**
  * Channel strips (spec §40): every track — MIDI or audio/stem — exposes volume, pan, mute,
@@ -19,7 +19,7 @@ export type InspectTab = 'eq' | 'dynamics' | 'character';
 
 const FADER_H = 172;
 /** The master strip has one knob row instead of two plus the pan row: its fader takes that height. */
-const MASTER_FADER_H = FADER_H + 86;
+const MASTER_FADER_H = FADER_H + 91;
 
 /** Editable dB value under a fader (accepts "-6", "−6.5", "-inf"). */
 function DbInput({ value, onCommitValue, disabled, label }: { value: number; onCommitValue: (db: number) => void; disabled?: boolean; label: string }) {
@@ -56,23 +56,26 @@ function DbInput({ value, onCommitValue, disabled, label }: { value: number; onC
   );
 }
 
-export function ChannelStripView({
-  song,
-  mixer,
-  track,
-  selected,
-  onSelect,
-  onOpen,
-}: {
-  song: Song;
-  mixer: MixerState;
+interface ChannelStripProps {
   track: Track;
+  /** The strip's own settings (defaults when the mixer has none yet). */
+  strip: ChannelStrip;
+  locked: boolean;
   selected: boolean;
   onSelect: () => void;
   onOpen: (tab: InspectTab) => void;
-}) {
-  const ch = stripOf(mixer, track.id);
-  const locked = isStripLocked(song, track.id);
+}
+
+/**
+ * One channel strip. Memoized on its own data, so dragging one fader re-renders only that strip
+ * (callbacks are stable in meaning: they always target `track.id`).
+ */
+export const ChannelStripView = memo(
+  ChannelStripImpl,
+  (a, b) => a.strip === b.strip && a.track === b.track && a.locked === b.locked && a.selected === b.selected,
+);
+
+function ChannelStripImpl({ track, strip: ch, locked, selected, onSelect, onOpen }: ChannelStripProps) {
   const id = track.id;
   const name = track.name;
   const set = (path: string, v: unknown) => previewMixer((m) => setStripField(m, id, path, v));

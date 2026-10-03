@@ -30,12 +30,12 @@ function fmtCompact(v: number): string {
   return `${v < 0 ? '−' : ''}${t}`;
 }
 
-const METHODS: { value: MasteringSettings['method']; hint: string }[] = [
-  { value: 'builtin', hint: 'EQ, glue compression, width, true-peak limiting, loudness targeting — on this device' },
-  { value: 'local-ai', hint: 'A local mastering model (e.g. a mastering bridge on this machine)' },
-  { value: 'cloud', hint: 'A cloud mastering service — the mix leaves this device' },
-  { value: 'external', hint: 'Any configured mastering provider or plugin' },
-  { value: 'none', hint: 'Export the unmastered mix as-is' },
+const METHODS: { value: MasteringSettings['method']; short: string; hint: string }[] = [
+  { value: 'builtin', short: 'Built-in DSP', hint: 'EQ, glue compression, width, true-peak limiting, loudness targeting — on this device' },
+  { value: 'local-ai', short: 'Local AI', hint: 'A local mastering model (e.g. a mastering bridge on this machine)' },
+  { value: 'cloud', short: 'Cloud', hint: 'A cloud mastering service — the mix leaves this device' },
+  { value: 'external', short: 'External', hint: 'Any configured mastering provider or plugin' },
+  { value: 'none', short: 'None', hint: 'User export: deliver the unmastered mix as-is' },
 ];
 
 function TaskLine({ id, onDone }: { id: string | null; onDone?: () => void }) {
@@ -168,9 +168,7 @@ function ABSection({ song, mixReport, masterReport }: { song: Song; mixReport?: 
     if (cache.mix && cache.mix.projectId === project?.meta.id) abPlayer.load('A', cache.mix.audio, `mix:${cache.mix.hash}`);
     else abPlayer.load('A', null, null);
   }, [cache.mix, project?.meta.id]);
-  useEffect(() => {
-    if (cache.master && cache.master.projectId === project?.meta.id && cache.master.assetId === master?.meta.id) abPlayer.load('B', cache.master.audio, cache.master.assetId);
-  }, [cache.master, master?.meta.id, project?.meta.id]);
+
   useEffect(() => {
     const db = mixReport && masterReport ? mixReport.integratedLufs - masterReport.integratedLufs : 0;
     if (abPlayer.matching) abPlayer.setMatching(true, db);
@@ -187,16 +185,30 @@ function ABSection({ song, mixReport, masterReport }: { song: Song; mixReport?: 
       setLoading(false);
     }
   };
+  // B = the song's current master: from memory when this session produced it, else decoded from the asset.
   useEffect(() => {
-    if (master && abPlayer.loadedId('B') !== master.meta.id && !(cache.master?.assetId === master.meta.id)) void loadMaster();
+    if (!master) {
+      abPlayer.load('B', null, null);
+      return;
+    }
+    if (cache.master && cache.master.projectId === project?.meta.id && cache.master.assetId === master.meta.id) abPlayer.load('B', cache.master.audio, master.meta.id);
+    else if (abPlayer.loadedId('B') !== master.meta.id) void loadMaster();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [master?.meta.id]);
+  }, [cache.master, master?.meta.id, project?.meta.id]);
 
   const prepare = () => {
     if (!project) return;
     const t = startTask('mix.analyze', 'Render mix for A/B', { projectId: project.meta.id });
     setPrepTask(t.id);
   };
+
+  const hasA = abPlayer.has('A');
+  const hasB = abPlayer.has('B');
+  // Never leave the selection on a side that has no audio.
+  useEffect(() => {
+    if (abPlayer.side === 'B' && !hasB && hasA) abPlayer.setSide('A');
+    else if (abPlayer.side === 'A' && !hasA && hasB) abPlayer.setSide('B');
+  }, [hasA, hasB]);
 
   const dur = abPlayer.duration();
   const side = abPlayer.side;
@@ -367,10 +379,11 @@ export function MasteringPanel({ song }: { song: Song }) {
                     role="radio"
                     aria-checked={m.method === x.value}
                     className={`mx-seg-btn ${m.method === x.value ? 'on' : ''}`}
-                    title={x.hint}
+                    title={`${METHOD_LABELS[x.value]} — ${x.hint}`}
+                    aria-label={METHOD_LABELS[x.value]}
                     onClick={() => m.method !== x.value && setMastering({ method: x.value }, `Mastering method: ${METHOD_LABELS[x.value]}`)}
                   >
-                    {METHOD_LABELS[x.value]}
+                    {x.short}
                   </button>
                 ))}
               </div>
@@ -416,7 +429,7 @@ export function MasteringPanel({ song }: { song: Song }) {
                   >
                     <span className="mx-target-name">{t.label}</span>
                     <span className="mx-target-nums mono">
-                      {fmtCompact(t.lufs)} LUFS · {fmtCompact(t.truePeakDb)} dBTP
+                      <span>{fmtCompact(t.lufs)} LUFS</span> · <span>{fmtCompact(t.truePeakDb)} dBTP</span>
                     </span>
                     <span className="mx-target-desc">{t.description}</span>
                   </button>

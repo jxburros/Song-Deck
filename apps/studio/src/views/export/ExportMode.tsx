@@ -32,7 +32,9 @@ import './export.css';
  */
 
 type SampleRate = 44100 | 48000;
-const KBPS = [128, 160, 192, 224, 256, 320] as const;
+/** MP3 bitrates offered (and storable as the default in settings). */
+const MP3_KBPS = [128, 192, 256, 320] as const;
+const AAC_KBPS = [128, 160, 192, 224, 256, 320] as const;
 
 interface Settings {
   sampleRate: SampleRate;
@@ -154,14 +156,15 @@ export default function ExportMode() {
   if (!song.tracks.length && !song.sections.length) {
     return (
       <EmptyState icon="export" title="Nothing to export yet">
-        Compose or import a song first. You can always export the project package from the project menu.
+        Compose, import or rebuild a song first — then every format (project, MIDI, audio, stems, sheets, DAW sessions) is one click away.
       </EmptyState>
     );
   }
 
   const set = (patch: Partial<Settings>) => setSettings((s) => ({ ...s, ...patch }));
   const saveDefaults = () => {
-    useSettings.getState().update({ exportPrefs: { sampleRate: settings.sampleRate, bitDepth: settings.wavBits === 16 ? 16 : 24, mp3Kbps: (KBPS.includes(settings.mp3Kbps as (typeof KBPS)[number]) ? settings.mp3Kbps : 256) as 128 | 192 | 256 | 320 } });
+    const mp3Kbps = (MP3_KBPS as readonly number[]).includes(settings.mp3Kbps) ? (settings.mp3Kbps as (typeof MP3_KBPS)[number]) : 256;
+    useSettings.getState().update({ exportPrefs: { sampleRate: settings.sampleRate, bitDepth: settings.wavBits === 16 ? 16 : 24, mp3Kbps } });
     st.toast('success', 'Saved as default export settings');
   };
   const differsFromPrefs = settings.sampleRate !== prefs.sampleRate || (settings.wavBits !== 32 && settings.wavBits !== prefs.bitDepth) || settings.mp3Kbps !== prefs.mp3Kbps;
@@ -268,11 +271,11 @@ export default function ExportMode() {
           </label>
           <label className="ex-setting">
             <span className="field-label">MP3</span>
-            <Select size="sm" value={String(settings.mp3Kbps)} onChange={(v) => set({ mp3Kbps: Number(v) })} options={KBPS.map((k) => ({ value: String(k), label: `${k} kbps` }))} aria-label="MP3 bitrate" />
+            <Select size="sm" value={String(settings.mp3Kbps)} onChange={(v) => set({ mp3Kbps: Number(v) })} options={MP3_KBPS.map((k) => ({ value: String(k), label: `${k} kbps` }))} aria-label="MP3 bitrate" />
           </label>
           <label className="ex-setting">
             <span className="field-label">AAC</span>
-            <Select size="sm" value={String(settings.aacKbps)} onChange={(v) => set({ aacKbps: Number(v) })} options={KBPS.map((k) => ({ value: String(k), label: `${k} kbps` }))} aria-label="AAC bitrate" />
+            <Select size="sm" value={String(settings.aacKbps)} onChange={(v) => set({ aacKbps: Number(v) })} options={AAC_KBPS.map((k) => ({ value: String(k), label: `${k} kbps` }))} aria-label="AAC bitrate" />
           </label>
           <div className="spacer" />
           <span className="small dim" title="Solo is a monitoring control; mutes are part of the mix">

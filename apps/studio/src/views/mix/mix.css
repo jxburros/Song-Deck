@@ -891,6 +891,9 @@
   font-size: 11px;
   color: var(--accent);
 }
+.mx-target-nums > span {
+  white-space: nowrap;
+}
 .mx-target-desc {
   font-size: 11px;
   color: var(--text-dim);
@@ -1015,4 +1018,15 @@
     border-left: none;
     border-top: 1px solid var(--border);
   }
+}
+
+/* Light theme adjustments for elements drawn with fixed translucency. */
+:root[data-theme='light'] .mx-meter-rms {
+  background: rgba(0, 0, 0, 0.16);
+}
+:root[data-theme='light'] .mx-meter-zero {
+  background: rgba(0, 0, 0, 0.3);
+}
+:root[data-theme='light'] .mx-diff-row {
+  border-bottom-color: rgba(0, 0, 0, 0.05);
 }

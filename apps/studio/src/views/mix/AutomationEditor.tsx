@@ -181,7 +181,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
   const drag = useRef<{ index: number; points: AutomationPoint[]; moved: boolean; created: boolean } | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const meta = AUTOMATION_META[lane.param];
-  const staticValue = staticAutomationValue(song, song.mixer, lane.target, lane.param);
+  const staticValue = staticAutomationValue(song.mixer, lane.target, lane.param);
   const PAD = 7;
   const plotH = LANE_H - PAD * 2;
   const xOf = (t: number) => (t / end) * width;
@@ -608,7 +608,9 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
                     </div>
                     <div className="row between small">
                       <span className="muted">{meta.label}</span>
-                      <Badge>{lane.points.length} pts</Badge>
+                      <Badge>
+                        {lane.points.length} {lane.points.length === 1 ? 'point' : 'points'}
+                      </Badge>
                     </div>
                     <div className="row between small">
                       <Toggle

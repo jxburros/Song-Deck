@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Song } from '@songdeck/core';
+import { defaultChannelStrip, type Song } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { assetStore } from '../../state/assets';
 import { player } from '../../engine/player';
@@ -13,7 +13,7 @@ import { MasteringPanel } from './MasteringPanel';
 import { MixAssistant } from './MixAssistant';
 import { ChannelStripView, MasterStripView, type InspectTab } from './Strips';
 import { cancelMixerDraft, useMixer } from './mixDraft';
-import { MASTER } from './mixModel';
+import { MASTER, isStripLocked } from './mixModel';
 import './mix.css';
 
 /**
@@ -24,6 +24,9 @@ import './mix.css';
 type Tab = 'console' | 'automation' | 'mastering';
 
 let lastTab: Tab = 'console';
+
+/** Shared default strip object (stable identity keeps memoized strips from re-rendering). */
+const DEFAULT_STRIP = defaultChannelStrip();
 
 /** Make every audio-track clip (stems, recordings, produced audio) available to playback. */
 function useProvideAssets(song: Song | null) {
@@ -73,7 +76,14 @@ function Console({ song }: { song: Song }) {
         <div className="mx-strips" role="list" aria-label="Channel strips">
           {song.tracks.map((t) => (
             <div role="listitem" key={t.id} style={{ display: 'contents' }}>
-              <ChannelStripView song={song} mixer={mixer} track={t} selected={target === t.id} onSelect={() => select(t.id)} onOpen={(tab) => open(t.id, tab)} />
+              <ChannelStripView
+                track={t}
+                strip={mixer.channels[t.id] ?? DEFAULT_STRIP}
+                locked={isStripLocked(song, t.id)}
+                selected={target === t.id}
+                onSelect={() => select(t.id)}
+                onOpen={(tab) => open(t.id, tab)}
+              />
             </div>
           ))}
         </div>

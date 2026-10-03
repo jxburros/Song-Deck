@@ -428,7 +428,7 @@ export function roundAutomation(param: AutomationParam, v: number): number {
 }
 
 /** Static value of a parameter for a lane target (used before the first point / when disabled). */
-export function staticAutomationValue(song: Song, mixer: MixerState, target: string, param: AutomationParam): number {
+export function staticAutomationValue(mixer: MixerState, target: string, param: AutomationParam): number {
   const strip = target === MASTER ? mixer.master : channelFor({ mixer }, target);
   return AUTOMATION_META[param].from(strip);
 }

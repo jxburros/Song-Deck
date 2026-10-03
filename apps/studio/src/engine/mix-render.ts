@@ -221,8 +221,21 @@ function fnv1a(s: string): string {
   return (h >>> 0).toString(16).padStart(8, '0');
 }
 
-/** Hash of everything that changes the rendered mix: notes, clips, mixer, automation, tempo, meter, form. */
+const hashCache = new WeakMap<Song, string>();
+
+/**
+ * Hash of everything that changes the rendered mix: notes, clips, mixer, automation, tempo, meter,
+ * form. Songs are immutable snapshots, so the result is cached per song object.
+ */
 export function mixHash(song: Song): string {
+  const cached = hashCache.get(song);
+  if (cached) return cached;
+  const h = computeMixHash(song);
+  hashCache.set(song, h);
+  return h;
+}
+
+function computeMixHash(song: Song): string {
   const s = renderableSong(song);
   return fnv1a(
     stableStringify({

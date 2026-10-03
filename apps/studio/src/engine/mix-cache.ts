@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { AudioData, LoudnessReport } from '@songdeck/audio';
+import { useStudio } from '../state/store';
 
 /**
  * In-memory audio kept for A/B listening in Mix & Master (spec §42): the latest unmastered mix
@@ -41,3 +42,8 @@ export function cacheMaster(entry: CachedMaster): void {
 export function clearMixCache(): void {
   useMixCache.setState({ mix: null, master: null });
 }
+
+// Free the (large) buffers as soon as another project is opened or the project is closed.
+useStudio.subscribe((s, prev) => {
+  if (s.project?.meta.id !== prev.project?.meta.id) clearMixCache();
+});
