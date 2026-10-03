@@ -288,7 +288,8 @@ export class ProviderRegistry {
       // Voices are not models; listing them checks reachability and feeds voice pickers.
       if (inst.singing) e.voices = await inst.singing.listVoices(opts.signal);
       else if (inst.voiceConversion?.listVoices) e.voices = await inst.voiceConversion.listVoices(opts.signal);
-      const models = [...byId.values()];
+      const chosen = e.config?.enabledModels?.length ? new Set(e.config.enabledModels) : undefined;
+      const models = [...byId.values()].filter((m) => !chosen || chosen.has(m.id));
       e.models = models;
       e.modelsUpdatedAt = this.now();
       if (e.status !== 'unconfigured') {

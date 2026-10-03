@@ -8,16 +8,37 @@
  *      generationConfig: { responseMimeType: 'application/json', responseSchema, maxOutputTokens, temperature? } }`
  *   → `candidates[0].content.parts[].text`.
  * Audio parts (AUDIO_UNDERSTANDING) are sent inline (base64 WAV).
+ *
+ * Lyria music models listed by the same API key (e.g. `lyria-3-clip-preview`) are reported as
+ * music models (TEXT_TO_MUSIC). When a config chooses one (`enabledModels`), the instance also gets
+ * an `audioGeneration` interface that calls `POST /models/{lyria}:generateContent` with the text
+ * prompt and reads the first `inlineData` audio part of the answer. That response shape follows
+ * Google's published REST example but could not be verified against the docs from this
+ * environment, so parsing is deliberately tolerant (camelCase and snake_case, any audio/* part).
+ * Real-time Lyria (`lyria-realtime-*`, WebSocket only) is not supported. Lyria on Vertex AI (OAuth)
+ * stays a separate provider (`google-lyria`).
  */
-import { type Capability, LLM_BASE_CAPABILITIES } from '../capabilities';
+import { type Capability, LLM_BASE_CAPABILITIES, unionCapabilities } from '../capabilities';
 import type { ProviderConfig, StructuredOutputMode } from '../config';
 import { ProviderError } from '../errors';
 import { inferQualityTier } from '../model-heuristics';
 import { compileSchema, schemaInstructions } from '../schemas/dialects';
 import type { HttpClient } from '../transport/http';
-import type { ChatMessage, LLMProvider, LLMRequest, LLMResponse, ModelInfo, ProviderInstance } from '../types';
+import type {
+  AudioGenerationProvider,
+  AudioGenerationResult,
+  AudioTransformRequest,
+  ChatMessage,
+  LLMProvider,
+  LLMRequest,
+  LLMResponse,
+  ModelInfo,
+  MusicGenerationRequest,
+  ProviderInstance,
+} from '../types';
 import { bytesToBase64, joinUrl, withQuery } from '../util';
 import {
+  audioFromBase64,
   buildDescriptor,
   costFor,
   createHttpClient,
@@ -25,6 +46,7 @@ import {
   isStructuredOutputRejection,
   jsonFromText,
   mergeManualModels,
+  notSupported,
   STRUCTURED_DOWNGRADE,
   structuredMode,
   truncatedError,
@@ -49,9 +71,28 @@ interface GeminiResponse {
 const NON_TEXT_MODELS = /(embedding|aqa|imagen|veo|tts|image-generation|image-preview|-image|live|native-audio|lyria|learnlm)/i;
 const REFUSAL_REASONS = new Set(['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'IMAGE_SAFETY', 'LANGUAGE']);
 
+const LYRIA = /lyria/i;
+const LYRIA_REALTIME = /lyria.*realtime|realtime.*lyria/i;
+
+export function isGeminiMusicModel(id: string): boolean {
+  return LYRIA.test(id) && !LYRIA_REALTIME.test(id);
+}
+
+/** Capabilities of a Lyria model served by the Gemini API (Lyria 3 also sings). */
+export function geminiMusicCapabilities(id: string): Capability[] {
+  return /lyria-3/i.test(id) ? ['TEXT_TO_MUSIC', 'VOCAL_GENERATION', 'INSTRUMENTAL_ONLY'] : ['TEXT_TO_MUSIC', 'INSTRUMENTAL_ONLY'];
+}
+
 export function geminiModelInfo(m: GeminiModel): ModelInfo | undefined {
   const id = m.name.replace(/^models\//, '');
   if (!(m.supportedGenerationMethods ?? ['generateContent']).includes('generateContent')) return undefined;
+  if (LYRIA.test(id)) {
+    if (!isGeminiMusicModel(id)) return undefined;
+    const music: ModelInfo = { id, capabilities: geminiMusicCapabilities(id), qualityTier: 4, capabilitiesInferred: true, meta: { music: true } };
+    if (m.displayName) music.name = m.displayName;
+    if (m.description) music.description = m.description;
+    return music;
+  }
   if (NON_TEXT_MODELS.test(id)) return undefined;
   const gemma = /gemma/i.test(id);
   const caps: Capability[] = [...LLM_BASE_CAPABILITIES];
@@ -103,7 +144,7 @@ export class GeminiLLM implements LLMProvider {
   private async resolveModel(req: LLMRequest): Promise<string> {
     const explicit = req.model ?? this.config.defaultModel ?? this.config.models?.[0]?.id;
     if (explicit) return explicit;
-    const models = this.modelsCache ?? (await this.listModels(req.signal).catch(() => []));
+    const models = (this.modelsCache ?? (await this.listModels(req.signal).catch(() => []))).filter((m) => !isGeminiMusicModel(m.id));
     const pick = [...models].sort((a, b) => (b.qualityTier ?? 0) - (a.qualityTier ?? 0) || a.id.localeCompare(b.id))[0];
     if (!pick) throw new ProviderError('bad-request', 'No Gemini model configured', { providerId: this.config.id });
     return pick.id;
@@ -184,11 +225,69 @@ export class GeminiLLM implements LLMProvider {
   }
 }
 
+interface GeminiAudioPart {
+  text?: string;
+  inlineData?: { mimeType?: string; data?: string };
+  inline_data?: { mime_type?: string; data?: string };
+}
+
+/** Lyria music generation through the Gemini API key (see the header comment). */
+export class GeminiMusic implements AudioGenerationProvider {
+  constructor(
+    readonly config: ProviderConfig,
+    private readonly http: HttpClient,
+    /** Lyria models chosen for this provider (first = default). */
+    readonly musicModels: string[],
+  ) {}
+
+  async discoverModels(): Promise<ModelInfo[]> {
+    // The LLM listing already reports Lyria models; nothing extra to fetch.
+    return [];
+  }
+
+  async getCapabilities(modelId?: string): Promise<Capability[]> {
+    return geminiMusicCapabilities(modelId && isGeminiMusicModel(modelId) ? modelId : this.musicModels[0]);
+  }
+
+  async generateMusic(req: MusicGenerationRequest): Promise<AudioGenerationResult> {
+    // The router may hand over the provider's default (text) model: use a chosen Lyria model then.
+    const model = req.model && isGeminiMusicModel(req.model) ? req.model : this.musicModels[0];
+    const extras = [req.bpm ? `${Math.round(req.bpm)} BPM` : '', req.key ?? '', req.meter ? `${req.meter} time` : '', req.instrumental ? 'instrumental, no vocals' : ''].filter(Boolean);
+    let prompt = [req.prompt, extras.join(', ')].filter(Boolean).join('. ');
+    if (req.negativePrompt) prompt += `. Avoid: ${req.negativePrompt}`;
+    if (req.lyrics && !req.instrumental) prompt += `\n\nLyrics:\n${req.lyrics}`;
+    const url = joinUrl(this.config.baseUrl.replace(/\/+$/, ''), `models/${encodeURIComponent(model)}:generateContent`);
+    const json = await this.http.json<{ candidates?: { content?: { parts?: GeminiAudioPart[] } }[] }>({ url, json: { contents: [{ role: 'user', parts: [{ text: prompt }] }] }, signal: req.signal, retry: false });
+    const parts = (json?.candidates ?? []).flatMap((c) => c.content?.parts ?? []);
+    const clips = parts
+      .map((p) => (p.inlineData ? { mime: p.inlineData.mimeType, data: p.inlineData.data } : p.inline_data ? { mime: p.inline_data.mime_type, data: p.inline_data.data } : undefined))
+      .filter((p): p is { mime: string; data: string } => !!p?.data && /^audio\//i.test(p.mime ?? 'audio/'))
+      .map((p) => audioFromBase64(p.data, p.mime || 'audio/mpeg'));
+    if (!clips.length) throw new ProviderError('parse', 'Lyria returned no audio', { providerId: this.config.id, details: json });
+    const res: AudioGenerationResult = { audio: clips[0], model };
+    if (clips.length > 1) res.alternatives = clips.slice(1);
+    return res;
+  }
+
+  async transformAudio(_req: AudioTransformRequest): Promise<AudioGenerationResult> {
+    throw notSupported(this.config.id, 'Audio-to-audio');
+  }
+}
+
+/** Lyria models a Gemini config uses: chosen in `enabledModels` or entered as manual models. */
+export function geminiMusicModelsOf(config: ProviderConfig): string[] {
+  const ids = [...(config.enabledModels ?? []), ...(config.models ?? []).map((m) => m.id)];
+  return [...new Set(ids.filter(isGeminiMusicModel))];
+}
+
 export function createGeminiProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
   const http = createHttpClient(config, deps);
-  return {
-    descriptor: buildDescriptor(config, [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON', 'AUDIO_INPUT', 'AUDIO_UNDERSTANDING', 'LONG_CONTEXT']),
-    config,
-    llm: new GeminiLLM(config, http),
-  };
+  const music = geminiMusicModelsOf(config);
+  const caps: Capability[] = [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON', 'AUDIO_INPUT', 'AUDIO_UNDERSTANDING', 'LONG_CONTEXT'];
+  const instance: ProviderInstance = { descriptor: buildDescriptor(config, caps), config, llm: new GeminiLLM(config, http) };
+  if (music.length) {
+    instance.audioGeneration = new GeminiMusic(config, http, music);
+    if (!config.capabilities?.length) instance.descriptor.capabilities = unionCapabilities(instance.descriptor.capabilities, ...music.map(geminiMusicCapabilities));
+  }
+  return instance;
 }
