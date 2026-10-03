@@ -144,6 +144,13 @@ export async function kvSet<T>(key: string, value: T): Promise<void> {
   });
 }
 
+export async function kvDelete(key: string): Promise<void> {
+  if (!hasIndexedDb()) return;
+  await tx(['kv'], 'readwrite', (t) => {
+    t.objectStore('kv').delete(key);
+  });
+}
+
 /** Small synchronous settings cache in localStorage (UI prefs only, never secrets). */
 export function localGet<T>(key: string, fallback: T): T {
   try {

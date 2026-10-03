@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { TaskQueue, type TaskRecord } from '@songdeck/core';
-import { kvGet, kvSet } from '../state/persistence';
+import { TaskQueue, type TaskRecord, type TaskStatus } from '@songdeck/core';
+import { kvDelete, kvGet, kvSet } from '../state/persistence';
 import { serverBase } from '../state/settings';
 
 /**
@@ -26,23 +26,80 @@ export const useRuntime = create<RuntimeState>(() => ({
   tasks: [],
 }));
 
+/*
+ * Task persistence (spec §63 "resumable"). The task list is saved small: audio and songs are
+ * stripped from inputs and results. A task that can still run (queued, running, paused, or
+ * failed and retryable) has its full input stored once under its own key and restored on load,
+ * so work interrupted by a reload resumes with the original audio. Stored inputs are deleted
+ * once the task succeeds, is cancelled or is removed.
+ */
+const INPUT_KEY = 'task-input:';
+const INPUT_REF = '__storedInput';
+const RESUMABLE: ReadonlySet<TaskStatus> = new Set(['queued', 'running', 'paused', 'failed']);
+const storedInputs = new Set<string>();
+
 export const taskQueue = new TaskQueue({
   concurrency: 2,
   // Handlers live in code-split modules; a task enqueued before they load waits for them.
   awaitHandlers: true,
   persistence: {
     async load() {
-      return (await kvGet<TaskRecord[]>('tasks')) ?? [];
+      const tasks = (await kvGet<TaskRecord[]>('tasks')) ?? [];
+      for (const t of tasks) {
+        const saved = t.input as Record<string, unknown> | null;
+        const ref = saved?.[INPUT_REF];
+        if (typeof ref !== 'string') continue;
+        const full = await kvGet<unknown>(INPUT_KEY + ref);
+        if (full === undefined) {
+          t.input = saved?.summary; // handlers see a stripped input and explain what to redo
+          continue;
+        }
+        t.input = full;
+        storedInputs.add(t.id);
+      }
+      return tasks;
     },
     async save(tasks) {
-      // Persist only metadata + checkpoints (inputs may hold large audio; strip typed arrays).
-      await kvSet(
-        'tasks',
-        tasks.slice(-100).map((t) => ({ ...t, input: stripLarge(t.input), result: stripLarge(t.result) })),
-      );
+      const kept = tasks.slice(-100);
+      const live = new Set<string>();
+      const out: TaskRecord[] = [];
+      for (const t of kept) {
+        let input = stripLarge(t.input);
+        if (RESUMABLE.has(t.status) && isLarge(t.input) && (await storeInput(t))) {
+          live.add(t.id);
+          input = { [INPUT_REF]: t.id, summary: input };
+        }
+        out.push({ ...t, input, result: stripLarge(t.result) });
+      }
+      await kvSet('tasks', out);
+      for (const id of [...storedInputs]) {
+        if (live.has(id)) continue;
+        storedInputs.delete(id);
+        await kvDelete(INPUT_KEY + id);
+      }
     },
   },
 });
+
+async function storeInput(t: TaskRecord): Promise<boolean> {
+  if (storedInputs.has(t.id)) return true;
+  storedInputs.add(t.id);
+  try {
+    await kvSet(INPUT_KEY + t.id, t.input);
+    return true;
+  } catch {
+    storedInputs.delete(t.id); // e.g. storage quota: the task still runs, it just won't resume
+    return false;
+  }
+}
+
+/** Whether a value holds audio, a song snapshot or a long array (what stripLarge removes). */
+function isLarge(v: unknown): boolean {
+  if (!v || typeof v !== 'object') return false;
+  if (ArrayBuffer.isView(v)) return true;
+  if (Array.isArray(v)) return v.length > 200 || v.some(isLarge);
+  return Object.entries(v as Record<string, unknown>).some(([k, val]) => k === 'song' || k === 'snapshot' || isLarge(val));
+}
 
 function stripLarge(v: unknown): unknown {
   if (!v || typeof v !== 'object') return v;
