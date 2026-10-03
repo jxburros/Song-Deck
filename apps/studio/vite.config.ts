@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite';
+import type { ServerResponse } from 'node:http';
+import { defineConfig, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // The local Song Deck server (apps/server) listens on 7788 by default and serves /api.
@@ -7,6 +8,25 @@ const SERVER = process.env.SONGDECK_SERVER ?? 'http://localhost:7788';
 // End-to-end runs serve a frozen snapshot: no HMR or file watching, so edits elsewhere can't reload the page mid-test.
 const E2E = !!process.env.E2E;
 
+/**
+ * The local server is optional. While it is not running, answer proxied requests with a quiet
+ * 503 (the studio shows "browser-only mode") instead of logging a proxy error for every status poll.
+ */
+const quietWhenServerIsDown: ProxyOptions['configure'] = (proxy) => {
+  const emit = proxy.emit.bind(proxy);
+  proxy.emit = ((event: string, ...args: unknown[]) => {
+    const [err, , res] = args as [NodeJS.ErrnoException | undefined, unknown, ServerResponse | { destroy(): void } | undefined];
+    if (event === 'error' && (err?.code === 'ECONNREFUSED' || err?.code === 'ECONNRESET')) {
+      if (res && 'writeHead' in res) {
+        if (!res.headersSent) res.writeHead(503, { 'content-type': 'application/json' });
+        res.end('{"error":"The local Song Deck server is not running"}');
+      } else res?.destroy();
+      return true;
+    }
+    return emit(event, ...args);
+  }) as typeof proxy.emit;
+};
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -14,7 +34,7 @@ export default defineConfig({
     hmr: E2E ? false : undefined,
     watch: E2E ? { ignored: ['**/*'] } : undefined,
     proxy: {
-      '/api': { target: SERVER, changeOrigin: true, ws: true },
+      '/api': { target: SERVER, changeOrigin: true, ws: true, configure: quietWhenServerIsDown },
     },
   },
   // Scan every source file (lazy modes, workers, workspace packages) at startup so dependencies are
