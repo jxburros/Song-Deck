@@ -153,6 +153,40 @@ describe('note operations', () => {
     expect(validateChange(before, r.song, { region: { startTick: 4 * BAR, endTick: 6 * BAR }, trackIds: ['trk_bass'] }).issues.filter((i) => i.code === 'region.violated' && i.trackId !== 'trk_bass')).toEqual([]);
   });
 
+  it('replace_notes keeps lyric alignment and motif membership of a rewritten sung line', () => {
+    const song = makeSong();
+    const vocal = track(song, 'trk_vocal');
+    for (const n of vocal.notes) {
+      n.motifId = 'motif_hook';
+      n.phonemes = [`ph_${n.syllable}`];
+    }
+    const words = ['Hold', 'on', 'to', 'the', 'light-', 'ning'];
+    // New melody, same rhythm (bars 13–15, one syllable every two beats).
+    const newMelody = words.map((syllable, i) => ({ pitch: 60 + i, bar: 13 + Math.floor(i / 2), beat: i % 2 ? 3 : 1, duration_beats: 1.5, syllable }));
+    let r = apply(song, [{ op: 'replace_notes', track: 'Vocal', region: { start_bar: 13, end_bar: 16 }, notes: newMelody }]);
+    let line = notesInBars(r.song, 'trk_vocal', 13, 16);
+    expect(line.map((n) => n.pitch)).toEqual([60, 61, 62, 63, 64, 65]);
+    expect(line.every((n) => n.lyricLineId === 'ly_0' && n.motifId === 'motif_hook')).toBe(true);
+    expect(line.map((n) => n.phonemes?.[0])).toEqual(words.map((w) => `ph_${w}`));
+
+    // Same words, new rhythm: one syllable per beat starting on beat 2.
+    const newRhythm = words.map((syllable, i) => ({ pitch: 64, bar: 13 + Math.floor((i + 1) / 4), beat: ((i + 1) % 4) + 1, duration_beats: 1, syllable }));
+    r = apply(song, [{ op: 'replace_notes', track: 'Vocal', region: { start_bar: 13, end_bar: 16 }, notes: newRhythm }]);
+    line = notesInBars(r.song, 'trk_vocal', 13, 16);
+    expect(line.map((n) => n.syllable)).toEqual(words);
+    expect(line.every((n) => n.lyricLineId === 'ly_0')).toBe(true);
+    expect(line.map((n) => n.phonemes?.[0])).toEqual(words.map((w) => `ph_${w}`));
+
+    // New words at the same onsets: motif membership stays, lyric line and phonemes do not.
+    const newWords = ['Let', 'go', 'of', 'the', 'thun-', 'der'].map((syllable, i) => ({ ...newMelody[i], syllable }));
+    r = apply(song, [{ op: 'replace_notes', track: 'Vocal', region: { start_bar: 13, end_bar: 16 }, notes: newWords }]);
+    line = notesInBars(r.song, 'trk_vocal', 13, 16);
+    expect(line.every((n) => n.motifId === 'motif_hook')).toBe(true);
+    expect(line.filter((n) => n.lyricLineId).map((n) => n.syllable)).toEqual(['the']);
+    // The second chorus line is untouched.
+    expect(notesInBars(r.song, 'trk_vocal', 17, 20).every((n) => n.lyricLineId === 'ly_1')).toBe(true);
+  });
+
   it('add_notes adds sorted notes with unique ids; out-of-range notes are folded (autoFix)', () => {
     const r = apply(makeSong(), [{ op: 'add_notes', track: 'bass', notes: [{ pitch: 90, bar: 2, beat: 2.5, duration_beats: 0.5, velocity: 300 }, { pitch: 'B1', bar: 2, beat: 1, duration_beats: 1, articulation: 'staccato' }] }]);
     expect(r.applied).toBe(1);

@@ -50,6 +50,10 @@ export function opReplaceNotes(song: Song, op: RawOp, c: OpContext): boolean {
   if (outside) c.warn('region.note-outside', `${name}: ${outside} note(s) outside the requested ${label} were dropped.`, { trackId: track.id, fixed: true });
   if (trimmed) c.info('region.note-trimmed', `${name}: ${trimmed} note(s) shortened to end at the region boundary.`, { trackId: track.id, fixed: true });
   const locator = new SectionLocator(song);
+  inheritMetadata(
+    fresh,
+    track.notes.filter((n) => n.tick >= region.startTick && n.tick < region.endTick),
+  );
   const keep: Note[] = [];
   for (const n of track.notes) {
     if (n.tick >= region.startTick && n.tick < region.endTick) continue;
@@ -62,6 +66,51 @@ export function opReplaceNotes(song: Song, op: RawOp, c: OpContext): boolean {
   for (const n of fresh) c.touch(track.id, n.id);
   if (!fresh.length) c.info('region.cleared', `${name}: ${label} of "${track.name}" cleared (no valid notes supplied).`, { trackId: track.id });
   return true;
+}
+
+/**
+ * Carry metadata that operations cannot express (lyric line, phonemes, motif and phrase
+ * membership) from the notes a `replace_notes` removes onto the notes it writes, so rewriting a
+ * sung line keeps its lyric alignment. Operations address notes by position rather than id, so
+ * notes are matched by onset with an equal syllable (same pitch first), then leftover sung notes
+ * by syllable in time order (same words, new rhythm), then by onset alone (new words: motif and
+ * phrase only). Lyric line and phonemes transfer only when the syllable is unchanged.
+ */
+function inheritMetadata(fresh: Note[], replaced: Note[]): void {
+  if (!fresh.length || !replaced.length) return;
+  const used = new Set<Note>();
+  const matched = new Set<Note>();
+  const sameSyllable = (a: Note, b: Note) => (a.syllable ?? '') === (b.syllable ?? '');
+  const inherit = (n: Note, from: Note) => {
+    used.add(from);
+    matched.add(n);
+    if (n.motifId === undefined && from.motifId !== undefined) n.motifId = from.motifId;
+    if (n.phraseId === undefined && from.phraseId !== undefined) n.phraseId = from.phraseId;
+    if (!sameSyllable(n, from)) return;
+    if (n.lyricLineId === undefined && from.lyricLineId !== undefined) n.lyricLineId = from.lyricLineId;
+    if (n.phonemes === undefined && from.phonemes !== undefined) n.phonemes = [...from.phonemes];
+  };
+  const pass = (match: (n: Note, o: Note) => boolean) => {
+    for (const n of fresh) {
+      if (matched.has(n)) continue;
+      const from = replaced.find((o) => !used.has(o) && match(n, o));
+      if (from) inherit(n, from);
+    }
+  };
+  pass((n, o) => o.tick === n.tick && o.pitch === n.pitch && sameSyllable(n, o));
+  pass((n, o) => o.tick === n.tick && sameSyllable(n, o));
+  // Same words, new rhythm: walk both lines in time order, matching equal syllables.
+  const sung = (list: Note[], done: Set<Note>) => list.filter((n) => n.syllable && !done.has(n)).sort((a, b) => a.tick - b.tick);
+  const left = sung(replaced, used);
+  let cursor = 0;
+  for (const n of sung(fresh, matched)) {
+    const at = left.findIndex((o, i) => i >= cursor && !used.has(o) && o.syllable === n.syllable);
+    if (at < 0) continue;
+    inherit(n, left[at]);
+    cursor = at + 1;
+  }
+  pass((n, o) => o.tick === n.tick && o.pitch === n.pitch);
+  pass((n, o) => o.tick === n.tick);
 }
 
 export function opAddNotes(song: Song, op: RawOp, c: OpContext): boolean {
