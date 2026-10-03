@@ -608,8 +608,25 @@ export interface Blueprint {
   structure: BlueprintSection[];
   vocal?: { voiceType: VoiceType; mode: VocalMode; description?: string };
   lyricsTheme?: string;
+  /**
+   * Style, mood, era, production and other tag ids from the tag catalog (`composer/tags.ts`).
+   * Tags nudge the blended genre profile and the macros; unknown ids are ignored.
+   */
+  tags?: string[];
+  /** User-supplied lyrics the song is built from (lyrics-first composition). */
+  lyrics?: BlueprintLyrics;
   macros: MacroSettings;
   seed: number;
+}
+
+/** Lyrics supplied up front, parsed into sections (see `musician/lyrics/sheet.ts`). */
+export interface BlueprintLyrics {
+  /** The text exactly as the user entered it. */
+  text: string;
+  /** Parsed stanzas in song order; repeated stanzas (e.g. a chorus) appear once per occurrence. */
+  sections: { name: string; kind: SectionKind; lines: string[] }[];
+  /** Lock the lyrics in the composed song (default true: they are the user's words). */
+  lock?: boolean;
 }
 
 export interface PlanSection {
