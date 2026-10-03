@@ -85,6 +85,7 @@ export function propose(song: Song, ops: MusicOperation[], meta: ProposalMeta, o
     st.selectTrack(changedTracks[0].trackId);
     st.setWorkbenchView('piano-roll');
   }
-  st.setRightPanel('proposals');
+  // Other modes (Mix, Vocals…) show their own proposal UI; leave the workbench layout alone.
+  if (st.mode === 'workbench') st.setRightPanel('proposals');
   return proposal;
 }

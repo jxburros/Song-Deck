@@ -6,6 +6,7 @@ import { diffSongs } from './diff';
 import type { ApplyOptions } from './op-context';
 import { foldMidi } from './op-context';
 import { lockViolations, restoreLockedMaterial } from './locks-check';
+import { rebaseProposal, type RebaseResult } from './rebase';
 import { IssueList, makeReport, mergeReports } from './util';
 import { validateChange, validateSong, type ValidateOptions } from './validate';
 
@@ -171,6 +172,20 @@ export function acceptProposal(p: Proposal, opts: { force?: boolean } = {}): Son
     if (violations.length) throw new Error(`Proposal "${p.title}" changes locked material: ${violations.map((v) => v.message).join(' ')}`);
   }
   return cloneSong(p.after);
+}
+
+/**
+ * Accept a proposal onto the song as it is now: only what the proposal changed is applied, so
+ * edits made while it was pending survive (see `rebaseProposal`). Locks are checked against the
+ * current song, so material locked since the proposal was made cannot be changed by it.
+ */
+export function acceptProposalOnto(p: Proposal, current: Song, opts: { force?: boolean } = {}): RebaseResult {
+  const result = rebaseProposal(p.before, p.after, current);
+  if (!opts.force) {
+    const violations = lockViolations(current, result.song, current.locks);
+    if (violations.length) throw new Error(`Proposal "${p.title}" changes locked material: ${violations.map((v) => v.message).join(' ')}`);
+  }
+  return result;
 }
 
 export function rejectProposal(p: Proposal): Proposal {

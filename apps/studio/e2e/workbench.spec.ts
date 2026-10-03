@@ -86,3 +86,29 @@ test('regenerating a single track leaves every other track untouched', async ({ 
     else expect(t.notes, `${t.name} must not change`).toBe(prev.notes);
   }
 });
+
+test('accepting a proposal keeps edits made while it was pending', async ({ page }) => {
+  await composeSong(page);
+  const before = await snapshot(page);
+  const bass = before.find((t) => /bass/i.test(t.name))!;
+  const drums = before.find((t) => /drum/i.test(t.name))!;
+
+  await page.locator('.wb-left .track-row', { hasText: bass.name }).first().click();
+  await page.locator('.right-tabs .tab', { hasText: 'AI Edit' }).click();
+  await page.getByLabel('Edit instruction').fill('Make the bass busier.');
+  await page.getByRole('button', { name: 'Propose change' }).click();
+  await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeVisible();
+
+  // While the proposal is pending, mute the drums (a separate revision).
+  await page.locator('.wb-left .track-row', { hasText: drums.name }).first().locator('.ms-btn.mute').click();
+  await page.getByRole('button', { name: 'Accept' }).first().click();
+
+  const state = await page.evaluate(
+    `import('/src/state/store.ts').then(({ useStudio }) => {
+      const song = useStudio.getState().project.song;
+      return { drumsMuted: !!song.mixer.channels[${JSON.stringify(drums.id)}]?.mute, bassNotes: JSON.stringify(song.tracks.find((t) => t.id === ${JSON.stringify(bass.id)}).notes) };
+    })`,
+  );
+  expect(state).toMatchObject({ drumsMuted: true });
+  expect((state as { bassNotes: string }).bassNotes).not.toBe(bass.notes);
+});

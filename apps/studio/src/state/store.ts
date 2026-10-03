@@ -17,7 +17,7 @@ import {
   addAsset as coreAddAsset,
   addProvenance as coreAddProvenance,
   recordProviderUse,
-  acceptProposal as coreAcceptProposal,
+  acceptProposalOnto,
   type AudioAssetMeta,
   type EditSelection,
   type Project,
@@ -30,6 +30,23 @@ import {
 import { assetStore } from './assets';
 import { deleteProject as dbDeleteProject, listProjectSummaries, loadProject, saveProject, type ProjectSummary } from './persistence';
 import { player } from '../engine/player';
+
+/** What a proposal touches (tracks, mixer targets, song-level parts), from its diff. */
+export function proposalScope(p: Proposal): Set<string> {
+  const d = p.diff;
+  const scope = new Set<string>();
+  for (const t of d.tracks) if (t.added.length || t.removed.length || t.modified.length) scope.add(`track:${t.trackId}`);
+  for (const id of [...d.tracksAdded, ...d.tracksRemoved]) scope.add(`track:${id}`);
+  if (d.chords.added.length || d.chords.removed.length) scope.add('chords');
+  if (d.sectionsChanged) scope.add('sections');
+  if (d.tempoChanged) scope.add('tempo');
+  if (d.keyChanged) scope.add('key');
+  if (d.meterChanged) scope.add('meter');
+  if (d.lyricsChanged) scope.add('lyrics');
+  for (const m of d.mixerChanged) scope.add(`mixer:${m.target}`);
+  if (d.automationChanged) scope.add('automation');
+  return scope;
+}
 
 export type Mode =
   | 'home'
@@ -406,7 +423,14 @@ export const useStudio = create<StudioState>((set, get) => {
     },
 
     addProposal(proposal) {
-      const others = get().proposals.map((x) => (x.status === 'pending' ? { ...x, status: 'superseded' as const } : x));
+      // A new proposal replaces pending ones about the same material; unrelated ones stay pending
+      // (accepting rebases onto the current song, so they cannot undo each other).
+      const scope = proposalScope(proposal);
+      const overlaps = (x: Proposal) => {
+        const other = proposalScope(x);
+        return !scope.size || !other.size || [...other].some((k) => scope.has(k));
+      };
+      const others = get().proposals.map((x) => (x.status === 'pending' && overlaps(x) ? { ...x, status: 'superseded' as const } : x));
       set({ proposals: [proposal, ...others].slice(0, 30), activeProposalId: proposal.id });
     },
 
@@ -415,14 +439,19 @@ export const useStudio = create<StudioState>((set, get) => {
       const p = get().project;
       if (!prop || !p) return;
       let song: Song;
+      let conflicts: string[];
       try {
-        song = coreAcceptProposal(prop);
+        // Apply only what the proposal changed, keeping edits made while it was pending.
+        ({ song, conflicts } = acceptProposalOnto(prop, p.song));
       } catch (err) {
         // The proposal would change locked material (locks may have changed since it was made).
         get().toast('error', err instanceof Error ? err.message : String(err));
         return;
       }
       get().commit(song, prop.title, 'ai-proposal');
+      if (conflicts.length) {
+        get().toast('warning', `Accepted “${prop.title}”. It replaced changes made since it was proposed: ${conflicts.slice(0, 4).join('; ')}${conflicts.length > 4 ? '…' : ''}. Undo restores them.`);
+      }
       set({
         proposals: get().proposals.map((x) => (x.id === id ? { ...x, status: 'accepted' as const } : x)),
         activeProposalId: null,
