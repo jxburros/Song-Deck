@@ -94,7 +94,7 @@ async function run(req: JobRequest, signal: AbortSignal): Promise<unknown> {
     case 'transcribe': {
       const a = req.args as { audio: AudioData } & Parameters<typeof audio.transcribeAudio>[1];
       const { audio: buf, ...opts } = a;
-      return audio.transcribeAudio(buf, opts);
+      return audio.transcribeAudio(buf, { ...opts, signal });
     }
     case 'separate': {
       const a = req.args as { audio: AudioData };

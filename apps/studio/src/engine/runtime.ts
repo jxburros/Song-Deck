@@ -28,6 +28,8 @@ export const useRuntime = create<RuntimeState>(() => ({
 
 export const taskQueue = new TaskQueue({
   concurrency: 2,
+  // Handlers live in code-split modules; a task enqueued before they load waits for them.
+  awaitHandlers: true,
   persistence: {
     async load() {
       return (await kvGet<TaskRecord[]>('tasks')) ?? [];
@@ -76,11 +78,12 @@ let started = false;
 export async function initRuntime(): Promise<void> {
   if (started) return;
   started = true;
-  await checkServer();
+  // Task handlers and the AI runtime load in parallel with the server probe (the AI runtime
+  // reacts to the server status when it arrives), so work queued at startup starts promptly.
+  const handlers = import('./taskHandlers').then(({ registerTaskHandlers }) => registerTaskHandlers(taskQueue));
+  const ai = import('./ai').then(({ initAi }) => initAi());
+  void checkServer();
   setInterval(() => void checkServer(), 15000);
-  const { initAi } = await import('./ai');
-  initAi();
-  const { registerTaskHandlers } = await import('./taskHandlers');
-  registerTaskHandlers(taskQueue);
+  await Promise.all([handlers, ai]);
   await taskQueue.restore();
 }

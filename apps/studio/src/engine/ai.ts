@@ -178,7 +178,11 @@ export function initAi(): void {
     if (r.server.status !== prevServer) {
       prevServer = r.server.status;
       configureProviders();
-      if (r.server.status === 'online') void refreshVaultStatus();
+      if (r.server.status === 'online') {
+        void refreshVaultStatus();
+        // The server hosts plugin files: load enabled plugins once it is reachable.
+        void loadEnabledPlugins();
+      }
     }
   });
   onPluginProviders((instances) => {

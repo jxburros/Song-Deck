@@ -6,6 +6,7 @@ import { StatusBar } from './views/shell/StatusBar';
 import { Toasts } from './views/shell/Toasts';
 import { ConfirmDialog } from './views/shell/ConfirmDialog';
 import { TaskDrawer } from './views/shell/TaskDrawer';
+import { ModeErrorBoundary } from './views/shell/ModeErrorBoundary';
 import { useHotkeys } from './hooks';
 import { Spinner } from './ui/kit';
 import { initRuntime } from './engine/runtime';
@@ -68,15 +69,17 @@ export function App() {
     <div className="app">
       <TopBar />
       <main className="main">
-        <Suspense
-          fallback={
-            <div className="empty-state">
-              <Spinner />
-            </div>
-          }
-        >
-          <View />
-        </Suspense>
+        <ModeErrorBoundary mode={effective}>
+          <Suspense
+            fallback={
+              <div className="empty-state">
+                <Spinner />
+              </div>
+            }
+          >
+            <View />
+          </Suspense>
+        </ModeErrorBoundary>
         <TaskDrawer />
       </main>
       <StatusBar />

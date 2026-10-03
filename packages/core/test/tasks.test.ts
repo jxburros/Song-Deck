@@ -86,6 +86,17 @@ describe('TaskQueue basics', () => {
     await expect(q.waitFor('missing')).rejects.toThrow(/Unknown task/);
     expect(() => q.enqueue({ type: '', title: 'x', input: 1 })).toThrow();
   });
+
+  it('with awaitHandlers, keeps tasks queued until their handler is registered', async () => {
+    const q = new TaskQueue({ awaitHandlers: true });
+    q.register<number, number>('ready', async (ctx) => ctx.input + 1);
+    const early = q.enqueue({ type: 'late', title: 'Early bird', input: 20 });
+    const other = q.enqueue({ type: 'ready', title: 'Ready', input: 1 });
+    expect((await q.waitFor(other.id)).result).toBe(2);
+    expect(q.get(early.id)!.status).toBe('queued');
+    q.register<number, number>('late', async (ctx) => ctx.input * 2);
+    expect(await q.waitFor(early.id)).toMatchObject({ status: 'succeeded', result: 40 });
+  });
 });
 
 describe('scheduling', () => {

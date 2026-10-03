@@ -57,6 +57,11 @@ export interface TaskQueueOptions {
   maxLogEntries?: number;
   /** Called with persistence or listener errors (they never break the queue). */
   onError?: (error: unknown) => void;
+  /**
+   * Keep tasks whose type has no handler yet queued until one is registered, instead of failing
+   * them — for apps that register handlers lazily (code-split modules, plugins). Default false.
+   */
+  awaitHandlers?: boolean;
 }
 
 const TERMINAL: ReadonlySet<TaskStatus> = new Set(['succeeded', 'failed', 'cancelled']);
@@ -435,6 +440,7 @@ export class TaskQueue {
     let best: TaskRecord | undefined;
     for (const t of this.tasks.values()) {
       if (t.status !== 'queued') continue;
+      if (this.opts.awaitHandlers && !this.handlers.has(t.type)) continue;
       if (!t.dependsOn.every((d) => this.tasks.get(d)?.status === 'succeeded')) continue;
       if (!best || t.priority > best.priority || (t.priority === best.priority && this.order.get(t.id)! < this.order.get(best.id)!)) best = t;
     }
