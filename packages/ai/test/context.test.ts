@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMusicContext, contextDataKinds, estimateTokens, musicContextToPrompt } from '../src';
+import { buildMusicContext, contextDataKinds, estimateTokens, musicContextToPrompt, songStyleTags } from '../src';
 import { makeSong } from './helpers';
 
 describe('buildMusicContext', () => {
@@ -92,5 +92,19 @@ describe('buildMusicContext', () => {
     expect(ctx.tracks.map((t) => t.name)).toEqual(['Lead Vocal']);
     expect(ctx.tracks[0].notes![0].syllable).toBeDefined();
     expect(ctx.chords[0]).toMatchObject({ bar: 13, symbol: 'Em', roman: 'vi' });
+  });
+});
+
+describe('tags in the AI layers', () => {
+  it('lists catalog tags in the context STYLE TAGS line and in the production style tags', () => {
+    const song = makeSong();
+    song.tags = ['warm', 'lo-fi', 'midwest-emo', 'falsetto', 'unknown-tag'];
+    const ctx = buildMusicContext(song, { instruction: 'Describe the style' });
+    expect(ctx.tags).toEqual(['Warm (mood)', 'Lo-fi (production)', 'Midwest emo (style)', 'Falsetto (vocal)']);
+    expect(musicContextToPrompt(ctx)).toContain('STYLE TAGS: Warm (mood), Lo-fi (production), Midwest emo (style), Falsetto (vocal)');
+    const tags = songStyleTags(song);
+    expect(tags.genres).toContain('midwest emo');
+    expect(tags.moods).toContain('warm');
+    expect(tags.production).toContain('lo-fi');
   });
 });

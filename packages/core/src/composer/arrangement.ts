@@ -6,9 +6,9 @@
  * per section kind, and the user's InstrumentConstraints (sectionIds / sectionKinds always win).
  */
 import type { GenreProfile, InstrumentProfile, MusicalFunction, SectionKind, Song, Track, TrackRole } from '../ir/types';
-import { genreForBlend } from './genres';
 import { getInstrument } from './instruments';
-import { clamp01, lerp, unitHash } from './util';
+import { genreForSong } from './tags';
+import { clamp01, effectiveMacros, lerp, unitHash } from './util';
 
 /** Section kinds in which a lead vocal sings. */
 export const VOCAL_KINDS: SectionKind[] = ['verse', 'pre-chorus', 'chorus', 'post-chorus', 'bridge', 'final-chorus', 'custom'];
@@ -90,7 +90,7 @@ function priorityOf(u: Unit, kind: SectionKind, energy: number, hasLeadVocal: bo
 
 /** Arrangement with explicit options (seed for tie-breaking, density bias). */
 export function arrangementFor(song: Song, opts: ArrangementOptions): Record<string, string[]> {
-  const genre = opts.genre ?? genreForBlend(song.genreBlend);
+  const genre = opts.genre ?? genreForSong(song);
   const instOf = opts.instrumentOf ?? ((t: Track) => getInstrument(t.instrumentId));
   const midi = song.tracks.filter((t) => t.kind === 'midi');
   const result: Record<string, string[]> = {};
@@ -119,7 +119,7 @@ export function arrangementFor(song: Song, opts: ArrangementOptions): Record<str
       });
     }
   }
-  const density = clamp01(song.macros?.density ?? 0.5);
+  const density = clamp01(effectiveMacros(song).density);
   const bias = (density - 0.5) * 0.3 + (opts.densityBias ?? 0) * 0.25;
 
   for (const section of song.sections) {

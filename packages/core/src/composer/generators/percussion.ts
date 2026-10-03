@@ -1,11 +1,15 @@
 /**
  * Percussion: auxiliary kit percussion (shaker, tambourine, congas, claps, orchestral cymbals and
  * triangle) layered by style and energy, and pitched timpani (rolls into big sections, hits on
- * chord changes, cinematic ostinatos).
+ * chord changes, cinematic ostinatos). World grooves get their own hand percussion: conga tumbao,
+ * clave and güiro for Latin styles, shaker/agogô/cuíca for Brazilian ones, shaker and congas for
+ * afrobeats and amapiano, bongos for reggae, palmas for flamenco, bodhrán for celtic music and
+ * dhol-like drums for bhangra.
  */
 import { GM_DRUM as D } from '../../ir/gm';
 import { PPQ } from '../../ir/types';
 import type { Cell } from '../context';
+import { drumStyleInfo, type PercussionFamily } from '../styles';
 import { applySwing, chordAtIn, fitToRange, humanize, toVelocity, type RawNote } from '../util';
 
 function swingAt(c: Cell, tick: number): number {
@@ -17,11 +21,50 @@ function swingAt(c: Cell, tick: number): number {
   return barStart + off;
 }
 
+/** Hand-percussion rows (16 steps per 4/4 bar, 32 for two-bar figures) per world family and energy. */
+const WORLD_ROWS: Partial<Record<PercussionFamily, { low: [number, string][]; high: [number, string][] }>> = {
+  latin: {
+    low: [[D.CLAVES, '....x...x.......x.....x.....x...'], [D.MARACAS, 'x.x.x.x.x.x.x.x.'], [D.CONGA_MUTE, '....x.......x...'], [D.CONGA_LOW, '............x.x.']],
+    high: [[D.CLAVES, '....x...x.......x.....x.....x...'], [D.GUIRO_SHORT, 'x.xxx.xxx.xxx.xx'], [D.CONGA_MUTE, '....x.......x...'], [D.CONGA_HIGH, '..x.....x.....x.'], [D.CONGA_LOW, '............x.x.'], [D.BONGO_HIGH, 'x.x.x.x.x.x.x.x.']],
+  },
+  brazil: {
+    low: [[D.SHAKER, 'xxxxxxxxxxxxxxxx'], [D.AGOGO_HIGH, 'x.....x.....x.......x.....x.....']],
+    high: [[D.SHAKER, 'xxxxxxxxxxxxxxxx'], [D.AGOGO_HIGH, 'x.x...x.x.x...x.'], [D.AGOGO_LOW, '....x.......x...'], [D.CUICA_MUTE, '..x.......x.x...'], [D.WHISTLE_SHORT, '..............x.']],
+  },
+  afro: {
+    low: [[D.SHAKER, 'xxxxxxxxxxxxxxxx'], [D.CONGA_LOW, 'x.....x.........']],
+    high: [[D.SHAKER, 'xxxxxxxxxxxxxxxx'], [D.CONGA_HIGH, '..x..x....x..x..'], [D.CONGA_LOW, 'x.....x...x.....'], [D.COWBELL, 'x..x..x...x..x..']],
+  },
+  caribbean: {
+    low: [[D.SHAKER, 'x.x.x.x.x.x.x.x.'], [D.BONGO_HIGH, '..x...x...x...x.']],
+    high: [[D.SHAKER, 'xxxxxxxxxxxxxxxx'], [D.BONGO_HIGH, '..x...x...x...x.'], [D.BONGO_LOW, '...x.......x....'], [D.COWBELL, '....x.......x...']],
+  },
+  flamenco: {
+    low: [[D.CLAP, '..x...x...x...x.']],
+    high: [[D.CLAP, 'x.x.x.x.x.x.x.x.'], [D.SHAKER, 'xxxxxxxxxxxxxxxx']],
+  },
+  celtic: {
+    low: [[D.FLOOR_TOM_LOW, 'x.x.x.x.x.x.x.x.']],
+    high: [[D.FLOOR_TOM_LOW, 'x.x.x.x.x.x.x.x.'], [D.TOM_LOW, '..x...x...x...x.'], [D.TAMBOURINE, '....x.......x...']],
+  },
+  'south-asian': {
+    // Tabla-like bayan (low) and dayan (high) strokes in keherwa, with a shaker.
+    low: [[D.CONGA_LOW, 'x.....x...x.....'], [D.BONGO_HIGH, '..x.x...x.x.x.x.'], [D.SHAKER, 'x.x.x.x.x.x.x.x.']],
+    high: [[D.CONGA_LOW, 'x.....x...x...x.'], [D.BONGO_HIGH, '.xx.xx.x.xx.xx.x'], [D.BONGO_LOW, '...x.......x....'], [D.SHAKER, 'xxxxxxxxxxxxxxxx']],
+  },
+  disco: {
+    low: [[D.TAMBOURINE, 'x.x.x.x.x.x.x.x.']],
+    high: [[D.TAMBOURINE, 'xxxxxxxxxxxxxxxx'], [D.CONGA_HIGH, '..x...x...x.x.x.'], [D.CONGA_LOW, 'x.....x...x.....'], [D.COWBELL, '..x...x...x...x.']],
+  },
+};
+
 function kitPercussion(c: Cell): RawNote[] {
   const out: RawNote[] = [];
   const style = c.g.drumStyle;
+  const family = drumStyleInfo(style).percussion;
   const push = (pitch: number, tick: number, vel: number, dur = 60) => out.push({ pitch, tick: swingAt(c, tick), duration: dur, velocity: toVelocity(vel) });
-  const orchestral = style === 'orchestral' || style === 'cinematic';
+  const orchestral = family === 'orchestral';
+  const world = WORLD_ROWS[family];
   for (const bar of c.bars) {
     const e = c.energyAt(bar.tick);
     const m = bar.meter;
@@ -33,8 +76,23 @@ function kitPercussion(c: Cell): RawNote[] {
       if (e >= 0.7) push(D.KICK_ACOUSTIC, bar.tick, 100 * vScale, PPQ);
       continue;
     }
-    const electronic = style === 'four-on-floor' || style === 'trance' || style === 'synth-pop';
-    const urban = style === 'hip-hop' || style === 'trap' || style === 'rnb';
+    if (world && m.common) {
+      const rows = e >= 0.6 ? world.high : world.low;
+      const step = m.barTicks / 16;
+      for (const [pitch, row] of rows) {
+        const off = (bar.index % Math.max(1, Math.floor(row.length / 16))) * 16;
+        for (let i = 0; i < 16; i++) {
+          const ch = row[off + i];
+          if (ch !== 'x' && ch !== 'X') continue;
+          const accent = ch === 'X' || i % 4 === 0;
+          const soft = pitch === D.SHAKER || pitch === D.MARACAS || pitch === D.GUIRO_SHORT;
+          push(pitch, bar.tick + Math.round(i * step), (soft ? (i % 2 === 1 ? 66 : 50) : accent ? 88 : 74) * vScale);
+        }
+      }
+      continue;
+    }
+    const electronic = family === 'electronic' || (family !== 'urban' && drumStyleInfo(style).electronic);
+    const urban = family === 'urban';
     if (electronic) {
       for (let t = 0; t < m.barTicks; t += sixteenth) push(D.SHAKER, bar.tick + t, ((t / sixteenth) % 2 === 1 ? 70 : 52) * vScale);
       if (e >= 0.5) for (let t = eighth; t < m.barTicks; t += eighth * 2) push(D.TAMBOURINE, bar.tick + t, 74 * vScale);
@@ -49,7 +107,7 @@ function kitPercussion(c: Cell): RawNote[] {
       }
       continue;
     }
-    if (style === 'jazz-swing') {
+    if (family === 'jazz') {
       for (let t = 0; t < m.barTicks; t += eighth) push(D.CABASA, bar.tick + t, (m.beats.includes(t) ? 58 : 46) * vScale);
       continue;
     }

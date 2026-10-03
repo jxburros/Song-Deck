@@ -25,6 +25,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "e2e": "npm run e2e -w @songdeck/studio",
+    "docs:genres": "tsx scripts/gen-genres-doc.ts",
     "size": "npm run size -w @songdeck/studio",
     "release:check": "node scripts/release/check.mjs",
     "release:package": "node scripts/release/package.mjs",

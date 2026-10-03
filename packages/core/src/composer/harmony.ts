@@ -9,6 +9,7 @@ import { diatonicChord, formatChordSymbol, isDiatonic } from '../theory/chords';
 import { mod12 } from '../theory/pitch';
 import { MODE_INTERVALS, isMinorMode } from '../theory/scales';
 import type { Rng } from '../util/random';
+import { baseDrumStyle, drumStyleInfo } from './styles';
 import { clamp01, sameChord } from './util';
 
 const C_MAJOR: KeySignature = { tonic: 0, mode: 'major' };
@@ -381,6 +382,8 @@ export function colorProgression(chords: readonly ChordSpec[], key: KeySignature
 
 export function flavorFor(genre: GenreProfile): ColorOptions['flavor'] {
   const d = genre.rhythm.drumStyle;
+  // Groove families added with the genre expansion declare their flavour.
+  if (baseDrumStyle(d) !== d) return drumStyleInfo(d).flavor;
   if (d === 'jazz-swing') return 'jazz';
   if (d === 'rnb' || d === 'hip-hop' || d === 'trap' || (d === 'four-on-floor' && genre.harmony.extensionRate > 0.4)) return 'soul';
   if (d === 'orchestral') return 'classical';

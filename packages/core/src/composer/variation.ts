@@ -16,7 +16,7 @@ import { composeInternal } from './compose';
 import { blueprintFromDNA, extractSongDNA } from './dna';
 import { getInstrument } from './instruments';
 import { defaultChannelFor, trackColor } from './mixer';
-import { genreForBlend } from './genres';
+import { genreForSong, songTags } from './tags';
 import { planComposition } from './planner';
 import { regenerateCore } from './regenerate';
 import { clamp01, unitHash } from './util';
@@ -50,7 +50,7 @@ function mutate(song: Song, seed: number, amount: number, custom: { customInstru
     if (t.constraints?.function) bt.function = t.constraints.function;
     return bt;
   });
-  const bp = blueprintFromDNA(dna, { seed, title: song.title, genreBlend: song.genreBlend, instrumentation, tempo: song.tempoMap[0]?.bpm });
+  const bp = blueprintFromDNA(dna, { seed, title: song.title, genreBlend: song.genreBlend, instrumentation, tempo: song.tempoMap[0]?.bpm, tags: songTags(song) });
   bp.macros = { ...bp.macros, ...song.macros };
   const lead = midi.find((t) => t.role === 'vocal' && t.vocal?.voiceType);
   if (lead?.vocal?.voiceType) bp.vocal = { voiceType: lead.vocal.voiceType, mode: lead.vocal.mode ?? 'melody-only' };
@@ -198,7 +198,7 @@ function blendToward(blend: GenreWeight[], genreId: string, share: number): Genr
 function reorchestrate(song: Song, seed: number, cfg: { genre: string; share: number; energyShift: number; drumStyle?: DrumStyle; swap: (t: Track) => Swap | null; titleSuffix: string; macros?: Partial<Song['macros']> }): Song {
   const next = cloneSong(song);
   next.genreBlend = blendToward(next.genreBlend.length ? next.genreBlend : [{ genreId: 'pop', weight: 1 }], cfg.genre, cfg.share);
-  const genre = genreForBlend(next.genreBlend);
+  const genre = genreForSong(next);
   if (cfg.macros) next.macros = { ...next.macros, ...cfg.macros };
   for (const t of next.tracks) {
     if (t.kind !== 'midi' || isLocked(next.locks, LockKeys.track(t.id))) continue;

@@ -6,12 +6,14 @@
 import {
   bpmAtTick,
   createTimeMap,
+  getTag,
   hashSeed,
   keyAtTick,
   keyName,
   meterAtBar,
   sectionLayout,
   songLengthTicks,
+  songTags,
   type Song,
   type Track,
 } from '@songdeck/core';
@@ -65,16 +67,24 @@ function hasVocals(song: Song): boolean {
   return song.tracks.some((t) => t.role === 'vocal') || song.lyrics.length > 0;
 }
 
-/** Genre, mood, instrument and production style tags for a song. */
+/**
+ * Genre, mood, instrument and production style tags for a song. Catalog tags join in by kind:
+ * style tags with the genres, mood tags with the moods, vocal tags with the vocals and era,
+ * production, region and rhythm tags with the production words.
+ */
 export function songStyleTags(song: Song): { genres: string[]; moods: string[]; instruments: string[]; production: string[]; vocals: string[] } {
-  const genres = song.blueprint?.styles?.length ? [...song.blueprint.styles] : song.genreBlend.map((g) => pretty(g.genreId));
-  const moods = song.blueprint?.moods ?? [];
+  const catalog = songTags(song).map((id) => getTag(id)).filter((t) => t !== undefined);
+  const uniqCi = (xs: string[]) => xs.filter((x, i) => xs.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
+  const named = (kinds: string[]) => catalog.filter((t) => kinds.includes(t.kind)).map((t) => t.name.toLowerCase());
+  const genres = uniqCi([...(song.blueprint?.styles?.length ? [...song.blueprint.styles] : song.genreBlend.map((g) => pretty(g.genreId))), ...named(['style'])]);
+  const moods = uniqCi([...(song.blueprint?.moods ?? []), ...named(['mood'])]);
   const instruments = uniq(audibleTracks(song).filter((t) => t.role !== 'vocal').map((t) => t.name || pretty(t.instrumentId)));
-  const production = splitList(song.production.prompt);
+  const production = uniqCi([...splitList(song.production.prompt), ...named(['era', 'production', 'region', 'rhythm'])]);
   const vocals: string[] = [];
   if (hasVocals(song)) {
     const vt = song.tracks.find((t) => t.role === 'vocal')?.vocal?.voiceType ?? song.blueprint?.vocal?.voiceType;
     vocals.push(vt ? `${vt} lead vocal` : 'lead vocal');
+    vocals.push(...named(['vocal']));
   } else vocals.push('instrumental');
   return { genres, moods, instruments, production, vocals };
 }

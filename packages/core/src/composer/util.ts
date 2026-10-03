@@ -21,6 +21,7 @@ import { formatChordSymbol, parseChordSymbol } from '../theory/chords';
 import { mod12 } from '../theory/pitch';
 import { isMinorMode } from '../theory/scales';
 import type { Rng } from '../util/random';
+import { applyTagsToMacros, songTags } from './tags';
 
 // ---------------------------------------------------------------------------
 // Numbers
@@ -380,9 +381,14 @@ export function sectionGroupId(song: Pick<Song, 'sections'>, section: Section): 
 
 const COMPLEXITY_VALUE: Record<string, number> = { low: 0.2, medium: 0.5, high: 0.85 };
 
-/** Song macros ← track overrides ← constraints (complexity, avoid syncopation). */
-export function effectiveMacros(song: Pick<Song, 'macros'>, track?: Track): MacroSettings {
-  const m: MacroSettings = { ...defaultMacros(), ...(song.macros ?? {}), ...(track?.macros ?? {}) };
+/**
+ * Song macros (the user's base) + the song's tag deltas ← track overrides ← constraints
+ * (complexity, avoid syncopation). Tag deltas are applied here, at generation time, and never
+ * stored in `song.macros`.
+ */
+export function effectiveMacros(song: Pick<Song, 'macros'> & Partial<Pick<Song, 'tags' | 'blueprint'>>, track?: Track): MacroSettings {
+  const base = applyTagsToMacros({ ...defaultMacros(), ...(song.macros ?? {}) }, songTags(song));
+  const m: MacroSettings = { ...base, ...(track?.macros ?? {}) };
   if (track?.constraints?.complexity) m.complexity = COMPLEXITY_VALUE[track.constraints.complexity] ?? m.complexity;
   if (track?.constraints?.avoid?.includes('syncopation')) m.syncopation = Math.min(m.syncopation, 0.05);
   for (const k of Object.keys(m) as (keyof MacroSettings)[]) m[k] = clamp01(m[k]);

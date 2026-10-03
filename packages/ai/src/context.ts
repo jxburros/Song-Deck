@@ -13,6 +13,7 @@ import {
   chordsInRange,
   chordToRoman,
   createTimeMap,
+  getTag,
   isLocked,
   isTrackSectionLocked,
   keyAtTick,
@@ -23,6 +24,7 @@ import {
   midiToNoteName,
   sectionLayout,
   songLengthBars,
+  songTags,
   songLengthTicks,
   tickToBar,
   tickToMusical,
@@ -167,6 +169,8 @@ export interface MusicContext {
   key: string;
   key_changes?: { bar: number; key: string }[];
   styles?: string[];
+  /** Tag-catalog tags of the song, as "Name (kind)" — e.g. "Lo-fi (production)". */
+  tags?: string[];
   moods?: string[];
   total_bars: number;
   duration_seconds: number;
@@ -596,6 +600,8 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
   if (keyChanges.length > 1) ctx.key_changes = keyChanges.map((k) => ({ bar: k.bar + 1, key: keyName(k.key) }));
   const styles = song.blueprint?.styles?.length ? song.blueprint.styles : song.genreBlend.map((g) => g.genreId);
   if (styles.length) ctx.styles = [...styles];
+  const tagIds = songTags(song);
+  if (tagIds.length) ctx.tags = tagIds.map((id) => getTag(id)).filter((t) => t !== undefined).map((t) => `${t.name} (${t.kind})`);
   if (song.blueprint?.moods?.length) ctx.moods = [...song.blueprint.moods];
   if (focusSpan) ctx.section = sectionToContext(focusSpan, song);
   if (omitted || summarized.length) ctx.truncation = { omitted_notes: omitted, summarized_tracks: summarized };
@@ -662,6 +668,7 @@ export function musicContextToPrompt(ctx: MusicContext): string {
   const lines: string[] = [];
   lines.push(`SONG: "${ctx.title}" — ${fmtNum(ctx.tempo)} BPM, ${ctx.meter}, ${ctx.key}, ${ctx.total_bars} bars (${fmtDuration(ctx.duration_seconds)})`);
   if (ctx.styles?.length) lines.push(`STYLE: ${ctx.styles.join(', ')}`);
+  if (ctx.tags?.length) lines.push(`STYLE TAGS: ${ctx.tags.join(', ')}`);
   if (ctx.moods?.length) lines.push(`MOODS: ${ctx.moods.join('; ')}`);
   if (ctx.tempo_changes?.length) lines.push(`TEMPO MAP: ${ctx.tempo_changes.map((t) => `bar ${t.bar} → ${fmtNum(t.bpm)} BPM`).join(', ')}`);
   if (ctx.meter_changes?.length) lines.push(`METER MAP: ${ctx.meter_changes.map((m) => `bar ${m.bar} → ${m.meter}`).join(', ')}`);

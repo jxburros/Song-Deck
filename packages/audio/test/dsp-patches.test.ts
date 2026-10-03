@@ -9,7 +9,8 @@ const REQUIRED = [
   'drums-acoustic', 'drums-electronic', 'percussion', 'bass-electric', 'bass-synth', 'bass-upright', 'guitar-distorted', 'guitar-clean',
   'guitar-acoustic', 'guitar-lead', 'piano', 'epiano', 'organ', 'strings-solo', 'strings-ensemble', 'strings-pizz', 'brass', 'brass-solo',
   'flute', 'reed', 'pad-warm', 'pad-bright', 'lead-saw', 'lead-square', 'pluck', 'choir', 'vocal-placeholder', 'harp', 'timpani', 'bell',
-  'mallet', 'sine',
+  'mallet', 'sine', 'guitar-nylon', 'banjo', 'mandolin', 'pedal-steel', 'sitar', 'clavinet', 'accordion', 'harmonica', 'steel-pan', 'log-drum', 'bass-808',
+  'chip-pulse',
 ];
 
 function renderNote(patchId: string, pitch: number, opts: { dur?: number; vel?: number; art?: Articulation; seconds?: number } = {}) {
@@ -38,10 +39,15 @@ describe('patch library', () => {
       'french-horn': 'brass-solo', 'brass-section': 'brass', flute: 'flute', clarinet: 'reed', saxophone: 'reed', 'synth-pad': 'pad-warm',
       'synth-lead': 'lead-saw', 'synth-arp': 'pluck', 'synth-seq': 'pluck', choir: 'choir', 'lead-vocal': 'vocal-placeholder',
       'backing-vocal': 'vocal-placeholder', harp: 'harp', timpani: 'timpani', glockenspiel: 'bell', marimba: 'mallet',
+      'nylon-guitar': 'guitar-nylon', banjo: 'banjo', mandolin: 'mandolin', 'pedal-steel': 'pedal-steel', sitar: 'sitar', clavinet: 'clavinet',
+      accordion: 'accordion', harmonica: 'harmonica', 'steel-pan': 'steel-pan', 'log-drum': 'log-drum', '808-bass': 'bass-808', 'chip-lead': 'chip-pulse',
     };
     for (const [inst, patch] of Object.entries(map)) expect(patchIdForInstrument(inst), inst).toBe(patch);
     expect(patchIdForInstrument('my-custom-rhodes')).toBe('epiano');
     expect(patchIdForInstrument('zzz')).toBe('sine');
+    expect(patchIdForInstrument('my-banjo')).toBe('banjo');
+    expect(patchIdForInstrument('blues-harmonica')).toBe('harmonica');
+    expect(patchIdForInstrument('tr-808-kit')).toBe('drums-electronic');
     expect(patchIdForGmProgram(0)).toBe('piano');
     expect(patchIdForGmProgram(30)).toBe('guitar-distorted');
     expect(patchIdForGmProgram(33)).toBe('bass-electric');

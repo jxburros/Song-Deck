@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { defaultBlueprint, parsePromptToBlueprint } from '../src/composer';
+import { BUILTIN_GENRES, BUILTIN_TAGS, composeSong, defaultBlueprint, parsePromptToBlueprint } from '../src/composer';
+import { GM_DRUM } from '../src/ir/gm';
 import type { Blueprint } from '../src/ir/types';
 
 const SPEC_PROMPT =
@@ -166,5 +167,71 @@ describe('defaultBlueprint', () => {
     expect(metal.tempo).toBe(150);
     expect(metal.instrumentation.some((t) => t.instrumentId === 'electric-guitar-distorted')).toBe(true);
     expect(defaultBlueprint({ tempo: 99 }).tempo).toBe(99);
+  });
+});
+
+describe('parsePromptToBlueprint — genres and tags', () => {
+  const LOFI_SOUL = 'A warm lo-fi soul song about driving home at dawn, Rhodes, bass, brushed drums, female alto vocal';
+
+  it('reads the lo-fi soul prompt as soul with warm / lo-fi / brushes (regression)', () => {
+    const bp = parsePromptToBlueprint(LOFI_SOUL);
+    expect(bp.genreBlend.map((g) => g.genreId)).toEqual(['soul']);
+    expect(bp.tags).toEqual(expect.arrayContaining(['warm', 'lo-fi', 'brushed-drums']));
+    expect(bp.tags).not.toContain('driving');
+    expect(bp.moods).toContain('Warm');
+    const drums = bp.instrumentation.find((t) => t.role === 'drums')!;
+    expect(drums.instrumentId).toBe('drum-kit');
+    expect(drums.name).toMatch(/brush/i);
+    expect(bp.instrumentation.find((t) => t.role === 'bass')!.instrumentId).toBe('electric-bass');
+    expect(bp.instrumentation.some((t) => t.instrumentId === 'electric-piano')).toBe(true);
+    expect(bp.vocal?.voiceType).toBe('alto');
+    // Brushes: no crash cymbals, softer snare.
+    const song = composeSong(bp);
+    const kit = song.tracks.find((t) => t.role === 'drums')!;
+    expect(kit.notes.some((n) => n.pitch === GM_DRUM.CRASH)).toBe(false);
+    expect(song.tags).toEqual(bp.tags);
+  });
+
+  it('recognises every genre by name and maps microgenres to their parents', () => {
+    for (const g of BUILTIN_GENRES) {
+      const bp = parsePromptToBlueprint(`a ${g.name.toLowerCase()} song`);
+      expect([...bp.genreBlend].sort((a, b) => b.weight - a.weight)[0].genreId, g.name).toBe(g.id);
+    }
+    const cases: [string, string, string][] = [
+      ['a midwest emo song', 'emo', 'midwest-emo'],
+      ['deep house track with a vaporwave vibe', 'house', 'deep-house'],
+      ['dream pop ballad', 'shoegaze', 'dream-pop'],
+      ['lo-fi beats to chill to', 'lo-fi-hip-hop', 'lo-fi'],
+      ['dark trap beat', 'trap', 'dark'],
+      ['reggaeton perreo with 808s', 'reggaeton', ''],
+      ['liquid drum and bass', 'drum-and-bass', 'liquid-dnb'],
+      ['a vaporwave track', 'synth-pop', 'vaporwave'],
+    ];
+    for (const [prompt, genre, tag] of cases) {
+      const bp = parsePromptToBlueprint(prompt);
+      expect(bp.genreBlend.map((g) => g.genreId), prompt).toContain(genre);
+      if (tag) expect(bp.tags, prompt).toContain(tag);
+    }
+    // Vocal tags hide their genre word: a rap verse is not a hip-hop blend.
+    expect(parsePromptToBlueprint('k-pop with a rap verse').genreBlend.map((g) => g.genreId)).toEqual(['k-pop']);
+    // An idiomatic flavour instrument swaps into the genre's band.
+    const rt = parsePromptToBlueprint('reggaeton perreo with 808s');
+    expect(rt.instrumentation.filter((t) => t.role === 'bass').map((t) => t.instrumentId)).toEqual(['808-bass']);
+    expect(rt.instrumentation.some((t) => t.role === 'drums')).toBe(true);
+  });
+
+  it('finds every tag by name', () => {
+    for (const t of BUILTIN_TAGS) expect(parsePromptToBlueprint(`a ${t.name.toLowerCase()} song`).tags, t.id).toContain(t.id);
+  });
+
+  it('keeps tag deltas out of the base macros and orders genre-naming style tags last', () => {
+    const plain = parsePromptToBlueprint('a pop song');
+    const tagged = parsePromptToBlueprint('an aggressive pop song');
+    expect(tagged.tags).toContain('aggressive');
+    // "aggressive" still moves the base energy through the mood lexicon, not through tag deltas.
+    expect(tagged.macros.energy).toBeGreaterThan(plain.macros.energy);
+    const dh = parsePromptToBlueprint('deep house track with a vaporwave vibe');
+    expect(dh.tags!.indexOf('deep-house')).toBeGreaterThan(dh.tags!.indexOf('vaporwave'));
+    expect(dh.tempo).toBeGreaterThanOrEqual(116);
   });
 });

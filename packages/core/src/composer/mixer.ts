@@ -5,6 +5,7 @@
  */
 import type { ChannelStrip, GenreProfile, InstrumentProfile, MixerState, Song, Track, TrackRole } from '../ir/types';
 import { defaultChannelStrip, defaultCompressor, defaultEq, defaultMixer } from '../ir/defaults';
+import { baseDrumStyle } from './styles';
 import { colorForRole } from '../ir/palette';
 import { clamp, clamp01 } from './util';
 
@@ -102,7 +103,7 @@ export function defaultChannelFor(track: Track, instrument: InstrumentProfile, g
         eq.highMidHz = 3000;
         eq.highShelfDb = 1.5;
         reverbFactor = 0.85;
-        delay = genre.rhythm.drumStyle === 'punk' || genre.rhythm.drumStyle === 'metal' ? 0.06 : 0.14;
+        delay = baseDrumStyle(genre.rhythm.drumStyle) === 'punk' || baseDrumStyle(genre.rhythm.drumStyle) === 'metal' ? 0.06 : genre.rhythm.drumStyle === 'one-drop' || genre.rhythm.drumStyle === 'dubstep' ? 0.22 : 0.14;
         strip.width = 0.8;
       } else {
         Object.assign(comp, { enabled: true, thresholdDb: -20, ratio: 3, attackMs: 8, releaseMs: 120 });
@@ -158,7 +159,7 @@ export function defaultChannelFor(track: Track, instrument: InstrumentProfile, g
 /** Shared reverb/delay buses shaped by the genre's production style. */
 export function mixerForGenre(genre: GenreProfile): MixerState {
   const m = defaultMixer();
-  const d = genre.rhythm.drumStyle;
+  const d = baseDrumStyle(genre.rhythm.drumStyle);
   const rv = clamp01(genre.production.reverb);
   m.reverb.type = d === 'orchestral' || d === 'cinematic' || d === 'trance' ? 'hall' : d === 'punk' || d === 'indie' || d === 'folk' || d === 'country' || d === 'jazz-swing' || d === 'hip-hop' ? 'room' : 'plate';
   m.reverb.size = Math.round((0.35 + rv * 0.6) * 100) / 100;
