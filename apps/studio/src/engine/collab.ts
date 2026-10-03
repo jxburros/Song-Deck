@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { randomId, unpackProject, type Project, type Revision, type Song } from '@songdeck/core';
+import { TRACK_NEUTRAL, TRACK_PALETTE, randomId, unpackProject, type Project, type Revision, type Song } from '@songdeck/core';
 import { serverBase, useSettings } from '../state/settings';
 import { setLinearHistoryProbe, subscribeCommits, useStudio } from '../state/store';
 import { useRuntime } from './runtime';
@@ -153,7 +153,8 @@ export interface CollabState {
   token: string;
 }
 
-export const PEER_COLORS = ['#ff8a3d', '#46c2cb', '#3ecf8e', '#f5c451', '#b48cff', '#ff6b9a', '#5aa9ff', '#c3e86b'];
+/** Collaborator colours: the track palette minus the brand pink, which marks your own selection. */
+export const PEER_COLORS = [2, 8, 5, 3, 10, 1, 9, 11].map((i) => TRACK_PALETTE[i]);
 
 const PREFS_KEY = 'songdeck:collab';
 const TOKEN_KEY = 'songdeck:collab-token';
@@ -888,7 +889,7 @@ class CollabClient {
       if (this.wanted !== projectId || !this.connected) return;
       try {
         const reply = await this.request({ type: 'request-revision', id: meta.id });
-        if (reply.type === 'revision') this.receive(reply.revision, meta.committedBy ? { id: meta.committedBy.id, name: meta.committedBy.name, color: '#888888' } : undefined, false);
+        if (reply.type === 'revision') this.receive(reply.revision, meta.committedBy ? { id: meta.committedBy.id, name: meta.committedBy.name, color: TRACK_NEUTRAL } : undefined, false);
       } catch (err) {
         log('warning', `Could not fetch revision “${meta.message}”: ${err instanceof Error ? err.message : String(err)}`);
       }

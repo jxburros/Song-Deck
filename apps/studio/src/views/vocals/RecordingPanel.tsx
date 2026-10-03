@@ -225,7 +225,7 @@ export function RecordingPanel({ project, track }: { project: Project; track: Tr
                 </Button>
               )}
               {counting && (
-                <span className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent)' }} aria-live="assertive" data-testid="count-in">
+                <span className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent-text)' }} aria-live="assertive" data-testid="count-in">
                   {beat ?? '·'}
                 </span>
               )}

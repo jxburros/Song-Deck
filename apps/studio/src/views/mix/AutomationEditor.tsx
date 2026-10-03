@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react';
 import {
+  TRACK_NEUTRAL,
   barLengthTicks,
   barToTick,
   createTimeMap,
@@ -19,6 +20,7 @@ import { player } from '../../engine/player';
 import { useElementSize } from '../../hooks';
 import { Badge, Button, EmptyState, Select, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
+import { alpha, cssVar, sectionColor, useThemeName } from '../../ui/theme';
 import {
   AUTOMATION_META,
   AUTOMATION_PARAMS,
@@ -44,23 +46,6 @@ const LANE_H = 96;
 const RULER_H = 38;
 const POINT_R = 5;
 
-const SECTION_COLORS: Record<string, string> = {
-  intro: '#5d6b82',
-  verse: '#46c2cb',
-  'pre-chorus': '#7d9bff',
-  chorus: '#ff8a3d',
-  'post-chorus': '#ffb347',
-  bridge: '#a68cff',
-  breakdown: '#5ad1a4',
-  build: '#f5c451',
-  drop: '#ff5d5d',
-  solo: '#d083ff',
-  interlude: '#5d6b82',
-  'final-chorus': '#ff7417',
-  outro: '#5d6b82',
-  custom: '#9aa3b2',
-};
-
 function snapTick(song: Song, tick: number, snap: Snap, end: number): number {
   const t = Math.max(0, Math.min(end, tick));
   if (snap === 'off') return Math.round(t);
@@ -77,10 +62,6 @@ function snapUnit(song: Song, tick: number, snap: Snap): number {
   if (snap === '8th') return song.ppq / 2;
   if (snap === '16th') return song.ppq / 4;
   return ticksPerBeat(p.meter.denominator, song.ppq);
-}
-
-function cssVar(name: string, fallback: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
 function posLabel(song: Song, tick: number): string {
@@ -102,6 +83,7 @@ function commitAutomation(song: Song, automation: AutomationLane[], message: str
 
 function Ruler({ song, width, end }: { song: Song; width: number; end: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const theme = useThemeName();
   useEffect(() => {
     const c = ref.current;
     if (!c || width <= 0) return;
@@ -115,12 +97,12 @@ function Ruler({ song, width, end }: { song: Song; width: number; end: number })
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, RULER_H);
     const x = (t: number) => (t / end) * width;
-    ctx.font = '600 10.5px ui-sans-serif, system-ui, sans-serif';
+    ctx.font = `600 10.5px ${cssVar('--font-ui')}`;
     ctx.textBaseline = 'middle';
     for (const span of sectionLayout(song)) {
       const x0 = x(span.startTick);
       const x1 = x(span.endTick);
-      const color = SECTION_COLORS[span.section.kind] ?? '#9aa3b2';
+      const color = sectionColor(span.section.kind);
       ctx.fillStyle = color;
       ctx.globalAlpha = 0.22;
       ctx.fillRect(x0 + 1, 2, Math.max(1, x1 - x0 - 2), 18);
@@ -131,7 +113,7 @@ function Ruler({ song, width, end }: { song: Song; width: number; end: number })
       ctx.beginPath();
       ctx.rect(x0 + 6, 2, Math.max(0, x1 - x0 - 8), 18);
       ctx.clip();
-      ctx.fillStyle = cssVar('--text', '#e7eaf0');
+      ctx.fillStyle = cssVar('--text');
       ctx.fillText(span.section.name, x0 + 8, 11);
       ctx.restore();
     }
@@ -139,9 +121,9 @@ function Ruler({ song, width, end }: { song: Song; width: number; end: number })
     const bars = tickToBar(song, Math.max(0, end - 1)).bar + 1;
     const pxPerBar = width / Math.max(1, bars);
     const every = pxPerBar >= 28 ? 1 : pxPerBar >= 14 ? 2 : pxPerBar >= 7 ? 4 : 8;
-    ctx.font = '10px ui-monospace, monospace';
-    ctx.fillStyle = cssVar('--text-dim', '#646d7c');
-    ctx.strokeStyle = cssVar('--grid-bar', 'rgba(255,255,255,0.16)');
+    ctx.font = `10px ${cssVar('--font-mono')}`;
+    ctx.fillStyle = cssVar('--text-dim');
+    ctx.strokeStyle = cssVar('--grid-bar');
     for (let b = 0; b < bars; b++) {
       const bx = Math.round(x(barToTick(song, b))) + 0.5;
       ctx.beginPath();
@@ -153,7 +135,7 @@ function Ruler({ song, width, end }: { song: Song; width: number; end: number })
         ctx.fillText(String(b + 1), bx + 3, 30);
       }
     }
-  }, [song, width, end]);
+  }, [song, width, end, theme]);
   return <canvas ref={ref} className="mx-auto-ruler" aria-hidden />;
 }
 
@@ -180,6 +162,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
   const ref = useRef<HTMLCanvasElement>(null);
   const drag = useRef<{ index: number; points: AutomationPoint[]; moved: boolean; created: boolean } | null>(null);
   const [hover, setHover] = useState<number | null>(null);
+  const theme = useThemeName();
   const meta = AUTOMATION_META[lane.param];
   const staticValue = staticAutomationValue(song.mixer, lane.target, lane.param);
   const PAD = 7;
@@ -203,9 +186,9 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, LANE_H);
     const enabled = lane.enabled;
-    const color = enabled ? cssVar('--ai', '#46c2cb') : cssVar('--text-dim', '#646d7c');
+    const color = enabled ? cssVar('--ai') : cssVar('--text-dim');
     // Grid: sections and bars.
-    ctx.strokeStyle = cssVar('--grid-line', 'rgba(255,255,255,0.05)');
+    ctx.strokeStyle = cssVar('--grid-line');
     const bars = tickToBar(song, Math.max(0, end - 1)).bar + 1;
     const pxPerBar = width / Math.max(1, bars);
     const every = pxPerBar >= 10 ? 1 : 4;
@@ -216,7 +199,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
       ctx.lineTo(bx, LANE_H);
       ctx.stroke();
     }
-    ctx.strokeStyle = cssVar('--grid-bar', 'rgba(255,255,255,0.16)');
+    ctx.strokeStyle = cssVar('--grid-bar');
     for (const span of sectionLayout(song)) {
       const sx = Math.round(xOf(span.startTick)) + 0.5;
       ctx.beginPath();
@@ -228,7 +211,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (lane.param === 'pan' || lane.param.endsWith('Db')) {
       const zy = Math.round(yOf(0)) + 0.5;
       ctx.setLineDash([2, 4]);
-      ctx.strokeStyle = cssVar('--border-strong', '#343b48');
+      ctx.strokeStyle = cssVar('--border-strong');
       ctx.beginPath();
       ctx.moveTo(0, zy);
       ctx.lineTo(width, zy);
@@ -239,7 +222,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (!points.length || !enabled) {
       const sy = yOf(staticValue);
       ctx.setLineDash([5, 4]);
-      ctx.strokeStyle = cssVar('--text-dim', '#646d7c');
+      ctx.strokeStyle = cssVar('--text-dim');
       ctx.beginPath();
       ctx.moveTo(0, sy);
       ctx.lineTo(width, sy);
@@ -262,7 +245,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
       fill.lineTo(width, LANE_H);
       fill.lineTo(0, LANE_H);
       fill.closePath();
-      ctx.fillStyle = enabled ? 'rgba(70, 194, 203, 0.12)' : 'rgba(128,128,128,0.06)';
+      ctx.fillStyle = alpha(color, enabled ? 0.12 : 0.06);
       ctx.fill(fill);
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
@@ -277,9 +260,9 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
         ctx.beginPath();
         if ((p.curve ?? 'linear') === 'step') ctx.rect(x - POINT_R, y - POINT_R, POINT_R * 2, POINT_R * 2);
         else ctx.arc(x, y, sel || i === hover ? POINT_R + 1.5 : POINT_R, 0, Math.PI * 2);
-        ctx.fillStyle = sel ? cssVar('--accent', '#ff8a3d') : color;
+        ctx.fillStyle = sel ? cssVar('--accent') : color;
         ctx.fill();
-        ctx.strokeStyle = cssVar('--bg', '#0e1014');
+        ctx.strokeStyle = cssVar('--bg');
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
@@ -288,19 +271,19 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
       const tp = tagIndex !== null ? points[tagIndex] : undefined;
       if (tp) {
         const text = `${posLabel(song, tp.tick)} · ${meta.fmt(tp.value)}`;
-        ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+        ctx.font = `11px ${cssVar('--font-ui')}`;
         const tw = ctx.measureText(text).width + 10;
         const x = Math.min(width - tw - 2, Math.max(2, xOf(tp.tick) - tw / 2));
         const y = yOf(tp.value) < 26 ? yOf(tp.value) + 9 : yOf(tp.value) - 26;
-        ctx.fillStyle = cssVar('--bg-elev-3', '#222731');
+        ctx.fillStyle = cssVar('--bg-elev-3');
         ctx.fillRect(x, y, tw, 17);
-        ctx.fillStyle = cssVar('--text', '#e7eaf0');
+        ctx.fillStyle = cssVar('--text');
         ctx.textBaseline = 'middle';
         ctx.fillText(text, x + 5, y + 9);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song, lane, points, width, end, selectedIndex, hover, staticValue]);
+  }, [song, lane, points, width, end, selectedIndex, hover, staticValue, theme]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const r = ref.current!.getBoundingClientRect();
@@ -591,7 +574,7 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
                 <div className={`mx-auto-row ${lane.enabled ? '' : 'disabled'}`} key={lane.id} id={`lane-${lane.id}`}>
                   <div className="mx-auto-head">
                     <div className="row" style={{ gap: 6 }}>
-                      <span className="mx-color-dot" style={{ background: lane.target === MASTER ? 'var(--accent)' : (track?.color ?? '#9aa3b2') }} />
+                      <span className="mx-color-dot" style={{ background: lane.target === MASTER ? 'var(--accent)' : (track?.color ?? TRACK_NEUTRAL) }} />
                       <span className="ellipsis grow" style={{ fontWeight: 600 }} title={laneTitle(song, lane)}>
                         {targetName(song, lane.target)}
                       </span>

@@ -24,6 +24,7 @@ import { useStudio } from '../../state/store';
 import { usePlayhead } from '../../hooks';
 import { Badge, Button, Select } from '../../ui/kit';
 import { colorForRole } from './SidePanel';
+import { alpha, useThemeName } from '../../ui/theme';
 import { auditionNote } from '../../engine/audition';
 import { useLoopSync } from './useLoopSync';
 import { useMidiRecorder } from './useMidiRecorder';
@@ -61,6 +62,7 @@ function expressionValue(n: Note, param: LaneParam): number {
 
 export default function PianoRoll() {
   const project = useStudio((s) => s.project);
+  useThemeName(); // canvases redraw on theme switch
   const selectedTrackId = useStudio((s) => s.selectedTrackId);
   const selection = useStudio((s) => s.selection);
   const view = useStudio((s) => s.view);
@@ -207,7 +209,7 @@ export default function PianoRoll() {
       g.fillStyle = BLACK.has(pc) ? col('--bg') : col('--bg-elev-1');
       g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
       if (scale.has(pc)) {
-        g.fillStyle = 'rgba(70,194,203,0.035)';
+        g.fillStyle = alpha(col('--ai-fill'), 0.035);
         g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
       }
       g.fillStyle = col('--grid-line');
@@ -223,7 +225,7 @@ export default function PianoRoll() {
         const x1 = tickToX(c.tick + c.duration);
         for (let p = bottomPitch; p <= topPitch; p++) {
           if (!pcs.has(p % 12)) continue;
-          g.fillStyle = p % 12 === c.root ? 'rgba(255,138,61,0.09)' : 'rgba(255,138,61,0.045)';
+          g.fillStyle = alpha(col('--accent'), p % 12 === c.root ? 0.09 : 0.045);
           g.fillRect(Math.max(KEY_W, x0), pitchToY(p), x1 - Math.max(KEY_W, x0), keyH - 1);
         }
       }
@@ -248,7 +250,7 @@ export default function PianoRoll() {
 
     // Selection range shading
     if (selection.startTick !== undefined && selection.endTick !== undefined && selection.endTick > selection.startTick) {
-      g.fillStyle = 'rgba(255,138,61,0.06)';
+      g.fillStyle = alpha(col('--accent'), 0.06);
       const x0 = Math.max(KEY_W, tickToX(selection.startTick));
       g.fillRect(x0, RULER_H, tickToX(selection.endTick) - x0, size.h - RULER_H);
     }
@@ -262,7 +264,7 @@ export default function PianoRoll() {
         const x0 = Math.max(KEY_W, tickToX(span.startTick));
         const x1 = tickToX(span.endTick);
         if (x1 < KEY_W || x0 > size.w) continue;
-        g.fillStyle = 'rgba(245,196,81,0.05)';
+        g.fillStyle = alpha(col('--warning-fill'), 0.06);
         g.fillRect(x0, RULER_H, x1 - x0, size.h - RULER_H);
       }
     }
@@ -270,7 +272,7 @@ export default function PianoRoll() {
     // Ghost track
     const ghost = song.tracks.find((t) => t.id === ghostId);
     if (ghost) {
-      g.fillStyle = 'rgba(160,170,190,0.25)';
+      g.fillStyle = alpha(col('--text-dim'), 0.3);
       for (const n of ghost.notes) {
         if (n.tick + n.duration < viewStartTick || n.tick > viewEndTick) continue;
         g.fillRect(tickToX(n.tick), pitchToY(n.pitch) + 1, Math.max(2, n.duration * pxPerTick), keyH - 2);
@@ -313,7 +315,7 @@ export default function PianoRoll() {
         g.fillRect(x, y + 1, w, keyH - 2);
         g.globalAlpha = 1;
         let stroke: string | null = null;
-        if (selected.has(n.id)) stroke = '#ffffff';
+        if (selected.has(n.id)) stroke = col('--text');
         else if (diffForTrack?.added.has(n.id)) stroke = col('--diff-added');
         else if (diffForTrack?.modified.has(n.id)) stroke = col('--diff-modified');
         else if (n.locked) stroke = col('--lock');
@@ -329,7 +331,7 @@ export default function PianoRoll() {
           g.setLineDash([]);
         }
         if (isVocal && n.syllable && w > 12) {
-          g.fillStyle = '#0b0d11';
+          g.fillStyle = col('--on-track');
           g.fillText(n.syllable, x + 3, y + keyH - 3, w - 4);
         }
       }
@@ -338,7 +340,7 @@ export default function PianoRoll() {
     // Marquee
     if (drag?.kind === 'marquee') {
       g.strokeStyle = col('--accent');
-      g.fillStyle = 'rgba(255,138,61,0.08)';
+      g.fillStyle = alpha(col('--accent'), 0.08);
       const x = Math.min(drag.x0, drag.x1);
       const y = Math.min(drag.y0, drag.y1);
       g.fillRect(x, y, Math.abs(drag.x1 - drag.x0), Math.abs(drag.y1 - drag.y0));
@@ -352,7 +354,7 @@ export default function PianoRoll() {
       const x0 = tickToX(span.startTick);
       const x1 = tickToX(span.endTick);
       if (x1 < KEY_W || x0 > size.w) continue;
-      g.fillStyle = 'rgba(255,255,255,0.05)';
+      g.fillStyle = col('--row-hover');
       g.fillRect(Math.max(KEY_W, x0), 0, x1 - Math.max(KEY_W, x0), 14);
       g.fillStyle = col('--text-muted');
       g.font = `600 10px ${col('--font-ui')}`;
@@ -381,10 +383,10 @@ export default function PianoRoll() {
     for (let p = bottomPitch; p <= topPitch; p++) {
       const y = pitchToY(p);
       const pc = p % 12;
-      g.fillStyle = BLACK.has(pc) ? '#1b1f27' : '#d9dde5';
+      g.fillStyle = BLACK.has(pc) ? col('--key-black') : col('--key-white');
       g.fillRect(0, y, KEY_W - 1, keyH - (BLACK.has(pc) ? 0 : 1));
       if (pc === 0 && keyH >= 9) {
-        g.fillStyle = '#3a404c';
+        g.fillStyle = col('--key-label');
         g.font = `${Math.min(10, keyH - 2)}px ${col('--font-mono')}`;
         g.fillText(midiToNoteName(p), 4, y + keyH - 2);
       }
@@ -412,10 +414,11 @@ export default function PianoRoll() {
     const g = canvas.getContext('2d')!;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(document.documentElement);
-    g.fillStyle = css.getPropertyValue('--bg-elev-1').trim();
+    const col = (v: string) => css.getPropertyValue(v).trim();
+    g.fillStyle = col('--bg-elev-1');
     g.fillRect(0, 0, size.laneW, LANE_H);
-    g.fillStyle = css.getPropertyValue('--text-dim').trim();
-    g.font = '10px sans-serif';
+    g.fillStyle = col('--text-dim');
+    g.font = `10px ${col('--font-ui')}`;
     g.fillText(laneParam, 4, 12);
     const color = track.color || colorForRole(track.role);
     const laneDrag = drag?.kind === 'lane' ? drag : null;
@@ -424,7 +427,7 @@ export default function PianoRoll() {
       if (x < KEY_W - 4 || x > size.laneW) continue;
       const v = laneDrag?.values.get(n.id) ?? expressionValue(n, laneParam);
       const h = v * (LANE_H - 16);
-      g.fillStyle = selected.has(n.id) ? '#ffffff' : color;
+      g.fillStyle = selected.has(n.id) ? col('--text') : color;
       g.fillRect(x, LANE_H - 4 - h, 3, h);
       g.beginPath();
       g.arc(x + 1.5, LANE_H - 4 - h, 2.5, 0, Math.PI * 2);

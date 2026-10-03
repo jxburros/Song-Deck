@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { barToTick, sectionLayout, tickToMusical, type Song } from '@songdeck/core';
+import { TRACK_NEUTRAL, barToTick, sectionLayout, tickToMusical, type Song } from '@songdeck/core';
 import { useSettings } from '../../state/settings';
 import { useStudio } from '../../state/store';
 import { useRuntime } from '../../engine/runtime';
@@ -482,7 +482,7 @@ function ChatPanel() {
         {chat.length === 0 && <div className="small dim">Say hello.</div>}
         {chat.map((m, i) => (
           <div key={`${m.at}-${i}`} className={`st-chat-msg ${m.mine ? 'mine' : ''}`}>
-            <Avatar name={m.user?.name ?? '?'} color={m.user?.color ?? '#888'} size={20} />
+            <Avatar name={m.user?.name ?? '?'} color={m.user?.color ?? TRACK_NEUTRAL} size={20} />
             <div>
               <div className="small dim">
                 {m.user?.name} · {timeAgo(m.at)}

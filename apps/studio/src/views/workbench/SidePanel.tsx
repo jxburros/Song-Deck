@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   BUILTIN_INSTRUMENTS,
   channelFor,
+  colorForRole,
   defaultChannelStrip,
   getInstrument,
   LockKeys,
@@ -19,25 +20,8 @@ import { Button, Field, LockButton, Modal, Select, TextInput, Toggle } from '../
 import { Icon } from '../../ui/icons';
 import { TRACK_ROLES } from '../compose/BlueprintEditor';
 
-const ROLE_COLORS: Record<string, string> = {
-  drums: '#ff6b6b',
-  percussion: '#ff8e72',
-  bass: '#ffb347',
-  'rhythm-guitar': '#f7d154',
-  'lead-guitar': '#c6e05a',
-  keys: '#5ad1a4',
-  strings: '#4fc3e8',
-  'synth-pad': '#7d9bff',
-  'synth-arp': '#a68cff',
-  'synth-lead': '#d083ff',
-  'synth-seq': '#b28bff',
-  vocal: '#ff7ac6',
-  custom: '#9aa3b2',
-};
-
-export function colorForRole(role: string): string {
-  return ROLE_COLORS[role] ?? '#9aa3b2';
-}
+/** Track colours live in @songdeck/core (ir/palette.ts) so composed, imported and rebuilt tracks agree. */
+export { colorForRole };
 
 export function setChannel(song: Song, trackId: string, patch: Partial<ReturnType<typeof defaultChannelStrip>>): Song {
   const ch = { ...channelFor(song, trackId), ...patch };

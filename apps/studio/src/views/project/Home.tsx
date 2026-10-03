@@ -115,7 +115,7 @@ export default function Home() {
             ['shield', 'Any AI, or none', 'Bring your own keys, run local models, or stay fully offline. Every request shows exactly what leaves the device.'],
           ].map(([icon, title, body]) => (
             <div className="card" key={title}>
-              <div className="row" style={{ marginBottom: 6, color: 'var(--accent)' }}>
+              <div className="row" style={{ marginBottom: 6, color: 'var(--accent-text)' }}>
                 <Icon name={icon} />
                 <strong style={{ color: 'var(--text)' }}>{title}</strong>
               </div>

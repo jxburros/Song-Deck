@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
-import { interpretMixInstruction, stableStringify, tickToMusical, type AutomationLane, type Proposal, type Song } from '@songdeck/core';
+import { TRACK_NEUTRAL, interpretMixInstruction, stableStringify, tickToMusical, type AutomationLane, type Proposal, type Song } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { propose } from '../../engine/proposals';
 import { aiMix } from '../../engine/ai';
@@ -155,7 +155,7 @@ function ProposalCard({ proposal, song }: { proposal: Proposal; song: Song }) {
             return (
               <div className="mx-diff-group" role="rowgroup" key={target}>
                 <div className="mx-diff-target" role="row">
-                  <span className="mx-color-dot" style={{ background: target === 'master' ? 'var(--accent)' : (track?.color ?? '#9aa3b2') }} />
+                  <span className="mx-color-dot" style={{ background: target === 'master' ? 'var(--accent)' : (track?.color ?? TRACK_NEUTRAL) }} />
                   <span role="rowheader">{targetName(song, target)}</span>
                 </div>
                 {list.map((r) => {

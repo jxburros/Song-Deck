@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   assetPathFor,
+  STEM_COLORS,
   barToTick,
   defaultChannelStrip,
   randomId,
@@ -42,16 +43,6 @@ const GROUP_ROLE: Record<StemGroup, TrackRole> = {
   keys: 'keys',
   strings: 'strings',
   others: 'custom',
-};
-
-const GROUP_COLOR: Record<StemGroup, string> = {
-  vocals: '#ff7ac6',
-  drums: '#ff6b6b',
-  bass: '#ffb347',
-  guitars: '#f7d154',
-  keys: '#5ad1a4',
-  strings: '#4fc3e8',
-  others: '#9aa3b2',
 };
 
 export function guessStemGroup(name: string): StemGroup {
@@ -158,7 +149,7 @@ function ImportModal({ file, onClose }: { file: File; onClose: () => void }) {
         constraints: {},
         notes: [],
         clips: [clip],
-        color: GROUP_COLOR[group],
+        color: STEM_COLORS[group],
         stemGroup: group,
         generator: { id: kind === 'stem' ? 'stem-import' : 'audio-import' },
       };

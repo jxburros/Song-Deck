@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ROLE_COLORS,
   LockKeys,
   isTrackSectionLocked,
   midiToNoteName,
@@ -147,7 +148,7 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
             totalTicks={Math.max(songLengthTicks(song), 1)}
             height={140}
             colorBy="velocity"
-            color={track.color || '#ff7ac6'}
+            color={track.color || ROLE_COLORS.vocal}
             highlight={focusSpan ? { startTick: focusSpan.startTick, endTick: focusSpan.endTick } : null}
             ariaLabel={`${track.name}: ${track.notes.length} notes`}
             onBarClick={(bar1) => {

@@ -949,7 +949,7 @@ function Staves(props: NotationPreviewProps & { width: number }) {
           }
           x = Math.max(x, lastRight + 0.5 * S);
           out.push(
-            <text key={`ch${bar.index}-${c.pos}`} x={x} y={sysY + 1.5 * S} fontSize={1.3 * S} fontWeight={600} fill="var(--ai)">
+            <text key={`ch${bar.index}-${c.pos}`} x={x} y={sysY + 1.5 * S} fontSize={1.3 * S} fontWeight={600} fill="var(--accent-text)">
               {c.symbol}
             </text>,
           );
