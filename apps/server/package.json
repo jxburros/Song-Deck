@@ -1,0 +1,28 @@
+{
+  "name": "@songdeck/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Song Deck local runtime: credential vault, provider proxy, hardware detection, model manager, render nodes, collaboration hub, plugin host, managed gateway.",
+  "bin": {
+    "songdeck-server": "./src/cli.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/cli.ts",
+    "start": "tsx src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@songdeck/ai": "0.1.0",
+    "@songdeck/audio": "0.1.0",
+    "@songdeck/core": "0.1.0",
+    "ws": "^8.22.0"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2"
+  }
+}

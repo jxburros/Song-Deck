@@ -1,0 +1,17 @@
+{
+  "name": "@songdeck/audio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Audio Engine: deterministic pure-TypeScript synthesis, rendering, mixer, effects, mastering, codecs, and music-information-retrieval analysis.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@songdeck/core": "0.1.0"
+  }
+}
