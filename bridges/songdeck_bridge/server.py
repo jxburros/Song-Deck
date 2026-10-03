@@ -38,6 +38,7 @@ not allow-listed (CORS is only granted to the Song Deck studio/server origins), 
 headers that are not loopback names when bound to loopback (DNS-rebinding protection), and
 compare tokens in constant time.
 """
+
 from __future__ import annotations
 
 import hmac
@@ -221,7 +222,9 @@ def json_response(obj: Any, status: int = 200, headers: Optional[Dict[str, str]]
     return Response(status, body, "application/json; charset=utf-8", dict(headers or {}))
 
 
-def wav_response(wav: bytes, *, seed: Optional[int] = None, model: Optional[str] = None, headers: Optional[Dict[str, str]] = None) -> Response:
+def wav_response(
+    wav: bytes, *, seed: Optional[int] = None, model: Optional[str] = None, headers: Optional[Dict[str, str]] = None
+) -> Response:
     """``200 audio/wav`` with the optional contract headers ``X-Seed`` and ``X-Model``."""
     h = dict(headers or {})
     if seed is not None:
@@ -253,8 +256,16 @@ def _absent(obj: Dict[str, Any], name: str) -> bool:
     return obj.get(name) is None
 
 
-def req_str(obj: Dict[str, Any], name: str, *, required: bool = True, default: Optional[str] = None, allow_empty: bool = True,
-            max_len: int = 1_000_000, choices: Optional[Sequence[str]] = None) -> Optional[str]:
+def req_str(
+    obj: Dict[str, Any],
+    name: str,
+    *,
+    required: bool = True,
+    default: Optional[str] = None,
+    allow_empty: bool = True,
+    max_len: int = 1_000_000,
+    choices: Optional[Sequence[str]] = None,
+) -> Optional[str]:
     if _absent(obj, name):
         if required:
             raise BadRequest(f"'{name}' is required")
@@ -271,9 +282,16 @@ def req_str(obj: Dict[str, Any], name: str, *, required: bool = True, default: O
     return v
 
 
-def req_number(obj: Dict[str, Any], name: str, *, required: bool = True, default: Optional[float] = None,
-               minimum: Optional[float] = None, maximum: Optional[float] = None,
-               exclusive_minimum: Optional[float] = None) -> Optional[float]:
+def req_number(
+    obj: Dict[str, Any],
+    name: str,
+    *,
+    required: bool = True,
+    default: Optional[float] = None,
+    minimum: Optional[float] = None,
+    maximum: Optional[float] = None,
+    exclusive_minimum: Optional[float] = None,
+) -> Optional[float]:
     if _absent(obj, name):
         if required:
             raise BadRequest(f"'{name}' is required")
@@ -290,8 +308,15 @@ def req_number(obj: Dict[str, Any], name: str, *, required: bool = True, default
     return float(v)
 
 
-def req_int(obj: Dict[str, Any], name: str, *, required: bool = True, default: Optional[int] = None,
-            minimum: Optional[int] = None, maximum: Optional[int] = None) -> Optional[int]:
+def req_int(
+    obj: Dict[str, Any],
+    name: str,
+    *,
+    required: bool = True,
+    default: Optional[int] = None,
+    minimum: Optional[int] = None,
+    maximum: Optional[int] = None,
+) -> Optional[int]:
     v = req_number(obj, name, required=required, default=None, minimum=minimum, maximum=maximum)
     if v is None:
         return default
@@ -309,8 +334,14 @@ def req_bool(obj: Dict[str, Any], name: str, *, default: Optional[bool] = None) 
     return v
 
 
-def req_list(obj: Dict[str, Any], name: str, *, required: bool = True, default: Optional[list] = None,
-             max_items: Optional[int] = None) -> Optional[list]:
+def req_list(
+    obj: Dict[str, Any],
+    name: str,
+    *,
+    required: bool = True,
+    default: Optional[list] = None,
+    max_items: Optional[int] = None,
+) -> Optional[list]:
     if _absent(obj, name):
         if required:
             raise BadRequest(f"'{name}' is required")
@@ -323,7 +354,9 @@ def req_list(obj: Dict[str, Any], name: str, *, required: bool = True, default: 
     return v
 
 
-def req_object(obj: Dict[str, Any], name: str, *, required: bool = False, default: Optional[dict] = None) -> Optional[dict]:
+def req_object(
+    obj: Dict[str, Any], name: str, *, required: bool = False, default: Optional[dict] = None
+) -> Optional[dict]:
     if _absent(obj, name):
         if required:
             raise BadRequest(f"'{name}' is required")
@@ -350,7 +383,7 @@ def req_seed(obj: Dict[str, Any], name: str = "seed") -> Tuple[int, bool]:
     """``(seed, from_request)``; a random seed is drawn when absent (return it in ``X-Seed``)."""
     v = req_number(obj, name, required=False)
     if v is None:
-        return random.SystemRandom().randrange(0, 2 ** 31 - 1), False
+        return random.SystemRandom().randrange(0, 2**31 - 1), False
     if v != int(v):
         raise BadRequest(f"'{name}' must be an integer (got {obj[name]})")
     return int(v), True
@@ -424,7 +457,15 @@ def _reject_constant(name: str) -> Any:
 class RequestContext:
     """What a handler sees: method, path, query, headers, body/JSON and (for jobs) the Job."""
 
-    def __init__(self, app: "BridgeApp", handler: BaseHTTPRequestHandler, method: str, path: str, query: Dict[str, List[str]], body: bytes):
+    def __init__(
+        self,
+        app: "BridgeApp",
+        handler: BaseHTTPRequestHandler,
+        method: str,
+        path: str,
+        query: Dict[str, List[str]],
+        body: bytes,
+    ):
         self.app = app
         self.method = method
         self.path = path
@@ -624,9 +665,17 @@ def command_from_template(template: str, values: Dict[str, str]) -> List[str]:
 _PLACEHOLDER_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
-def run_command(cmd: Sequence[Any], ctx: Optional[RequestContext] = None, *, cwd: Optional[str] = None,
-                env: Optional[Dict[str, str]] = None, timeout: Optional[float] = None, name: Optional[str] = None,
-                poll_interval: float = 0.2, tail_chars: int = 4000) -> str:
+def run_command(
+    cmd: Sequence[Any],
+    ctx: Optional[RequestContext] = None,
+    *,
+    cwd: Optional[str] = None,
+    env: Optional[Dict[str, str]] = None,
+    timeout: Optional[float] = None,
+    name: Optional[str] = None,
+    poll_interval: float = 0.2,
+    tail_chars: int = 4000,
+) -> str:
     """Run an engine command line as a cancellable subprocess and return the tail of its output.
 
     The process is terminated (with its process group on POSIX) when the job is cancelled — the
@@ -639,7 +688,15 @@ def run_command(cmd: Sequence[Any], ctx: Optional[RequestContext] = None, *, cwd
     log.info("running %s", " ".join(shlex.quote(a) for a in argv))
     with tempfile.TemporaryFile() as out:
         try:
-            proc = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, **_process_group_kwargs())
+            proc = subprocess.Popen(
+                argv,
+                cwd=cwd,
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=out,
+                stderr=subprocess.STDOUT,
+                **_process_group_kwargs(),
+            )
         except FileNotFoundError:
             raise EngineError(f"{label}: command not found: {argv[0]}") from None
         except OSError as e:
@@ -741,10 +798,21 @@ def _peer_closed(sock: socket.socket) -> bool:
 class BridgeApp:
     """A bridge application: routes + contract plumbing. See the module docstring."""
 
-    def __init__(self, name: str, *, version: str = __version__, role: str = "bridge", token: Optional[str] = None,
-                 cors_origins: Optional[Sequence[str]] = DEFAULT_CORS_ORIGINS, allowed_hosts: Optional[Sequence[str]] = None,
-                 max_body_bytes: int = DEFAULT_MAX_BODY_BYTES, max_jobs: int = 1, max_queue: int = 8,
-                 detect_disconnect: bool = True, disconnect_poll: float = 0.25):
+    def __init__(
+        self,
+        name: str,
+        *,
+        version: str = __version__,
+        role: str = "bridge",
+        token: Optional[str] = None,
+        cors_origins: Optional[Sequence[str]] = DEFAULT_CORS_ORIGINS,
+        allowed_hosts: Optional[Sequence[str]] = None,
+        max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
+        max_jobs: int = 1,
+        max_queue: int = 8,
+        detect_disconnect: bool = True,
+        disconnect_poll: float = 0.25,
+    ):
         self.name = name
         self.version = version
         self.role = role
@@ -778,7 +846,9 @@ class BridgeApp:
         self.add_route("POST", "/cancel", self._route_cancel)
 
     # -- registration --------------------------------------------------------------------------
-    def add_route(self, method: str, path: str, handler: Callable[[RequestContext], Any], *, job: bool = False, auth: bool = True) -> None:
+    def add_route(
+        self, method: str, path: str, handler: Callable[[RequestContext], Any], *, job: bool = False, auth: bool = True
+    ) -> None:
         self._routes.setdefault(_norm_path(path), {})[method.upper()] = _Route(handler, job, auth)
 
     def route(self, method: str, path: str, *, auth: bool = True):
@@ -814,12 +884,16 @@ class BridgeApp:
 
     # -- serving -------------------------------------------------------------------------------
     def create_server(self, host: str, port: int) -> ThreadingHTTPServer:
-        handler_cls = type(f"{re.sub(r'[^A-Za-z0-9]', '', self.role.title()) or 'Bridge'}Handler", (_Handler,), {"app": self})
+        handler_cls = type(
+            f"{re.sub(r'[^A-Za-z0-9]', '', self.role.title()) or 'Bridge'}Handler", (_Handler,), {"app": self}
+        )
         server = _BridgeServer((host, port), handler_cls)
         self.server = server
         self.bind_host = host
         if self.detect_disconnect and self._watcher is None:
-            self._watcher = threading.Thread(target=self._watch_disconnects, name=f"{self.role}-disconnects", daemon=True)
+            self._watcher = threading.Thread(
+                target=self._watch_disconnects, name=f"{self.role}-disconnects", daemon=True
+            )
             self._watcher.start()
         return server
 
@@ -867,9 +941,18 @@ class BridgeApp:
     # -- built-in routes -----------------------------------------------------------------------
     def _route_health(self, ctx: RequestContext) -> Response:
         with self._lock:
-            jobs = {"running": self._running, "queued": self._queued, "max_jobs": self.max_jobs, "max_queue": self.max_queue, **self.stats}
+            jobs = {
+                "running": self._running,
+                "queued": self._queued,
+                "max_jobs": self.max_jobs,
+                "max_queue": self.max_queue,
+                **self.stats,
+            }
             now = time.monotonic()
-            active = [{"id": j.id, "path": j.path, "state": j.state, "seconds": round(now - j.created, 2)} for j in self._jobs.values()]
+            active = [
+                {"id": j.id, "path": j.path, "state": j.state, "seconds": round(now - j.created, 2)}
+                for j in self._jobs.values()
+            ]
         models = [ld.status() for ld in self.loaders]
         status = "ok"
         if any(m["state"] == "failed" for m in models):
@@ -909,7 +992,12 @@ class BridgeApp:
         if not host_header or self.bind_host is None or not is_loopback_host(self.bind_host):
             return True  # bound to a public interface: the token protects it
         name = _host_name(host_header)
-        return name in LOOPBACK_NAMES or name in self.allowed_hosts or name == self.bind_host.strip("[]").lower() or name.startswith("127.")
+        return (
+            name in LOOPBACK_NAMES
+            or name in self.allowed_hosts
+            or name == self.bind_host.strip("[]").lower()
+            or name.startswith("127.")
+        )
 
     def _authorized(self, h: BaseHTTPRequestHandler) -> bool:
         auth = h.headers.get("Authorization") or ""
@@ -949,7 +1037,9 @@ class BridgeApp:
         except ValueError:
             raise BadRequest("invalid Content-Length header") from None
         if n > self.max_body_bytes:
-            raise PayloadTooLarge(f"the request body is {n} bytes; this bridge accepts at most {self.max_body_bytes} (start it with a larger --max-body-mb)")
+            raise PayloadTooLarge(
+                f"the request body is {n} bytes; this bridge accepts at most {self.max_body_bytes} (start it with a larger --max-body-mb)"
+            )
         return _read_exact(h.rfile, n)
 
     def _read_chunked(self, h: BaseHTTPRequestHandler) -> bytes:
@@ -971,7 +1061,9 @@ class BridgeApp:
                 return b"".join(parts)
             total += size
             if total > self.max_body_bytes:
-                raise PayloadTooLarge(f"the request body exceeds {self.max_body_bytes} bytes (start the bridge with a larger --max-body-mb)")
+                raise PayloadTooLarge(
+                    f"the request body exceeds {self.max_body_bytes} bytes (start the bridge with a larger --max-body-mb)"
+                )
             parts.append(_read_exact(h.rfile, size))
             _read_exact(h.rfile, 2)
 
@@ -987,10 +1079,14 @@ class BridgeApp:
         try:
             if not self._host_allowed(h.headers.get("Host")):
                 close = True
-                raise Forbidden("Host header not allowed (DNS-rebinding protection); start the bridge with --allow-host <name> if you use another host name")
+                raise Forbidden(
+                    "Host header not allowed (DNS-rebinding protection); start the bridge with --allow-host <name> if you use another host name"
+                )
             if origin is not None and cors_origin is None:
                 close = True
-                raise Forbidden(f"origin {origin} is not allowed; start the bridge with --allow-origin {origin} to permit it")
+                raise Forbidden(
+                    f"origin {origin} is not allowed; start the bridge with --allow-origin {origin} to permit it"
+                )
             if method == "OPTIONS":
                 resp = self._preflight(h)
             else:
@@ -1002,10 +1098,15 @@ class BridgeApp:
                 if route is None:
                     close = self._discard_body(h)
                     allow = ", ".join(sorted(set(routes) | {"OPTIONS"}))
-                    raise MethodNotAllowed(f"{method} is not allowed on {path} (allowed: {allow})", headers={"Allow": allow})
+                    raise MethodNotAllowed(
+                        f"{method} is not allowed on {path} (allowed: {allow})", headers={"Allow": allow}
+                    )
                 if route.auth and self.token and not self._authorized(h):
                     close = self._discard_body(h)
-                    raise Unauthorized("missing or invalid bearer token (Authorization: Bearer <token>)", headers={"WWW-Authenticate": 'Bearer realm="songdeck-bridge"'})
+                    raise Unauthorized(
+                        "missing or invalid bearer token (Authorization: Bearer <token>)",
+                        headers={"WWW-Authenticate": 'Bearer realm="songdeck-bridge"'},
+                    )
                 try:
                     body = self._read_body(h)
                 except (PayloadTooLarge, BadRequest):
@@ -1022,7 +1123,9 @@ class BridgeApp:
         except HTTPError as e:
             resp = error_response(e.status, e.message, e.headers)
         except JobCancelled as e:
-            resp = error_response(e.status, f"job cancelled ({e.reason})", {"Retry-After": "5"} if e.status == 503 else None)
+            resp = error_response(
+                e.status, f"job cancelled ({e.reason})", {"Retry-After": "5"} if e.status == 503 else None
+            )
         except WavError as e:
             resp = error_response(400, str(e))
         except Exception as e:
@@ -1040,12 +1143,25 @@ class BridgeApp:
                 err = " — " + str(json.loads(resp.body.decode("utf-8")).get("error", ""))[:200]
             except ValueError:
                 err = ""
-        self.log.log(level, '%s "%s %s" %d %s B %.2fs%s%s%s', h.client_address[0], method, path, resp.status, f"{len(resp.body):,}", dt,
-                     f" job={job_id}" if job_id else "", "" if sent else " (client gone)", err)
+        self.log.log(
+            level,
+            '%s "%s %s" %d %s B %.2fs%s%s%s',
+            h.client_address[0],
+            method,
+            path,
+            resp.status,
+            f"{len(resp.body):,}",
+            dt,
+            f" job={job_id}" if job_id else "",
+            "" if sent else " (client gone)",
+            err,
+        )
 
     def _preflight(self, h: BaseHTTPRequestHandler) -> Response:
         requested = h.headers.get("Access-Control-Request-Headers")
-        allow_headers = requested if requested and re.fullmatch(r"[A-Za-z0-9_,\- ]{1,500}", requested) else DEFAULT_ALLOWED_HEADERS
+        allow_headers = (
+            requested if requested and re.fullmatch(r"[A-Za-z0-9_,\- ]{1,500}", requested) else DEFAULT_ALLOWED_HEADERS
+        )
         headers = {
             "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
             "Access-Control-Allow-Headers": allow_headers,
@@ -1131,10 +1247,14 @@ class BridgeApp:
                 self._idle.notify_all()
 
     def _busy_message(self) -> str:
-        return (f"the bridge is busy ({self._running} job(s) running, {self._queued} queued, queue limit {self.max_queue}); "
-                "retry later or start it with a larger --max-queue")
+        return (
+            f"the bridge is busy ({self._running} job(s) running, {self._queued} queued, queue limit {self.max_queue}); "
+            "retry later or start it with a larger --max-queue"
+        )
 
-    def _send(self, h: BaseHTTPRequestHandler, resp: Response, method: str, cors_origin: Optional[str], close: bool) -> bool:
+    def _send(
+        self, h: BaseHTTPRequestHandler, resp: Response, method: str, cors_origin: Optional[str], close: bool
+    ) -> bool:
         try:
             h.send_response(resp.status)
             headers: Dict[str, str] = {}

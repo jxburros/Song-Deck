@@ -37,6 +37,7 @@ Providers → Add provider → Mastering → "Local mastering engine".
 This is REFERENCE code (only the stdlib path is exercised by Song Deck's CI, through the mock
 bridge). ``run_matchering()`` and ``master_pyloudnorm()`` are the functions to adapt.
 """
+
 from __future__ import annotations
 
 import math
@@ -45,7 +46,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -88,7 +89,12 @@ def run_matchering(target_wav: bytes, reference_wav: bytes, bits: int, args: Any
         t, r, o = Path(tmp, "target.wav"), Path(tmp, "reference.wav"), Path(tmp, "master.wav")
         t.write_bytes(target_wav)
         r.write_bytes(reference_wav)
-        run_command([args.python, "-c", MATCHERING_SCRIPT, str(t), str(r), str(o), str(bits)], ctx, timeout=args.timeout, name="matchering")
+        run_command(
+            [args.python, "-c", MATCHERING_SCRIPT, str(t), str(r), str(o), str(bits)],
+            ctx,
+            timeout=args.timeout,
+            name="matchering",
+        )
         if not o.is_file():
             raise EngineError("Matchering finished without writing the master")
         return o.read_bytes()
@@ -115,7 +121,9 @@ def _limit_numpy(np: Any, data: Any, sr: int, ceiling: float, release_s: float =
     return np.clip(data * gains[:, None], -ceiling, ceiling)
 
 
-def master_pyloudnorm(audio: Audio, target: str, reference: Optional[Audio], ctx: RequestContext) -> Tuple[Audio, Dict[str, float]]:
+def master_pyloudnorm(
+    audio: Audio, target: str, reference: Optional[Audio], ctx: RequestContext
+) -> Tuple[Audio, Dict[str, float]]:
     """THE pyloudnorm path: BS.1770 meter → loudness normalize → peak limit."""
     import numpy as np  # type: ignore
     import pyloudnorm as pyln  # type: ignore
@@ -125,7 +133,9 @@ def master_pyloudnorm(audio: Audio, target: str, reference: Optional[Audio], ctx
     target_lufs = spec["lufs"]
     if reference is not None:
         try:
-            ref_lufs = pyln.Meter(reference.sample_rate).integrated_loudness(np.array(reference.channels, dtype=np.float64).T)
+            ref_lufs = pyln.Meter(reference.sample_rate).integrated_loudness(
+                np.array(reference.channels, dtype=np.float64).T
+            )
         except ValueError:  # shorter than one 400 ms block
             ref_lufs = float("-inf")
         if math.isfinite(ref_lufs):
@@ -167,16 +177,22 @@ def build_app(args: Any) -> BridgeApp:
 
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
-        engines = (["matchering-2"] if args.matchering_ok else []) + (["pyloudnorm"] if args.pyloudnorm_ok else []) + ["songdeck-stdlib-loudness"]
-        return json_response({
-            "name": app.name,
-            "version": __version__,
-            "models": [{"id": e, "name": e} for e in engines],
-            "capabilities": ["MASTERING", "REFERENCE_AUDIO"],
-            "targets": TARGETS,
-            "engine": args.engine,
-            "hardware": {"min_vram_gb": 0},
-        })
+        engines = (
+            (["matchering-2"] if args.matchering_ok else [])
+            + (["pyloudnorm"] if args.pyloudnorm_ok else [])
+            + ["songdeck-stdlib-loudness"]
+        )
+        return json_response(
+            {
+                "name": app.name,
+                "version": __version__,
+                "models": [{"id": e, "name": e} for e in engines],
+                "capabilities": ["MASTERING", "REFERENCE_AUDIO"],
+                "targets": TARGETS,
+                "engine": args.engine,
+                "hardware": {"min_vram_gb": 0},
+            }
+        )
 
     @app.job("POST", "/master")
     def master(ctx: RequestContext):
@@ -192,7 +208,9 @@ def build_app(args: Any) -> BridgeApp:
         except WavError as e:
             raise BadRequest(str(e)) from None
         if meta["duration"] > args.max_duration:
-            raise BadRequest(f"the audio is {meta['duration']:.0f} s long; this bridge accepts at most {args.max_duration:.0f} s (--max-duration)")
+            raise BadRequest(
+                f"the audio is {meta['duration']:.0f} s long; this bridge accepts at most {args.max_duration:.0f} s (--max-duration)"
+            )
         engine = choose_engine(args, ref_bytes is not None)
         if engine == "matchering" and ref_bytes is None:
             raise BadRequest("this bridge runs Matchering (--engine matchering), which needs 'reference_audio_base64'")
@@ -227,13 +245,25 @@ def build_app(args: Any) -> BridgeApp:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    p = build_parser("Song Deck mastering bridge: Matchering / pyloudnorm / stdlib loudness (reference implementation).", DEFAULT_PORT, prog="mastering_bridge.py")
+    p = build_parser(
+        "Song Deck mastering bridge: Matchering / pyloudnorm / stdlib loudness (reference implementation).",
+        DEFAULT_PORT,
+        prog="mastering_bridge.py",
+    )
     m = p.add_argument_group("mastering")
-    m.add_argument("--engine", choices=["auto", "matchering", "pyloudnorm", "stdlib"], default="auto",
-                   help="auto: Matchering when a reference is given, else pyloudnorm, else stdlib (default auto)")
+    m.add_argument(
+        "--engine",
+        choices=["auto", "matchering", "pyloudnorm", "stdlib"],
+        default="auto",
+        help="auto: Matchering when a reference is given, else pyloudnorm, else stdlib (default auto)",
+    )
     m.add_argument("--python", default=sys.executable, help="interpreter with Matchering installed (default: this one)")
-    m.add_argument("--max-duration", type=float, default=1800.0, help="longest accepted input in seconds (default 1800)")
-    m.add_argument("--timeout", type=float, default=1800.0, help="seconds before a Matchering run is killed (default 1800)")
+    m.add_argument(
+        "--max-duration", type=float, default=1800.0, help="longest accepted input in seconds (default 1800)"
+    )
+    m.add_argument(
+        "--timeout", type=float, default=1800.0, help="seconds before a Matchering run is killed (default 1800)"
+    )
     args = p.parse_args(argv)
     setup_logging(args)
     check_bind(args)
@@ -243,7 +273,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         fail(f"Matchering is not importable by {args.python}. Install it with:  pip install matchering")
     if args.engine == "pyloudnorm" and not args.pyloudnorm_ok:
         fail("pyloudnorm/numpy are not installed for this Python. Install them with:  pip install pyloudnorm numpy")
-    available = ", ".join(e for e, ok in (("matchering", args.matchering_ok), ("pyloudnorm", args.pyloudnorm_ok), ("stdlib", True)) if ok)
+    available = ", ".join(
+        e for e, ok in (("matchering", args.matchering_ok), ("pyloudnorm", args.pyloudnorm_ok), ("stdlib", True)) if ok
+    )
     print(f"mastering engines available: {available}", file=sys.stderr)
     return serve([(build_app(args), args.host, args.port)])
 

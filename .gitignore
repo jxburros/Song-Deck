@@ -11,3 +11,4 @@ playwright-report/
 *.tsbuildinfo
 .env
 .env.*
+.claude/worktrees/

@@ -1,0 +1,150 @@
+# Continuous integration: every pull request and every push to main is linted, typechecked,
+# tested on the supported Node versions, built against a bundle budget and exercised end to end
+# in Chromium (including accessibility checks). Release packaging stays in release.yml.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: ESLint
+        run: npm run lint
+      - name: Prettier
+        run: npm run format:check
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ruff (Python bridges)
+        run: |
+          pip install ruff
+          ruff check .
+          ruff format --check .
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  test:
+    name: Unit and integration tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20.19', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      # The bridge integration tests drive the stdlib-only mock bridge; 3.9 is the oldest supported Python.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - run: npm ci
+      - name: Tests
+        if: matrix.node != '22'
+        run: npm test
+      - name: Tests with coverage
+        if: matrix.node == '22'
+        run: npm run test:coverage
+      - name: Keep the coverage report
+        if: matrix.node == '22' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  server-platforms:
+    # The credential vault talks to the OS keychain and the server spawns processes, so its tests
+    # also run where paths, line endings and process handling differ.
+    name: Server tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --project server
+
+  build:
+    name: Build and bundle budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Bundle budget
+        run: npm run size
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+  e2e:
+    name: End-to-end (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        working-directory: apps/studio
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end and accessibility tests
+        run: npm run e2e
+      - name: Keep the browser test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: apps/studio/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
