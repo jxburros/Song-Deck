@@ -23,6 +23,7 @@ import {
   type ProviderInstance,
   type SeparationProvider,
   type SingingProvider,
+  type SingingRequest,
   type TranscriptionProvider,
 } from '@songdeck/ai';
 import { INTERNAL_DESCRIPTORS } from './internalDescriptors';
@@ -115,46 +116,65 @@ function composer(ctx: InternalContext): CompositionProvider {
   };
 }
 
+/** Re-express a singing request as a one-track song so the built-in singing engine renders it. */
+function singingRequestToSong(req: SingingRequest): Song {
+  const song = createEmptySong({ bpm: req.tempoBpm });
+  const tm = createTimeMap(song);
+  const end = Math.max(1, ...req.notes.map((n) => n.startSeconds + n.durationSeconds));
+  const bars = Math.ceil((end / 60) * (req.tempoBpm / 4)) + 1;
+  song.sections = [{ id: 'sec', name: 'Vocal', kind: 'verse', bars, energy: 50 }];
+  song.tracks = [
+    {
+      id: 'vox',
+      name: 'Vocal',
+      kind: 'midi',
+      role: 'vocal',
+      instrumentId: 'lead-vocal',
+      constraints: {},
+      clips: [],
+      color: '#ff7ac6',
+      stemGroup: 'vocals',
+      notes: req.notes.map((n) => {
+        const tick = Math.round(tm.secondsToTick(n.startSeconds));
+        return {
+          id: randomId('n'),
+          pitch: n.pitch,
+          tick,
+          duration: Math.max(1, Math.round(tm.secondsToTick(n.startSeconds + n.durationSeconds)) - tick),
+          velocity: n.velocity,
+          syllable: n.lyric,
+          phonemes: n.phonemes,
+          expression: n.expression,
+        };
+      }),
+    },
+  ];
+  return song;
+}
+
 function singer(): SingingProvider {
   return {
     async listVoices() {
       return STOCK_VOICES.map((v) => ({ id: v.id, name: v.name, voiceType: v.voiceType, kind: 'stock' as const, language: 'en', description: 'Built-in formant voice' }));
     },
     async synthesizeSinging(req) {
-      // Re-express the request as a one-track song so the same singing engine renders it.
-      const song = createEmptySong({ bpm: req.tempoBpm });
-      const tm = createTimeMap(song);
-      const end = Math.max(1, ...req.notes.map((n) => n.startSeconds + n.durationSeconds));
-      const bars = Math.ceil((end / 60) * (req.tempoBpm / 4)) + 1;
-      song.sections = [{ id: 'sec', name: 'Vocal', kind: 'verse', bars, energy: 50 }];
-      song.tracks = [
-        {
-          id: 'vox',
-          name: 'Vocal',
-          kind: 'midi',
-          role: 'vocal',
-          instrumentId: 'lead-vocal',
-          constraints: {},
-          clips: [],
-          color: '#ff7ac6',
-          stemGroup: 'vocals',
-          notes: req.notes.map((n) => {
-            const tick = Math.round(tm.secondsToTick(n.startSeconds));
-            return {
-              id: randomId('n'),
-              pitch: n.pitch,
-              tick,
-              duration: Math.max(1, Math.round(tm.secondsToTick(n.startSeconds + n.durationSeconds)) - tick),
-              velocity: n.velocity,
-              syllable: n.lyric,
-              phonemes: n.phonemes,
-              expression: n.expression,
-            };
-          }),
-        },
-      ];
-      const audio = await jobs.call<AudioData>('synthesizeVocal', { song, trackId: 'vox', voiceId: req.voiceId, sampleRate: req.sampleRate ?? 44100, seed: req.seed });
+      const song = singingRequestToSong(req);
+      const audio = await jobs.call<AudioData>('synthesizeVocal', { song, trackId: 'vox', voiceId: req.voiceId, sampleRate: req.sampleRate ?? 44100, seed: req.seed }, { signal: req.signal });
       return { audio: wav(audio), voiceId: req.voiceId, seed: req.seed };
+    },
+    async regeneratePhrase(req) {
+      // Sing only the requested range; the result is the matching slice of a full render.
+      const song = singingRequestToSong(req);
+      const tm = createTimeMap(song);
+      const startTick = Math.max(0, Math.round(tm.secondsToTick(req.startSeconds)));
+      const endTick = Math.max(startTick + 1, Math.round(tm.secondsToTick(req.endSeconds)));
+      const audio = await jobs.call<AudioData>(
+        'synthesizeVocal',
+        { song, trackId: 'vox', voiceId: req.voiceId, sampleRate: req.sampleRate ?? 44100, seed: req.seed, startTick, endTick },
+        { signal: req.signal },
+      );
+      const frames = Math.max(1, Math.round((req.endSeconds - req.startSeconds) * audio.sampleRate));
+      return { audio: wav({ sampleRate: audio.sampleRate, channels: audio.channels.map((c) => c.slice(0, frames)) }), voiceId: req.voiceId, seed: req.seed };
     },
   };
 }

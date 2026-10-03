@@ -145,6 +145,7 @@ export function Slider({
   format,
   accent,
   onCommit,
+  ariaLabel,
 }: {
   value: number;
   onChange: (v: number) => void;
@@ -158,6 +159,8 @@ export function Slider({
   accent?: boolean;
   /** Called on pointer release (commit point for undo history). */
   onCommit?: (v: number) => void;
+  /** Accessible name for the range input (defaults to a plain-text `label`). */
+  ariaLabel?: string;
 }) {
   return (
     <div className="field">
@@ -174,6 +177,8 @@ export function Slider({
         max={max}
         step={step}
         value={value}
+        aria-label={ariaLabel ?? (typeof label === 'string' ? label : undefined)}
+        aria-valuetext={format ? format(value) : undefined}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         onPointerUp={(e) => onCommit?.(parseFloat((e.target as HTMLInputElement).value))}
         onKeyUp={(e) => onCommit?.(parseFloat((e.target as HTMLInputElement).value))}

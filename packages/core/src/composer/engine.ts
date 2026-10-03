@@ -96,8 +96,13 @@ export function writeCells(g: SongGen, seed: number, scope: CellScope): CellChan
       const pids = new IdFactory(seed, `ph/${track.id}/${section.id}${region ? `/${rs}-${re}` : ''}`);
       for (const d of out.phrases ?? []) {
         if (d.startTick < rs || d.endTick > re) continue;
-        if (!accepted.some((n) => n.phraseId === d.key)) continue;
-        const ph: Phrase = { id: pids.next('ph'), trackId: track.id, startTick: d.startTick, endTick: d.endTick, label: d.label, sectionId: section.id };
+        const members = accepted.filter((n) => n.phraseId === d.key);
+        if (!members.length) continue;
+        // Humanized timing can move a phrase's notes slightly outside the planned span: the record
+        // covers every note of the phrase.
+        const startTick = Math.min(d.startTick, ...members.map((n) => n.tick));
+        const endTick = Math.max(d.endTick, ...members.map((n) => n.tick + n.duration));
+        const ph: Phrase = { id: pids.next('ph'), trackId: track.id, startTick, endTick, label: d.label, sectionId: section.id };
         if (d.motifId) ph.motifId = d.motifId;
         if (d.lyricLineId) ph.lyricLineId = d.lyricLineId;
         phraseIds.set(d.key, ph.id);

@@ -208,3 +208,12 @@ describe('generatePlaceholderLyrics', () => {
     expect(generatePlaceholderLyrics({ sectionKind: 'bridge', lines: 0, seed: 1 })).toEqual([]);
   });
 });
+
+describe('placeholder lyrics for short phrases', () => {
+  it('fits lines of one to three syllables exactly, deterministically', () => {
+    const opts = { sectionKind: 'chorus' as const, lines: 6, syllablesPerLine: [1, 2, 3, 3, 2, 1], seed: 7 };
+    const lines = generatePlaceholderLyrics(opts);
+    expect(lines.map((l) => countSyllables(l))).toEqual([1, 2, 3, 3, 2, 1]);
+    expect(generatePlaceholderLyrics(opts)).toEqual(lines);
+  });
+});

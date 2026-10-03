@@ -140,9 +140,10 @@ export async function initRuntime(): Promise<void> {
   const handlers = import('./taskHandlers').then(({ registerTaskHandlers }) => registerTaskHandlers(taskQueue));
   const ai = import('./ai').then(({ initAi }) => initAi());
   const instruments = import('./render-instruments').then(({ initInstrumentSync }) => initInstrumentSync());
+  const clips = import('./clip-assets').then(({ initClipAssetSync }) => initClipAssetSync());
   void checkServer();
   setInterval(() => void checkServer(), 15000);
-  await Promise.all([handlers, ai, instruments]);
+  await Promise.all([handlers, ai, instruments, clips]);
   await taskQueue.restore();
 }
 

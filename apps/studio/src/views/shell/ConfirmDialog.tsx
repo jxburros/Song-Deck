@@ -43,7 +43,7 @@ export function ConfirmDialog() {
   return (
     <Modal
       title={confirm.title}
-      icon={confirm.kind === 'dataflow' ? 'shield' : confirm.kind === 'cost' ? 'info' : 'alert'}
+      icon={confirm.kind === 'dataflow' || confirm.kind === 'consent' ? 'shield' : confirm.kind === 'cost' ? 'info' : 'alert'}
       onClose={() => resolve(false)}
       footer={
         <>

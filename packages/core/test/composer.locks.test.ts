@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { composeSong, parsePromptToBlueprint, regenerateUnlocked } from '../src/composer';
+import { interpretVocalInstruction } from '../src/musician';
 import { cloneSong, stableStringify } from '../src/ir/song-utils';
 import { LockKeys, isChordSectionLocked, isNoteLocked, isTrackSectionLocked } from '../src/locks';
 import { regionToTicks, sectionLayout } from '../src/timing';
@@ -171,5 +172,43 @@ describe('regenerateUnlocked: lock guarantee (§22)', () => {
     locked.locks = { [LockKeys.motifs]: true };
     expect(regenerateUnlocked(locked, { seed: 12 }).song.motifs).toEqual(base.motifs);
     expect(regenerateUnlocked(base, { seed: 12, sectionIds: [base.sections[1].id] }).song.motifs).toEqual(base.motifs);
+  });
+});
+
+describe('vocal regeneration through the composer (§37)', () => {
+  it('phrase records cover every note of their phrase, even after humanized timing', () => {
+    for (const seed of [3, 11, 29]) {
+      const bp = parsePromptToBlueprint('Loose, laid-back indie rock with a male vocal, guitars, bass and drums.', { seed });
+      const song = composeSong(bp, undefined, { seed });
+      const vocal = song.tracks.find((t) => t.role === 'vocal')!;
+      const byId = new Map(song.phrases.map((p) => [p.id, p]));
+      const members = vocal.notes.filter((n) => n.phraseId);
+      expect(members.length).toBeGreaterThan(0);
+      for (const n of members) {
+        const ph = byId.get(n.phraseId!)!;
+        expect(ph, `phrase ${n.phraseId}`).toBeTruthy();
+        expect(n.tick).toBeGreaterThanOrEqual(ph.startTick);
+        expect(n.tick + n.duration).toBeLessThanOrEqual(ph.endTick);
+      }
+    }
+  });
+
+  it('"Regenerate only the second chorus vocal" changes that chorus vocal and nothing else', () => {
+    const bp = parsePromptToBlueprint('Pop song in G major at 120 BPM with a female vocal, piano, bass and drums.', { seed: 11 });
+    const song = composeSong(bp, undefined, { seed: 11 });
+    const vocal = song.tracks.find((t) => t.role === 'vocal')!;
+    expect(vocal).toBeTruthy();
+    const r = interpretVocalInstruction(song, vocal.id, 'Regenerate only the second chorus vocal', {}, { seed: 5 });
+    const op = r.operations[0] as Extract<(typeof r.operations)[number], { op: 'regenerate' }>;
+    expect(op?.op).toBe('regenerate');
+    const chorus2 = sectionLayout(song).filter((s) => s.section.kind === 'chorus')[1];
+    const next = regenerateUnlocked(song, { seed: op.seed!, trackIds: [vocal.id], sectionIds: op.sections, level: op.level }).song;
+    const inChorus2 = (s: Song) =>
+      stableStringify(s.tracks.find((t) => t.id === vocal.id)!.notes.filter((n) => n.tick >= chorus2.startTick && n.tick < chorus2.endTick).map((n) => [n.tick, n.pitch, n.duration]));
+    const outside = (s: Song) =>
+      stableStringify(s.tracks.find((t) => t.id === vocal.id)!.notes.filter((n) => n.tick < chorus2.startTick || n.tick >= chorus2.endTick).map((n) => [n.tick, n.pitch, n.duration]));
+    expect(inChorus2(next)).not.toBe(inChorus2(song));
+    expect(outside(next)).toBe(outside(song));
+    for (const t of song.tracks) if (t.id !== vocal.id) expect(stableStringify(next.tracks.find((x) => x.id === t.id)!.notes)).toBe(stableStringify(t.notes));
   });
 });

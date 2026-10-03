@@ -302,9 +302,11 @@ export function interpretVocalInstruction(song: Song, trackId: string, instructi
       };
     }
     const okSecs = secIds.filter((id) => !lockedSecs.some((s) => s.section.id === id));
+    // A fresh pass (no variation level): variation levels keep the song's principal melody, which
+    // here is the very vocal line being regenerated.
     const op: MusicOperation = okSecs.length
-      ? { op: 'regenerate', track: track.id, sections: okSecs, level: 'variation', seed: seed + 1, reason }
-      : { op: 'regenerate', track: track.id, region: rangeToRegion(song, regenRange ?? { startTick: 0, endTick: 1 }), level: 'variation', seed: seed + 1, reason };
+      ? { op: 'regenerate', track: track.id, sections: okSecs, seed: seed + 1, reason }
+      : { op: 'regenerate', track: track.id, region: rangeToRegion(song, regenRange ?? { startTick: 0, endTick: 1 }), seed: seed + 1, reason };
     const where = okSecs.length ? listJoin(song.sections.filter((s) => okSecs.includes(s.id)).map((s) => s.name)) : scope.label;
     const ranges = okSecs.length ? sectionRanges(song, okSecs) : scope.ranges;
     return {

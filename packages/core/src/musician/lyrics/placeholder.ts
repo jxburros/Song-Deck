@@ -243,6 +243,25 @@ function capitalizeFirst(s: string): string {
   return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
+/** Line shapes for phrases of three syllables or fewer, by the rhyme word's part of speech. */
+const SHORT_SHAPES: Record<Pos, string[]> = {
+  n: ['{R}', 'Oh, {R}', 'My {R}', 'The {R}', 'In the {R}', 'Oh, the {R}', 'Through the {R}'],
+  v: ['{R}', 'Oh, {R}', 'We {R}', 'Just {R}', 'Let me {R}', 'Then we {R}'],
+  a: ['{R}', 'So {R}', 'Oh, so {R}', 'Still so {R}', 'Not so {R}'],
+  d: ['{R}', 'Oh, {R}', 'Left {R}', 'Way {R}', 'Not {R}', 'So far {R}'],
+};
+
+/** A line of exactly `target` syllables ending on a rhyme word, or null when none fits. */
+function shortLine(pool: RhymeWord[], target: number, rng: { shuffle<T>(a: readonly T[]): T[] }): { line: string; word: string } | null {
+  for (const r of rng.shuffle(pool)) {
+    for (const shape of rng.shuffle(SHORT_SHAPES[r.pos])) {
+      const line = shape.replace('{R}', r.w);
+      if (countSyllables(line) === target) return { line, word: r.w };
+    }
+  }
+  return null;
+}
+
 export function generatePlaceholderLyrics(opts: PlaceholderLyricsOptions): string[] {
   const lines = Math.max(0, Math.floor(opts.lines));
   if (!lines) return [];
@@ -265,16 +284,25 @@ export function generatePlaceholderLyrics(opts: PlaceholderLyricsOptions): strin
   const out: string[] = [];
   for (let i = 0; i < lines; i++) {
     const letter = scheme[i];
-    if (chorus && lines >= 4 && i % 4 === 2 && out[i - 2]) {
-      // Hook: the chorus repeats its first line (same rhyme letter in ABAB).
+    const target = opts.syllablesPerLine?.length ? Math.max(1, opts.syllablesPerLine[i % opts.syllablesPerLine.length]) : defaultSyllables(kind);
+    // Hook: the chorus repeats its first line (same rhyme letter in ABAB) when it fits the phrase.
+    if (chorus && lines >= 4 && i % 4 === 2 && out[i - 2] && (!opts.syllablesPerLine?.length || countSyllables(out[i - 2]) === target)) {
       out.push(out[i - 2]);
       continue;
     }
     if (!letterFamily.has(letter)) letterFamily.set(letter, families[letterFamily.size % families.length]);
     const family = letterFamily.get(letter)!;
-    const target = opts.syllablesPerLine?.length ? Math.max(2, opts.syllablesPerLine[i % opts.syllablesPerLine.length]) : defaultSyllables(kind);
     const fresh = family.filter((r) => !used.has(r.w));
     const pool = fresh.length ? fresh : family;
+    if (target <= 3) {
+      // Short phrases get short lines built around the rhyme word ("Oh, fire", "In the night").
+      const short = shortLine(pool, target, rng);
+      if (short) {
+        used.add(short.word);
+        out.push(capitalizeFirst(short.line));
+        continue;
+      }
+    }
     let best = '';
     let bestDiff = Infinity;
     let bestWord = pool[0].w;

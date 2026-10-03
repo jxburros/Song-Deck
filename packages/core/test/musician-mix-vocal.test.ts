@@ -217,7 +217,8 @@ describe('interpretVocalInstruction (§37 vocal regeneration commands)', () => {
   it('"Regenerate only the second chorus vocal" emits a section-scoped regenerate op', () => {
     const r = interpretVocalInstruction(song, 't-vocal', 'Regenerate only the second chorus vocal', {}, { seed: 3 });
     expect(r.intents).toEqual(['regenerate']);
-    expect(r.operations).toEqual([{ op: 'regenerate', track: 't-vocal', sections: ['sec-chorus2'], level: 'variation', seed: 4, reason: expect.any(String) }]);
+    // A fresh pass: variation levels would keep the principal melody, i.e. this very vocal.
+    expect(r.operations).toEqual([{ op: 'regenerate', track: 't-vocal', sections: ['sec-chorus2'], seed: 4, reason: expect.any(String) }]);
     expect(r.regenerateRange).toEqual({ startTick: 28 * BAR, endTick: 36 * BAR });
   });
 
