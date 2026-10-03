@@ -576,8 +576,11 @@
   }
   .pd-main {
     overflow: visible;
+    min-height: auto;
   }
   .pd-rail {
+    min-height: auto;
+    overflow: visible;
     border-left: none;
     border-top: 1px solid var(--border);
   }

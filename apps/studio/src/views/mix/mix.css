@@ -1013,8 +1013,10 @@
   }
   .mx-main {
     overflow: visible;
+    min-height: auto;
   }
   .mx-side {
+    min-height: auto;
     border-left: none;
     border-top: 1px solid var(--border);
   }

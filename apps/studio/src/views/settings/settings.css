@@ -1212,7 +1212,8 @@
 }
 @media (max-width: 860px) {
   .st-page {
-    grid-template-columns: 1fr;
+    /* minmax: a plain 1fr column would grow to the nav row's full width and overflow the page. */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
   }
   .st-nav {
@@ -1248,4 +1249,21 @@
 :root[data-theme='light'] .st-stat.warning .st-stat-value,
 :root[data-theme='light'] .st-sync .warn strong {
   color: var(--warning);
+}
+
+/* Phones: the page header stacks (icon and title, then actions) instead of squeezing the lede. */
+@media (max-width: 600px) {
+  .st-inner {
+    padding: 14px 14px 32px;
+  }
+  .st-head {
+    flex-wrap: wrap;
+  }
+  .st-head > .grow {
+    flex-basis: calc(100% - 54px);
+  }
+  .st-head-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
