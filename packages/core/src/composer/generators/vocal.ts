@@ -14,8 +14,8 @@ import { mod12 } from '../../theory/pitch';
 import { transposeDiatonic } from '../../theory/scales';
 import { voiceChord } from '../../theory/voicing';
 import type { Cell } from '../context';
-import { MOTIF_DESCRIPTIONS, abstractPhrase, adaptMotifToCount, anchorNear, findSongMotif, phraseBarsFor, realizePhrase, vocalGrid, type Contour } from '../motifs';
-import { lineSyllables } from '../syllables';
+import { MOTIF_DESCRIPTIONS, abstractPhrase, adaptMotifToCount, alignStressToMeter, anchorNear, findSongMotif, phraseBarsFor, realizePhrase, vocalGrid, type Contour } from '../motifs';
+import { lineStresses, lineSyllables } from '../syllables';
 import { chordAtIn, clamp, clamp01, humanize, toVelocity, type RawNote } from '../util';
 import type { GenOutput, PhraseDraft } from './types';
 
@@ -176,7 +176,15 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
         );
       }
     }
-    if (count !== undefined) abstract = adaptMotifToCount(abstract, count);
+    if (count !== undefined) {
+      abstract = adaptMotifToCount(abstract, count);
+      // Prosody: stressed syllables on strong beats where the phrase has room.
+      const stress = slot.lines.flatMap((l) => lineStresses(l.text));
+      if (stress.length === abstract.length) {
+        const at = c.meterAt(slot.start);
+        abstract = alignStressToMeter(abstract, stress, { grid: rap ? PPQ / 4 : grid, barOffset: slot.start - at.barStart, meter: at.meter, lengthTicks: sung });
+      }
+    }
     if (!abstract.length) return;
     // Repeated sections mostly repeat; the repetition macro adds small changes.
     if (c.isRepeat && c.vrng.fork('pv', i).chance(c.macros.repetition * 0.45)) abstract = vary(abstract, c.vrng.fork('pvd', i), c.macros.repetition);

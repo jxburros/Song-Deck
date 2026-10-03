@@ -22,6 +22,7 @@ import { buildSongGen, type StyleOverrides } from './context';
 import { writeCells } from './engine';
 import { blendGenres } from './genres';
 import { getInstrument } from './instruments';
+import { placeBlueprintLyrics } from './lyrics-first';
 import { fillMixer, mixerForGenre, trackColor } from './mixer';
 import { buildSongMotifs } from './motifs';
 import { planComposition } from './planner';
@@ -153,6 +154,8 @@ export function composeInternal(blueprint: Blueprint, planIn: CompositionPlan | 
   song.production.prompt = `${genre.production.description}. ${genre.production.keywords.join(', ')}${moodText ? `. Mood: ${moodText}` : ''}`;
   song.mastering.target = genre.production.masteringTarget ?? 'streaming';
 
+  // Lyrics supplied up front (lyrics-first): the user's words, sung by the lead vocal and locked.
+  if (blueprint.lyrics?.sections?.length) placeBlueprintLyrics(song, blueprint.lyrics, seed);
   internal.beforeNotes?.(song);
   if (!internal.skipNotes) {
     const g = buildSongGen(song, { seed, customInstruments: opts.customInstruments, customGenres: opts.customGenres, overrides: internal.overrides });

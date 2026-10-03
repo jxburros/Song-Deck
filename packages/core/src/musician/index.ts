@@ -31,9 +31,11 @@ export { applyTheoryControl, suggestChordSubstitutions } from './theory-controls
 
 // Lyrics (§33-§35, §48)
 export { syllabify, syllabifyText, countSyllables, lyricTokens } from './lyrics/syllables';
-export { textToPhonemes, syllableToPhonemes, wordsToPhonemes } from './lyrics/g2p';
+export { textToPhonemes, syllableToPhonemes, wordsToPhonemes, wordStress, lyricStress } from './lyrics/g2p';
 export { alignLyrics, validateLyricAlignment } from './lyrics/align';
 export { generatePlaceholderLyrics } from './lyrics/placeholder';
+export { parseLyricSheet, parseSectionHeader, isChordLine, stanzaSimilarity, lyricLineCount, type LyricSheetSection } from './lyrics/sheet';
+export { suggestMoodsFromLyrics, type LyricMoodReading } from './lyrics/mood';
 
 // §37 vocal regeneration commands
 export { interpretVocalInstruction } from './vocal-commands';

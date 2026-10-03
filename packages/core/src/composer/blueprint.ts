@@ -391,7 +391,7 @@ function totalBars(sections: readonly BlueprintSection[]): number {
 }
 
 /** Shorten (drop optional sections / halve long ones) or lengthen a structure toward a bar target. */
-function fitStructure(sections: BlueprintSection[], targetBars: number): BlueprintSection[] {
+export function fitStructure(sections: BlueprintSection[], targetBars: number): BlueprintSection[] {
   let out = sections.map((s) => ({ ...s }));
   const removable: SectionKind[] = ['post-chorus', 'interlude', 'solo', 'breakdown', 'pre-chorus', 'bridge'];
   let guard = 0;
