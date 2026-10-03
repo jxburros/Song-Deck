@@ -44,12 +44,13 @@ function Transport() {
         variant="ghost"
         size="sm"
         icon="loop"
+        className="transport-extra"
         title="Loop selection"
         active={loopEnabled}
         onClick={() => st.setLoop({ enabled: !loopEnabled })}
         disabled={!song}
       />
-      <Button variant="ghost" size="sm" icon="metronome" title="Metronome" active={metronome} onClick={() => st.toggleMetronome()} disabled={!song} />
+      <Button variant="ghost" size="sm" icon="metronome" className="transport-extra" title="Metronome" active={metronome} onClick={() => st.toggleMetronome()} disabled={!song} />
       <span className="time" title="Bar.Beat · time">
         {mus.bar}.{Math.floor(mus.beat)} · {formatTime(pos)}
       </span>
@@ -96,6 +97,8 @@ export function TopBar() {
             className={`mode-tab ${mode === m.mode ? 'active' : ''}`}
             onClick={() => setMode(m.mode)}
             disabled={m.needsProject && !project}
+            aria-label={m.label}
+            aria-current={mode === m.mode ? 'page' : undefined}
             title={m.title}
             style={m.needsProject && !project ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
           >

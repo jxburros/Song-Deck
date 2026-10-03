@@ -357,6 +357,13 @@
   flex-direction: column;
 }
 
+/* Mode tabs: all labels on wide screens, only the active tab's label in between, icons below
+   1000px (each tab keeps its title tooltip and accessible name). */
+@media (max-width: 1680px) {
+  .mode-tab:not(.active) .mode-label {
+    display: none;
+  }
+}
 @media (max-width: 1500px) {
   .transport .tempo {
     display: none;
@@ -365,9 +372,17 @@
     padding: 0 8px;
   }
 }
-@media (max-width: 1280px) {
+@media (max-width: 1000px) {
   .mode-tab .mode-label {
     display: none;
+  }
+}
+@media (max-width: 960px) {
+  .transport .transport-extra {
+    display: none;
+  }
+  .transport .time {
+    min-width: 0;
   }
 }
 @media (max-width: 1100px) {

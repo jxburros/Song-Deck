@@ -8,6 +8,8 @@ import {
   randomSeed,
   type Blueprint,
   type CompositionPlan,
+  type GenreProfile,
+  type Song,
 } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { useCustomGenres, useCustomInstruments } from '../../hooks';
@@ -29,6 +31,14 @@ const EXAMPLES = [
 ];
 
 type Step = 'intent' | 'blueprint' | 'plan';
+
+/** A descriptive working title ("Pop-Punk in E minor") for songs whose prompt named none. */
+function workingTitle(song: Song, genres: GenreProfile[]): string {
+  const main = [...song.genreBlend].sort((a, b) => b.weight - a.weight)[0];
+  const genre = main ? genres.find((g) => g.id === main.genreId)?.name : undefined;
+  const key = song.keyMap[0] ? keyName(song.keyMap[0].key) : '';
+  return [genre ?? 'Song', key && `in ${key}`].filter(Boolean).join(' ');
+}
 
 export default function ComposeMode() {
   const project = useStudio((s) => s.project);
@@ -88,7 +98,8 @@ export default function ComposeMode() {
     setBusy('Composing MIDI…');
     try {
       const p = plan ?? planComposition(blueprint, { seed, customGenres });
-      const song = composeSong({ ...blueprint, seed }, p, { seed, customGenres, customInstruments });
+      const composed = composeSong({ ...blueprint, seed }, p, { seed, customGenres, customInstruments });
+      const song = composed.title && composed.title !== 'Untitled' ? composed : { ...composed, title: workingTitle(composed, allGenres) };
       if (target === 'replace' && project) {
         st.commit({ ...song, id: project.song.id }, `Composed “${song.title}” (seed ${seed})`, 'generate');
       } else {
