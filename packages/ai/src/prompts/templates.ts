@@ -81,16 +81,26 @@ export function designBlueprintPrompt(req: DesignBlueprintRequest): PromptPair {
       '- Choose values idiomatic for the requested style; keep the instrumentation realistic for a band/production of that style (typically 4–8 tracks).',
       '- Give every section a purpose ("Establish motif", "Rising tension", "Emotional release") and an energy 0..100.',
       '- If the user names a key, tempo, structure or instruments, use exactly those.',
+      req.constraints?.length ? '- The user fixed some choices in the builder (listed below as "Fixed by the user"). They are hard constraints: keep every one exactly and only fill in what they leave open.' : '',
       req.genres?.length ? '- For genre_blend use ONLY these genre ids.' : '',
       req.instruments?.length ? '- For instrument_id use ONLY these instrument ids.' : '',
+      req.tags?.length ? '- "tags" lists style, mood, era, production, vocal, region or rhythm tags that suit the idea; use ONLY the available tag ids.' : '',
+      req.lyrics
+        ? '- The user wrote the lyrics below. Never change, add or remove words. Choose genres, tags, moods, tempo and a structure whose sections follow the stanzas (one section per stanza, in order).'
+        : '',
     ]
       .filter(Boolean)
       .join('\n'),
   );
+  const tagsByKind = new Map<string, string[]>();
+  for (const t of req.tags ?? []) tagsByKind.set(t.kind ?? 'other', [...(tagsByKind.get(t.kind ?? 'other') ?? []), t.id]);
   const user = join(
     `Idea: ${req.prompt}`,
+    req.constraints?.length ? `Fixed by the user (hard constraints):\n${req.constraints.map((c) => `- ${c}`).join('\n')}` : '',
+    req.lyrics ? `The user's lyrics (keep the words exactly):\n"""\n${req.lyrics.trim()}\n"""` : '',
     req.genres?.length ? `Available genre ids: ${req.genres.map((g) => `${g.id} (${g.name})`).join(', ')}` : '',
     req.instruments?.length ? `Available instrument ids: ${req.instruments.map((i) => `${i.id} (${i.name}${i.family ? `, ${i.family}` : ''})`).join(', ')}` : '',
+    tagsByKind.size ? `Available tag ids:\n${[...tagsByKind.entries()].map(([kind, ids]) => `- ${kind}: ${ids.join(', ')}`).join('\n')}` : '',
     req.defaults && Object.keys(req.defaults).length ? `Defaults chosen by the user (keep unless the idea contradicts them): ${JSON.stringify(req.defaults)}` : '',
     'Return the blueprint as JSON.',
   );

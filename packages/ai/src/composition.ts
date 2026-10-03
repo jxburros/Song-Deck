@@ -262,7 +262,8 @@ export class LLMCompositionProvider implements CompositionProvider {
       hints: req.hints,
       model: req.model,
       signal: req.signal,
-      parse: (v) => parseBlueprintJson(v, { prompt: req.prompt, defaults: req.defaults, genreIds: req.genres?.map((g) => g.id), instrumentIds: req.instruments?.map((i) => i.id) }),
+      parse: (v) =>
+        parseBlueprintJson(v, { prompt: req.prompt, defaults: req.defaults, genreIds: req.genres?.map((g) => g.id), instrumentIds: req.instruments?.map((i) => i.id), tagIds: req.tags?.map((t) => t.id) }),
     });
     return { blueprint: value.blueprint, explanation: value.explanation, confidence: value.confidence, meta };
   }
@@ -506,7 +507,7 @@ const MACRO_KEYS: Record<string, keyof MacroSettings> = {
 
 export function parseBlueprintJson(
   v: unknown,
-  opts: { prompt?: string; defaults?: Partial<Blueprint>; genreIds?: string[]; instrumentIds?: string[] } = {},
+  opts: { prompt?: string; defaults?: Partial<Blueprint>; genreIds?: string[]; instrumentIds?: string[]; tagIds?: string[] } = {},
 ): DomainParse<{ blueprint: Blueprint; explanation?: string; confidence?: number }> {
   const problems: string[] = [];
   if (!isPlainObject(v)) return { problems: ['the reply is not a JSON object'] };
@@ -616,6 +617,11 @@ export function parseBlueprintJson(
   } else if (d.vocal) blueprint.vocal = d.vocal;
   if (typeof v.lyrics_theme === 'string' && v.lyrics_theme) blueprint.lyricsTheme = v.lyrics_theme;
   else if (d.lyricsTheme) blueprint.lyricsTheme = d.lyricsTheme;
+  // Tags: only ids the caller offered (unknown ones are dropped, not fatal).
+  const tagSet = opts.tagIds?.length ? new Set(opts.tagIds) : undefined;
+  const tags = [...new Set((Array.isArray(v.tags) ? v.tags : []).filter((t): t is string => typeof t === 'string' && !!t.trim()).map((t) => t.trim()))].filter((t) => !tagSet || tagSet.has(t));
+  if (tags.length) blueprint.tags = tags;
+  else if (d.tags?.length) blueprint.tags = [...d.tags];
   return {
     value: { blueprint, explanation: typeof v.explanation === 'string' ? v.explanation : undefined, confidence: typeof v.confidence === 'number' ? clamp(v.confidence, 0, 1) : undefined },
     problems,
