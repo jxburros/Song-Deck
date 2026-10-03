@@ -35,8 +35,26 @@ npm run build          # production build of the studio (apps/studio/dist)
 npm run start:server   # serves the built studio + API at http://localhost:7788
 npm test               # unit/integration tests for every package
 npm run typecheck
-npm run e2e            # Playwright end-to-end tests (Chromium)
+npm run e2e            # Playwright end-to-end and accessibility tests (Chromium)
+npm run lint           # ESLint; `npm run format` / `format:check` for Prettier
+npm run size           # entry-chunk and first-paint bundle budget (after a build)
 ```
+
+CI runs all of these on every pull request (`.github/workflows/ci.yml`), plus Ruff for the Python
+bridges, CodeQL and dependency review.
+
+## Making a song
+
+- **Compose** starts with a builder: instruments and how many, genres and how much influence,
+  moods, and style, era and production tags. It needs no AI. With a model connected you can also
+  describe the song in your own words. The 57 genres and 487 tags are listed in
+  [`docs/GENRES.md`](./docs/GENRES.md).
+- **Start from lyrics** builds a song around words you already have.
+- **Connect an AI service** (Settings → Providers): paste an API key and pick from the models it can
+  use; running local servers are found automatically. Keys stay in the local server's vault or,
+  without it, encrypted in the browser ([`docs/CREDENTIALS.md`](./docs/CREDENTIALS.md)).
+- **Uploaded audio** asks for a rights attestation; what is and isn't checked is in
+  [`docs/RIGHTS.md`](./docs/RIGHTS.md).
 
 ### Local AI models (optional)
 
@@ -66,6 +84,7 @@ write your own: [`docs/PLUGINS.md`](./docs/PLUGINS.md).
 | `apps/server`      | Local runtime server (Node)                                                                                                                                                                                                                                                                                                                                                                                           |
 | `plugins/`         | Example plugins: a genre profile, an exporter (ABC notation) and an SFZ sampled instrument                                                                                                                                                                                                                                                                                                                            |
 | `bridges/`         | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC, Matchering) and a dependency-free mock bridge                                                                                                                                                                                                                                                                                |
+| `docs/`            | Architecture, phases, genres and tags, brand, credentials, rights, plugins and releasing                                                                                                                                                                                                                                                                                                                              |
 | `scripts/release/` | Release tooling (version checks, packaging, smoke test) used by `.github/workflows/release.yml`                                                                                                                                                                                                                                                                                                                       |
 
 ## License
