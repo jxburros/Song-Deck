@@ -7,6 +7,7 @@ import { useSettings } from '../../state/settings';
 import { isTaskActive, startTask, useTaskRecord } from '../../engine/mix-tasks';
 import { deliverFile, MIME, songFileBase } from '../../engine/export-files';
 import { useExtensions } from '../../engine/plugins';
+import { recordAttestation, requestAttestation, type PendingAttestation } from '../../engine/rights';
 import {
   GUIDE_MIX_FILE,
   GUIDE_RENDERERS,
@@ -112,7 +113,16 @@ function SampleInstrumentsPanel({ song }: { song: Song }) {
   const toast = useStudio.getState().toast;
   const load = async (files: File[]) => {
     try {
+      // Sample audio needs a rights attestation before it is used (the .sfz text itself does not).
+      const audioFiles = files.filter((f) => !/\.sfz$/i.test(f.name));
+      const uploads = await Promise.all(audioFiles.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })));
+      const attested = await requestAttestation(uploads, { context: 'sample-instrument', purpose: 'Load samples as an instrument' });
+      if (!attested) {
+        toast('info', 'Loading the samples was cancelled.');
+        return;
+      }
       const e = await loadSampleFiles(files);
+      for (const a of attested) recordAttestation(a);
       toast('success', `Loaded sample instrument “${e.name}” (${e.zones} zone${e.zones === 1 ? '' : 's'})`);
     } catch (err) {
       toast('error', err instanceof Error ? err.message : String(err));
@@ -228,6 +238,7 @@ function SampleInstrumentsPanel({ song }: { song: Song }) {
 interface PendingImport {
   file: File;
   group: StemGroup;
+  attestation: PendingAttestation;
 }
 
 function ExternalPanel({ song, busy, onStarted }: { song: Song; busy: boolean; onStarted: (id: string) => void }) {
@@ -261,7 +272,16 @@ function ExternalPanel({ song, busy, onStarted }: { song: Song; busy: boolean; o
     deliverFile(`${songFileBase(song)} - stem MIDI.zip`, zipSync(files), MIME.zip, { detail: `${groups.length} stem MIDI files for external rendering` });
   };
 
-  const addFiles = (files: File[]) => setPending((p) => [...p, ...files.map((file) => ({ file, group: guessGroup(file.name) }))]);
+  const addFiles = async (files: File[]) => {
+    try {
+      const uploads = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })));
+      const attested = await requestAttestation(uploads, { context: 'guide-stems', purpose: 'Import rendered stems as the guide' });
+      if (!attested) return useStudio.getState().toast('info', 'Stem import cancelled.');
+      setPending((p) => [...p, ...files.map((file, i) => ({ file, group: guessGroup(file.name), attestation: attested[i] }))]);
+    } catch (err) {
+      useStudio.getState().toast('error', `Could not read the files: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
 
   const importNow = async () => {
     if (!pending.length) return;
@@ -270,6 +290,7 @@ function ExternalPanel({ song, busy, onStarted }: { song: Song; busy: boolean; o
       const stems = [];
       for (const p of pending) stems.push({ fileName: p.file.name, group: p.group, audio: await decodeAudioBytes(new Uint8Array(await p.file.arrayBuffer())) });
       const stageId = stageExternalStems(stems);
+      for (const p of pending) recordAttestation(p.attestation);
       const t = startTask<GuideImportInput, GuideOutput>('produce.guideImport', `Import ${stems.length} rendered stem${stems.length === 1 ? '' : 's'} as guide`, { projectId: project.meta.id, stageId });
       onStarted(t.id);
       setPending([]);
@@ -297,7 +318,7 @@ function ExternalPanel({ song, busy, onStarted }: { song: Song; busy: boolean; o
       <div className="card col">
         <div className="row between">
           <strong>2 · Import rendered stems</strong>
-          <FileButton accept="audio/*,.wav,.flac,.aif,.aiff,.mp3,.ogg" multiple onFile={addFiles} icon="upload">
+          <FileButton accept="audio/*,.wav,.flac,.aif,.aiff,.mp3,.ogg" multiple onFile={(f) => void addFiles(f)} icon="upload">
             Choose WAV files…
           </FileButton>
         </div>

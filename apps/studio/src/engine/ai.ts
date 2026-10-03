@@ -57,6 +57,7 @@ import { INTERNAL_FOR_ROLE } from './internalDescriptors';
 import { allCustomGenres, allCustomInstruments, loadEnabledPlugins, onPluginProviders } from './plugins';
 import { propose } from './proposals';
 import { browserCredentials } from './credentials';
+import { dataFlowRightsWarning } from './rights';
 
 /**
  * Studio AI runtime (spec §2.2, §5-§8, §49-§50, §59-§60).
@@ -166,9 +167,13 @@ export function initAi(): void {
           estimate,
           model: ctx.decision.modelId,
           warning: ctx.budgetWarning,
+          // Uploaded audio attested as personal study, or flagged/matched by the rights checks (docs/RIGHTS.md).
+          rightsWarning: dataFlowRightsWarning(useStudio.getState().project, flow),
           confirmLabel: 'Send',
         },
       }),
+    // The rights reminder is always shown, whatever the confirmation setting (docs/RIGHTS.md).
+    forceConfirm: (flow: DataFlowDescriptor) => !!dataFlowRightsWarning(useStudio.getState().project, flow),
     onEvent: (e) => {
       const events = [{ ...e, at: new Date().toISOString() }, ...useAiRuntime.getState().events].slice(0, 80);
       useAiRuntime.setState({ events });

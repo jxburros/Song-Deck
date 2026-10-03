@@ -16,6 +16,7 @@ import type { AudioData } from '@songdeck/audio';
 import { useStudio } from '../../state/store';
 import { decodeAudioBytes, guessMime } from '../../state/assets';
 import { player } from '../../engine/player';
+import { recordAttestation, requestAttestation, type PendingAttestation } from '../../engine/rights';
 import { Button, Field, FileButton, Modal, NumberInput, Select, Spinner, TextInput } from '../../ui/kit';
 import { formatDuration } from '../../hooks';
 
@@ -69,7 +70,7 @@ function baseName(file: string): string {
   return file.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Audio';
 }
 
-function ImportModal({ file, onClose }: { file: File; onClose: () => void }) {
+function ImportModal({ file, attestation, onClose }: { file: File; attestation: PendingAttestation; onClose: () => void }) {
   const song = useStudio((s) => s.project?.song);
   const st = useStudio.getState();
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
@@ -137,6 +138,7 @@ function ImportModal({ file, onClose }: { file: File; onClose: () => void }) {
         cloud: false,
       };
       useStudio.getState().addProvenance(provenance);
+      recordAttestation(attestation, { assetId, provenanceId });
       const trackId = randomId('trk');
       const clip: AudioClip = {
         id: randomId('clip'),
@@ -247,13 +249,25 @@ function ImportModal({ file, onClose }: { file: File; onClose: () => void }) {
 }
 
 export function ImportStemButton() {
-  const [file, setFile] = useState<File | null>(null);
+  const [pending, setPending] = useState<{ file: File; attestation: PendingAttestation } | null>(null);
+  // Rights attestation first (docs/RIGHTS.md); cancelling it abandons the import.
+  const choose = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const attested = await requestAttestation([{ name: file.name, bytes }], { context: 'mix-stem', purpose: 'Import a stem or audio file into the mix' });
+      if (attested) setPending({ file, attestation: attested[0] });
+      else useStudio.getState().toast('info', `Import of “${file.name}” cancelled.`);
+    } catch (err) {
+      useStudio.getState().toast('error', `Could not read “${file.name}”: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
   return (
     <>
-      <FileButton accept="audio/*,.wav,.flac,.mp3,.m4a,.aac,.ogg,.oga,.webm" onFile={(files) => setFile(files[0])} icon="upload">
+      <FileButton accept="audio/*,.wav,.flac,.mp3,.m4a,.aac,.ogg,.oga,.webm" onFile={(files) => void choose(files[0])} icon="upload">
         Import stem/audio
       </FileButton>
-      {file && <ImportModal file={file} onClose={() => setFile(null)} />}
+      {pending && <ImportModal file={pending.file} attestation={pending.attestation} onClose={() => setPending(null)} />}
     </>
   );
 }

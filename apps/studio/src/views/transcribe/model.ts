@@ -1,6 +1,7 @@
 import { PPQ, randomId, type KeySignature, type Note, type TrackRole } from '@songdeck/core';
 import type { AudioData } from '@songdeck/audio';
 import type { RunProvenance } from '@songdeck/ai';
+import type { PendingAttestation } from '../../engine/rights';
 import type { TranscribeSource } from '../../engine/handlers/analysis';
 
 /** View model shared by the Transcribe panels. */
@@ -21,6 +22,8 @@ export interface Capture {
   /** Tempo of the count-in the take was recorded against. */
   countInBpm?: number;
   createdAt: string;
+  /** Rights attestation of an uploaded file (uploads only; docs/RIGHTS.md). */
+  attestation?: PendingAttestation;
 }
 
 export type TempoMode = 'detect' | 'project' | 'manual';

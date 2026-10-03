@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
+  attestationsNeedingCare,
   audacityLabels,
   markersCsv,
   songToChordSheet,
@@ -23,6 +24,7 @@ import { deliverFile, downloadFile, formatBytes, MIME, removeExportedFile, sanit
 import type { AudioExportInput, AudioWhich, DawExportInput, EverythingInput, StemsExportInput } from '../../engine/handlers/exporting';
 import { Badge, Button, EmptyState, Progress, Select, Spinner, Toggle } from '../../ui/kit';
 import { Icon, type IconName } from '../../ui/icons';
+import { careLabel } from '../../engine/rights';
 import './export.css';
 
 /**
@@ -211,6 +213,7 @@ export default function ExportMode() {
           : `No master yet — mastered on the fly for ${target.label}.`;
 
   const everythingTask = running.everything;
+  const needsCare = attestationsNeedingCare(project);
 
   return (
     <div className="mode-page ex-page">
@@ -226,6 +229,15 @@ export default function ExportMode() {
           Queue{activeExportCount ? ` (${activeExportCount})` : ''}
         </Button>
       </div>
+
+      {needsCare.length > 0 && (
+        <div className="callout warning" data-testid="export-rights-notice" role="note">
+          <strong>Rights reminder.</strong> This project contains uploaded audio that was attested as personal study only, or flagged as a likely commercial release:{' '}
+          {needsCare.slice(0, 4).map(careLabel).join('; ')}
+          {needsCare.length > 4 ? ` and ${needsCare.length - 4} more` : ''}. Exporting is your call — releasing it may need permission from the rights holders. The
+          project package and “Export everything” include a rights summary (RIGHTS.txt).
+        </div>
+      )}
 
       <div className="panel ex-settings" aria-label="Export settings">
         <div className="ex-settings-row">

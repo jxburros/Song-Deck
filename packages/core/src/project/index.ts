@@ -41,3 +41,15 @@ export {
   addGenerationRecord,
   updateRights,
 } from './assets';
+export {
+  ATTESTATION_BASIS_LABEL,
+  ATTESTATION_BASIS_SHORT,
+  addAttestation,
+  attestationNeedsCare,
+  attestationRightsLine,
+  attestationRightsList,
+  attestationSummaryLines,
+  attestationsNeedingCare,
+  projectAttestations,
+  rightsSummaryText,
+} from './rights';

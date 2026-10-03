@@ -13,6 +13,7 @@ import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 import { registerCollabRoutes } from './collab';
+import { registerContentCheckRoutes } from './content-check';
 import { CollabHub } from './collab/hub';
 import { isLoopbackHost, normalizeOrigin, type ResolvedConfig, resolveConfig, SERVER_NAME, SERVER_VERSION, type ServerOptions } from './config';
 import { registerHardwareRoutes, HardwareService } from './hardware';
@@ -144,6 +145,7 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     maxResponseBytes: limits.proxyResponseBytes,
     logger,
   });
+  registerContentCheckRoutes(router, { getVault, fetch: config.proxy.fetch });
   registerHardwareRoutes(router, hardware);
   registerModelRoutes(router, models);
   registerLocalServiceRoutes(router, localServices, { fetch: config.proxy.fetch, jsonLimit: limits.jsonBytes });
@@ -315,7 +317,7 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     await providers.load();
     await renderNode.init();
     await managed.init();
-    for (const f of ['vault', 'proxy', 'providers', 'hardware', 'models', 'local-services', 'connect', 'collab', 'plugins', 'projects']) features.add(f);
+    for (const f of ['vault', 'proxy', 'providers', 'hardware', 'models', 'local-services', 'connect', 'collab', 'plugins', 'projects', 'content-check']) features.add(f);
     if (renderNode.available) features.add('render-node');
     if (managed.available) features.add('managed');
     if (staticHandler) features.add('static');

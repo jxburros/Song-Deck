@@ -83,6 +83,11 @@ export interface OrchestratorOptions {
    * to cancel. Without a handler, requests that need confirmation are declined (fail closed).
    */
   confirm?: (flow: DataFlowDescriptor, estimate: CostEstimate, ctx: ConfirmContext) => Promise<boolean>;
+  /**
+   * Forces the confirmation for a flow even when the privacy setting would skip it (e.g. audio
+   * whose rights need care is about to leave the device).
+   */
+  forceConfirm?: (flow: DataFlowDescriptor) => boolean;
   clock?: { now(): number };
   /** Default execution timeout when the provider config has none (default 300 s). */
   defaultTimeoutMs?: number;
@@ -345,7 +350,7 @@ export class Orchestrator {
       budgetWarning = check.warning;
       if (budgetWarning) this.emit({ type: 'budget-warning', role: task.role, warning: budgetWarning });
     }
-    if (!task.skipConfirm && needsPrivacyConfirmation(settings.privacyConfirm, flow)) {
+    if (!task.skipConfirm && (needsPrivacyConfirmation(settings.privacyConfirm, flow) || this.opts.forceConfirm?.(flow))) {
       this.emit({ type: 'confirm', role: task.role, flow, estimate });
       if (!this.opts.confirm) throw new PrivacyDeclinedError(decision.providerId, 'This request needs your confirmation before data leaves the device, but no confirmation handler is available');
       const ok = await this.opts.confirm(flow, estimate, { role: task.role, decision, ...(budgetWarning ? { budgetWarning } : {}) });
