@@ -319,6 +319,7 @@ export const BLUEPRINT_SCHEMA: JsonSchema = obj(
     ),
     vocal: obj({ voice_type: enm(VOICE_TYPES), mode: enm(VOCAL_MODES), description: str() }, ['voice_type', 'mode']),
     lyrics_theme: str('What the lyrics are about'),
+    tags: arr(str(), 'Tag ids (style, mood, era, production…) from the available tag ids'),
     macros: obj(MACRO_PROPS, [], 'Macro controls 0..1'),
     explanation: str('One or two sentences explaining the choices'),
     confidence: CONFIDENCE,

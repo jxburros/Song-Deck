@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useElementSize } from '../../hooks';
+import { useThemeName } from '../../ui/theme';
 
 /**
  * A small read-only piano roll (canvas) for previews: transcriptions, generated parts, rebuilt
@@ -104,6 +105,7 @@ export function NoteStrip({
   testId = 'note-strip',
 }: NoteStripProps) {
   const [wrapRef, size] = useElementSize<HTMLDivElement>();
+  const theme = useThemeName();
   const GUTTER = drums ? DRUM_GUTTER : NOTE_GUTTER;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const beatTicks = (4 * ppq) / (meter.denominator || 4);
@@ -153,7 +155,7 @@ export function NoteStrip({
     if (!g) return;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(document.documentElement);
-    const col = (v: string) => css.getPropertyValue(v).trim() || '#888';
+    const col = (v: string) => css.getPropertyValue(v).trim();
     const bodyW = w - GUTTER;
     const bodyH = height - RULER;
     const rowH = bodyH / rows.length;
@@ -169,7 +171,7 @@ export function NoteStrip({
     rows.forEach((p, i) => {
       const y = RULER + i * rowH;
       if (!drums && [1, 3, 6, 8, 10].includes(((p % 12) + 12) % 12)) {
-        g.fillStyle = 'rgba(0,0,0,0.16)';
+        g.fillStyle = col('--row-shade');
         g.fillRect(GUTTER, y, bodyW, rowH);
       }
       const label = drums ? (DRUM_LABELS[p] ?? String(p)) : p % 12 === 0 ? `C${Math.floor(p / 12) - 1}` : null;
@@ -243,7 +245,7 @@ export function NoteStrip({
     // Gutter edge
     g.fillStyle = col('--border');
     g.fillRect(GUTTER - 1, 0, 1, height);
-  }, [notes, rows, size.width, height, span, startTick, beatTicks, barTicks, colorBy, color, lowConfidence, drums, highlight, playheadTick, firstBarNumber, GUTTER]);
+  }, [notes, rows, size.width, height, span, startTick, beatTicks, barTicks, colorBy, color, lowConfidence, drums, highlight, playheadTick, firstBarNumber, GUTTER, theme]);
 
   const low = colorBy === 'confidence' ? notes.filter((n) => confidenceBucket(n.confidence, lowConfidence) === 'low').length : 0;
   return (

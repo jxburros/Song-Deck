@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -58,12 +59,7 @@ test('an enabled SFZ instrument plugin renders tracks with its samples', async (
   await page.goto('/');
   await expect.poll(() => pluginStatus(page), { timeout: 30_000 }).toBe('loaded');
 
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page.getByLabel('Song prompt').fill('Dreamy synth-pop in D major, 108 BPM, warm pads and a punchy electronic kit.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible();
+  await composeQuickSong(page, 'Dreamy synth-pop');
 
   // The sampled instrument is offered like a built-in one; add a generated track with it.
   await page.locator('.wb-left').getByRole('button', { name: 'Add', exact: true }).click();

@@ -18,6 +18,7 @@ import type { EncodedStem, SeparateTaskInput, SeparateTaskOutput } from '../../e
 import type { RunProvenance } from '@songdeck/ai';
 import { DSP_PROVIDER, makeAnalysisRecord, makeAssetMeta, makeProvenance, pushAnalysis } from '../../engine/capture-song';
 import { slugify } from '../../engine/capture-files';
+import { recordAttestation, type PendingAttestation } from '../../engine/rights';
 import { colorForRole } from '../workbench/SidePanel';
 
 export interface RebuildSource {
@@ -26,6 +27,8 @@ export interface RebuildSource {
   mimeType: string;
   audio: AudioData;
   durationSeconds: number;
+  /** The user's rights attestation for the uploaded file (stored with the source asset). */
+  attestation?: PendingAttestation;
 }
 
 const STEM_INFO: Record<string, { label: string; role: TrackRole; instrumentId: string; stemGroup: StemGroup }> = {
@@ -153,7 +156,22 @@ export async function openRebuildAsProject(o: {
     channels: o.source.audio.channels.length,
     durationSeconds: o.source.durationSeconds,
   });
-  await st.addAsset(sourceMeta, o.source.bytes);
+  // The uploaded recording: a user-import provenance record + the rights attestation (docs/RIGHTS.md).
+  const sourceProvenanceId = randomId('prov');
+  await st.addAsset({ ...sourceMeta, provenanceId: sourceProvenanceId }, o.source.bytes);
+  st.addProvenance({
+    id: sourceProvenanceId,
+    artifactId: sourceAssetId,
+    artifactName: o.source.name,
+    artifactKind: 'audio',
+    sources: [{ kind: 'file', ref: o.source.name }],
+    providerId: 'user-import',
+    providerName: 'Imported by the user',
+    parameters: { purpose: 'rebuild source' },
+    generatedAt: new Date().toISOString(),
+    cloud: false,
+  });
+  if (o.source.attestation) recordAttestation(o.source.attestation, { assetId: sourceAssetId, provenanceId: sourceProvenanceId });
   st.addProvenance(
     makeProvenance({
       artifactId: created.song.id,

@@ -1,4 +1,4 @@
-import { defaultChannelStrip, randomId, type AudioAssetMeta, type AudioClip, type ChannelStrip, type ProductionCandidate, type Song, type Track } from '@songdeck/core';
+import { TRACK_PALETTE, defaultChannelStrip, randomId, type AudioAssetMeta, type AudioClip, type ChannelStrip, type ProductionCandidate, type Song, type Track } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { assetStore } from '../../state/assets';
 import { player } from '../../engine/player';
@@ -128,7 +128,8 @@ export function adoptCandidate(song: Song, candidate: ProductionCandidate, asset
       constraints: {},
       notes: [],
       clips: [clipFor(m, m.name)],
-      color: '#46c2cb',
+      // Blue: the track-safe sibling of the AI colour, for the AI-produced mix.
+      color: TRACK_PALETTE[8],
       stemGroup: 'others',
       generator: { id: PRODUCED_MIX_GENERATOR, seed: candidate.seed, params: { candidateId: candidate.id, candidateLabel: label, mutedTrackIds: muted } },
     });

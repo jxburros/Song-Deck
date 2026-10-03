@@ -89,14 +89,24 @@ export function Icon({ name, size = 16, ...rest }: { name: IconName; size?: numb
   );
 }
 
+/**
+ * The Song Deck mark: a fanned deck of cards in the brand colours, the front card carrying a
+ * waveform (docs/brand/logo-a.svg; keep public/favicon.svg in step). The brand colours are fixed
+ * here, not themed: the ink tile keeps them legible on light and dark surfaces alike.
+ */
 export function BrandMark() {
   return (
     <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" rx="14" fill="#1c2029" />
-      <rect x="12" y="34" width="6" height="18" rx="2" fill="#ff8a3d" />
-      <rect x="22" y="22" width="6" height="30" rx="2" fill="#ffb27a" />
-      <rect x="32" y="12" width="6" height="40" rx="2" fill="#46c2cb" />
-      <rect x="42" y="26" width="6" height="26" rx="2" fill="#7fdbe2" />
+      <rect width="64" height="64" rx="14" fill="#121212" />
+      <rect x="20" y="11" width="28" height="38" rx="5" fill="#fdca40" transform="rotate(-20 34 61)" />
+      <rect x="20" y="11" width="28" height="38" rx="5" fill="#32cbff" stroke="#121212" strokeWidth="2" transform="rotate(-5 34 61)" />
+      <g transform="rotate(11 34 61) translate(2 -1)">
+        <rect x="18" y="12" width="28" height="38" rx="5" fill="#ff299c" stroke="#121212" strokeWidth="2" />
+        <rect x="20.5" y="27" width="4" height="10" rx="2" fill="#121212" />
+        <rect x="26.5" y="21" width="4" height="22" rx="2" fill="#121212" />
+        <rect x="32.5" y="24" width="4" height="16" rx="2" fill="#121212" />
+        <rect x="38.5" y="28" width="4" height="8" rx="2" fill="#121212" />
+      </g>
     </svg>
   );
 }

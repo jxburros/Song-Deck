@@ -67,6 +67,19 @@ describe('Orchestrator', () => {
     await expect(noHandler.chat({ context: ctx, question: 'q' }, { providerId: 'gemini' })).rejects.toBeInstanceOf(PrivacyDeclinedError);
   });
 
+  it('forceConfirm asks even when the privacy setting would not', async () => {
+    const w = makeWorld({ privacyConfirm: 'never' });
+    const confirm = vi.fn(async () => true);
+    const forceConfirm = vi.fn((flow: DataFlowDescriptor) => flow.leavesDevice);
+    const orch = orchestratorFor(w, { confirm, forceConfirm });
+    const ctx = buildMusicContext(makeSong(), { instruction: 'x' });
+    await orch.explain({ context: ctx }, { providerId: 'gemini' });
+    expect(forceConfirm).toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(1);
+    await orch.explain({ context: ctx }, { providerId: 'ollama' });
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
   it('privacyConfirm "audio" only asks when audio leaves the device', async () => {
     const w = makeWorld({ privacyConfirm: 'audio' });
     const confirm = vi.fn(async () => true);

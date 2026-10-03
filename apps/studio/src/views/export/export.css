@@ -25,8 +25,8 @@
 .ex-hero {
   margin-bottom: 14px;
   background:
-    radial-gradient(900px 220px at 0% 0%, rgba(255, 138, 61, 0.12), transparent 60%),
-    radial-gradient(700px 220px at 100% 100%, rgba(70, 194, 203, 0.1), transparent 60%),
+    radial-gradient(900px 220px at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%),
+    radial-gradient(700px 220px at 100% 100%, color-mix(in srgb, var(--ai) 10%, transparent), transparent 60%),
     var(--bg-elev-1);
 }
 .ex-hero-body {

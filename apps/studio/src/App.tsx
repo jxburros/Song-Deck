@@ -5,6 +5,7 @@ import { TopBar } from './views/shell/TopBar';
 import { StatusBar } from './views/shell/StatusBar';
 import { Toasts } from './views/shell/Toasts';
 import { ConfirmDialog } from './views/shell/ConfirmDialog';
+import { AttestationDialog } from './views/shared/AttestationDialog';
 import { TaskDrawer } from './views/shell/TaskDrawer';
 import { ModeErrorBoundary } from './views/shell/ModeErrorBoundary';
 import { useHotkeys } from './hooks';
@@ -85,6 +86,7 @@ export function App() {
       <StatusBar />
       <Toasts />
       <ConfirmDialog />
+      <AttestationDialog />
     </div>
   );
 }

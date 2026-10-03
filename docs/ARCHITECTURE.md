@@ -64,8 +64,8 @@ orchestrator stays provider-agnostic (§2.2, §72).
 * **Bad model output never corrupts a project (§48):** AI output → `MusicOperation[]` → validated and
   applied to a clone → `Proposal` → user accepts → new revision.
 * **Audio:** planar `Float32Array` channels (`AudioData`). No Web Audio in `packages/audio`.
-* **No secrets in project files (§7):** credentials live only in the server vault (OS keychain) or an
-  explicit in-browser session store.
+* **No secrets in project files (§7):** credentials live only in the server vault (OS keychain) or,
+  without the server, encrypted in the browser (AES-GCM, non-extractable key; `docs/CREDENTIALS.md`).
 * **Dependencies:** runtime deps are intentionally minimal: `fflate` (zip), `@anthropic-ai/sdk`
   (Anthropic adapter), `react`/`zustand` (UI), `ws` (server), `@breezystack/lamejs` (MP3).
 
@@ -195,7 +195,11 @@ routing rules (§49), `describeDataFlow` (§50), `BudgetManager` + `estimateCost
 Llama API, Together, Groq, LM Studio, vLLM, llama.cpp), Anthropic, Gemini, Ollama, custom HTTP,
 ElevenLabs Music, Stability Stable Audio, Google Lyria (Vertex), local music HTTP (ACE-Step bridge),
 singing HTTP (DiffSinger bridge), transcription/separation/voice-conversion/mastering HTTP,
-`LOCAL_MODEL_CATALOG` + `classifyCompatibility` (§61-§62).
+`LOCAL_MODEL_CATALOG` + `classifyCompatibility` (§61-§62). Connecting services:
+`detectKeyProvider` (key formats), `probeProvider` (validate a key, list its models),
+`groupModels` / `recommendModels` (models → Song Deck uses, best per use), `connectedConfig`,
+`detectLocalServices` (Ollama, LM Studio, llama.cpp, vLLM, bridges; loopback only) and
+`EncryptedCredentialStore` (behind a `KeyValueBackend`).
 
 ### 3.11 apps/studio (runtime wiring)
 * `state/store.ts` — the open project, proposals (accepted with `acceptProposalOnto`), revisions,
@@ -209,6 +213,8 @@ singing HTTP (DiffSinger bridge), transcription/separation/voice-conversion/mast
   after a reload) and local-server status. Task handlers live in `engine/handlers/*`.
 * `engine/ai.ts` — the AI runtime: registry, router, budget and orchestrator; internal (on-device)
   providers from `internalProviders.ts`; plugin providers; role helpers used by every mode.
+* `engine/credentials.ts` — browser-held keys (encrypted IndexedDB store, memory fallback) used when
+  the server vault is not; `views/settings/ConnectService.tsx` — the "Connect a service" flow.
 * `engine/plugins.ts` — plugin loading and the plugin API (`docs/PLUGINS.md`).
 * `engine/collab.ts`, `collab-render.ts` — collaboration client and distributed stem renders.
 * `engine/midi-input.ts`, `midi-take.ts` — MIDI keyboard capture into the piano roll (§27).
@@ -220,5 +226,6 @@ CLI `apps/server/src/cli.ts`; modules: `vault/` (OS keychain, encrypted-file fal
 (provider proxy with allowlist and credential injection), `hardware.ts`, `models.ts` (model
 manager), `render/` (render node: worker-thread pool), `collab/` (WebSocket rooms, persisted
 revisions, comments, chat), `plugins.ts` (manifest validation and file serving), `managed.ts`
-(the "Automatic" gateway), `projects.ts`, `static.ts` (serves the built studio). Security model
+(the "Automatic" gateway), `local-services.ts` (local service detection, key validation for the
+connect flow), `projects.ts`, `static.ts` (serves the built studio). Security model
 and endpoints: `apps/server/README.md`.

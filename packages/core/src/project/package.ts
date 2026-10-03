@@ -7,6 +7,7 @@ import { songToMidi, trackToMidi } from '../io/midi';
 import { songToLyricSheet } from '../io/sheets';
 import { slugify, uniqueNames } from '../io/util';
 import { safePackagePath } from './assets';
+import { rightsSummaryText } from './rights';
 
 /**
  * `.songproject` package (spec §9): a ZIP containing
@@ -20,6 +21,7 @@ import { safePackagePath } from './assets';
  *   motifs/<id>.json                motif library                                     [derived]
  *   audio/{references,guide-renders,generations,vocals,masters,…}/…, stems/…   asset bytes at AudioAssetMeta.path
  *   analysis/<id>.json, generations/<id>.json
+ *   rights/RIGHTS.txt               rights metadata + upload attestations (when there are any)      [derived]
  *
  * Derived files are conveniences for other tools; unpacking reads only the canonical JSON.
  * Credentials are never written: keys such as apiKey/token/secret/password are dropped and
@@ -103,7 +105,10 @@ export function packProject(project: Project, assets: Map<string, Uint8Array> = 
   project.analysis.forEach((a, i) => add(analysisFiles[i], json(a, true)));
   project.generations.forEach((g, i) => add(generationFiles[i], json(g, true)));
 
-  if (opts.includeDerived !== false) addDerived(project.song, add);
+  if (opts.includeDerived !== false) {
+    addDerived(project.song, add);
+    if (project.meta.attestations?.length) add('rights/RIGHTS.txt', strToU8(rightsSummaryText(project.meta)));
+  }
 
   for (const meta of project.meta.assets) {
     const bytes = assets.get(meta.id);

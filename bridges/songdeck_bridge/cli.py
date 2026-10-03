@@ -20,6 +20,7 @@ Common flags (``build_parser``)::
 refused, running jobs are cancelled, the listening sockets close and close hooks run. A second
 Ctrl+C exits immediately.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,29 +55,77 @@ TOKEN_ENV = "SONGDECK_BRIDGE_TOKEN"
 log = logging.getLogger("songdeck_bridge")
 
 
-def build_parser(description: str, default_port: Optional[int], *, prog: Optional[str] = None, epilog: Optional[str] = None,
-                 engine_flags: bool = True) -> argparse.ArgumentParser:
+def build_parser(
+    description: str,
+    default_port: Optional[int],
+    *,
+    prog: Optional[str] = None,
+    epilog: Optional[str] = None,
+    engine_flags: bool = True,
+) -> argparse.ArgumentParser:
     """Parser with the common flags. ``default_port=None`` leaves ``--port`` unset (the script picks one)."""
-    p = argparse.ArgumentParser(prog=prog, description=description, epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        prog=prog, description=description, epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     g = p.add_argument_group("server")
-    g.add_argument("--host", default="127.0.0.1", help="interface to bind (default 127.0.0.1: reachable from this machine only)")
-    port_help = f"TCP port (default {default_port}; 0 picks a free port)" if default_port is not None else "TCP port (default: the Song Deck preset port of the role; 0 picks a free port)"
+    g.add_argument(
+        "--host", default="127.0.0.1", help="interface to bind (default 127.0.0.1: reachable from this machine only)"
+    )
+    port_help = (
+        f"TCP port (default {default_port}; 0 picks a free port)"
+        if default_port is not None
+        else "TCP port (default: the Song Deck preset port of the role; 0 picks a free port)"
+    )
     g.add_argument("--port", type=int, default=default_port, help=port_help)
-    g.add_argument("--token", default=os.environ.get(TOKEN_ENV) or None,
-                   help=f"require 'Authorization: Bearer <token>' on every request except GET /health (default: ${TOKEN_ENV}); "
-                        "mandatory when --host is not a loopback address")
-    g.add_argument("--allow-origin", action="append", default=None, metavar="URL",
-                   help="browser origin allowed by CORS; repeatable, replaces the defaults (" + ", ".join(DEFAULT_CORS_ORIGINS) + "); '*' allows any origin")
-    g.add_argument("--allow-host", action="append", default=[], metavar="NAME",
-                   help="extra Host header name accepted while bound to loopback (DNS-rebinding protection)")
-    g.add_argument("--max-body-mb", type=float, default=512.0, metavar="MB", help="largest accepted request body (default 512)")
+    g.add_argument(
+        "--token",
+        default=os.environ.get(TOKEN_ENV) or None,
+        help=f"require 'Authorization: Bearer <token>' on every request except GET /health (default: ${TOKEN_ENV}); "
+        "mandatory when --host is not a loopback address",
+    )
+    g.add_argument(
+        "--allow-origin",
+        action="append",
+        default=None,
+        metavar="URL",
+        help="browser origin allowed by CORS; repeatable, replaces the defaults ("
+        + ", ".join(DEFAULT_CORS_ORIGINS)
+        + "); '*' allows any origin",
+    )
+    g.add_argument(
+        "--allow-host",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="extra Host header name accepted while bound to loopback (DNS-rebinding protection)",
+    )
+    g.add_argument(
+        "--max-body-mb", type=float, default=512.0, metavar="MB", help="largest accepted request body (default 512)"
+    )
     g.add_argument("--max-jobs", type=int, default=1, metavar="N", help="jobs that run at the same time (default 1)")
-    g.add_argument("--max-queue", type=int, default=8, metavar="N", help="requests that may wait for a job slot; more → 409 busy (default 8; 0 = never queue)")
-    g.add_argument("--no-disconnect-detection", action="store_true",
-                   help="do not cancel a job when its client disconnects (only POST /cancel stops it)")
-    g.add_argument("--allow-remote-without-token", action="store_true",
-                   help="allow a non-loopback --host without --token (NOT recommended: anyone on the network could run jobs)")
-    g.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"], help="log verbosity (default info)")
+    g.add_argument(
+        "--max-queue",
+        type=int,
+        default=8,
+        metavar="N",
+        help="requests that may wait for a job slot; more → 409 busy (default 8; 0 = never queue)",
+    )
+    g.add_argument(
+        "--no-disconnect-detection",
+        action="store_true",
+        help="do not cancel a job when its client disconnects (only POST /cancel stops it)",
+    )
+    g.add_argument(
+        "--allow-remote-without-token",
+        action="store_true",
+        help="allow a non-loopback --host without --token (NOT recommended: anyone on the network could run jobs)",
+    )
+    g.add_argument(
+        "--log-level",
+        default="info",
+        choices=["debug", "info", "warning", "error"],
+        help="log verbosity (default info)",
+    )
     g.add_argument("--quiet", action="store_true", help="only log warnings and errors")
     g.add_argument("--version", action="version", version=f"songdeck_bridge {__version__}")
     if engine_flags:
@@ -87,8 +136,14 @@ def build_parser(description: str, default_port: Optional[int], *, prog: Optiona
 
 
 def setup_logging(args: argparse.Namespace) -> None:
-    level = logging.WARNING if getattr(args, "quiet", False) else getattr(logging, str(getattr(args, "log_level", "info")).upper(), logging.INFO)
-    logging.basicConfig(level=level, format="%(asctime)s %(levelname)-7s %(name)s: %(message)s", datefmt="%H:%M:%S", stream=sys.stderr)
+    level = (
+        logging.WARNING
+        if getattr(args, "quiet", False)
+        else getattr(logging, str(getattr(args, "log_level", "info")).upper(), logging.INFO)
+    )
+    logging.basicConfig(
+        level=level, format="%(asctime)s %(levelname)-7s %(name)s: %(message)s", datefmt="%H:%M:%S", stream=sys.stderr
+    )
 
 
 def app_options(args: argparse.Namespace) -> Dict[str, Any]:
@@ -112,8 +167,10 @@ def fail(message: str, code: int = 2) -> NoReturn:
 def check_bind(args: argparse.Namespace) -> None:
     """Refuse to expose an unauthenticated bridge to the network."""
     if not is_loopback_host(args.host) and not args.token and not args.allow_remote_without_token:
-        fail(f"refusing to listen on {args.host} without a token: anyone who can reach this port could run jobs on this machine. "
-             f"Pass --token (or set ${TOKEN_ENV}); --allow-remote-without-token overrides this check.")
+        fail(
+            f"refusing to listen on {args.host} without a token: anyone who can reach this port could run jobs on this machine. "
+            f"Pass --token (or set ${TOKEN_ENV}); --allow-remote-without-token overrides this check."
+        )
     if args.allow_origin and "*" in args.allow_origin:
         log.warning("--allow-origin '*': any web page you visit can call this bridge from your browser")
 
@@ -153,7 +210,9 @@ def resolve_device(device: Optional[str]) -> str:
     return "cpu"
 
 
-def serve(bindings: Sequence[Tuple[BridgeApp, str, int]], *, shutdown_timeout: float = 10.0, announce: bool = True) -> int:
+def serve(
+    bindings: Sequence[Tuple[BridgeApp, str, int]], *, shutdown_timeout: float = 10.0, announce: bool = True
+) -> int:
     """Serve each ``(app, host, port)`` on its own thread until SIGINT/SIGTERM; returns an exit code."""
     servers: List[Tuple[BridgeApp, Any]] = []
     for app, host, port in bindings:
@@ -167,10 +226,14 @@ def serve(bindings: Sequence[Tuple[BridgeApp, str, int]], *, shutdown_timeout: f
         servers.append((app, srv))
     threads = []
     for app, srv in servers:
-        t = threading.Thread(target=srv.serve_forever, kwargs={"poll_interval": 0.25}, name=f"serve-{app.role}", daemon=True)
+        t = threading.Thread(
+            target=srv.serve_forever, kwargs={"poll_interval": 0.25}, name=f"serve-{app.role}", daemon=True
+        )
         t.start()
         threads.append(t)
-        log.info("%s (%s) listening on %s%s", app.name, app.role, app.url, " — bearer token required" if app.token else "")
+        log.info(
+            "%s (%s) listening on %s%s", app.name, app.role, app.url, " — bearer token required" if app.token else ""
+        )
     if announce:
         ready = {"bridges": [{"name": a.name, "role": a.role, "url": a.url} for a, _ in servers], "pid": os.getpid()}
         print("songdeck-bridge ready " + json.dumps(ready), flush=True)

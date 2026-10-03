@@ -16,6 +16,41 @@ export { extractSongDNA, composeFromDNA, type ComposeFromDnaOptions } from './dn
 export { generateAsset, type GenerateAssetOptions } from './asset';
 export { DRUM_STYLE_INFO, ALL_DRUM_STYLES, drumStyleInfo, baseDrumStyle, type DrumStyleInfo, type BaseDrumStyle } from './styles';
 export {
+  blueprintFromChoices,
+  applyBuilderConstraints,
+  describeChoices,
+  normalizeGenreWeights,
+  resolveTagIds,
+  builderTagIds,
+  builderBlend,
+  builderGenre,
+  tempoForFeel,
+  tempoBand,
+  structureTemplateNames,
+  genreExpectsVocal,
+  suggestInstruments,
+  titleFromLyrics,
+  type BuilderChoices,
+  type BuilderInstrument,
+  type BuilderGenre,
+  type BuilderMood,
+  type BuilderVocal,
+  type BuilderOptions,
+  type TempoFeel,
+  type SongLength,
+} from './builder';
+export {
+  structureFromLyrics,
+  lyricSectionBars,
+  syllablesPerBar,
+  matchLyricsToSections,
+  placeBlueprintLyrics,
+  leadVocalTrack,
+  creditLyricWriter,
+  INSTRUMENTAL_KINDS,
+  type LyricsStructureOptions,
+} from './lyrics-first';
+export {
   BUILTIN_TAGS,
   listTags,
   getTag,

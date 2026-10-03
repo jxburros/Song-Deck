@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   assetPathFor,
+  attestationNeedsCare,
   getGenre,
   randomId,
   randomSeed,
@@ -38,6 +39,7 @@ import {
 import { hardwareView, productionEstimate, refreshHardware, resolveProduction, useHardware, type ProductionResolution } from '../../engine/produce-providers';
 import { sampleInstrumentName, useSampleInstruments } from '../../engine/produce-samples';
 import { audioSeconds } from '../../engine/produce-assets';
+import { attestationForAsset, careLabel, recordAttestation, requestAttestation } from '../../engine/rights';
 import type { CandidateInput, CandidateOutput } from '../../engine/handlers/production';
 import { Badge, Button, Field, FileButton, NumberInput, Select, Slider, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
@@ -395,6 +397,7 @@ function ReferenceAudio({ song, r }: { song: Song; r: ReturnType<typeof useProdu
   const project = useStudio((s) => s.project)!;
   const p = song.production;
   const meta = project.meta.assets.find((a) => a.id === p.referenceAudioAssetId);
+  const attestation = attestationForAsset(project, meta?.id);
   const never = project.meta.settings.neverUpload?.includes('reference-audio');
   const [busy, setBusy] = useState(false);
   const upload = async (files: File[]) => {
@@ -405,12 +408,18 @@ function ReferenceAudio({ song, r }: { song: Song; r: ReturnType<typeof useProdu
       const bytes = new Uint8Array(await file.arrayBuffer());
       const audio = await decodeAudioBytes(bytes);
       const st = useStudio.getState();
+      const attested = await requestAttestation([{ name: file.name, bytes, audio }], { context: 'produce-reference', purpose: 'Add reference audio for the production' });
+      if (!attested) {
+        st.toast('info', `Upload of “${file.name}” cancelled.`);
+        return;
+      }
       const now = new Date().toISOString();
       const id = randomId('asset');
       const provId = randomId('prov');
       const m: AudioAssetMeta = { id, name: file.name, kind: 'reference', path: assetPathFor('reference', `${id.slice(-6)}-${file.name}`), mimeType: guessMime(file.name, bytes), sampleRate: audio.sampleRate, channels: audio.channels.length, durationSeconds: audioSeconds(audio), bytes: bytes.length, createdAt: now, provenanceId: provId };
       await st.addAsset(m, bytes);
       st.addProvenance({ id: provId, artifactId: id, artifactName: file.name, artifactKind: 'audio', sources: [{ kind: 'file', ref: file.name }], providerId: 'user-import', providerName: 'Imported by the user', parameters: { purpose: 'production reference' }, generatedAt: now, cloud: false });
+      recordAttestation(attested[0], { assetId: id, provenanceId: provId });
       updateProduction((x) => ({ ...x, referenceAudioAssetId: id }), `Reference audio: ${file.name}`);
     } catch (err) {
       useStudio.getState().toast('error', `Could not read “${file.name}”: ${err instanceof Error ? err.message : String(err)}`);
@@ -444,6 +453,11 @@ function ReferenceAudio({ song, r }: { song: Song; r: ReturnType<typeof useProdu
         {never ? ' — blocked by this project’s privacy settings (never upload).' : '.'}
         {meta && (r.referenceUsed ? <span className="pd-ok"> Will be sent to {r.resolution.provider?.name}.</span> : r.referenceNote ? ` ${r.referenceNote}` : '')}
       </div>
+      {attestation && attestationNeedsCare(attestation) && (
+        <div className="callout warning small" data-testid="reference-rights-warning">
+          Rights reminder: {careLabel(attestation)}. {p.allowReferenceUpload ? 'Sending it to a cloud provider may not be covered by your rights to it.' : 'Think twice before allowing it to be sent to cloud providers.'}
+        </div>
+      )}
     </div>
   );
 }

@@ -63,3 +63,17 @@ export {
 } from './quantize';
 export { transcribeAudio, gridOrigin, type TranscriptionSource, type TranscribeAudioOptions, type TranscribeAudioResult } from './transcribe';
 export { rebuildProject, type RebuildStage, type RebuildStageId, type RebuildReport, type RebuildOptions } from './rebuild';
+export {
+  chromaprintFingerprint,
+  chromaprintRaw,
+  compressFingerprint,
+  encodeChromaprint,
+  chromaprintBase64,
+  fingerprintBitErrorRate,
+  resampleForFingerprint,
+  CHROMAPRINT_ALGORITHM,
+  CHROMAPRINT_SAMPLE_RATE,
+  CHROMAPRINT_MAX_SECONDS,
+  type ChromaprintOptions,
+  type ChromaprintResult,
+} from './chromaprint';

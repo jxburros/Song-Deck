@@ -3,13 +3,18 @@ import { useEffect, useMemo } from 'react';
 import {
   BUILTIN_GENRES,
   BUILTIN_INSTRUMENTS,
+  applyBuilderConstraints,
   defaultMacros,
+  describeChoices,
   getInstrument,
+  listTags,
   parseChordSymbol,
   parsePromptToBlueprint,
   planComposition,
   randomSeed,
+  resolveTagIds,
   type Blueprint,
+  type BuilderChoices,
   type CompositionPlan,
   type EditSelection,
   type Song,
@@ -19,7 +24,6 @@ import {
   CapabilityRouter,
   DEFAULT_ROUTING_SETTINGS,
   DirectTransport,
-  MemoryCredentialStore,
   Orchestrator,
   ProviderRegistry,
   ROLE_INFO,
@@ -27,10 +31,10 @@ import {
   ServerVaultClient,
   buildMusicContext,
   contextDataKinds,
+  roleCapabilitySets,
   toProvenanceRecord,
   type ArtifactInfo,
   type ChatMessage as AiChatMessage,
-  type Capability,
   type CostEstimate,
   type CostEstimateInput,
   type DataFlowDescriptor,
@@ -52,6 +56,8 @@ import { createInternalProviders } from './internalProviders';
 import { INTERNAL_FOR_ROLE } from './internalDescriptors';
 import { allCustomGenres, allCustomInstruments, loadEnabledPlugins, onPluginProviders } from './plugins';
 import { propose } from './proposals';
+import { browserCredentials } from './credentials';
+import { dataFlowRightsWarning } from './rights';
 
 /**
  * Studio AI runtime (spec §2.2, §5-§8, §49-§50, §59-§60).
@@ -74,8 +80,11 @@ export interface AiRuntimeState {
 
 export const useAiRuntime = create<AiRuntimeState>(() => ({ version: 0, providers: [], transport: 'direct', events: [] }));
 
-/** Session-only secrets when no local server is running (never persisted, spec §7). */
-export const sessionCredentials = new MemoryCredentialStore();
+/**
+ * Secrets held by the browser when the server vault is not in use: encrypted at rest in IndexedDB
+ * (or this tab's memory where that is unavailable) — see engine/credentials.ts.
+ */
+export { browserCredentials };
 
 let registry: ProviderRegistry | null = null;
 let router: CapabilityRouter | null = null;
@@ -94,7 +103,7 @@ function currentTransport(): Transport {
     return new ServerProxyTransport(serverBase());
   }
   transportKind = 'direct';
-  return new DirectTransport(sessionCredentials);
+  return new DirectTransport(browserCredentials);
 }
 
 function bump() {
@@ -118,7 +127,7 @@ async function syncProvidersToServer() {
 
 function configureProviders() {
   if (!registry) return;
-  const deps = { transport: currentTransport(), credentials: sessionCredentials };
+  const deps = { transport: currentTransport(), credentials: browserCredentials };
   // The managed "Automatic" gateway runs on the local server: an empty base URL means that server.
   const base = serverBase();
   const providers = useSettings.getState().providers.map((p) => (p.adapter === 'managed' && !p.baseUrl?.trim() && base ? { ...p, baseUrl: base } : p));
@@ -130,7 +139,7 @@ function configureProviders() {
 
 export function initAi(): void {
   if (registry) return;
-  registry = new ProviderRegistry({ deps: { transport: currentTransport(), credentials: sessionCredentials } });
+  registry = new ProviderRegistry({ deps: { transport: currentTransport(), credentials: browserCredentials } });
   for (const p of createInternalProviders({
     song: () => useStudio.getState().project?.song ?? null,
     selection: () => useStudio.getState().selection,
@@ -158,9 +167,13 @@ export function initAi(): void {
           estimate,
           model: ctx.decision.modelId,
           warning: ctx.budgetWarning,
+          // Uploaded audio attested as personal study, or flagged/matched by the rights checks (docs/RIGHTS.md).
+          rightsWarning: dataFlowRightsWarning(useStudio.getState().project, flow),
           confirmLabel: 'Send',
         },
       }),
+    // The rights reminder is always shown, whatever the confirmation setting (docs/RIGHTS.md).
+    forceConfirm: (flow: DataFlowDescriptor) => !!dataFlowRightsWarning(useStudio.getState().project, flow),
     onEvent: (e) => {
       const events = [{ ...e, at: new Date().toISOString() }, ...useAiRuntime.getState().events].slice(0, 80);
       useAiRuntime.setState({ events });
@@ -219,7 +232,8 @@ export function getBudget(): BudgetManager {
 }
 
 // ---------------------------------------------------------------------------
-// Credentials (BYOK, spec §7): server vault (OS keychain) when available, else session memory.
+// Credentials (BYOK, spec §7): server vault (OS keychain) when available, else encrypted in this
+// browser (session memory where the browser cannot store them).
 // ---------------------------------------------------------------------------
 
 export async function refreshVaultStatus(): Promise<void> {
@@ -231,14 +245,19 @@ export async function refreshVaultStatus(): Promise<void> {
   }
 }
 
-export async function saveCredential(ref: string, secret: string, label?: string): Promise<'vault' | 'session'> {
-  if (useRuntime.getState().server.status === 'online' && useSettings.getState().useServerProxy) {
+function vaultInUse(): boolean {
+  return useRuntime.getState().server.status === 'online' && useSettings.getState().useServerProxy;
+}
+
+export async function saveCredential(ref: string, secret: string, label?: string): Promise<'vault' | 'browser' | 'session'> {
+  if (vaultInUse()) {
     await new ServerVaultClient(serverBase()).setSecret(ref, secret, label);
+    // One place per key: a copy left in the browser would outlive a vault deletion.
+    await browserCredentials.delete(ref);
     await syncProvidersToServer();
     return 'vault';
   }
-  await sessionCredentials.set(ref, secret, label);
-  return 'session';
+  return browserCredentials.put(ref, secret, label);
 }
 
 export async function deleteCredential(ref: string): Promise<void> {
@@ -249,18 +268,50 @@ export async function deleteCredential(ref: string): Promise<void> {
       /* not in vault */
     }
   }
-  await sessionCredentials.delete(ref);
+  await browserCredentials.delete(ref);
 }
 
 export async function hasCredential(ref: string): Promise<boolean> {
-  if (useRuntime.getState().server.status === 'online' && useSettings.getState().useServerProxy) {
+  if (vaultInUse()) {
     try {
       return await new ServerVaultClient(serverBase()).has(ref);
     } catch {
       return false;
     }
   }
-  return (await sessionCredentials.get(ref)) !== undefined;
+  return (await browserCredentials.where(ref)) !== 'none';
+}
+
+/** Keys held by this browser (encrypted or session-only) — candidates to move into the server vault. */
+export async function browserKeyRefs(): Promise<{ ref: string; label?: string }[]> {
+  return browserCredentials.list();
+}
+
+/** Move browser-held keys into the server vault (OS keychain), then delete them from the browser. */
+export async function moveBrowserKeysToVault(): Promise<{ moved: number; failed: string[] }> {
+  if (!vaultInUse()) throw new Error('The local server (with its vault & proxy) is not in use');
+  const vault = new ServerVaultClient(serverBase());
+  let moved = 0;
+  const failed: string[] = [];
+  for (const { ref, label } of await browserCredentials.list()) {
+    try {
+      const secret = await browserCredentials.get(ref);
+      if (!secret) continue;
+      await vault.setSecret(ref, secret, label);
+      await browserCredentials.delete(ref);
+      moved++;
+    } catch {
+      failed.push(ref);
+    }
+  }
+  await syncProvidersToServer();
+  void refreshVaultStatus();
+  return { moved, failed };
+}
+
+/** Forget every key stored in this browser (the server vault is untouched). */
+export async function forgetBrowserKeys(): Promise<void> {
+  await browserCredentials.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -274,20 +325,13 @@ export interface RoleOption {
   location?: string;
 }
 
-/**
- * Capability sets that can serve a role, in order of preference. Production can be done by
- * generating from text, or by performing the composition (MIDI or stem conditioning, audio to
- * audio) — the on-device producer does the latter (spec §29-§30, §38).
- */
-const ROLE_CAPABILITY_SETS: Partial<Record<TaskRole, Capability[][]>> = {
-  production: [['TEXT_TO_MUSIC'], ['MIDI_CONDITIONING'], ['STEM_CONDITIONING'], ['AUDIO_TO_AUDIO']],
-};
-
 /** Options for a provider picker: Auto, on-device engine, and every compatible provider. */
 export function roleOptions(role: TaskRole): RoleOption[] {
   const reg = getRegistry();
   const info = ROLE_INFO[role];
-  const sets = ROLE_CAPABILITY_SETS[role] ?? [info.capabilities];
+  // Production can generate from text or perform the composition (MIDI / stem conditioning, audio
+  // to audio) — the on-device producer does the latter (spec §29-§30, §38).
+  const sets = roleCapabilitySets(role);
   const out: RoleOption[] = [];
   let predicted = 'no compatible provider';
   for (const capabilities of sets) {
@@ -314,6 +358,50 @@ export function roleOptions(role: TaskRole): RoleOption[] {
     });
   }
   return out;
+}
+
+export interface RoleRoute {
+  providerId: string;
+  providerName: string;
+  location: string;
+  /** The on-device engine (no model). */
+  internal: boolean;
+}
+
+/**
+ * Who would serve a role for a picker choice — a router dry run for "auto" (the same selection
+ * `roleOptions` predicts), the on-device engine for "internal", or the chosen provider. Null when
+ * nothing can serve it.
+ */
+export function routeFor(role: TaskRole, choice: string | undefined): RoleRoute | null {
+  const reg = getRegistry();
+  let id: string | undefined;
+  if (choice === 'internal') id = INTERNAL_FOR_ROLE[role];
+  else if (!choice || choice === 'auto') {
+    for (const capabilities of roleCapabilitySets(role)) {
+      try {
+        id = getRouter().select({ role, capabilities }).providerId;
+        break;
+      } catch {
+        /* try the next way to serve this role */
+      }
+    }
+  } else id = choice;
+  const inst = id ? reg.get(id) : undefined;
+  if (!id || !inst) return null;
+  const location = inst.descriptor.location;
+  return { providerId: id, providerName: inst.descriptor.name, location, internal: location === 'internal' };
+}
+
+/** `routeFor` as a hook: re-evaluated when providers, routing or plugins change. */
+export function useRoleRoute(role: TaskRole, choice: string | undefined): RoleRoute | null {
+  const version = useAiRuntime((s) => s.version);
+  const routing = useSettings((s) => s.routing);
+  useEffect(() => {
+    initAi();
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => routeFor(role, choice), [role, choice, version, routing]);
 }
 
 export function useRoleOptions(role: TaskRole): RoleOption[] {
@@ -412,6 +500,10 @@ export function sanitizeBlueprint(candidate: Partial<Blueprint> | undefined, pro
     macros: { ...defaultMacros(), ...base.macros, ...(candidate.macros ?? {}) },
     seed,
   };
+  // Tags: only ids the catalog knows (a model's invented tags are dropped).
+  const tags = resolveTagIds(Array.isArray(candidate.tags) ? candidate.tags.map(String) : []);
+  if (tags.length) bp.tags = tags;
+  else if (!bp.tags?.length) delete bp.tags;
   if (!bp.genreBlend.length) bp.genreBlend = base.genreBlend;
   if (!bp.instrumentation.length) bp.instrumentation = base.instrumentation;
   if (!bp.structure.length) bp.structure = base.structure;
@@ -445,11 +537,23 @@ export function sanitizePlan(plan: CompositionPlan | undefined, blueprint: Bluep
   };
 }
 
-export async function aiDesignBlueprint(prompt: string, opts: AiCallOptions & { seed: number }): Promise<{ blueprint: Blueprint; source: string; provenance: RunProvenance }> {
+/**
+ * Design a blueprint from words. With `choices` (the Compose builder), the user's choices are hard
+ * constraints: they go into the request and are re-applied to whatever comes back, so the model
+ * fills in detail but cannot override them; their lyrics are sent too (and never rewritten).
+ */
+export async function aiDesignBlueprint(
+  prompt: string,
+  opts: AiCallOptions & { seed: number; choices?: BuilderChoices },
+): Promise<{ blueprint: Blueprint; source: string; provenance: RunProvenance }> {
+  const custom = { customGenres: allCustomGenres(), customInstruments: allCustomInstruments() };
+  const choices = opts.choices;
+  const lyrics = choices?.lyrics?.sections.length ? choices.lyrics.text : undefined;
+  const constraints = choices ? describeChoices(choices, custom) : [];
   const r = await runRole('composition', {
     ...opts,
-    dataKinds: ['song-description'],
-    estimateInput: { kind: 'llm', role: 'composition', inputChars: prompt.length + 6000 },
+    dataKinds: lyrics ? ['song-description', 'lyrics'] : ['song-description'],
+    estimateInput: { kind: 'llm', role: 'composition', inputChars: prompt.length + (lyrics?.length ?? 0) + constraints.join('\n').length + 6000 },
     title: 'Design Song Blueprint',
     execute: async (instance, model, signal) => {
       const res = await instance.composition!.designBlueprint({
@@ -457,10 +561,15 @@ export async function aiDesignBlueprint(prompt: string, opts: AiCallOptions & { 
         model,
         signal,
         defaults: { seed: opts.seed, macros: defaultMacros() },
-        genres: [...BUILTIN_GENRES, ...allCustomGenres()].map((g) => ({ id: g.id, name: g.name })),
-        instruments: [...BUILTIN_INSTRUMENTS, ...allCustomInstruments()].map((i) => ({ id: i.id, name: i.name, family: i.family })),
+        genres: [...BUILTIN_GENRES, ...custom.customGenres].map((g) => ({ id: g.id, name: g.name })),
+        instruments: [...BUILTIN_INSTRUMENTS, ...custom.customInstruments].map((i) => ({ id: i.id, name: i.name, family: i.family })),
+        tags: listTags().map((t) => ({ id: t.id, name: t.name, kind: t.kind })),
+        ...(constraints.length ? { constraints } : {}),
+        ...(lyrics ? { lyrics } : {}),
       });
-      return { ...res, blueprint: instance.descriptor.location === 'internal' ? res.blueprint : sanitizeBlueprint(res.blueprint, prompt, opts.seed) };
+      let blueprint = instance.descriptor.location === 'internal' ? res.blueprint : sanitizeBlueprint(res.blueprint, prompt, opts.seed);
+      if (choices) blueprint = applyBuilderConstraints(blueprint, choices, { seed: opts.seed, ...custom });
+      return { ...res, blueprint };
     },
   });
   return { blueprint: r.result.blueprint, source: sourceLabel(r.provenance), provenance: r.provenance };

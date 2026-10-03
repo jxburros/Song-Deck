@@ -2,6 +2,7 @@ import { keyName, type AudioAssetMeta } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { jobs } from '../../engine/jobs';
 import { makeAnalysisRecord, makeAssetMeta, makeProvenance, pushAnalysis, type InsertRequest } from '../../engine/capture-song';
+import { recordAttestation } from '../../engine/rights';
 import { GRID_BEATS, lowConfidenceRegions, SOURCES, type Capture, type TranscribeOptions, type TranscriptionView } from './model';
 
 /** Asset ids of captures already stored, per project (a capture is stored once per project). */
@@ -39,6 +40,7 @@ export async function storeCaptureAsset(capture: Capture): Promise<AudioAssetMet
   });
   await st.addAsset(meta, bytes);
   stored.set(key, meta.id);
+  if (capture.origin === 'upload' && capture.attestation) recordAttestation(capture.attestation, { assetId: meta.id });
   return meta;
 }
 

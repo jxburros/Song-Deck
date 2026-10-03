@@ -1312,6 +1312,60 @@ export interface RightsMetadata {
   notes?: string;
 }
 
+/**
+ * Basis on which a user attests they may use an uploaded audio file (docs/RIGHTS.md).
+ * Attestations are warn-only records: nothing in a local, open-source app can enforce them.
+ */
+export type AttestationBasis = 'own-work' | 'licensed' | 'open-licence' | 'personal-study';
+
+/** Something found when an uploaded file was checked (embedded tags or an online identification). */
+export interface ContentSignal {
+  kind: 'isrc' | 'copyright' | 'label' | 'purchase' | 'artist' | 'title' | 'album' | 'match';
+  /** e.g. "ISRC", "Copyright notice", "AcoustID match". */
+  label: string;
+  value: string;
+  /** e.g. "ID3 TSRC", "RIFF ICOP", "AcoustID". */
+  source?: string;
+}
+
+/** Online identification result (optional, opt-in; e.g. AcoustID → MusicBrainz). */
+export interface ContentMatch {
+  service: string;
+  /** 0..1 */
+  score: number;
+  recordingId?: string;
+  title?: string;
+  artists?: string[];
+  releaseTitle?: string;
+}
+
+/** A user's rights attestation for one uploaded audio file (spec §65 rights metadata). */
+export interface AudioAttestation {
+  id: Id;
+  /** SHA-256 of the uploaded file's bytes (lower-case hex). */
+  contentHash: string;
+  fileName: string;
+  /** Where the file entered: 'rebuild', 'transcribe', 'produce-reference', 'mix-stem', 'guide-stems', 'sample-instrument', … */
+  context: string;
+  basis: AttestationBasis;
+  attestedBy: string;
+  rightsHolder?: string;
+  /** Licence name / permission reference (e.g. "CC BY 4.0", "Sync licence #42"). */
+  licence?: string;
+  notes?: string;
+  attestedAt: string;
+  /** Project asset / provenance record of the stored file, when the file became an asset. */
+  assetId?: Id;
+  provenanceId?: Id;
+  /** What the checks found (embedded tags, online match). */
+  signals: ContentSignal[];
+  /** True when the checks suggested a commercial release (or an identification matched). */
+  flagged: boolean;
+  match?: ContentMatch;
+  /** Which checks ran: embedded metadata always; online identification only when opted in. */
+  checks: { metadata: boolean; online?: 'matched' | 'no-match' | 'error' | 'off' };
+}
+
 export interface Branch {
   id: Id;
   name: string;
@@ -1371,6 +1425,8 @@ export interface ProjectMeta {
   assets: AudioAssetMeta[];
   provenance: ProvenanceRecord[];
   voices: VoiceModelRecord[];
+  /** Rights attestations for uploaded audio files (absent in projects saved before they existed). */
+  attestations?: AudioAttestation[];
   /** Provider ids that have produced artifacts in this project (informational; project never depends on them). */
   providersUsed: { providerId: string; providerName: string; lastUsedAt: string }[];
   /** Custom genre/instrument profiles bundled with the project so it stays portable. */

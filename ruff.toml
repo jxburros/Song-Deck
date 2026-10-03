@@ -1,0 +1,13 @@
+# Lint settings for the Python reference bridges (bridges/). They use the standard library
+# only (the real engines are optional imports), and must keep running on Python 3.9.
+target-version = "py39"
+line-length = 120
+include = ["bridges/**/*.py", "scripts/**/*.py"]
+
+[lint]
+select = ["E", "F", "W", "B", "UP"]
+ignore = [
+  "E501", # long lines in usage strings and payload examples
+  "B023", # closures in loops are called immediately (argument validation helpers)
+  "UP006", "UP035", "UP045", "UP007", "UP037", # typing.List/Optional keep Python 3.9 compatibility readable
+]

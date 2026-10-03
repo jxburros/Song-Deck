@@ -41,6 +41,7 @@ Examples::
     python3 bridges/mock_bridge.py --role all --base-port 8810     # all six roles, 8810-8815
     python3 bridges/mock_bridge.py --role singing --token s3cret   # bearer token required
 """
+
 from __future__ import annotations
 
 import math
@@ -117,7 +118,9 @@ def _info(name: str, role: str, models: List[Dict[str, str]], capabilities: List
 
 def _check_length(audio: Audio, opts: MockOptions, field_name: str = "audio_base64") -> None:
     if audio.duration > opts.max_duration:
-        raise BadRequest(f"'{field_name}' is {audio.duration:.1f} s long; the mock accepts at most {opts.max_duration:.0f} s (--max-duration)")
+        raise BadRequest(
+            f"'{field_name}' is {audio.duration:.1f} s long; the mock accepts at most {opts.max_duration:.0f} s (--max-duration)"
+        )
 
 
 def _protect_peaks(channels: List[List[float]], ceiling: float = 0.98) -> List[List[float]]:
@@ -145,7 +148,16 @@ MODES: Dict[str, List[int]] = {
     "harmonic minor": [0, 2, 3, 5, 7, 8, 11],
     "melodic minor": [0, 2, 3, 5, 7, 9, 11],
 }
-_MODE_ALIASES = {"": "major", "maj": "major", "major": "major", "ionian": "major", "m": "minor", "min": "minor", "minor": "minor", "aeolian": "minor"}
+_MODE_ALIASES = {
+    "": "major",
+    "maj": "major",
+    "major": "major",
+    "ionian": "major",
+    "m": "minor",
+    "min": "minor",
+    "minor": "minor",
+    "aeolian": "minor",
+}
 _KEY_RE = re.compile(r"^\s*([A-Ga-g])(##|bb|#|b|♯|♭|x)?\s*(.*?)\s*$")
 _MINORISH = {"minor", "dorian", "phrygian", "locrian", "harmonic minor", "melodic minor"}
 
@@ -156,15 +168,26 @@ PROGRESSIONS = {
 }
 
 SECTION_ENERGY = [
-    ("pre", 0.65), ("chorus", 0.9), ("hook", 0.9), ("drop", 1.0), ("verse", 0.55), ("bridge", 0.6), ("breakdown", 0.4),
-    ("break", 0.4), ("solo", 0.8), ("intro", 0.35), ("outro", 0.3), ("interlude", 0.45), ("refrain", 0.85),
+    ("pre", 0.65),
+    ("chorus", 0.9),
+    ("hook", 0.9),
+    ("drop", 1.0),
+    ("verse", 0.55),
+    ("bridge", 0.6),
+    ("breakdown", 0.4),
+    ("break", 0.4),
+    ("solo", 0.8),
+    ("intro", 0.35),
+    ("outro", 0.3),
+    ("interlude", 0.45),
+    ("refrain", 0.85),
 ]
 _CALM = re.compile(r"\b(calm|soft|quiet|gentle|ambient|chill|sparse|minimal|lullaby|mellow)\b", re.I)
 _LOUD = re.compile(r"\b(loud|energetic|aggressive|big|heavy|intense|powerful|peak|anthemic|explosive)\b", re.I)
 
 
 def parse_key(text: str) -> Optional[Tuple[int, str]]:
-    """"E minor", "F# major", "Bb", "c#m", "D Dorian", "A harmonic minor" → (tonic pitch class, mode)."""
+    """ "E minor", "F# major", "Bb", "c#m", "D Dorian", "A harmonic minor" → (tonic pitch class, mode)."""
     m = _KEY_RE.match(text or "")
     if not m:
         return None
@@ -223,7 +246,7 @@ def count_syllables(line: str) -> int:
 
 
 def parse_lyrics(text: str) -> List[Tuple[str, List[str]]]:
-    """"[verse]\\nline…\\n\\n[chorus]\\n…" → [(kind, [lines]), …]."""
+    """ "[verse]\\nline…\\n\\n[chorus]\\n…" → [(kind, [lines]), …]."""
     blocks: List[Tuple[str, List[str]]] = []
     tag, lines = "verse", []
     for raw in (text or "").splitlines():
@@ -345,7 +368,9 @@ def render_music(spec: MusicSpec, check: Callable[[], None]) -> Audio:
     beat = 60.0 / spec.bpm
     bar_len = 4.0 * beat
     kit = _Kit(sr, spec.seed)
-    pad_table = dsp.wavetable(((1, 1.0), (2, 0.2), (3, 0.05)) if spec.lofi else ((1, 1.0), (2, 0.4), (3, 0.25), (4, 0.1), (6, 0.05)))
+    pad_table = dsp.wavetable(
+        ((1, 1.0), (2, 0.2), (3, 0.05)) if spec.lofi else ((1, 1.0), (2, 0.4), (3, 0.25), (4, 0.1), (6, 0.05))
+    )
     lead_table = dsp.wavetable(((1, 1.0), (2, 0.1), (3, 0.03)))
     progressions = PROGRESSIONS["minor" if spec.mode in _MINORISH else "major"]
     neg = (spec.negative_prompt or "").lower()
@@ -375,7 +400,7 @@ def render_music(spec: MusicSpec, check: Callable[[], None]) -> Audio:
             chord = _triad(spec, prog[bar % len(prog)])
             # pad: three voices spread across the stereo field
             pad_gain = 0.11 * (0.6 + 0.4 * energy)
-            for voice, (pitch, pan) in enumerate(zip(chord, (-0.45, 0.0, 0.45))):
+            for pitch, pan in zip(chord, (-0.45, 0.0, 0.45)):
                 f = dsp.midi_to_hz(_near(pitch % 12, 60, 52, 67))
                 seg = dsp.osc(pad_table, f, length, sr, phase=rnd.random())
                 dsp.fade_edges(seg, int(0.03 * sr), int(0.06 * sr))
@@ -467,8 +492,17 @@ def _as_channels(audio: Audio, count: int) -> List[List[float]]:
 
 
 MUSIC_CAPABILITIES = [
-    "TEXT_TO_MUSIC", "AUDIO_TO_AUDIO", "LYRIC_CONDITIONING", "VOCAL_GENERATION", "INSTRUMENTAL_ONLY", "SECTION_GENERATION",
-    "REFERENCE_AUDIO", "STEM_CONDITIONING", "INPAINTING", "OUTPAINTING", "REGION_GENERATION",
+    "TEXT_TO_MUSIC",
+    "AUDIO_TO_AUDIO",
+    "LYRIC_CONDITIONING",
+    "VOCAL_GENERATION",
+    "INSTRUMENTAL_ONLY",
+    "SECTION_GENERATION",
+    "REFERENCE_AUDIO",
+    "STEM_CONDITIONING",
+    "INPAINTING",
+    "OUTPAINTING",
+    "REGION_GENERATION",
 ]
 MUSIC_MODELS = [
     {"id": "mock-additive", "name": "Mock additive synth (Song Deck test bridge)"},
@@ -497,20 +531,50 @@ def build_music_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
             return parsed
         return key_from_prompt(prompt)
 
-    def synth(sample_rate: int, duration: float, seed: int, prompt: str, model: str, *, bpm: Optional[float] = None,
-              key: Optional[Tuple[int, str]] = None, sections: Optional[List[Section]] = None, negative: str = "",
-              lyrics: str = "", instrumental: bool = True, check: Callable[[], None]) -> Audio:
+    def synth(
+        sample_rate: int,
+        duration: float,
+        seed: int,
+        prompt: str,
+        model: str,
+        *,
+        bpm: Optional[float] = None,
+        key: Optional[Tuple[int, str]] = None,
+        sections: Optional[List[Section]] = None,
+        negative: str = "",
+        lyrics: str = "",
+        instrumental: bool = True,
+        check: Callable[[], None],
+    ) -> Audio:
         tonic, mode = key or key_from_prompt(prompt)
         spec = MusicSpec(
-            sample_rate=sample_rate, duration=duration, seed=seed, bpm=bpm or bpm_from_text(prompt) or 100.0, tonic=tonic, mode=mode,
-            sections=sections or [Section("Song", 0.0, duration, "")], prompt=prompt, negative_prompt=negative,
-            lyrics=parse_lyrics(lyrics), instrumental=instrumental, lofi=model.endswith("lofi"),
+            sample_rate=sample_rate,
+            duration=duration,
+            seed=seed,
+            bpm=bpm or bpm_from_text(prompt) or 100.0,
+            tonic=tonic,
+            mode=mode,
+            sections=sections or [Section("Song", 0.0, duration, "")],
+            prompt=prompt,
+            negative_prompt=negative,
+            lyrics=parse_lyrics(lyrics),
+            instrumental=instrumental,
+            lofi=model.endswith("lofi"),
         )
         return render_music(spec, check)
 
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
-        return json_response(_info(app.name, "music", MUSIC_MODELS, MUSIC_CAPABILITIES, default_model=opts.music_model, sample_rate=opts.sample_rate))
+        return json_response(
+            _info(
+                app.name,
+                "music",
+                MUSIC_MODELS,
+                MUSIC_CAPABILITIES,
+                default_model=opts.music_model,
+                sample_rate=opts.sample_rate,
+            )
+        )
 
     @app.job("POST", "/generate")
     def generate(ctx: RequestContext):
@@ -531,8 +595,20 @@ def build_music_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
 
         def work():
             ctx.sleep(opts.delay)
-            audio = synth(opts.sample_rate, duration, seed, prompt, model, bpm=bpm, key=key, sections=sections, negative=negative,
-                          lyrics=lyrics, instrumental=instrumental or not lyrics.strip(), check=ctx.check_cancelled)
+            audio = synth(
+                opts.sample_rate,
+                duration,
+                seed,
+                prompt,
+                model,
+                bpm=bpm,
+                key=key,
+                sections=sections,
+                negative=negative,
+                lyrics=lyrics,
+                instrumental=instrumental or not lyrics.strip(),
+                check=ctx.check_cancelled,
+            )
             chans = audio.channels
             pk = dsp.peak_channels(chans)
             if pk > 0:
@@ -560,7 +636,9 @@ def build_music_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
 
         def work():
             ctx.sleep(opts.delay)
-            new = synth(audio.sample_rate, audio.frames / audio.sample_rate, seed, prompt, model, check=ctx.check_cancelled)
+            new = synth(
+                audio.sample_rate, audio.frames / audio.sample_rate, seed, prompt, model, check=ctx.check_cancelled
+            )
             new_ch = _match_rms(_as_channels(new, audio.num_channels), dsp.rms_channels(audio.channels))
             src = audio.channels
             if re.search(r"\b(warm|dark|lo-?fi|muffled|vintage)\b", prompt, re.I):
@@ -597,7 +675,7 @@ def build_music_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
             new = synth(sr, length / sr, seed, prompt, model, check=ctx.check_cancelled)
             region_rms = dsp.rms_channels([ch[s:e] for ch in audio.channels])
             if region_rms < 1e-6:  # silent region: use the surroundings' level
-                region_rms = dsp.rms_channels([ch[max(0, s - sr):min(audio.frames, e + sr)] for ch in audio.channels])
+                region_rms = dsp.rms_channels([ch[max(0, s - sr) : min(audio.frames, e + sr)] for ch in audio.channels])
             new_ch = _protect_peaks(_match_rms(_as_channels(new, audio.num_channels), region_rms), 0.999)
             xf = min(int(0.02 * sr), length // 4)
             w = dsp.crossfade_weights(xf)
@@ -609,7 +687,9 @@ def build_music_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
                     j = length - 1 - i
                     region[j] = ch[s + j] * (1.0 - w[i]) + region[j] * w[i]
                 out.append(ch[:s] + region + ch[e:])
-            return wav_response(write_wav(audio.like(out)), seed=seed, model=model)  # same format → untouched samples are bit-identical
+            return wav_response(
+                write_wav(audio.like(out)), seed=seed, model=model
+            )  # same format → untouched samples are bit-identical
 
         return work
 
@@ -627,7 +707,7 @@ def build_music_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
             ctx.sleep(opts.delay)
             sr = audio.sample_rate
             new = synth(sr, seconds, seed, prompt, model, check=ctx.check_cancelled)
-            tail_rms = dsp.rms_channels([ch[-2 * sr:] for ch in audio.channels]) or 0.2
+            tail_rms = dsp.rms_channels([ch[-2 * sr :] for ch in audio.channels]) or 0.2
             new_ch = _protect_peaks(_match_rms(_as_channels(new, audio.num_channels), tail_rms), 0.999)
             fade = int(0.03 * sr)
             out = []
@@ -663,7 +743,14 @@ def synth_note(note: SungNote, sr: int, voice_id: str, seed: int, glide_from: Op
     w = 2.0 * math.pi * float(e.get("vibrato_rate", 5.5)) / sr
     ph = rnd.random() * 2.0 * math.pi
     delay, ramp = int(0.15 * sr), int(0.15 * sr)
-    freqs = [f0 * (1.0 + depth * math.sin(w * i + ph) * (0.0 if i < delay else (1.0 if i >= delay + ramp else (i - delay) / ramp))) for i in range(n)]
+    freqs = [
+        f0
+        * (
+            1.0
+            + depth * math.sin(w * i + ph) * (0.0 if i < delay else (1.0 if i >= delay + ramp else (i - delay) / ramp))
+        )
+        for i in range(n)
+    ]
     onset = str(e.get("onset", "normal"))
     release = str(e.get("release", "normal"))
     if glide_from is not None or onset == "scoop":
@@ -697,7 +784,9 @@ def synth_note(note: SungNote, sr: int, voice_id: str, seed: int, glide_from: Op
     return dsp.fade_edges(seg, int(attack * sr), int(rel * sr))
 
 
-def render_singing(notes: List[SungNote], sr: int, voice_id: str, seed: int, t0: float, frames: int, check: Callable[[], None]) -> List[float]:
+def render_singing(
+    notes: List[SungNote], sr: int, voice_id: str, seed: int, t0: float, frames: int, check: Callable[[], None]
+) -> List[float]:
     """Mono buffer covering [t0, t0 + frames/sr); notes are rendered whole and clipped to the window,
     so a phrase render equals the same slice of a full render (same seed)."""
     out = [0.0] * frames
@@ -720,8 +809,15 @@ def build_singing_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
 
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
-        return json_response(_info(app.name, "singing", [{"id": "mock-singer", "name": "Mock singer (sine/sawtooth tones)"}],
-                                   ["SINGING_SYNTHESIS", "MIDI_CONDITIONING", "LYRIC_CONDITIONING", "REGION_GENERATION"], voices=SINGING_VOICES))
+        return json_response(
+            _info(
+                app.name,
+                "singing",
+                [{"id": "mock-singer", "name": "Mock singer (sine/sawtooth tones)"}],
+                ["SINGING_SYNTHESIS", "MIDI_CONDITIONING", "LYRIC_CONDITIONING", "REGION_GENERATION"],
+                voices=SINGING_VOICES,
+            )
+        )
 
     @app.route("GET", "/voices")
     def list_voices(ctx: RequestContext):
@@ -731,7 +827,12 @@ def build_singing_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
         ctx.sleep(opts.delay)
         t0, _ = job.window
         mono = render_singing(job.notes, job.sample_rate, job.voice_id, job.seed, t0, job.frames(), ctx.check_cancelled)
-        return wav_response(write_wav(Audio(job.sample_rate, [mono], 16)), seed=job.seed, model="mock-singer", headers={"X-Voice-Id": job.voice_id})
+        return wav_response(
+            write_wav(Audio(job.sample_rate, [mono], 16)),
+            seed=job.seed,
+            model="mock-singer",
+            headers={"X-Voice-Id": job.voice_id},
+        )
 
     @app.job("POST", "/synthesize")
     def synthesize(ctx: RequestContext):
@@ -767,8 +868,15 @@ def build_transcription_app(opts: MockOptions, common: Dict[str, Any]) -> Bridge
 
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
-        return json_response(_info(app.name, "transcription", [{"id": "mock-autocorrelation", "name": "Mock autocorrelation pitch tracker (monophonic)"}],
-                                   ["AUDIO_TRANSCRIPTION", "AUDIO_TO_MIDI", "PITCH_TRACKING"], sources=sorted(list(PITCH_RANGES) + ["drums"])))
+        return json_response(
+            _info(
+                app.name,
+                "transcription",
+                [{"id": "mock-autocorrelation", "name": "Mock autocorrelation pitch tracker (monophonic)"}],
+                ["AUDIO_TRANSCRIPTION", "AUDIO_TO_MIDI", "PITCH_TRACKING"],
+                sources=sorted(list(PITCH_RANGES) + ["drums"]),
+            )
+        )
 
     @app.job("POST", "/transcribe")
     def transcribe(ctx: RequestContext):
@@ -812,7 +920,9 @@ STEMS_6 = STEMS_4 + ["guitar", "piano"]
 CROSSOVERS = [150.0, 300.0, 3400.0, 8000.0]  # → low | low-mid | mid | high | top
 
 
-def _band_stems(bands_mid: List[List[float]], bands_side: Optional[List[List[float]]], six: bool) -> Dict[str, Tuple[List[float], Optional[List[float]]]]:
+def _band_stems(
+    bands_mid: List[List[float]], bands_side: Optional[List[List[float]]], six: bool
+) -> Dict[str, Tuple[List[float], Optional[List[float]]]]:
     """Assign bands to stems as (mid part, side part). The parts of all stems sum to the input."""
     low, lowmid, midb, high, top = bands_mid
     zero = [0.0] * len(low)
@@ -846,8 +956,18 @@ def build_separation_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp
 
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
-        return json_response(_info(app.name, "separation", [{"id": "mock-bandsplit-4", "name": "Mock band split (4 stems)"}, {"id": "mock-bandsplit-6", "name": "Mock band split (6 stems)"}],
-                                   ["SOURCE_SEPARATION", "VOCAL_ISOLATION", "STEM_OUTPUT"], stems=STEMS_6))
+        return json_response(
+            _info(
+                app.name,
+                "separation",
+                [
+                    {"id": "mock-bandsplit-4", "name": "Mock band split (4 stems)"},
+                    {"id": "mock-bandsplit-6", "name": "Mock band split (6 stems)"},
+                ],
+                ["SOURCE_SEPARATION", "VOCAL_ISOLATION", "STEM_OUTPUT"],
+                stems=STEMS_6,
+            )
+        )
 
     @app.job("POST", "/separate")
     def separate(ctx: RequestContext):
@@ -905,8 +1025,20 @@ def build_separation_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp
 
 VC_VOICES = [
     {"id": "mock-alto", "name": "Mock Alto (bright)", "voice_type": "alto", "language": "en", "kind": "stock"},
-    {"id": "mock-baritone", "name": "Mock Baritone (dark)", "voice_type": "baritone", "language": "en", "kind": "stock"},
-    {"id": "mock-user-voice", "name": "My trained voice (mock example)", "voice_type": "tenor", "language": "en", "kind": "user-trained"},
+    {
+        "id": "mock-baritone",
+        "name": "Mock Baritone (dark)",
+        "voice_type": "baritone",
+        "language": "en",
+        "kind": "stock",
+    },
+    {
+        "id": "mock-user-voice",
+        "name": "My trained voice (mock example)",
+        "voice_type": "tenor",
+        "language": "en",
+        "kind": "user-trained",
+    },
 ]
 _VC_TILT = {"mock-alto": 0.6, "mock-baritone": -0.6, "mock-user-voice": 0.0}
 
@@ -917,8 +1049,15 @@ def build_voice_conversion_app(opts: MockOptions, common: Dict[str, Any]) -> Bri
 
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
-        return json_response(_info(app.name, "voice-conversion", [{"id": "mock-voice-conversion", "name": "Mock voice conversion (pitch shift + tone colour)"}],
-                                   ["VOICE_CONVERSION"], voices=VC_VOICES))
+        return json_response(
+            _info(
+                app.name,
+                "voice-conversion",
+                [{"id": "mock-voice-conversion", "name": "Mock voice conversion (pitch shift + tone colour)"}],
+                ["VOICE_CONVERSION"],
+                voices=VC_VOICES,
+            )
+        )
 
     @app.route("GET", "/voices")
     def list_voices(ctx: RequestContext):
@@ -959,8 +1098,15 @@ def build_mastering_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
 
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
-        return json_response(_info(app.name, "mastering", [{"id": "mock-mastering", "name": "Mock loudness mastering (BS.1770 + limiter)"}],
-                                   ["MASTERING", "REFERENCE_AUDIO"], targets=dsp.MASTERING_TARGETS))
+        return json_response(
+            _info(
+                app.name,
+                "mastering",
+                [{"id": "mock-mastering", "name": "Mock loudness mastering (BS.1770 + limiter)"}],
+                ["MASTERING", "REFERENCE_AUDIO"],
+                targets=dsp.MASTERING_TARGETS,
+            )
+        )
 
     @app.job("POST", "/master")
     def master(ctx: RequestContext):
@@ -975,7 +1121,11 @@ def build_mastering_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
             out, report = dsp.master(audio, target, reference, ctx.check_cancelled)
             bits = int(dsp.MASTERING_TARGETS[target]["bits"])
             wav = write_wav(out, bits=bits, dither=bits == 16, seed=0)
-            headers = {"X-Integrated-LUFS": f"{report['output_lufs']:.2f}", "X-Gain-dB": f"{report['gain_db']:.2f}", "X-Target-LUFS": f"{report['target_lufs']:.2f}"}
+            headers = {
+                "X-Integrated-LUFS": f"{report['output_lufs']:.2f}",
+                "X-Gain-dB": f"{report['gain_db']:.2f}",
+                "X-Target-LUFS": f"{report['target_lufs']:.2f}",
+            }
             return wav_response(wav, seed=0, model="mock-mastering", headers=headers)
 
         return work
@@ -1001,12 +1151,29 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         epilog="Ports follow the Song Deck presets: " + ", ".join(f"{r} {p}" for r, (p, _) in ROLES.items()) + ".",
     )
     m = parser.add_argument_group("mock")
-    m.add_argument("--role", choices=list(ROLES) + ["all"], default="music", help="which bridge to run (default music); 'all' runs every role")
-    m.add_argument("--base-port", type=int, default=8810, help="with --role all: first port; roles use base+0 … base+5 in preset order "
-                   "(music, singing, separation, transcription, voice-conversion, mastering); 0 = any free ports")
+    m.add_argument(
+        "--role",
+        choices=list(ROLES) + ["all"],
+        default="music",
+        help="which bridge to run (default music); 'all' runs every role",
+    )
+    m.add_argument(
+        "--base-port",
+        type=int,
+        default=8810,
+        help="with --role all: first port; roles use base+0 … base+5 in preset order "
+        "(music, singing, separation, transcription, voice-conversion, mastering); 0 = any free ports",
+    )
     m.add_argument("--sample-rate", type=int, default=44100, help="sample rate of generated music (default 44100)")
-    m.add_argument("--max-duration", type=float, default=600.0, help="longest audio accepted/generated in seconds (default 600)")
-    m.add_argument("--delay", type=float, default=0.0, help="simulated engine latency per job in seconds (cancellable; for testing cancel flows)")
+    m.add_argument(
+        "--max-duration", type=float, default=600.0, help="longest audio accepted/generated in seconds (default 600)"
+    )
+    m.add_argument(
+        "--delay",
+        type=float,
+        default=0.0,
+        help="simulated engine latency per job in seconds (cancellable; for testing cancel flows)",
+    )
     args = parser.parse_args(argv)
     setup_logging(args)
     check_bind(args)
@@ -1014,8 +1181,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         fail("--sample-rate must be between 8000 and 192000")
     if args.model and args.model not in [x["id"] for x in MUSIC_MODELS]:
         fail(f"--model must be one of: {', '.join(x['id'] for x in MUSIC_MODELS)}")
-    opts = MockOptions(sample_rate=args.sample_rate, max_duration=max(1.0, args.max_duration), delay=max(0.0, args.delay),
-                       music_model=args.model or "mock-additive")
+    opts = MockOptions(
+        sample_rate=args.sample_rate,
+        max_duration=max(1.0, args.max_duration),
+        delay=max(0.0, args.delay),
+        music_model=args.model or "mock-additive",
+    )
     common = app_options(args)
     roles = list(ROLES) if args.role == "all" else [args.role]
     bindings = []

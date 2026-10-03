@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 
 /** Every mode opens with a song loaded (and without one where allowed) and never throws. */
 
@@ -19,12 +20,7 @@ test('every mode renders with and without a project', async ({ page }) => {
   }
   for (const mode of MODES) if (!PROJECTLESS.has(mode)) await expect(nav.getByRole('button', { name: mode, exact: true })).toBeDisabled();
 
-  await nav.getByRole('button', { name: 'Compose', exact: true }).click();
-  await page.getByLabel('Song prompt').fill('Slow cinematic orchestral piece in C minor with strings, brass, piano and timpani. Instrumental.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible();
+  await composeQuickSong(page, 'Cinematic orchestral');
 
   for (const mode of MODES) {
     await nav.getByRole('button', { name: mode, exact: true }).click();

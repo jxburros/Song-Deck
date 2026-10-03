@@ -146,6 +146,36 @@ describe('LLMCompositionProvider', () => {
     expect(String(llm.requests[0].system)).toContain('use ONLY these genre ids');
   });
 
+  it('designBlueprint passes builder constraints, tag ids and lyrics to the model and keeps only offered tags', async () => {
+    const llm = new FakeLLM([
+      JSON.stringify({
+        title: 'Harbor',
+        tempo: 90,
+        meter: { numerator: 4, denominator: 4 },
+        key: { tonic: 'D', mode: 'major' },
+        styles: ['Folk'],
+        genre_blend: [{ genre_id: 'folk', weight: 1 }],
+        moods: ['Warm'],
+        instrumentation: [{ name: 'Guitar', instrument_id: 'acoustic-guitar', role: 'rhythm-guitar' }],
+        structure: [{ name: 'Verse', kind: 'verse', bars: 8 }],
+        tags: ['warm', 'invented-tag', 'warm'],
+      }),
+    ]);
+    const res = await new LLMCompositionProvider(llm).designBlueprint({
+      prompt: 'a gentle song for my grandmother',
+      constraints: ['Instruments: Acoustic Guitar × 2', 'Tempo: 90 BPM'],
+      tags: [{ id: 'warm', name: 'Warm', kind: 'mood' }, { id: 'lo-fi', name: 'Lo-fi', kind: 'production' }],
+      lyrics: '[Verse]\nYou held the light for me',
+    });
+    expect(res.blueprint.tags).toEqual(['warm']);
+    const user = llm.requests[0].messages.map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n');
+    expect(user).toContain('Fixed by the user (hard constraints):\n- Instruments: Acoustic Guitar × 2');
+    expect(user).toContain('- mood: warm');
+    expect(user).toContain('- production: lo-fi');
+    expect(user).toContain('You held the light for me');
+    expect(String(llm.requests[0].system)).toContain('Never change, add or remove words');
+  });
+
   it('generateLyrics enforces line counts (repair) and keeps locked sections', async () => {
     const llm = new FakeLLM([
       '{"sections":[{"section":"Verse 1","lines":["one line only"]},{"section":"Chorus 1","lines":["x","y"]}]}',

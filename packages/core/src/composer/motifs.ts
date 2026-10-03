@@ -246,6 +246,79 @@ export function adaptMotifToCount(notes: readonly MotifNote[], count: number): M
   return out;
 }
 
+/**
+ * Re-time a phrase so stressed lyric syllables land on strong beats and unstressed ones avoid them
+ * (prosody). Each note keeps its scale degree and order; onsets move along the grid by a dynamic
+ * program that trades metric fit against distance from the original rhythm. The phrase end stays
+ * where it was. Returns the input unchanged when it already fits or there is no room to move.
+ */
+export function alignStressToMeter(
+  notes: readonly MotifNote[],
+  stress: readonly number[],
+  o: { grid: number; barOffset: number; meter: MeterInfo; lengthTicks: number },
+): MotifNote[] {
+  const n = notes.length;
+  const grid = Math.max(30, Math.round(o.grid));
+  const slots = Math.floor(o.lengthTicks / grid);
+  if (n < 2 || stress.length !== n || slots < n || !stress.some((s) => s > 0)) return notes.map((x) => ({ ...x }));
+  const fitAt = (i: number, ticks: number) => {
+    const wt = metricWeight(o.barOffset + ticks, o.meter);
+    return stress[i] > 0 ? wt : -0.6 * Math.max(0, wt - 0.5);
+  };
+  const fit = (i: number, s: number) => fitAt(i, s * grid);
+  const orig = notes.map((x) => clamp(Math.round(x.offset / grid), 0, slots - 1));
+  const end = notes[n - 1].offset + notes[n - 1].duration;
+  const lastMax = Math.max(0, Math.min(slots - 1, Math.floor((end - grid) / grid)));
+  const score = (i: number, s: number) => fit(i, s) - 0.12 * Math.abs(s - orig[i]);
+  // best[i][s]: best total for notes 0..i with note i at slot s; prev pointers for backtracking.
+  const best: Float64Array[] = [];
+  const from: Int32Array[] = [];
+  for (let i = 0; i < n; i++) {
+    best.push(new Float64Array(slots).fill(-Infinity));
+    from.push(new Int32Array(slots).fill(-1));
+  }
+  for (let s = 0; s <= slots - n; s++) best[0][s] = score(0, s);
+  for (let i = 1; i < n; i++) {
+    let runMax = -Infinity;
+    let runArg = -1;
+    const hi = i === n - 1 ? lastMax : slots - (n - i);
+    for (let s = i; s <= hi; s++) {
+      if (best[i - 1][s - 1] > runMax) {
+        runMax = best[i - 1][s - 1];
+        runArg = s - 1;
+      }
+      if (runArg < 0 || runMax === -Infinity) continue;
+      best[i][s] = runMax + score(i, s);
+      from[i][s] = runArg;
+    }
+  }
+  let at = -1;
+  let top = -Infinity;
+  for (let s = 0; s < slots; s++) {
+    if (best[n - 1][s] > top) {
+      top = best[n - 1][s];
+      at = s;
+    }
+  }
+  if (at < 0) return notes.map((x) => ({ ...x }));
+  const pos: number[] = new Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    pos[i] = at;
+    at = from[i][at];
+  }
+  const fitOf = (p: readonly number[]) => p.reduce((t, s, i) => t + fit(i, s), 0);
+  const origFit = notes.reduce((t, x, i) => t + fitAt(i, x.offset), 0);
+  if (fitOf(pos) <= origFit + 0.25 || pos.every((s, i) => s * grid === notes[i].offset)) return notes.map((x) => ({ ...x }));
+  return notes.map((x, i) => {
+    const offset = pos[i] * grid;
+    const next = i + 1 < n ? pos[i + 1] * grid : end;
+    const gap = next - offset;
+    const duration = i + 1 < n ? Math.max(30, gap - Math.min(24, Math.round(gap * 0.08))) : Math.max(grid, end - offset);
+    const accent = stress[i] > 0 ? 4 : -3;
+    return { ...x, offset, duration, velocity: clamp(Math.round(x.velocity + accent), 1, 127) };
+  });
+}
+
 export interface RealizeOptions {
   start: number;
   anchor: number;

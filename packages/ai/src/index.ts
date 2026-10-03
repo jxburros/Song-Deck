@@ -18,10 +18,17 @@ export * from './presets';
 export * from './factory';
 export * from './model-heuristics';
 
+// Connecting services: key formats, validation probes, model → app use, local services
+export * from './connect-keys';
+export * from './connect-models';
+export * from './connect-probe';
+export * from './local-services';
+
 // Transports & credentials
 export * from './transport/direct';
 export * from './transport/proxy';
 export * from './transport/vault';
+export * from './transport/encrypted-store';
 export * from './transport/multipart';
 export * from './transport/limiter';
 export * from './transport/http';
@@ -70,6 +77,7 @@ export * from './adapters/separation-http';
 export * from './adapters/voice-conversion-http';
 export * from './adapters/mastering-http';
 export * from './adapters/managed';
+export * from './adapters/acoustid';
 export { audioFromJson, audioToJson, audioFromBase64, buildDescriptor, createHttpClient, mergeManualModels, type EncodedAudioJson } from './adapters/common';
 
 // Utilities useful to apps

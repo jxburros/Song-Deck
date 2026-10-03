@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { midiToSong } from '@songdeck/core';
 import { useStudio } from '../../state/store';
+import { useSettings } from '../../state/settings';
+import { localGet, localSet } from '../../state/persistence';
+import { openSettings } from '../settings/nav';
 import { Badge, Button, FileButton, Modal, TextInput } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
+import { useComposeSession } from '../compose/session';
 
 export default function Home() {
   const projects = useStudio((s) => s.projects);
@@ -41,6 +45,16 @@ export default function Home() {
             <Button variant="primary" size="lg" icon="sparkles" onClick={() => st.setMode('compose')}>
               Compose a new song
             </Button>
+            <Button
+              size="lg"
+              icon="book"
+              onClick={() => {
+                useComposeSession.getState().set({ tab: 'lyrics' });
+                st.setMode('compose');
+              }}
+            >
+              Start from lyrics
+            </Button>
             <Button size="lg" icon="plus" onClick={() => setNewName('Untitled project')}>
               Empty project
             </Button>
@@ -58,6 +72,8 @@ export default function Home() {
             </Button>
           </div>
         </div>
+
+        <ConnectNudge />
 
         <div className="section-title">
           <h3>Recent projects</h3>
@@ -115,7 +131,7 @@ export default function Home() {
             ['shield', 'Any AI, or none', 'Bring your own keys, run local models, or stay fully offline. Every request shows exactly what leaves the device.'],
           ].map(([icon, title, body]) => (
             <div className="card" key={title}>
-              <div className="row" style={{ marginBottom: 6, color: 'var(--accent)' }}>
+              <div className="row" style={{ marginBottom: 6, color: 'var(--accent-text)' }}>
                 <Icon name={icon} />
                 <strong style={{ color: 'var(--text)' }}>{title}</strong>
               </div>
@@ -170,6 +186,37 @@ export default function Home() {
           <TextInput value={newName} onChange={setNewName} autoFocus />
         </Modal>
       )}
+    </div>
+  );
+}
+
+const NUDGE_KEY = 'connect-nudge-dismissed';
+
+/** First-run hint: the studio works offline; connecting an AI service is one paste away. */
+function ConnectNudge() {
+  const hasProviders = useSettings((s) => s.providers.length > 0);
+  const [dismissed, setDismissed] = useState(() => localGet<boolean>(NUDGE_KEY, false));
+  if (hasProviders || dismissed) return null;
+  return (
+    <div className="card row" data-testid="connect-nudge" style={{ gap: 12, marginBottom: 18, borderColor: 'var(--ai)', background: 'var(--ai-soft)' }}>
+      <Icon name="plug" />
+      <div className="grow" style={{ minWidth: 0 }}>
+        <strong>Works offline — add AI when you want it.</strong>
+        <div className="small muted">Paste an API key (Gemini, Claude, OpenAI, ElevenLabs…) or use a local model server; Song Deck lists what each model can do here.</div>
+      </div>
+      <Button variant="ai" icon="plug" onClick={() => openSettings('providers', 'connect')}>
+        Connect an AI service
+      </Button>
+      <Button
+        variant="ghost"
+        icon="close"
+        aria-label="Dismiss"
+        title="Dismiss"
+        onClick={() => {
+          localSet(NUDGE_KEY, true);
+          setDismissed(true);
+        }}
+      />
     </div>
   );
 }

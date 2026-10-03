@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import {
+  TRACK_NEUTRAL,
   BUILTIN_INSTRUMENTS,
   getInstrument,
   midiToNoteName,
@@ -12,6 +13,7 @@ import { useStudio } from '../../../state/store';
 import { useCustomInstruments } from '../../../hooks';
 import { Badge, Button, CommitText, Field, Select } from '../../../ui/kit';
 import { AVOID_RULES, FUNCTIONS, TRACK_ROLES } from '../../compose/BlueprintEditor';
+import { AttestationList } from './AttestationList';
 
 const RIGHTS_FIELDS: { key: keyof RightsMetadata; label: string }[] = [
   { key: 'humanComposers', label: 'Human composer(s)' },
@@ -96,7 +98,7 @@ export default function InspectorPanel() {
               />
             </Field>
             <Field label="Colour">
-              <input type="color" value={track.color || '#888888'} onChange={(e) => updateTrack({ color: e.target.value }, `${track.name}: colour`)} style={{ height: 30, width: '100%', background: 'none', border: 'none' }} />
+              <input type="color" value={track.color || TRACK_NEUTRAL} onChange={(e) => updateTrack({ color: e.target.value }, `${track.name}: colour`)} style={{ height: 30, width: '100%', background: 'none', border: 'none' }} />
             </Field>
           </div>
           <Field label="Plays in sections" hint="None selected = arrangement engine decides">
@@ -209,6 +211,7 @@ export default function InspectorPanel() {
       <Field label="AI assistance (description)">
         <CommitText value={rights.aiAssistance} onCommit={(aiAssistance) => setRights({ aiAssistance })} placeholder="e.g. Harmony and drums AI-generated, edited by hand" />
       </Field>
+      <AttestationList project={project} />
     </div>
   );
 }

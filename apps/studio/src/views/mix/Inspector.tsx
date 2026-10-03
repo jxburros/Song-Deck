@@ -21,7 +21,7 @@ export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerSta
   const commit = () => commitMixer();
   const commitSoon = () => commitMixerSoon();
 
-  const knob = (path: string, label: string, def: number, extra: { bipolar?: boolean; tone?: 'accent' | 'ai' | 'muted'; step?: number; format?: (v: number) => string; disabled?: boolean } = {}) => {
+  const knob = (path: string, label: string, def: number, extra: { bipolar?: boolean; tone?: 'accent' | 'secondary' | 'muted'; step?: number; format?: (v: number) => string; disabled?: boolean } = {}) => {
     const meta = FIELD_META[path];
     const strip = isMaster ? mixer.master : stripOf(mixer, target);
     const value = path.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], strip) as number;
@@ -109,7 +109,7 @@ export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerSta
                 />
               </div>
               <div className="mx-knob-line">
-                {knob('limiter.ceilingDb', 'Ceiling', -1, { step: 0.1, tone: 'ai', disabled: !mixer.master.limiter.enabled })}
+                {knob('limiter.ceilingDb', 'Ceiling', -1, { step: 0.1, tone: 'secondary', disabled: !mixer.master.limiter.enabled })}
                 {knob('limiter.releaseMs', 'Release', 80, { tone: 'muted', disabled: !mixer.master.limiter.enabled })}
               </div>
             </div>
@@ -135,8 +135,8 @@ export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerSta
                 {knob('drive', 'Drive', 0, { tone: 'muted' })}
               </div>
               <div className="mx-knob-line">
-                {knob('reverbSend', 'Reverb', 0.15, { tone: 'ai' })}
-                {knob('delaySend', 'Delay', 0, { tone: 'ai' })}
+                {knob('reverbSend', 'Reverb', 0.15, { tone: 'secondary' })}
+                {knob('delaySend', 'Delay', 0, { tone: 'secondary' })}
               </div>
               <div style={{ marginTop: 10 }}>
                 <Toggle
@@ -167,7 +167,7 @@ export function BusesPanel({ song, mixer }: { song: Song; mixer: MixerState }) {
   const dl = mixer.delay;
   const setBus = (bus: 'reverb' | 'delay', key: string, v: unknown) => previewMixer((m) => ({ ...m, [bus]: { ...m[bus], [key]: v } }));
   const applyBus = (bus: 'reverb' | 'delay', key: string, v: unknown) => applyMixer((m) => ({ ...m, [bus]: { ...m[bus], [key]: v } }));
-  const knob = (bus: 'reverb' | 'delay', key: string, label: string, def: number, extra: { step?: number; tone?: 'accent' | 'ai' | 'muted' } = {}) => {
+  const knob = (bus: 'reverb' | 'delay', key: string, label: string, def: number, extra: { step?: number; tone?: 'accent' | 'secondary' | 'muted' } = {}) => {
     const meta = FIELD_META[`${bus}.${key}`];
     const value = (mixer[bus] as unknown as Record<string, number>)[key];
     return (
@@ -178,7 +178,7 @@ export function BusesPanel({ song, mixer }: { song: Song; mixer: MixerState }) {
         log={meta.log}
         step={extra.step}
         defaultValue={def}
-        tone={extra.tone ?? 'ai'}
+        tone={extra.tone ?? 'secondary'}
         onPreview={(v) => setBus(bus, key, v)}
         onCommit={() => commitMixer()}
         onKeyCommit={() => commitMixerSoon()}

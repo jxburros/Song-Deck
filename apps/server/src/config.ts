@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_LOCAL_SERVICE_TARGETS, type LocalServiceTarget } from '@songdeck/ai';
 import type { CredentialVault, KeychainModuleLoader, VaultPreference } from './vault/types';
 import type { CommandRunner, HardwareInfo } from './hardware';
 import { createLogger, type Logger, type LogLevel } from './logger';
@@ -84,6 +85,12 @@ export interface DiscoveryOptions {
   lmStudioUrl?: string | false;
   /** Per-request discovery timeout (default 1500 ms). */
   timeoutMs?: number;
+  /**
+   * Other local services to look for (default: llama.cpp :8080, vLLM :8000, the Song Deck bridges
+   * :8810-8815 and a custom audio bridge :8820, all on 127.0.0.1); false disables them. Ollama and
+   * LM Studio are configured by `ollamaUrl` / `lmStudioUrl`. Non-loopback URLs are never probed.
+   */
+  localServices?: LocalServiceTarget[] | false;
   fetch?: typeof fetch;
 }
 
@@ -148,7 +155,7 @@ export interface ResolvedConfig {
   nodeName: string;
   limits: Limits;
   proxy: { timeoutMs: number; fetch: typeof fetch };
-  discovery: { ollamaUrl: string | false; lmStudioUrl: string | false; timeoutMs: number; fetch: typeof fetch };
+  discovery: { ollamaUrl: string | false; lmStudioUrl: string | false; timeoutMs: number; localServices: LocalServiceTarget[]; fetch: typeof fetch };
   hardware: HardwareOptions & { cacheMs: number };
   logger: Logger;
 }
@@ -221,6 +228,10 @@ export function resolveConfig(opts: ServerOptions = {}): ResolvedConfig {
       ollamaUrl: opts.discovery?.ollamaUrl ?? 'http://127.0.0.1:11434',
       lmStudioUrl: opts.discovery?.lmStudioUrl ?? 'http://127.0.0.1:1234/v1',
       timeoutMs: opts.discovery?.timeoutMs ?? 1500,
+      localServices:
+        opts.discovery?.localServices === false
+          ? []
+          : (opts.discovery?.localServices ?? DEFAULT_LOCAL_SERVICE_TARGETS.filter((t) => t.presetId !== 'ollama' && t.presetId !== 'lm-studio')).map((t) => ({ ...t })),
       fetch: opts.discovery?.fetch ?? fetchImpl,
     },
     hardware: { ...(opts.hardware ?? {}), cacheMs: opts.hardware?.cacheMs ?? 60_000 },

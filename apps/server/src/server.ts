@@ -13,10 +13,12 @@ import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 import { registerCollabRoutes } from './collab';
+import { registerContentCheckRoutes } from './content-check';
 import { CollabHub } from './collab/hub';
 import { isLoopbackHost, normalizeOrigin, type ResolvedConfig, resolveConfig, SERVER_NAME, SERVER_VERSION, type ServerOptions } from './config';
 import { registerHardwareRoutes, HardwareService } from './hardware';
 import { errorPayload, HttpError, redactPath, safeEqual, sendError, sendJson } from './http-util';
+import { LocalServices, registerLocalServiceRoutes } from './local-services';
 import { ManagedGateway, registerManagedRoutes } from './managed';
 import { ModelManager, registerModelRoutes } from './models';
 import { PluginHost, registerPluginRoutes } from './plugins';
@@ -49,6 +51,7 @@ export interface ServerServices {
   renderNode: RenderNode;
   collab: CollabHub;
   managed: ManagedGateway;
+  localServices: LocalServices;
 }
 
 const ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, OPTIONS';
@@ -93,8 +96,16 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     ollamaUrl: config.discovery.ollamaUrl,
     lmStudioUrl: config.discovery.lmStudioUrl,
     timeoutMs: config.discovery.timeoutMs,
+    localServices: config.discovery.localServices,
     fetch: config.discovery.fetch,
     logger,
+  });
+  const localServices = new LocalServices({
+    ollamaUrl: config.discovery.ollamaUrl,
+    lmStudioUrl: config.discovery.lmStudioUrl,
+    extra: config.discovery.localServices,
+    timeoutMs: config.discovery.timeoutMs,
+    fetch: config.discovery.fetch,
   });
   const plugins = new PluginHost(config.pluginDirs, logger);
   const projects = new ProjectStore(config.dataDir);
@@ -134,8 +145,10 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     maxResponseBytes: limits.proxyResponseBytes,
     logger,
   });
+  registerContentCheckRoutes(router, { getVault, fetch: config.proxy.fetch });
   registerHardwareRoutes(router, hardware);
   registerModelRoutes(router, models);
+  registerLocalServiceRoutes(router, localServices, { fetch: config.proxy.fetch, jsonLimit: limits.jsonBytes });
   registerRenderRoutes(router, renderNode, limits.renderBytes);
   registerCollabRoutes(router, collab);
   registerPluginRoutes(router, plugins);
@@ -304,7 +317,7 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     await providers.load();
     await renderNode.init();
     await managed.init();
-    for (const f of ['vault', 'proxy', 'providers', 'hardware', 'models', 'collab', 'plugins', 'projects']) features.add(f);
+    for (const f of ['vault', 'proxy', 'providers', 'hardware', 'models', 'local-services', 'connect', 'collab', 'plugins', 'projects', 'content-check']) features.add(f);
     if (renderNode.available) features.add('render-node');
     if (managed.available) features.add('managed');
     if (staticHandler) features.add('static');
@@ -321,7 +334,7 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     get vault() {
       return getVault();
     },
-    services: { providers, hardware, models, plugins, projects, renderNode, collab, managed },
+    services: { providers, hardware, models, plugins, projects, renderNode, collab, managed, localServices },
     async listen() {
       await init();
       await new Promise<void>((resolve, reject) => {

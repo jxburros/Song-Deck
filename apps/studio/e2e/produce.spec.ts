@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 import { mkdirSync } from 'node:fs';
 
 /**
@@ -15,14 +16,7 @@ test.describe.configure({ timeout: 900_000 });
 
 async function composeSong(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page
-    .getByLabel('Song prompt')
-    .fill('Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
+  await composeQuickSong(page, 'Alt-rock band', 60_000);
 }
 
 async function comparePosition(page: Page): Promise<number> {

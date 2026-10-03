@@ -1,6 +1,8 @@
 import { expect, test, type Download, type Page } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
+import { attestUpload } from './rights';
 
 /**
  * Mix & Master and Export, end to end and entirely on-device:
@@ -15,14 +17,7 @@ test.describe.configure({ timeout: 420_000 });
 
 async function composeSong(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page
-    .getByLabel('Song prompt')
-    .fill('Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 90_000 });
+  await composeQuickSong(page, 'Alt-rock band', 90_000);
 }
 
 async function download(page: Page, action: () => Promise<void>, timeout = 180_000): Promise<{ d: Download; bytes: Uint8Array }> {
@@ -216,6 +211,7 @@ test('stem import, strip locks, automation drawing and EQ editing', async ({ pag
   // ---- Stem mixing: import an audio file as a new audio track ---------------------------------
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Import stem/audio' }).click()]);
   await chooser.setFiles({ name: 'backing_vocals_stem.wav', mimeType: 'audio/wav', buffer: stemWav() });
+  await attestUpload(page);
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText(/0:03 · 44\.1 kHz · stereo/)).toBeVisible();
   await expect(dialog.getByRole('combobox', { name: 'Stem group' })).toHaveValue('vocals');

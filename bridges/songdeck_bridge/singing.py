@@ -8,6 +8,7 @@ Singing-contract request parsing shared by singing bridges (mock and DiffSinger)
 ``SingingBridgePhraseRequest`` (packages/ai/src/contracts.ts) and returns a :class:`SingingJob`
 whose ``window`` and ``frames(sample_rate)`` encode exactly those time ranges.
 """
+
 from __future__ import annotations
 
 import math
@@ -104,12 +105,20 @@ def parse_note(i: int, raw: Any) -> SungNote:
         v = _prefixed(q, lambda: req_str(expr_raw, name, required=False, max_len=32))
         if v is not None:
             expr[name] = v.strip().lower()
-    return SungNote(float(pitch), float(start), float(duration), lyric if lyric is not None else "la", max(1.0, float(velocity)),
-                    [ph.strip() for ph in phonemes], expr)
+    return SungNote(
+        float(pitch),
+        float(start),
+        float(duration),
+        lyric if lyric is not None else "la",
+        max(1.0, float(velocity)),
+        [ph.strip() for ph in phonemes],
+        expr,
+    )
 
 
-def parse_singing_request(body: Dict[str, Any], *, phrase: bool, voice_ids: Iterable[str], max_duration: float = 600.0,
-                          max_notes: int = 20000) -> SingingJob:
+def parse_singing_request(
+    body: Dict[str, Any], *, phrase: bool, voice_ids: Iterable[str], max_duration: float = 600.0, max_notes: int = 20000
+) -> SingingJob:
     """Validate a /synthesize (``phrase=False``) or /regenerate_phrase (``phrase=True``) body."""
     voices = list(voice_ids)
     voice_id = req_str(body, "voice_id", allow_empty=False, max_len=200)
@@ -131,7 +140,9 @@ def parse_singing_request(body: Dict[str, Any], *, phrase: bool, voice_ids: Iter
             raise BadRequest("'end_seconds' must be greater than 'start_seconds'")
         window = (float(start), float(end))
         if end - start > max_duration:
-            raise BadRequest(f"the phrase is {end - start:.1f} s long; this bridge renders at most {max_duration:.0f} s")
+            raise BadRequest(
+                f"the phrase is {end - start:.1f} s long; this bridge renders at most {max_duration:.0f} s"
+            )
     else:
         last = max(n.end for n in notes)
         if last > max_duration:

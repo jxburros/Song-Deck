@@ -103,6 +103,11 @@ export interface ProviderConfig {
   defaultModel?: string;
   /** Manually configured models (merged with discovered ones). */
   models?: ManualModel[];
+  /**
+   * Models chosen for use in Song Deck (the "Connect a service" flow). When set, discovered and
+   * manual models outside this list are ignored by the registry and the router.
+   */
+  enabledModels?: string[];
   /** Capability override for the provider (replaces preset/discovered provider-level capabilities). */
   capabilities?: Capability[];
   structuredOutput?: StructuredOutputMode;

@@ -21,7 +21,7 @@ import {
   type AudioData,
   type SampleInstrument,
 } from '@songdeck/audio';
-import { defaultChannelStrip, type Song, type Track } from '@songdeck/core';
+import { TRACK_NEUTRAL, defaultChannelStrip, type Song, type Track } from '@songdeck/core';
 import type { RenderInstrumentConfig } from './render-config';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -173,7 +173,7 @@ function audioTrackFor(base: Track | undefined, id: string, clipSeconds: number,
     constraints: {},
     notes: [],
     clips: [{ id: `${id}_clip`, assetId: `${id}_audio`, tick: atTick, offsetSeconds: 0, durationSeconds: clipSeconds, gainDb: 0, fadeInSeconds: 0, fadeOutSeconds: 0 }],
-    color: base?.color ?? '#9aa3b2',
+    color: base?.color ?? TRACK_NEUTRAL,
     stemGroup: base?.stemGroup ?? 'others',
   };
 }

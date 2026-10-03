@@ -8,6 +8,7 @@ import type {
   TrackRole,
 } from '../ir/types';
 import { GM_PROGRAM_NAMES } from '../ir/gm';
+import { STEM_COLORS } from '../ir/palette';
 
 /**
  * Instrument lookup used by the Validation Engine and the serializers.
@@ -302,16 +303,6 @@ export function trackRange(track: Track, opts: InstrumentLookupOptions = {}): { 
   if (low > high) [low, high] = [high, low];
   return { low: Math.max(0, Math.round(low)), high: Math.min(127, Math.round(high)) };
 }
-
-const STEM_COLORS: Record<StemGroup, string> = {
-  vocals: '#e85d75',
-  drums: '#f2a541',
-  bass: '#4f9d69',
-  guitars: '#e07a3f',
-  keys: '#5b8def',
-  strings: '#a26bd6',
-  others: '#7a8a99',
-};
 
 export function colorForStemGroup(group: StemGroup): string {
   return STEM_COLORS[group] ?? STEM_COLORS.others;

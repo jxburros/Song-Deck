@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import {
   BUILTIN_INSTRUMENTS,
   FLAT_NAMES,
+  getTag,
+  matchLyricsToSections,
   midiToNoteName,
   noteNameToMidi,
   type AvoidRule,
@@ -18,8 +20,9 @@ import {
   type VoiceType,
 } from '@songdeck/core';
 import { useSettings } from '../../state/settings';
-import { Button, Field, NumberInput, Select, Slider, TextInput } from '../../ui/kit';
+import { Badge, Button, Field, NumberInput, Select, Slider, TextInput, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
+import { ChipPicker, parentHint, tagItems, tagKindLabel } from './ChipPicker';
 
 export const SECTION_KINDS: SectionKind[] = [
   'intro',
@@ -244,6 +247,10 @@ export function BlueprintEditor({ blueprint, onChange, genres }: { blueprint: Bl
         </div>
       </div>
 
+      <TagEditor blueprint={bp} onChange={(tags) => set({ tags })} genres={genres} />
+
+      {bp.lyrics && bp.lyrics.sections.length > 0 && <LyricsSummary blueprint={bp} onChange={(lyrics) => set({ lyrics })} />}
+
       <div className="panel">
         <div className="panel-header">
           <h3 className="grow">Instrumentation & constraints</h3>
@@ -428,6 +435,77 @@ export function BlueprintEditor({ blueprint, onChange, genres }: { blueprint: Bl
           <div className="small muted" style={{ marginTop: 8 }}>
             <Icon name="info" size={12} /> Leave harmony empty to let the planner choose genre-appropriate progressions.
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Tags (style, mood, era, production…) on the blueprint: chips to remove, a searchable catalog to add. */
+function TagEditor({ blueprint, onChange, genres }: { blueprint: Blueprint; onChange: (tags: string[]) => void; genres: GenreProfile[] }) {
+  const tags = blueprint.tags ?? [];
+  const items = useMemo(() => tagItems(['style', 'mood', 'era', 'production', 'vocal', 'region', 'rhythm'], genres), [genres]);
+  const toggle = (id: string) => onChange(tags.includes(id) ? tags.filter((t) => t !== id) : [...tags, id]);
+  return (
+    <div className="panel cb-tag-editor" data-testid="blueprint-tags">
+      <div className="panel-header">
+        <h3 className="grow">Tags</h3>
+        <span className="small muted">Nudge the genre blend and macros when the song is composed</span>
+      </div>
+      <div className="panel-body">
+        {tags.length > 0 ? (
+          <div className="chip-list" aria-label="Blueprint tags">
+            {tags.map((id) => {
+              const t = getTag(id);
+              const hint = t?.kind === 'style' ? parentHint(t, genres) : undefined;
+              return (
+                <button key={id} type="button" className="chip on" onClick={() => toggle(id)} aria-label={`Remove tag ${t?.name ?? id}`} title={t ? `${tagKindLabel(t.kind)}${t.description ? ` — ${t.description}` : ''}` : 'Unknown tag (ignored)'}>
+                  {t?.name ?? id}
+                  {hint && <span className="cb-chip-hint">{hint}</span>}
+                  <Icon name="close" size={10} />
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="small muted" style={{ marginBottom: 8 }}>
+            No tags yet.
+          </div>
+        )}
+        <ChipPicker items={items} selected={tags} onToggle={toggle} label="Search tags to add" placeholder="Search tags to add" perGroup={8} />
+      </div>
+    </div>
+  );
+}
+
+/** Up-front lyrics on the blueprint: which section sings which stanza, and whether they are locked. */
+function LyricsSummary({ blueprint, onChange }: { blueprint: Blueprint; onChange: (lyrics: NonNullable<Blueprint['lyrics']>) => void }) {
+  const lyrics = blueprint.lyrics!;
+  const match = matchLyricsToSections(lyrics.sections, blueprint.structure);
+  const sung = lyrics.sections.filter((s) => s.lines.length);
+  const unplaced = lyrics.sections.filter((s, i) => s.lines.length && match[i] < 0);
+  return (
+    <div className="panel" data-testid="blueprint-lyrics">
+      <div className="panel-header">
+        <Icon name="book" />
+        <h3 className="grow">Your lyrics</h3>
+        <Toggle on={lyrics.lock !== false} onChange={(on) => onChange({ ...lyrics, lock: on ? undefined : false })} label="Locked" title="Locked lyrics are never rewritten by AI or regeneration" />
+      </div>
+      <div className="panel-body col">
+        <div className="chip-list">
+          {lyrics.sections.map((s, i) =>
+            s.lines.length ? (
+              <Badge key={i} tone={match[i] >= 0 ? 'success' : 'warning'} title={s.lines.join('\n')}>
+                {s.name} → {match[i] >= 0 ? blueprint.structure[match[i]].name : 'no section'}
+              </Badge>
+            ) : null,
+          )}
+        </div>
+        <div className="small muted">
+          {sung.length} sung stanzas.{' '}
+          {unplaced.length
+            ? `${unplaced.map((s) => s.name).join(', ')} ha${unplaced.length > 1 ? 've' : 's'} no matching section in the structure — add one, or it will not be sung.`
+            : 'Each stanza is sung in its section; the structure follows the lyrics.'}
         </div>
       </div>
     </div>

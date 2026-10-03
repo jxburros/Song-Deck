@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 
 /**
  * Locking guarantee through the UI (spec §22): "Regenerate unlocked material" changes only
@@ -24,14 +25,7 @@ async function snapshot(page: Page): Promise<TrackSnapshot[]> {
 
 async function composeSong(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page
-    .getByLabel('Song prompt')
-    .fill('Emo pop-punk at 164 BPM in E minor: melancholy verses, cathartic chorus. Drums, bass, rhythm guitar, lead guitar, piano.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible();
+  await composeQuickSong(page, 'Emo pop-punk');
 }
 
 test('regenerating unlocked material never touches locked tracks, and undo restores it', async ({ page }) => {

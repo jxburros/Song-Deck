@@ -18,6 +18,7 @@ under a second.
 PCM round trips are exact: a 16-bit sample ``k`` is read as ``k / 32768`` and written back as
 ``k`` (same for 24/32-bit), so untouched regions of an edited file stay bit-identical.
 """
+
 from __future__ import annotations
 
 import base64
@@ -162,7 +163,7 @@ def _parse_chunks(data: bytes):
     data_len = 0
     ds64_data_size = None
     while pos + 8 <= n:
-        cid = data[pos:pos + 4]
+        cid = data[pos : pos + 4]
         size = struct.unpack_from("<I", data, pos + 4)[0]
         body = pos + 8
         if cid == b"ds64" and size >= 16 and body + 16 <= n:
@@ -245,7 +246,7 @@ def read_wav(data: bytes) -> Audio:
     else:
         raise WavError(f"unsupported WAV encoding (format tag 0x{tag:04x}); use PCM 16/24-bit or 32-bit float")
     frames = length // (container * nch)
-    raw = data[off:off + frames * container * nch]
+    raw = data[off : off + frames * container * nch]
     if tag == FORMAT_FLOAT:
         arr = array("f" if container == 4 else "d")
         arr.frombytes(raw)
@@ -314,7 +315,9 @@ def _fmt_chunk(tag: int, nch: int, rate: int, bits: int) -> bytes:
     return b"fmt " + struct.pack("<IHHIIHH", 16, tag, nch, rate, rate * block_align, block_align, bits)
 
 
-def write_wav(audio: Audio, bits: Optional[int] = None, is_float: Optional[bool] = None, dither: bool = False, seed: int = 0) -> bytes:
+def write_wav(
+    audio: Audio, bits: Optional[int] = None, is_float: Optional[bool] = None, dither: bool = False, seed: int = 0
+) -> bytes:
     """Encode :class:`Audio` as WAV bytes.
 
     ``bits``/``is_float`` default to the audio's source format. PCM is 16, 24 or 32-bit (values are
@@ -393,7 +396,7 @@ def decode_base64(text: object, field: str = "audio_base64") -> bytes:
     s = text.strip()
     if s.startswith("data:"):
         comma = s.find(",")
-        s = s[comma + 1:] if comma >= 0 else ""
+        s = s[comma + 1 :] if comma >= 0 else ""
     if " " in s or "\n" in s or "\r" in s or "\t" in s:
         s = "".join(s.split())
     if "-" in s or "_" in s:
