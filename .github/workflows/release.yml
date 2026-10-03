@@ -96,7 +96,7 @@ jobs:
           tar -xzf "dist/release/song-deck-$VERSION.tar.gz" -C "$dir"
           node "$dir/song-deck-$VERSION/server/songdeck-server.mjs" --port 5391 --data-dir "$dir/data" --vault memory &
           server=$!
-          trap 'kill $server' EXIT
+          trap 'kill $server 2> /dev/null || true' EXIT
           curl -sf --retry 30 --retry-connrefused --retry-delay 1 http://localhost:5391/api/health > /dev/null
           cd apps/studio
           E2E_PORT=5391 npx playwright test e2e/smoke.spec.ts e2e/modes.spec.ts
