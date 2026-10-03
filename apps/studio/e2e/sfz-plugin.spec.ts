@@ -96,5 +96,26 @@ test('an enabled SFZ instrument plugin renders tracks with its samples', async (
   expect(result.notes).toBeGreaterThan(0);
   expect(result.rms).toBeGreaterThan(0.001);
   expect(result.diff).toBeGreaterThan(1);
+
+  // The project bundles the profile; disabling the plugin removes its samples, and the track
+  // falls back to the profile's General MIDI program instead of breaking.
+  const after = (await page.evaluate(`(async () => {
+    const [{ useStudio }, { unloadPlugin, useExtensions }, { currentRenderInstruments }] = await Promise.all([
+      import('/src/state/store.ts'), import('/src/engine/plugins.ts'), import('/src/engine/render-instruments.ts'),
+    ]);
+    const bundled = useStudio.getState().project.meta.customInstruments.map((i) => i.id);
+    unloadPlugin('felt-keys-sfz');
+    const ext = useExtensions.getState();
+    return {
+      bundled,
+      pluginInstruments: ext.instruments.map((i) => i.id),
+      samples: Object.keys(ext.sampleInstruments),
+      fallbackPatch: currentRenderInstruments().instruments.find((p) => p.id === 'felt-keys')?.patchId,
+    };
+  })()`)) as { bundled: string[]; pluginInstruments: string[]; samples: string[]; fallbackPatch?: string };
+  expect(after.bundled).toContain('felt-keys');
+  expect(after.pluginInstruments).not.toContain('felt-keys');
+  expect(after.samples).toEqual([]);
+  expect(after.fallbackPatch).toBe('epiano');
   expect(errors, errors.join('\n')).toEqual([]);
 });

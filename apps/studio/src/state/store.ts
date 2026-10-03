@@ -30,6 +30,8 @@ import {
 import { assetStore } from './assets';
 import { deleteProject as dbDeleteProject, listProjectSummaries, loadProject, saveProject, type ProjectSummary } from './persistence';
 import { player } from '../engine/player';
+import { allCustomGenres, allCustomInstruments } from '../engine/plugins';
+import { bundleCustomProfiles } from './profiles';
 
 /** What a proposal touches (tracks, mixer targets, song-level parts), from its diff. */
 export function proposalScope(p: Proposal): Set<string> {
@@ -347,7 +349,8 @@ export const useStudio = create<StudioState>((set, get) => {
       const p = get().project;
       if (!p) return;
       resetLinear(p.meta.id); // a new edit ends any linear undo/redo sequence
-      const next = commitRevision(p, song, message, kind, useAuthor());
+      // Bundle the custom genre/instrument profiles the song uses so the project stays portable.
+      const next = bundleCustomProfiles(commitRevision(p, song, message, kind, useAuthor()), song, allCustomGenres(), allCustomInstruments());
       applyProject(next);
       notifyHeadCommit(next);
     },

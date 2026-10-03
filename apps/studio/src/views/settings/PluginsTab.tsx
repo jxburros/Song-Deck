@@ -113,7 +113,7 @@ function PluginsSection() {
   const disable = (m: PluginManifest) => {
     update({ enabledPlugins: enabled.filter((id) => id !== m.id) });
     unloadPlugin(m.id);
-    toast('info', `${m.name} disabled — reload the page to unload its code completely.`);
+    toast('info', `${m.name} disabled: everything it added was removed.`);
   };
 
   if (server !== 'online') {

@@ -89,6 +89,8 @@ interface ExtensionsState {
   exporters: Exporter[];
   providers: ProviderInstance[];
   scanError?: string;
+  /** Plugin directories or manifests the server could not load. */
+  scanErrors: { dir?: string; id?: string; error: string }[];
 }
 
 export const useExtensions = create<ExtensionsState>(() => ({
@@ -99,9 +101,26 @@ export const useExtensions = create<ExtensionsState>(() => ({
   sampleInstruments: {},
   exporters: [],
   providers: [],
+  scanErrors: [],
 }));
 
-type ProviderListener = (instances: ProviderInstance[]) => void;
+/** What each loaded plugin added, so disabling it can take it all back out. */
+interface Owned {
+  genres: Set<string>;
+  instruments: Set<string>;
+  samples: Set<string>;
+  exporters: Set<string>;
+  providers: Set<string>;
+}
+const owned = new Map<string, Owned>();
+function ownedBy(pluginId: string): Owned {
+  let o = owned.get(pluginId);
+  if (!o) owned.set(pluginId, (o = { genres: new Set(), instruments: new Set(), samples: new Set(), exporters: new Set(), providers: new Set() }));
+  return o;
+}
+
+/** Called with the current plugin providers, and the ids of any just removed. */
+type ProviderListener = (instances: ProviderInstance[], removedIds?: string[]) => void;
 const providerListeners = new Set<ProviderListener>();
 
 /** The AI runtime subscribes so plugin providers join the capability registry. */
@@ -115,9 +134,9 @@ export async function scanPlugins(): Promise<PluginManifest[]> {
   try {
     const res = await fetch(`${serverBase()}/api/plugins`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { plugins?: PluginManifest[] } | PluginManifest[];
+    const data = (await res.json()) as { plugins?: PluginManifest[]; errors?: ExtensionsState['scanErrors'] } | PluginManifest[];
     const list = Array.isArray(data) ? data : (data.plugins ?? []);
-    useExtensions.setState({ available: list, scanError: undefined });
+    useExtensions.setState({ available: list, scanError: undefined, scanErrors: Array.isArray(data) ? [] : (data.errors ?? []) });
     return list;
   } catch (err) {
     useExtensions.setState({ scanError: err instanceof Error ? err.message : String(err) });
@@ -127,6 +146,7 @@ export async function scanPlugins(): Promise<PluginManifest[]> {
 
 export async function loadPlugin(manifest: PluginManifest): Promise<void> {
   const contributions: string[] = [];
+  const mine = ownedBy(manifest.id);
   const fileUrl = (p: string) => `${serverBase()}/api/plugins/${encodeURIComponent(manifest.id)}/files/${p.split('/').map(encodeURIComponent).join('/')}`;
   const api: SongDeckPluginApi = {
     apiVersion: 1,
@@ -147,10 +167,12 @@ export async function loadPlugin(manifest: PluginManifest): Promise<void> {
     },
     registerGenre(profile) {
       useExtensions.setState((s) => ({ genres: [...s.genres.filter((g) => g.id !== profile.id), { ...profile, builtIn: false }] }));
+      mine.genres.add(profile.id);
       contributions.push(`genre ${profile.name}`);
     },
     registerInstrument(profile) {
       useExtensions.setState((s) => ({ instruments: [...s.instruments.filter((i) => i.id !== profile.id), { ...profile, custom: true }] }));
+      mine.instruments.add(profile.id);
       contributions.push(`instrument ${profile.name}`);
     },
     async registerSampleInstrument({ profile, sfz }) {
@@ -164,14 +186,18 @@ export async function loadPlugin(manifest: PluginManifest): Promise<void> {
         sampleInstruments: { ...s.sampleInstruments, [patchId]: { ...loaded.instrument, name: loaded.instrument.name ?? profile.name } },
         instruments: [...s.instruments.filter((i) => i.id !== profile.id), { ...profile, patchId, custom: true }],
       }));
+      mine.samples.add(patchId);
+      mine.instruments.add(profile.id);
       contributions.push(`sampled instrument ${profile.name} (${loaded.samples} samples, ${Math.round(loaded.bytes / 1024)} KB)`);
     },
     registerExporter(exporter) {
       useExtensions.setState((s) => ({ exporters: [...s.exporters.filter((e) => e.id !== exporter.id), exporter] }));
+      mine.exporters.add(exporter.id);
       contributions.push(`exporter ${exporter.name}`);
     },
     registerProvider(instance) {
       useExtensions.setState((s) => ({ providers: [...s.providers.filter((p) => p.descriptor.id !== instance.descriptor.id), instance] }));
+      mine.providers.add(instance.descriptor.id);
       contributions.push(`provider ${instance.descriptor.name}`);
       for (const l of providerListeners) l(useExtensions.getState().providers);
     },
@@ -194,13 +220,30 @@ export async function loadPlugin(manifest: PluginManifest): Promise<void> {
   }
 }
 
+/**
+ * Disable a plugin: everything it registered is removed (genres, instruments, sample sets,
+ * exporters, providers). Its module stays in memory until the page reloads, but nothing calls it.
+ * Projects that used its instruments keep their bundled profiles and fall back to built-in sounds.
+ */
 export function unloadPlugin(id: string): void {
-  // Contributions are keyed by the ids the plugin registered; reload the page for a clean unload of code.
+  const mine = owned.get(id);
+  owned.delete(id);
   useExtensions.setState((s) => {
     const loaded = { ...s.loaded };
     if (loaded[id]) loaded[id] = { ...loaded[id], status: 'disabled' };
-    return { loaded };
+    if (!mine) return { loaded };
+    const sampleInstruments = { ...s.sampleInstruments };
+    for (const patchId of mine.samples) delete sampleInstruments[patchId];
+    return {
+      loaded,
+      genres: s.genres.filter((g) => !mine.genres.has(g.id)),
+      instruments: s.instruments.filter((i) => !mine.instruments.has(i.id)),
+      sampleInstruments,
+      exporters: s.exporters.filter((e) => !mine.exporters.has(e.id)),
+      providers: s.providers.filter((p) => !mine.providers.has(p.descriptor.id)),
+    };
   });
+  if (mine?.providers.size) for (const l of providerListeners) l(useExtensions.getState().providers, [...mine.providers]);
 }
 
 /** Load every plugin the user has enabled (called at startup and after toggling). */

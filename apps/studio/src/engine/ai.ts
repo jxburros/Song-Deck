@@ -185,7 +185,8 @@ export function initAi(): void {
       }
     }
   });
-  onPluginProviders((instances) => {
+  onPluginProviders((instances, removedIds) => {
+    for (const id of removedIds ?? []) registry?.unregister(id);
     for (const inst of instances) registry?.register(inst);
     bump();
   });

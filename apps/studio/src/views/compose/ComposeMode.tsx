@@ -13,7 +13,6 @@ import {
 } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { useCustomGenres, useCustomInstruments } from '../../hooks';
-import { bundleCustomProfiles } from '../../state/profiles';
 import { Badge, Button, Field, NumberInput, Select, TextArea } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { BlueprintEditor } from './BlueprintEditor';
@@ -106,7 +105,6 @@ export default function ComposeMode() {
         const created = await st.newProject(song.title, song);
         st.commit(created.song, `Composed “${song.title}” (seed ${seed})`, 'generate');
       }
-      st.updateProject((p) => bundleCustomProfiles(p, song, customGenres, customInstruments));
       st.selectTrack(song.tracks[0]?.id ?? null);
       st.setWorkbenchView('arrangement');
       st.toast('success', `Composed ${song.tracks.length} tracks across ${song.sections.length} sections`);
