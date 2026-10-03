@@ -260,7 +260,7 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await expect(card).toContainText('1 model');
   await page.screenshot({ path: `${SHOTS}/settings-e2e-providers.png` });
 
-  // Browser-only mode: without a server the key stays in this tab's memory only.
+  // Browser-only mode: without a server the key is stored encrypted in this browser (never in plain text).
   await openSettings(page, /^General/);
   const serverUrl = page.getByLabel('Server URL');
   await serverUrl.fill('http://127.0.0.1:9');
@@ -272,7 +272,7 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await expect(editor.locator('.st-key-status')).toContainText('No key stored yet');
   await editor.getByLabel('API key').fill(SESSION_SECRET);
   await editor.getByRole('button', { name: 'Save key' }).click();
-  await expect(editor.getByTestId('key-note')).toContainText('this browser session only');
+  await expect(editor.getByTestId('key-note')).toContainText('Stored encrypted in this browser');
   await editor.getByRole('button', { name: 'Test connection' }).click();
   await expect(editor.getByTestId('provider-result')).toContainText('Connected');
   expect(mock.seen.some((r) => r.path === '/v1/models' && r.auth === `Bearer ${SESSION_SECRET}`)).toBe(true);
@@ -283,6 +283,14 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await serverUrl.fill(server.url);
   await serverUrl.press('Enter');
   await expect(page.getByTestId('server-status')).toContainText('Online', { timeout: 15_000 });
+
+  // With the server back, the browser-held key can move into the server vault.
+  await openSettings(page, /^Providers/);
+  const browserKeys = page.getByTestId('browser-keys');
+  await expect(browserKeys).toContainText('move them into its vault');
+  await browserKeys.getByRole('button', { name: 'Move to server vault' }).click();
+  await expect(browserKeys).toHaveCount(0);
+  await expect(page.getByTestId('provider-mock-llm')).toContainText('Key in vault');
   expect(ada.errors).toEqual([]);
 });
 

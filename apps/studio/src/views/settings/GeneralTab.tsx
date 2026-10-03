@@ -3,7 +3,7 @@ import { ENGINE_VERSION } from '@songdeck/core';
 import { useSettings } from '../../state/settings';
 import { useStudio } from '../../state/store';
 import { checkServer, useRuntime } from '../../engine/runtime';
-import { deleteCredential, sessionCredentials, useAiRuntime } from '../../engine/ai';
+import { browserCredentials, deleteCredential, useAiRuntime } from '../../engine/ai';
 import { disconnectCollab } from '../../engine/collab';
 import { Badge, Button, CommitText, Field, Select, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
@@ -27,7 +27,7 @@ async function readStorage(): Promise<StorageInfo> {
   return { usage: est.usage, quota: est.quota, persisted, supported: true };
 }
 
-/** Wipe everything this studio stored on the device (IndexedDB stores, localStorage/sessionStorage keys, session keys). */
+/** Wipe everything this studio stored on the device (IndexedDB stores, localStorage/sessionStorage keys, browser-held keys). */
 async function clearLocalData(alsoVault: boolean): Promise<void> {
   disconnectCollab('clearing local data');
   // Close the project first so no pending autosave writes it back.
@@ -35,7 +35,7 @@ async function clearLocalData(alsoVault: boolean): Promise<void> {
   if (alsoVault) {
     for (const p of useSettings.getState().providers) if (p.credentialRef) await deleteCredential(p.credentialRef).catch(() => undefined);
   }
-  sessionCredentials.clear();
+  await browserCredentials.clear();
   await new Promise<void>((resolve) => {
     if (typeof indexedDB === 'undefined') return resolve();
     const req = indexedDB.open('songdeck');
