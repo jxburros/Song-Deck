@@ -8,7 +8,7 @@
 import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEFAULT_ALLOWED_ORIGINS, DEFAULT_HOST, DEFAULT_PORT, defaultDataDir, isLoopbackHost, REPO_ROOT, SERVER_VERSION, type ServerOptions } from './config';
+import { APP_PATHS, DEFAULT_ALLOWED_ORIGINS, DEFAULT_HOST, DEFAULT_PORT, defaultDataDir, isLoopbackHost, SERVER_VERSION, type ServerOptions } from './config';
 import type { LogLevel } from './logger';
 import { createSongDeckServer } from './server';
 import type { VaultPreference } from './vault/types';
@@ -20,7 +20,7 @@ Usage: songdeck-server [options]
   --port <n>             TCP port (default ${DEFAULT_PORT}; 0 = any free port)
   --host <addr>          Bind address (default ${DEFAULT_HOST}). A non-loopback host requires --token.
   --data-dir <dir>       Data directory (default $SONGDECK_DATA_DIR or ~/.songdeck)
-  --static <dir>         Serve a built studio with SPA fallback (default: apps/studio/dist if built)
+  --static <dir>         Serve a built studio with SPA fallback (default: the built studio, if present)
   --no-static            Do not serve the studio
   --token <secret>       Require "Authorization: Bearer <secret>" on /api (env SONGDECK_TOKEN)
   --allow-origin <url>   Allowed browser origin (repeatable; replaces the defaults
@@ -29,7 +29,7 @@ Usage: songdeck-server [options]
   --no-persist           Keep secrets in memory only (forgotten on exit)
   --workers <n>          Render worker threads (default cpus - 1)
   --node-name <name>     Render node display name (default: host name)
-  --plugins-dir <dir>    Plugin directory (repeatable; default <repo>/plugins and <data-dir>/plugins)
+  --plugins-dir <dir>    Plugin directory (repeatable; default the bundled plugins and <data-dir>/plugins)
   --log-level <level>    silent | error | warn | info | debug (default info)
   --quiet                Same as --log-level warn
   --version              Print the version
@@ -133,8 +133,7 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   if (!options.token && env.SONGDECK_TOKEN?.trim()) options.token = env.SONGDECK_TOKEN.trim();
   options.dataDir ??= defaultDataDir(env);
   if (staticDir === undefined) {
-    const built = path.join(REPO_ROOT, 'apps', 'studio', 'dist');
-    if (existsSync(path.join(built, 'index.html'))) staticDir = built;
+    if (existsSync(path.join(APP_PATHS.studio, 'index.html'))) staticDir = APP_PATHS.studio;
   }
   if (staticDir) {
     if (!existsSync(staticDir)) throw new Error(`--static directory ${staticDir} does not exist`);

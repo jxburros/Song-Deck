@@ -22,14 +22,14 @@ npx tsx apps/server/src/cli.ts --port 0 --data-dir /tmp/sd --no-persist
 | `--port <n>` | `7788` | `0` picks a free port |
 | `--host <addr>` | `127.0.0.1` | a non-loopback host **requires** `--token` |
 | `--data-dir <dir>` | `$SONGDECK_DATA_DIR` or `~/.songdeck` | vault, providers, projects, collab rooms, models, plugins |
-| `--static <dir>` / `--no-static` | `apps/studio/dist` if built | serves the studio with SPA fallback |
+| `--static <dir>` / `--no-static` | `apps/studio/dist` if built (`studio/` in a release download) | serves the studio with SPA fallback |
 | `--token <secret>` | `$SONGDECK_TOKEN` | every `/api` request except `/api/health` needs `Authorization: Bearer <secret>` |
 | `--allow-origin <url>` | `http://localhost:5173`, `http://127.0.0.1:5173` | repeatable; replaces the defaults; same-origin is always allowed |
 | `--vault <backend>` | `auto` | `auto` · `keychain` · `encrypted-file` · `memory` |
 | `--no-persist` | | secrets live in memory only |
 | `--workers <n>` | cpus − 1 | render worker threads |
 | `--node-name <name>` | host name | render node display name |
-| `--plugins-dir <dir>` | `<repo>/plugins`, `<data-dir>/plugins` | repeatable |
+| `--plugins-dir <dir>` | `<repo>/plugins` (`plugins/` in a release download), `<data-dir>/plugins` | repeatable |
 | `--log-level <level>` / `--quiet` | `info` | `silent`, `error`, `warn`, `info`, `debug` |
 
 In development the Vite dev server (port 5173) proxies `/api` (including the WebSocket) to 7788,

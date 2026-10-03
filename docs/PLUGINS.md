@@ -23,8 +23,8 @@ working examples live in [`plugins/`](../plugins):
 
 ## Where plugins live
 
-The server scans `<repo>/plugins` (bundled examples) and `<data-dir>/plugins` (your own plugins;
-the data directory defaults to `~/.songdeck`). Add more directories with
+The server scans `<repo>/plugins` (bundled examples; `plugins/` in a release download) and
+`<data-dir>/plugins` (your own plugins; the data directory defaults to `~/.songdeck`). Add more directories with
 `npm run start:server -- --plugins-dir <dir>` (repeatable). Each plugin is a directory with a
 `songdeck-plugin.json` manifest:
 

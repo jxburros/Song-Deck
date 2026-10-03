@@ -1,0 +1,160 @@
+name: Release
+
+# Tests, packages and publishes a GitHub release for a version.
+#
+#   Tag push:   git tag v0.2.0 && git push origin v0.2.0
+#   Manual:     Actions → Release → Run workflow, with the version (tags the selected commit)
+#
+# The version must match every package.json and have a CHANGELOG.md section;
+# `node scripts/release/bump.mjs <version>` prepares both. See docs/RELEASING.md.
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, without the v (for example 0.2.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check the version
+        id: version
+        env:
+          REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+        run: node scripts/release/check.mjs "$REQUESTED" --github-output
+
+      - name: Make sure the tag is new
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "::error::Tag $TAG already exists; release a new version instead."
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Install Chromium for the browser tests
+        working-directory: apps/studio
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - name: Build the studio
+        run: npm run build
+
+      - name: Package
+        run: node scripts/release/package.mjs --out dist/release
+
+      - name: Smoke-test the downloads
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node scripts/release/smoke.mjs "dist/release/song-deck-$VERSION.tar.gz"
+          node scripts/release/smoke.mjs "dist/release/song-deck-$VERSION.zip"
+
+      - name: Browser tests against the packaged server
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          dir="$RUNNER_TEMP/packaged"
+          mkdir -p "$dir"
+          tar -xzf "dist/release/song-deck-$VERSION.tar.gz" -C "$dir"
+          node "$dir/song-deck-$VERSION/server/songdeck-server.mjs" --port 5391 --data-dir "$dir/data" --vault memory &
+          server=$!
+          trap 'kill $server' EXIT
+          curl -sf --retry 30 --retry-connrefused --retry-delay 1 http://localhost:5391/api/health > /dev/null
+          cd apps/studio
+          E2E_PORT=5391 npx playwright test e2e/smoke.spec.ts e2e/modes.spec.ts
+
+      - name: Keep the browser test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: apps/studio/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/release/notes.mjs "$VERSION" > dist/release-notes.md
+
+      - name: Upload the release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: release
+          # Stored relative to dist/: release/<files> and release-notes.md
+          path: |
+            dist/release/*.zip
+            dist/release/*.tar.gz
+            dist/release/SHA256SUMS.txt
+            dist/release-notes.md
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish the GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download the release files
+        uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: artifacts
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.tag }}
+          VERSION: ${{ needs.build.outputs.version }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          if [ "$GITHUB_EVENT_NAME" = push ]; then flags+=(--verify-tag); else flags+=(--target "$GITHUB_SHA"); fi
+          # A draft first, so the release only appears once every file is attached.
+          gh release create "$TAG" --draft --title "Song Deck $VERSION" --notes-file artifacts/release-notes.md "${flags[@]}" \
+            artifacts/release/*.zip artifacts/release/*.tar.gz artifacts/release/SHA256SUMS.txt
+          gh release edit "$TAG" --draft=false
+          echo "Published [Song Deck $VERSION]($(gh release view "$TAG" --json url --jq .url))" >> "$GITHUB_STEP_SUMMARY"

@@ -8,6 +8,18 @@ Song Deck creates the *composition* first — structure, harmony, melodies, rhyt
 
 The full product specification lives in [`Song Deck.md`](./Song%20Deck.md). How the code maps onto it is in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), and what each phase delivers (and its honest limits) is in [`docs/PHASES.md`](./docs/PHASES.md).
 
+## Download
+
+Prebuilt downloads are on the [Releases page](https://github.com/jxburros/Song-Deck/releases). Unpack
+`song-deck-<version>.zip`, then, with [Node.js](https://nodejs.org) 20.19 or newer:
+
+```bash
+node server/songdeck-server.mjs    # studio + local server at http://localhost:7788
+```
+
+What changed in each version is in [`CHANGELOG.md`](./CHANGELOG.md); how releases are made is in
+[`docs/RELEASING.md`](./docs/RELEASING.md).
+
 ## Quick start
 
 ```bash
@@ -54,6 +66,7 @@ write your own: [`docs/PLUGINS.md`](./docs/PLUGINS.md).
 | `apps/server` | Local runtime server (Node) |
 | `plugins/` | Example plugins: a genre profile, an exporter (ABC notation) and an SFZ sampled instrument |
 | `bridges/` | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC, Matchering) and a dependency-free mock bridge |
+| `scripts/release/` | Release tooling (version checks, packaging, smoke test) used by `.github/workflows/release.yml` |
 
 ## License
 

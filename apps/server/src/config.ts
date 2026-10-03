@@ -11,18 +11,34 @@ import { createLogger, type Logger, type LogLevel } from './logger';
 
 export const SERVER_NAME = 'songdeck-server';
 
-/** Version of this package (read once from package.json). */
-export const SERVER_VERSION: string = (() => {
-  try {
-    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
-    return pkg.version ?? '0.0.0';
-  } catch {
-    return '0.0.0';
-  }
-})();
+// Defined only in the single-file server of a release download (scripts/release/package.mjs).
+declare const __SONGDECK_RELEASE__: { version: string } | undefined;
+const RELEASE = typeof __SONGDECK_RELEASE__ === 'undefined' ? undefined : __SONGDECK_RELEASE__;
+
+/** Version of this package: stamped into a release build, else read once from package.json. */
+export const SERVER_VERSION: string =
+  RELEASE?.version ??
+  (() => {
+    try {
+      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
+      return pkg.version ?? '0.0.0';
+    } catch {
+      return '0.0.0';
+    }
+  })();
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 /** Directory of the monorepo root (apps/server/src → ../../..). */
-export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+export const REPO_ROOT = path.resolve(HERE, '../../..');
+
+/**
+ * Where the built studio and the bundled plugins live: apps/studio/dist and plugins/ in the
+ * monorepo; studio/ and plugins/ beside the server/ folder of a release download.
+ */
+export const APP_PATHS: { studio: string; plugins: string } = RELEASE
+  ? { studio: path.resolve(HERE, '../studio'), plugins: path.resolve(HERE, '../plugins') }
+  : { studio: path.join(REPO_ROOT, 'apps', 'studio', 'dist'), plugins: path.join(REPO_ROOT, 'plugins') };
 
 export const DEFAULT_PORT = 7788;
 export const DEFAULT_HOST = '127.0.0.1';
@@ -180,7 +196,7 @@ export function resolveConfig(opts: ServerOptions = {}): ResolvedConfig {
   const pluginDirs = opts.pluginDirs
     ? opts.pluginDirs.map((dir) => ({ dir: path.resolve(dir), source: 'user' as const }))
     : [
-        { dir: path.join(REPO_ROOT, 'plugins'), source: 'bundled' as const },
+        { dir: APP_PATHS.plugins, source: 'bundled' as const },
         { dir: path.join(dataDir, 'plugins'), source: 'user' as const },
       ];
   return {
