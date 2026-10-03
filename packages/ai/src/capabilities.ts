@@ -20,6 +20,7 @@ export const CAPABILITIES = [
   'SOURCE_SEPARATION',
   'PITCH_TRACKING',
   'AUDIO_TO_MIDI',
+  'CONTENT_IDENTIFICATION',
   // Production (spec §5, §30)
   'TEXT_TO_MUSIC',
   'AUDIO_TO_AUDIO',
@@ -88,6 +89,7 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
   SOURCE_SEPARATION: { label: 'Source separation', description: 'Splits a mix into stems (drums, bass, vocals, other…).', group: 'audio-analysis' },
   PITCH_TRACKING: { label: 'Pitch tracking', description: 'Tracks the fundamental frequency of monophonic audio.', group: 'audio-analysis' },
   AUDIO_TO_MIDI: { label: 'Audio to MIDI', description: 'Converts audio performances to MIDI notes.', group: 'audio-analysis' },
+  CONTENT_IDENTIFICATION: { label: 'Content identification', description: 'Identifies a recording from its audio fingerprint (e.g. AcoustID) to warn about known releases.', group: 'audio-analysis' },
   TEXT_TO_MUSIC: { label: 'Text to music', description: 'Generates music audio from a text prompt.', group: 'production' },
   AUDIO_TO_AUDIO: { label: 'Audio to audio', description: 'Transforms an input recording (guide render, stem) into produced audio.', group: 'production' },
   STEM_GENERATION: { label: 'Stem generation', description: 'Generates individual instrument stems.', group: 'production' },

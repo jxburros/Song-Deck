@@ -70,6 +70,7 @@ export * from './adapters/separation-http';
 export * from './adapters/voice-conversion-http';
 export * from './adapters/mastering-http';
 export * from './adapters/managed';
+export * from './adapters/acoustid';
 export { audioFromJson, audioToJson, audioFromBase64, buildDescriptor, createHttpClient, mergeManualModels, type EncodedAudioJson } from './adapters/common';
 
 // Utilities useful to apps
