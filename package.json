@@ -20,6 +20,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p packages/core && tsc -p packages/audio && tsc -p packages/ai && tsc -p apps/server && tsc -p apps/studio",
     "e2e": "npm run e2e -w @songdeck/studio",
+    "docs:genres": "tsx scripts/gen-genres-doc.ts",
     "release:check": "node scripts/release/check.mjs",
     "release:package": "node scripts/release/package.mjs",
     "release:smoke": "node scripts/release/smoke.mjs"

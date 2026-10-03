@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { renderGenresDoc } from '../src/composer/genre-docs';
 import {
   BUILTIN_TAGS,
   applyTagsToGenre,
@@ -139,5 +141,12 @@ describe('tag catalog', () => {
     const { project } = unpackProject(packProject(createProject('Tags', song)));
     expect(project.song.tags).toEqual(['dancehall', 'aggressive']);
     expect(project.song.blueprint?.tags).toEqual(['dancehall', 'aggressive']);
+  });
+});
+
+describe('docs/GENRES.md', () => {
+  it('is generated from the current genres and tags (run `npm run docs:genres` after changing them)', () => {
+    const doc = readFileSync(new URL('../../../docs/GENRES.md', import.meta.url), 'utf8');
+    expect(doc === renderGenresDoc(), 'docs/GENRES.md is stale: run `npm run docs:genres`').toBe(true);
   });
 });
