@@ -11,14 +11,14 @@ import {
   type Project,
 } from '@songdeck/core';
 import { classifyRightsSignals, readAudioMetadata, type AudioData, type RightsClassification } from '@songdeck/audio';
-import { ACOUSTID_CREDENTIAL_REF, DirectTransport, createAcoustIdProvider, type ContentIdResult, type DataFlowDescriptor } from '@songdeck/ai';
+import type { ContentIdResult, DataFlowDescriptor } from '@songdeck/ai';
 import { useStudio } from '../state/store';
 import { serverBase, useSettings } from '../state/settings';
 import { localGet, localSet } from '../state/persistence';
 import { decodeAudioBytes } from '../state/assets';
 import { useRuntime } from './runtime';
 import { jobs } from './jobs';
-import { browserCredentials } from './ai';
+import { browserCredentials } from './credentials';
 
 /**
  * Upload rights checks (docs/RIGHTS.md). Warn, never block:
@@ -244,6 +244,8 @@ export async function identifyFingerprint(fingerprint: string, durationSeconds: 
     if (!res.ok) throw new Error(body.error ?? `Content check failed (HTTP ${res.status})`);
     return body;
   }
+  // Loaded on demand: the provider layer stays out of the first-paint bundle.
+  const { createAcoustIdProvider, DirectTransport } = await import('@songdeck/ai');
   return createAcoustIdProvider({ transport: new DirectTransport(browserCredentials) }).identify({ fingerprint, durationSeconds, signal });
 }
 

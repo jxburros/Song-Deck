@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "description": "AI Orchestrator: capability taxonomy, provider registry, capability router, provider profiles, routing rules, privacy/data-flow, cost/budget, provider adapters, MusicContext builder, structured output parsing.",
   "exports": {
     ".": "./src/index.ts"
