@@ -69,7 +69,6 @@ class Collector {
   }
   add(source: TagSource, key: string, field: TagField, raw: string): void {
     if (this.full) return;
-    // eslint-disable-next-line no-control-regex
     const value = raw.replace(/\u0000+$/g, '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' ').trim();
     if (!value) return;
     const v = value.length > this.maxLen ? `${value.slice(0, this.maxLen)}…` : value;

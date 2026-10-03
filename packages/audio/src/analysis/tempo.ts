@@ -195,11 +195,9 @@ function midBeatRatio(env: Float32Array, beats: number[]): number {
   if (beats.length < 4) return 0;
   let on = 0;
   let mid = 0;
-  let n = 0;
   for (let i = 0; i + 1 < beats.length; i++) {
     on += strengthNear(env, beats[i], 1);
     mid += strengthNear(env, (beats[i] + beats[i + 1]) / 2, 1);
-    n++;
   }
   return on > 1e-9 ? mid / on : 0;
 }

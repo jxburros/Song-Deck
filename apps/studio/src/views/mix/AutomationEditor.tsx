@@ -308,7 +308,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (locked) return;
     const { x, y } = local(e);
     let index = hitPoint(x, y);
-    let pts = points.map((p) => ({ ...p }));
+    const pts = points.map((p) => ({ ...p }));
     let created = false;
     if (index === null) {
       const tick = snapTick(song, tickOf(x), snap, end);

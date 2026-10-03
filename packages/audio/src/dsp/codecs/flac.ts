@@ -77,7 +77,7 @@ class BitWriter {
 
   /** Write the low `n` bits (n ≤ 24) of non-negative int `v`, MSB first. */
   private put(v: number, n: number): void {
-    let acc = (this.acc << n) | v;
+    const acc = (this.acc << n) | v;
     let nb = this.nb + n;
     const buf = this.buf;
     while (nb >= 8) {
@@ -832,7 +832,6 @@ function parseHeader(bytes: Uint8Array): { info: FlacInfo; frameStart: number } 
 }
 
 const BLOCK_SIZES = [0, 192, 576, 1152, 2304, 4608, 0, 0, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768];
-const SAMPLE_RATES = [0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000];
 const SAMPLE_SIZES = [0, 8, 12, 0, 16, 20, 24, 32];
 
 export function decodeFlac(bytes: Uint8Array, opts: { verifyCrc?: boolean } = {}): AudioData {

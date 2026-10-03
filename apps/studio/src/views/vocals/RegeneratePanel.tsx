@@ -29,7 +29,6 @@ type Scope = 'phrase' | 'selection' | 'track';
  */
 export function RegeneratePanel({ project, track }: { project: Project; track: Track }) {
   const song = project.song;
-  const st = useStudio.getState();
   const session = useVocalSession();
   const selection = useStudio((s) => s.selection);
   const autoResing = useVocalJobs((s) => s.autoResing);

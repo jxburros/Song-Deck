@@ -352,7 +352,7 @@ export const useStudio = create<StudioState>((set, get) => {
       if (!p) return;
       resetLinear(p.meta.id); // a new edit ends any linear undo/redo sequence
       // Bundle the custom genre/instrument profiles the song uses so the project stays portable.
-      const next = bundleCustomProfiles(commitRevision(p, song, message, kind, useAuthor()), song, allCustomGenres(), allCustomInstruments());
+      const next = bundleCustomProfiles(commitRevision(p, song, message, kind, currentAuthor()), song, allCustomGenres(), allCustomInstruments());
       applyProject(next);
       notifyHeadCommit(next);
     },
@@ -393,7 +393,7 @@ export const useStudio = create<StudioState>((set, get) => {
         const from = p.history.revisions.find((r) => r.id === (linear.cursor ?? branch?.headRevisionId));
         const target = from && p.history.revisions.find((r) => r.id === from.parents[0]);
         if (!from || !target) return;
-        const next = commitRevision(p, target.snapshot, `Undo: ${from.message}`, 'restore', useAuthor());
+        const next = commitRevision(p, target.snapshot, `Undo: ${from.message}`, 'restore', currentAuthor());
         applyProject(next);
         linear.redo.push(from.id);
         linear.cursor = target.id;
@@ -412,7 +412,7 @@ export const useStudio = create<StudioState>((set, get) => {
         if (linear.projectId !== p.meta.id) return;
         const rev = p.history.revisions.find((r) => r.id === linear.redo[linear.redo.length - 1]);
         if (!rev) return;
-        const next = commitRevision(p, rev.snapshot, `Redo: ${rev.message}`, 'restore', useAuthor());
+        const next = commitRevision(p, rev.snapshot, `Redo: ${rev.message}`, 'restore', currentAuthor());
         applyProject(next);
         linear.redo.pop();
         linear.cursor = rev.id;
@@ -624,7 +624,7 @@ export const useStudio = create<StudioState>((set, get) => {
   };
 });
 
-function useAuthor(): string | undefined {
+function currentAuthor(): string | undefined {
   try {
     return JSON.parse(localStorage.getItem('songdeck:settings') ?? '{}').userName;
   } catch {

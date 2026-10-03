@@ -367,7 +367,6 @@ function dominantFixOps(song: Song, span: SectionSpan, key: KeySignature, reason
   const V: ChordSpec = { root: mod12(key.tonic + 7), quality: 'maj' };
   const finalSlots: ChordSlot[] = [];
   const twoBeats = 2 * song.ppq;
-  let desc: string;
   for (const s of slots) {
     if (s !== last) {
       finalSlots.push(s);
@@ -380,7 +379,7 @@ function dominantFixOps(song: Song, span: SectionSpan, key: KeySignature, reason
     } else finalSlots.push({ ...s, spec: { root: V.root, quality: '7' } });
   }
   const changed = finalSlots.find((s) => s.sourceId === last.sourceId && s.spec.quality === '7sus4');
-  desc = changed
+  const desc = changed
     ? `keep ${spellChord(last.spec, key)} for the first half of the last chord and move to ${spellChord({ root: V.root, quality: '7sus4' }, key)} (V7sus4) — a dominant that points straight at the next section`
     : `change the last chord to ${spellChord({ root: V.root, quality: '7' }, key)} (V7)`;
   const res = chordOpsFromSlots(song, finalSlots, reason);

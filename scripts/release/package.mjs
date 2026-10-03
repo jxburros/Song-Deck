@@ -256,7 +256,7 @@ function thirdPartyNotices(metafiles) {
   }
   const sections = [...found.entries()]
     .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
-    .map(([lockPath, name]) => {
+    .map(([lockPath]) => {
       const dir = path.join(ROOT, lockPath);
       const pkg = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
       const licenseFile = readdirSync(dir).find((f) => /^(licen[cs]e|copying)(\.(md|txt))?$/i.test(f));

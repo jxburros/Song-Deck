@@ -84,7 +84,7 @@ export function phraseRhythm(rng: Rng, o: RhythmOptions): RhythmSlot[] {
     if (w(s) >= 0.75) finals.push(s);
     if (finals.length >= 2) break;
   }
-  let f = finals.length ? (finals.length > 1 && rng.chance(0.35) ? finals[1] : finals[0]) : Math.max(1, slots - Math.ceil(minFinal / grid));
+  const f = finals.length ? (finals.length > 1 && rng.chance(0.35) ? finals[1] : finals[0]) : Math.max(1, slots - Math.ceil(minFinal / grid));
   const want = o.count !== undefined ? o.count : Math.round(f * (0.32 + 0.42 * clamp01(o.density))) + 1;
   let n = clamp(want, 2, o.count !== undefined ? Math.max(2, o.count) : f + 1);
   if (n > f + 1 && o.count === undefined) n = f + 1;

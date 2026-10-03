@@ -472,6 +472,8 @@ function EstimatePanel({ song, r, count }: { song: Song; r: ReturnType<typeof us
   const prov = r.resolution.provider;
   useEffect(() => {
     if (prov && prov.location === 'local') void refreshHardware();
+    // Keyed on the provider's identity, not the descriptor object (a new one each render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prov?.id, prov?.location, server]);
   const source = useMemo(() => productionSourceSong(song), [song]);
   const seconds = songDurationSeconds(source);

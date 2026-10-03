@@ -9,5 +9,10 @@ export default defineConfig({
       'apps/server',
       'apps/studio',
     ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text-summary', 'html', 'lcov'],
+      include: ['packages/*/src/**', 'apps/server/src/**', 'apps/studio/src/**'],
+    },
   },
 });

@@ -108,6 +108,8 @@ function SampleInstrumentsPanel({ song }: { song: Song }) {
   const st = useSampleInstruments();
   const ext = useExtensions();
   const tracks = useMemo(() => audibleSourceTracks(productionSourceSong(song)).filter((t) => t.kind === 'midi'), [song]);
+  // Recomputed when the enabled plugins change; the list itself is read from the plugin registry.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const plugin = useMemo(() => pluginSampleInstruments(), [ext]);
   const instrumentPlugins = ext.available.filter((m) => m.kind === 'instrument');
   const toast = useStudio.getState().toast;

@@ -521,7 +521,9 @@ export function interpretMixInstruction(song: Song, instruction: string, opts: {
   let anyRule = false;
   for (const clause of splitClauses(text)) {
     const mentions = findTrackMentions(song, clause, { melodyTrack: melody });
-    let { targets, explicit, overall, missing } = resolveTargets(song, mentions, opts.selection);
+    const resolved = resolveTargets(song, mentions, opts.selection);
+    const { overall, missing } = resolved;
+    let { targets, explicit } = resolved;
     if (missing && !targets.length) {
       // Understood, but the named track doesn't exist — still report what was asked for.
       missingAll = missing;

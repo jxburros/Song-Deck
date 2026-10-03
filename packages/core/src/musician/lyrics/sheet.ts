@@ -163,7 +163,7 @@ const META_LINE =
 type LineClass = { type: 'blank' } | { type: 'header'; header: Header } | { type: 'lyric'; text: string } | { type: 'instrumental'; kind: SectionKind; name: string } | { type: 'skip' };
 
 function classify(raw: string): LineClass {
-  const line = raw.replace(/\t/g, ' ').replace(/ /g, ' ').trimEnd();
+  const line = raw.replace(/\t/g, ' ').replace(/\u00a0/g, ' ').trimEnd();
   const t = line.trim();
   if (!t) return { type: 'blank' };
   if (META_LINE.test(t)) return { type: 'skip' };

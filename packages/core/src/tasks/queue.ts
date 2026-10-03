@@ -97,6 +97,8 @@ interface RunState {
 export class TaskQueue {
   private readonly tasks = new Map<string, TaskRecord>();
   private readonly order = new Map<string, number>();
+  // Handlers of every input/output type share one map; submit() restores the types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private readonly handlers = new Map<string, TaskHandler<any, any>>();
   private readonly running = new Map<string, RunState>();
   private readonly waiters = new Map<string, ((t: TaskRecord) => void)[]>();
@@ -120,6 +122,7 @@ export class TaskQueue {
   // ---- registration & submission ---------------------------------------------------------
 
   register<I, O>(type: string, handler: TaskHandler<I, O>): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.handlers.set(type, handler as TaskHandler<any, any>);
     this.schedulePump();
   }
