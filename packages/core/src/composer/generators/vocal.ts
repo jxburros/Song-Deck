@@ -15,6 +15,7 @@ import { transposeDiatonic } from '../../theory/scales';
 import { voiceChord } from '../../theory/voicing';
 import type { Cell } from '../context';
 import { MOTIF_DESCRIPTIONS, abstractPhrase, adaptMotifToCount, alignStressToMeter, anchorNear, findSongMotif, phraseBarsFor, realizePhrase, vocalGrid, type Contour } from '../motifs';
+import { drumStyleInfo } from '../styles';
 import { lineStresses, lineSyllables } from '../syllables';
 import { chordAtIn, clamp, clamp01, humanize, toVelocity, type RawNote } from '../util';
 import type { GenOutput, PhraseDraft } from './types';
@@ -112,7 +113,8 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
   const high = c.kind === 'final-chorus' ? Math.min(r.high, ch + 2) : c.kind === 'verse' ? Math.round(cl + (ch - cl) * 0.8) : ch;
   const grid = vocalGrid(c.meter, c.bpm);
   const style = c.g.drumStyle;
-  const rap = isVocal && (style === 'hip-hop' || style === 'trap') && c.kind === 'verse';
+  // Rap-led grooves (hip-hop, trap, boom-bap, drill, phonk, baile funk) rap their verses.
+  const rap = isVocal && !!drumStyleInfo(style).rap && c.kind === 'verse';
   const chorusy = c.kind === 'chorus' || c.kind === 'final-chorus' || c.kind === 'post-chorus' || c.kind === 'drop';
   const motifA = findSongMotif(c.song, 'verse');
   const motifD = findSongMotif(c.song, 'chorusVocal');

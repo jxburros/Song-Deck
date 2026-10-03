@@ -74,7 +74,6 @@ const punk = kindOf('style', 'Punk & hardcore');
 const pop = kindOf('style', 'Pop');
 const indie = kindOf('style', 'Indie');
 const house = kindOf('style', 'House & techno');
-const electronic = kindOf('style', 'Electronic');
 const bass = kindOf('style', 'Bass music & breaks');
 const retro = kindOf('style', 'Synth & retro');
 const downtempo = kindOf('style', 'Downtempo & ambient');
