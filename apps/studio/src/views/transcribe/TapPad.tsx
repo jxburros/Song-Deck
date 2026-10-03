@@ -42,6 +42,7 @@ export function TapPad({ onUse, sound, onSound }: { onUse: (taps: number[]) => v
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (document.querySelector('.modal-backdrop')) return; // a dialog owns the keyboard
       if (e.key === ' ' || e.key.toLowerCase() === 't') {
         // Capture phase on window: runs before the global Space = play/pause hotkey.
         e.preventDefault();
@@ -53,6 +54,7 @@ export function TapPad({ onUse, sound, onSound }: { onUse: (taps: number[]) => v
     const onKeyUp = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (document.querySelector('.modal-backdrop')) return;
       if (e.key === ' ') {
         e.preventDefault();
         e.stopPropagation();

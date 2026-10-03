@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { TaskRecord } from '@songdeck/core';
 import { taskQueue, useRuntime } from './runtime';
+import { handlers as analysisHandlers } from './handlers/analysis';
 
 /**
  * Helpers for running analysis work through the generation queue (spec §63) from a view:
@@ -19,6 +20,10 @@ export interface TaskSpec<I> {
 }
 
 export function enqueueTask<I>(spec: TaskSpec<I>): TaskRecord<I> {
+  // initRuntime() registers handlers only after its server health check; make sure ours exist
+  // before enqueueing (re-registering the same handler is a no-op), or an early task would fail.
+  const handler = analysisHandlers[spec.type];
+  if (handler) taskQueue.register(spec.type, handler);
   return taskQueue.enqueue(spec) as TaskRecord<I>;
 }
 

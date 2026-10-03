@@ -135,10 +135,15 @@ function collectErrors(page: Page): string[] {
   return errors;
 }
 
-async function openMode(page: Page, name: string) {
+/** Mode tabs in the top bar (matched by label prefix: "Generate" / "Generate MIDI"…). */
+function modeTab(page: Page, label: 'Generate' | 'Transcribe' | 'Rebuild') {
+  return page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name: new RegExp(`^${label}`) });
+}
+
+async function openMode(page: Page, label: 'Generate' | 'Transcribe' | 'Rebuild') {
   await page.goto('/');
   await expect(page.getByText('AI that gives you the song back.')).toBeVisible();
-  await page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name }).click();
+  await modeTab(page, label).click();
 }
 
 const SHOTS = process.env.SHOTS_DIR ?? '/tmp/claude-0';
@@ -153,10 +158,10 @@ test.use({
 
 test('generate two alternatives from a prompt, preview them and export .mid', async ({ page }) => {
   const errors = collectErrors(page);
-  await openMode(page, 'Generate MIDI');
+  await openMode(page, 'Generate');
   await expect(page.getByTestId('generate-mode')).toBeVisible();
   await page.getByLabel('Asset prompt').fill('Create a melancholy 8-bar cello melody in D minor.');
-  await page.getByRole('button', { name: 'Generate', exact: true }).click();
+  await page.getByTestId('generate-run').click();
   await expect(page.getByTestId('asset-request-form')).toBeVisible();
   // The prompt was understood: instrument, key and bars.
   await expect(page.getByLabel('Instrument')).toHaveValue('cello');
@@ -188,9 +193,9 @@ test('generate two alternatives from a prompt, preview them and export .mid', as
 
 test('generate drum pattern shows a step grid and inserts into a project as a proposal', async ({ page }) => {
   const errors = collectErrors(page);
-  await openMode(page, 'Generate MIDI');
+  await openMode(page, 'Generate');
   await page.getByLabel('Asset prompt').fill('Make a pop-punk drum pattern at 176 BPM.');
-  await page.getByRole('button', { name: 'Generate', exact: true }).click();
+  await page.getByTestId('generate-run').click();
   const cards = page.getByTestId('alternative-card');
   await expect(cards.first()).toBeVisible();
   await expect(cards.first().getByTestId('drum-grid')).toBeVisible();
@@ -199,9 +204,9 @@ test('generate drum pattern shows a step grid and inserts into a project as a pr
   await cards.first().getByRole('button', { name: 'Insert A' }).click();
   await expect(page.getByTestId('piano-roll')).toBeVisible();
   // Back in Generate, insert alternative B into the now-open project as a new track (proposal).
-  await page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name: 'Generate MIDI' }).click();
+  await modeTab(page, 'Generate').click();
   await page.getByLabel('Asset prompt').fill('Make a pop-punk drum pattern at 176 BPM.');
-  await page.getByRole('button', { name: /Generate|Regenerate/ }).first().click();
+  await page.getByTestId('generate-run').click();
   await expect(cards.first()).toBeVisible();
   await cards.first().getByRole('button', { name: 'Insert A' }).click();
   await expect(page.getByTestId('insert-dialog')).toBeVisible();

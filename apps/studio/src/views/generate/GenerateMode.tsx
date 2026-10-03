@@ -202,7 +202,7 @@ export default function GenerateMode() {
             ))}
           </div>
           <div className="row wrap">
-            <Button variant="primary" size="lg" icon="sparkles" onClick={onGenerate} disabled={busy}>
+            <Button variant="primary" size="lg" icon="sparkles" onClick={onGenerate} disabled={busy} data-testid="generate-run">
               {busy ? 'Generating…' : stale || !request ? 'Generate' : 'Regenerate'}
             </Button>
             {busy && <Spinner />}
