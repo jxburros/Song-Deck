@@ -3,7 +3,8 @@
  *  - keys accompaniment by energy/genre: ballad (LH octaves + RH broken chords), arpeggios, block
  *    chords, rock-piano eighths, tresillo-syncopated pop/R&B, house off-beat stabs, jazz comping
  *    with shell voicings, harp and mallet arpeggios — all voice-led — plus melodic fills at phrase
- *    ends while the vocal rests;
+ *    ends while the vocal rests; genre idioms (`genre.rhythm.compStyle`): reggae/ska skank and
+ *    organ bubble, funk clavinet 16ths, salsa piano montuno, bossa nova comping, backbeat chops;
  *  - pads (synth, organ, string ensemble, brass): sustained voice-led chords with swells, tremolo in
  *    builds, epic string ostinatos at high energy, trance gating, brass stabs.
  */
@@ -15,12 +16,52 @@ import { scalePitchClasses } from '../../theory/scales';
 import { pianoVoicing, voiceChord } from '../../theory/voicing';
 import type { Cell } from '../context';
 import { applySwing, chordAtIn, clamp, humanize, toVelocity, type RawNote } from '../util';
+import { baseDrumStyle } from '../styles';
 import { melodyGaps } from './lead';
 
-type KeysPattern = 'block' | 'pulse8' | 'arp' | 'ballad' | 'stabs' | 'syncopated' | 'comp' | 'sustain' | 'harp' | 'mallet';
+type KeysPattern = 'block' | 'pulse8' | 'arp' | 'ballad' | 'stabs' | 'syncopated' | 'comp' | 'sustain' | 'harp' | 'mallet' | 'skank' | 'clav' | 'montuno' | 'bossa' | 'chop';
+
+/** 16-step rhythm figures for the idiomatic patterns (two-bar figures are 32 steps). */
+const FIGURES: Partial<Record<KeysPattern, string[]>> = {
+  clav: ['x..x..x.x..x.x..', '.x.x..x..x.x..x.', 'x.xx..x.x.xx..x.'],
+  montuno: ['x...x.x...x...x...x...x.x...x...'],
+  bossa: ['x.....x...x.......x...x.....x...'],
+  chop: ['....x.......x...'],
+};
+
+function idiomPattern(c: Cell): KeysPattern | undefined {
+  if (c.inst.id === 'clavinet') return 'clav';
+  switch (c.g.genre.rhythm.compStyle) {
+    case 'skank':
+      return 'skank';
+    case 'funk':
+      return c.inst.id === 'organ' ? 'stabs' : 'clav';
+    case 'montuno':
+      return c.inst.id === 'organ' ? 'stabs' : 'montuno';
+    case 'bossa':
+      return 'bossa';
+    case 'chop':
+      return 'chop';
+    case 'roll':
+    case 'arpeggio':
+      return 'arp';
+    case 'rasgueado':
+      return 'block';
+    case 'boogie':
+      return 'pulse8';
+    case 'highlife':
+      return 'syncopated';
+    case 'stabs':
+      return 'stabs';
+    case 'sustain':
+      return 'sustain';
+    default:
+      return undefined;
+  }
+}
 
 function keysPattern(c: Cell): KeysPattern {
-  const d = c.g.drumStyle;
+  const d = baseDrumStyle(c.g.drumStyle);
   const e = c.intensity;
   const kind = c.kind;
   const ov = c.g.settings.overrides?.accompaniment;
@@ -32,6 +73,8 @@ function keysPattern(c: Cell): KeysPattern {
   if (ov === 'pulse') return 'pulse8';
   if (ov === 'sustain') return 'sustain';
   if (ov === 'stabs') return 'stabs';
+  const idiom = idiomPattern(c);
+  if (idiom && (e >= 0.3 || idiom === 'bossa' || idiom === 'sustain') && kind !== 'outro') return idiom;
   if (c.inst.id === 'organ') return e >= 0.7 && ['rock', 'punk', 'pop-punk', 'indie', 'emo'].includes(d) ? 'pulse8' : 'sustain';
   if (d === 'jazz-swing') return 'comp';
   if (d === 'four-on-floor') return e < 0.4 ? 'sustain' : 'stabs';
@@ -196,6 +239,54 @@ function keysAccompaniment(c: Cell): RawNote[] {
         }
         break;
       }
+      case 'skank': {
+        // Reggae/ska skank: short upper-register chords on the off-beats (2 & 4 at reggae tempos);
+        // an organ "bubbles" on every off-beat eighth.
+        const eighth = m.denominator >= 8 ? m.unitTicks : m.unitTicks / 2;
+        const slow = c.bpm < 112 && c.inst.id !== 'organ';
+        const hits: number[] = [];
+        for (let t = 0; t < m.barTicks; t += eighth) {
+          const onBeat = m.beats.includes(t);
+          if (slow ? onBeat && !m.strong.includes(t) : !onBeat) hits.push(t);
+        }
+        for (const off of hits) {
+          const t = bar.tick + off;
+          const v = voicing(chordAtIn(c.chords, t));
+          for (const p of v.right) add(p, t, Math.round(bt * (c.inst.id === 'organ' ? 0.4 : 0.22)), velocityFor(c, c.inst.id === 'organ' ? 72 : 86, t), 'staccato');
+        }
+        break;
+      }
+      case 'clav':
+      case 'montuno':
+      case 'bossa':
+      case 'chop': {
+        // Idiomatic figures on a 16th grid: funk clavinet, salsa montuno (octave-doubled broken
+        // chords), bossa nova comping, backbeat chops.
+        const pool = FIGURES[pattern]!;
+        const fig = pool[c.rng.fork('fig', pattern).int(0, pool.length - 1)];
+        const half = (bar.index % Math.max(1, Math.floor(fig.length / 16))) * 16;
+        const step = m.barTicks / 16;
+        let k = 0;
+        for (let i = 0; i < 16; i++) {
+          if (fig[half + i] !== 'x') continue;
+          const t = bar.tick + Math.round(i * step);
+          // The montuno and bossa figures anticipate the next chord by an eighth.
+          const ch = chordAtIn(c.chords, pattern === 'montuno' || pattern === 'bossa' ? Math.min(t + Math.round(step * 2), barEnd - 1) : t);
+          const v = voicing(ch);
+          if (pattern === 'montuno') {
+            const tones = [...v.right].sort((a, b) => a - b);
+            const top = tones[(k++ * 2) % tones.length];
+            add(top, t, Math.round(step * 1.6), velocityFor(c, i % 4 === 0 ? 86 : 78, t));
+            if (top + 12 <= r.high) add(top + 12, t, Math.round(step * 1.6), velocityFor(c, i % 4 === 0 ? 82 : 74, t));
+            if (i % 8 === 0) add(tones[tones.length - 1], t, Math.round(step * 1.6), velocityFor(c, 72, t));
+            continue;
+          }
+          const dur = pattern === 'bossa' ? Math.round(step * 2.5) : pattern === 'chop' ? Math.round(step * 0.8) : Math.round(step * 0.9);
+          for (const p of v.right) add(p, t, dur, velocityFor(c, i % 4 === 0 ? 88 : 78, t), pattern === 'bossa' ? undefined : 'staccato');
+          if (pattern === 'bossa' && i === half % 16 && !bassPresent) for (const p of v.left) add(p, t, Math.round(step * 6), velocityFor(c, 76, t));
+        }
+        break;
+      }
       case 'comp': {
         // Charleston (1, and-of-2) plus random anticipations; short shell voicings.
         const positions = [0, Math.round(bt * 1.5)];
@@ -213,7 +304,7 @@ function keysAccompaniment(c: Cell): RawNote[] {
     }
   }
   // Melodic fills at phrase ends while the vocal rests (complexity).
-  if (c.fn !== 'pad' && pattern !== 'stabs' && c.macros.complexity > 0.3) {
+  if (c.fn !== 'pad' && pattern !== 'stabs' && pattern !== 'skank' && pattern !== 'montuno' && pattern !== 'clav' && c.macros.complexity > 0.3) {
     const melody: Note[] = c.melodyNotes();
     const gaps = melodyGaps(c, melody, PPQ * 2);
     const scale = scalePitchClasses(c.key);
@@ -252,8 +343,9 @@ function padChords(c: Cell): RawNote[] {
   const isBrass = c.inst.family === 'brass';
   const low = clamp(isStrings ? 43 : id === 'organ' ? 48 : 48, r.low, r.high - 12);
   const high = clamp(isStrings ? 86 : 82, low + 12, r.high);
-  const d = c.g.drumStyle;
-  const gated = id === 'synth-pad' && (d === 'trance' || d === 'four-on-floor' || d === 'synth-pop') && c.intensity >= 0.82 && (c.kind === 'drop' || c.kind === 'chorus' || c.kind === 'final-chorus');
+  const d = baseDrumStyle(c.g.drumStyle);
+  const raw = c.g.drumStyle;
+  const gated = id === 'synth-pad' && (raw === 'trance' || raw === 'four-on-floor' || raw === 'synth-pop' || raw === 'techno') && c.intensity >= 0.82 && (c.kind === 'drop' || c.kind === 'chorus' || c.kind === 'final-chorus');
   const epic = isStrings && c.intensity >= 0.78 && (d === 'cinematic' || d === 'orchestral' || d === 'rock' || d === 'emo') && c.kind !== 'breakdown';
   const brassStabs = isBrass && c.intensity >= 0.7;
   const organChops = id === 'organ' && c.intensity >= 0.75 && ['rock', 'punk', 'pop-punk'].includes(d);

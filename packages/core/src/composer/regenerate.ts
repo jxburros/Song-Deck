@@ -31,6 +31,7 @@ import { buildSongMotifs } from './motifs';
 import { ornamentSong } from './ornament';
 import { harmonyGroupOf, type HarmonyGroup } from './planner';
 import { chordsForPlanSection } from './structure';
+import { drumStyleInfo } from './styles';
 import { effectiveMacros, meterInfo, unitHash } from './util';
 
 export interface RegenerateOptions {
@@ -164,7 +165,7 @@ function refreshMotifs(song: Song, seed: number, scope: { trackIds?: Set<string>
     syncopation: macros.syncopation,
     movement: macros.melodicMovement,
     riff: song.motifs.some((m) => m.role === 'riff'),
-    flatVocal: genre.rhythm.drumStyle === 'hip-hop' || genre.rhythm.drumStyle === 'trap',
+    flatVocal: drumStyleInfo(genre.rhythm.drumStyle).rap === true,
     sources: {},
   });
   song.motifs = song.motifs.map((m) => {
@@ -204,6 +205,35 @@ const RELATED_DRUMS: Partial<Record<DrumStyle, DrumStyle[]>> = {
   country: ['folk', 'rock'],
   orchestral: ['cinematic'],
   cinematic: ['orchestral'],
+  funk: ['disco', 'soul', 'rnb'],
+  disco: ['funk', 'four-on-floor'],
+  soul: ['funk', 'gospel', 'rnb'],
+  gospel: ['soul', 'funk'],
+  shuffle: ['rock', 'jazz-swing'],
+  'boom-bap': ['hip-hop', 'breakbeat'],
+  'one-drop': ['ska', 'dembow'],
+  ska: ['one-drop', 'punk'],
+  dembow: ['afrobeats', 'one-drop'],
+  'bossa-nova': ['samba', 'jazz-swing'],
+  samba: ['bossa-nova'],
+  salsa: ['cumbia'],
+  cumbia: ['salsa', 'dembow'],
+  afrobeats: ['amapiano', 'dembow'],
+  amapiano: ['afrobeats', 'four-on-floor'],
+  'drum-and-bass': ['breakbeat', 'dubstep'],
+  breakbeat: ['drum-and-bass', 'boom-bap'],
+  dubstep: ['trap', 'drum-and-bass'],
+  techno: ['four-on-floor', 'trance'],
+  'two-step': ['four-on-floor', 'drum-and-bass'],
+  drill: ['trap'],
+  phonk: ['trap', 'drill'],
+  'jersey-club': ['footwork', 'four-on-floor'],
+  footwork: ['jersey-club'],
+  'baile-funk': ['dembow'],
+  flamenco: ['folk'],
+  celtic: ['folk'],
+  bhangra: ['folk'],
+  ambient: ['cinematic'],
 };
 
 /** Seeded arrangement/feel changes for a reinterpretation pass. */

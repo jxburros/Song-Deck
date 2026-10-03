@@ -13,7 +13,7 @@ import { applySwing, clamp01, humanize, toVelocity, type BarInfo, type MeterInfo
 
 type Level = 'low' | 'mid' | 'high';
 type Timekeeper = 'hat' | 'ride' | 'crash' | 'open-hat' | 'floor-tom' | 'china' | 'none';
-type FillKind = 'snare' | 'toms' | 'mixed' | 'triplet' | 'electronic' | 'jazz' | 'orchestral' | 'sparse' | 'build';
+type FillKind = 'snare' | 'toms' | 'mixed' | 'triplet' | 'electronic' | 'jazz' | 'orchestral' | 'sparse' | 'build' | 'timbales';
 
 interface Groove {
   k: string;
@@ -37,11 +37,26 @@ interface StyleDef {
   kick?: number;
   /** Groove family uses its own engine (jazz ride patterns). */
   special?: 'jazz';
+  /** Idiomatic pattern: no random syncopated kicks or extra ghost notes (one-drop, dembow, clave grooves). */
+  strict?: boolean;
+  /** Minimum 8th-note swing regardless of the genre (shuffle). */
+  swing8?: number;
 }
 
 const G = (k: string, s: string, h: string, tk?: Timekeeper, extra?: [number, string][]): Groove => ({ k, s, h, ...(tk ? { tk } : {}), ...(extra ? { extra } : {}) });
 const EIGHTHS = 'x.x.x.x.x.x.x.x.';
 const ROCK_HALF = G('x.........x.....', '........X.......', EIGHTHS);
+
+/*
+ * Template rows are 16 steps per 4/4 bar (32 for two-bar patterns such as clave grooves; a row is
+ * read at `bar.index % (length / 16)`). Kick: x / X (accent). Snare: x / X, g (ghost), r
+ * (cross-stick), c (clap only). Timekeeper: x / X, o (open hat), y (soft), p (pedal hat).
+ */
+const SIXTEENTHS = 'xxxxxxxxxxxxxxxx';
+const OFFBEATS = '..o...o...o...o.';
+const DEMBOW_S = '...x..x....x..x.';
+const CLAVE_23 = '....x...x.......x.....x.....x...';
+const TUMBAO_MUTE = '....x.......x...';
 
 const STYLES: Record<DrumStyle, StyleDef> = {
   rock: {
@@ -236,7 +251,364 @@ const STYLES: Record<DrumStyle, StyleDef> = {
     ride: false,
     kick: D.KICK_ACOUSTIC,
   },
+  // --- Groove families added with the genre expansion -------------------------------------------
+  funk: {
+    // Syncopated 16th kick, ghosted snare between the backbeats, 16th hats with an open-hat lift.
+    low: [G('x.........x.....', '....x..g.g..x...', EIGHTHS), G('x.x.......x.....', '....x.......x..g', EIGHTHS)],
+    mid: [G('x.x.......x..x..', '....x..g.g..x..g', SIXTEENTHS), G('x..x..x...x.....', '....x..g....x.g.', SIXTEENTHS)],
+    high: [G('x.x...x...xx..x.', '....X..g.g..X..g', 'x.xxx.xxx.xxx.xo'), G('x..x..x...x..x..', '....X..g.g.gX..g', 'x.xxx.xxx.xxx.xo')],
+    half: [G('x.........x.....', '........X.......', EIGHTHS)],
+    fills: ['snare', 'toms', 'mixed'],
+    ghosts: true,
+    hat16: true,
+    ride: false,
+  },
+  disco: {
+    // Four on the floor, snare on 2 & 4, open hat on every off-beat.
+    low: [G('x...x...x...x...', '................', OFFBEATS)],
+    mid: [G('x...x...x...x...', '....x.......x...', 'x.o.x.o.x.o.x.o.')],
+    high: [G('x...x...x...x...', '....X.......X...', 'xxoxxxoxxxoxxxox'), G('x...x...x...x...', '....X.......X...', 'x.o.x.o.x.o.x.o.')],
+    half: [G('x.......x.......', '........x.......', EIGHTHS)],
+    fills: ['toms', 'snare'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    strict: true,
+  },
+  soul: {
+    // Motown: backbeat with tambourine, snare on all four beats when the chorus lifts.
+    low: [G('x.......x.......', '....x.......x...', EIGHTHS)],
+    mid: [G('x.....x.x.......', '....x.......x...', EIGHTHS, 'hat', [[D.TAMBOURINE, '....x.......x...']])],
+    high: [
+      G('x.....x.x.....x.', 'X...X...X...X...', EIGHTHS, 'hat', [[D.TAMBOURINE, 'x.x.x.x.x.x.x.x.']]),
+      G('x.....x.x.......', '....X.......X...', EIGHTHS, 'hat', [[D.TAMBOURINE, '....x.......x...']]),
+    ],
+    half: [G('x.........x.....', '........x.......', EIGHTHS)],
+    fills: ['snare', 'toms'],
+    ghosts: true,
+    hat16: false,
+    ride: true,
+    sideStickLow: true,
+  },
+  gospel: {
+    // Church backbeat: heavy 2 & 4, busy kick pickups, ghost-note chops and ride/crash choruses.
+    low: [G('x.......x.x.....', '....x.......x...', EIGHTHS)],
+    mid: [G('x..x....x.x.....', '....x..g....x.g.', SIXTEENTHS), G('x.....x.x.x.....', '....x.......x.gg', EIGHTHS)],
+    high: [G('x..x..x.x.x...x.', '....X..g.g..X.gg', 'X.x.X.x.X.x.X.x.', 'ride'), G('x.x...x.x..x..x.', '....X..g....X.gg', 'X.x.X.x.X.x.X.x.', 'crash')],
+    half: [G('x.........x.....', '........X.......', EIGHTHS)],
+    fills: ['mixed', 'toms', 'snare'],
+    ghosts: true,
+    hat16: true,
+    ride: true,
+  },
+  shuffle: {
+    // Blues/rock shuffle: swung eighths on hat or ride, backbeat, kick on 1 and 3.
+    low: [G('x.......x.......', '....x.......x...', EIGHTHS)],
+    mid: [G('x.....x.x.......', '....x.......x...', EIGHTHS), G('x.......x.....x.', '....x.......x...', EIGHTHS)],
+    high: [G('x...x...x...x...', '....X.......X...', 'X.x.X.x.X.x.X.x.', 'ride')],
+    half: [ROCK_HALF],
+    fills: ['triplet', 'snare'],
+    ghosts: true,
+    hat16: false,
+    ride: true,
+    swing8: 0.62,
+  },
+  'boom-bap': {
+    // Dusty sampled-break feel: hard snare on 2 & 4, lazy kick doubles, an open hat before the turnaround.
+    low: [G('x.........x.....', '....x.......x...', EIGHTHS)],
+    mid: [G('x......x..x.....', '....x.......x...', EIGHTHS), G('x.........x..x..', '....x.......x...', EIGHTHS)],
+    high: [G('x.x....x..x..x..', '....X.......X...', EIGHTHS, 'hat', [[D.HIHAT_OPEN, '..............x.']])],
+    half: [G('x.........x.....', '........x.......', EIGHTHS)],
+    fills: ['sparse', 'snare'],
+    ghosts: true,
+    hat16: false,
+    ride: false,
+  },
+  'one-drop': {
+    // Reggae: beat 1 is empty; kick and cross-stick drop together on beat 3. Steppers kick at high energy.
+    low: [G('........x.......', '........r.......', EIGHTHS)],
+    mid: [G('........x.......', '........r.......', 'x.x.x.x.x.xxx.x.'), G('........x.......', '........x.......', EIGHTHS, 'hat', [[D.HIHAT_OPEN, '..............x.']])],
+    high: [G('x...x...x...x...', '........X.......', EIGHTHS), G('........x.......', '........X.......', 'x.x.x.xxx.x.x.xx')],
+    half: [G('........x.......', '........r.......', 'x...x...x...x...')],
+    fills: ['toms', 'snare'],
+    ghosts: false,
+    hat16: false,
+    ride: false,
+    strict: true,
+  },
+  ska: {
+    // Fast two-beat: kick on 1 & 3, rim or snare on 2 & 4, hats on the off-beats with the skank.
+    low: [G('x.......x.......', '....r.......r...', '..x...x...x...x.')],
+    mid: [G('x.......x.......', '....x.......x...', OFFBEATS)],
+    high: [G('x...x...x...x...', '....X.......X...', 'x.o.x.o.x.o.x.o.')],
+    half: [G('x...............', '........x.......', '..x...x...x...x.')],
+    fills: ['snare', 'toms'],
+    ghosts: false,
+    hat16: false,
+    ride: false,
+    strict: true,
+  },
+  dembow: {
+    // Reggaetón / dancehall: kick on every beat, snare on the "a" of 1 and the "and" of 2 (and again in 3–4).
+    low: [G('x.......x.......', DEMBOW_S, '................', 'none')],
+    mid: [G('x...x...x...x...', DEMBOW_S, '..x...x...x...x.')],
+    high: [G('x...x...x...x...', DEMBOW_S, EIGHTHS), G('x...x...x...x...', DEMBOW_S, SIXTEENTHS, 'hat', [[D.TIMBALE_HIGH, '..............xx']])],
+    half: [G('x.......x.......', '...x..x.........', '..x...x...x...x.')],
+    fills: ['sparse', 'electronic'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+    strict: true,
+  },
+  'bossa-nova': {
+    // Two-bar bossa clave on the cross-stick, surdo-like kick (1, "and" of 2, 3, "and" of 4), brushed eighths.
+    low: [G('x.....x.x.....x.', 'r.....r.....r.......r.....r.....', EIGHTHS)],
+    mid: [G('x.....x.x.....x.', 'r.....r.....r.......r.....r.....', SIXTEENTHS)],
+    high: [G('x.....x.x.....x.', 'r.....r.....r.......r.....r.....', 'x.x.x.x.x.x.x.x.', 'ride')],
+    half: [G('x.......x.......', 'r.....r.....r.......r.....r.....', EIGHTHS)],
+    fills: ['snare'],
+    ghosts: false,
+    hat16: true,
+    ride: true,
+    strict: true,
+  },
+  samba: {
+    // Surdo kick pattern, tamborim-style cross-stick figure, driving 16ths, agogô bells when it lifts.
+    low: [G('x..xx..xx..xx..x', 'r.r..r.r.r.r..r.r.r..r.r..r.r.r.', SIXTEENTHS)],
+    mid: [G('x..xx..xx..xx..x', 'r.r..r.r.r.r..r.r.r..r.r..r.r.r.', SIXTEENTHS, 'hat', [[D.AGOGO_HIGH, 'x.x...x.x.x...x.'], [D.AGOGO_LOW, '....x.......x...']])],
+    high: [G('x..xx..xx..xx..x', 'x.x..x.x.x.x..x.x.x..x.x..x.x.x.', SIXTEENTHS, 'hat', [[D.AGOGO_HIGH, 'x.x...x.x.x...x.'], [D.AGOGO_LOW, '....x.......x...']])],
+    half: [G('x.......x.......', 'r.....r.....r...', EIGHTHS)],
+    fills: ['snare', 'timbales'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    strict: true,
+  },
+  salsa: {
+    // 2-3 son clave, cascara on the shell (ride), conga tumbao, bongo bell (cowbell) in the montuno.
+    low: [G('......x.....x...', '................', '....x...x.......x.....x.....x...', 'ride', [[D.CLAVES, CLAVE_23], [D.CONGA_MUTE, TUMBAO_MUTE], [D.CONGA_LOW, '............x.x.']])],
+    mid: [G('......x.....x...', '................', '....x...x.......x.....x.....x...', 'ride', [[D.CLAVES, CLAVE_23], [D.CONGA_MUTE, TUMBAO_MUTE], [D.CONGA_HIGH, '............x.x.'], [D.TIMBALE_LOW, '..............x.']])],
+    high: [G('......x.....x...', '................', '................', 'none', [[D.CLAVES, CLAVE_23], [D.COWBELL, 'X...x...X...x...'], [D.CONGA_MUTE, TUMBAO_MUTE], [D.CONGA_HIGH, '............x.x.'], [D.CONGA_LOW, '..............x.']])],
+    half: [G('x.......x.......', '................', 'x...x...x...x...', 'ride', [[D.CLAVES, CLAVE_23]])],
+    fills: ['timbales'],
+    ghosts: false,
+    hat16: false,
+    ride: true,
+    strict: true,
+  },
+  cumbia: {
+    // Kick on 1 & 3, snare on the off-beats of 2 and 4, güiro "ch-chk-chk" over everything.
+    low: [G('x.......x.......', '......x.......x.', '................', 'none', [[D.GUIRO_LONG, 'x...x...x...x...'], [D.GUIRO_SHORT, '..xx..xx..xx..xx']])],
+    mid: [G('x.......x.......', '......x.......x.', EIGHTHS, 'hat', [[D.GUIRO_LONG, 'x...x...x...x...'], [D.GUIRO_SHORT, '..xx..xx..xx..xx']])],
+    high: [G('x...x...x...x...', '....x.x.....x.x.', EIGHTHS, 'hat', [[D.GUIRO_LONG, 'x...x...x...x...'], [D.GUIRO_SHORT, '..xx..xx..xx..xx'], [D.COWBELL, '..x...x...x...x.']])],
+    half: [G('x.......x.......', '..............x.', '................', 'none', [[D.GUIRO_LONG, 'x...x...x...x...']])],
+    fills: ['timbales', 'snare'],
+    ghosts: false,
+    hat16: false,
+    ride: false,
+    strict: true,
+  },
+  afrobeats: {
+    // 3+3+2 kick, rim clicks on the off-beats, clap on 2 & 4, rolling 16th hats, congas when it lifts.
+    low: [G('x.....x.........', '....r.......r...', SIXTEENTHS)],
+    mid: [G('x.....x...x.....', '...r..r....r..r.', 'x.xxx.xxx.xxx.xx')],
+    high: [G('x.....x...x...x.', '....c..r....c..r', SIXTEENTHS, 'hat', [[D.CONGA_HIGH, '..x..x....x..x..'], [D.CONGA_LOW, 'x.....x.........']])],
+    half: [G('x.........x.....', '........c.......', EIGHTHS)],
+    fills: ['sparse', 'electronic'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+  },
+  amapiano: {
+    // Deep, unhurried house: kick, shaker-like 16ths, syncopated rim/clap figures, open-hat lifts.
+    low: [G('x.......x.......', '....c.......c...', 'yxyxyxyxyxyxyxyx', 'hat', [[D.SIDE_STICK, '...x..x....x....']])],
+    mid: [G('x...x...x...x...', '....c.......c...', 'yxyxyxyxyxyxyxyx', 'hat', [[D.SIDE_STICK, '...x..x....x..x.'], [D.HIHAT_OPEN, '..x...x...x...x.']])],
+    high: [G('x...x...x...x...', '....c..x....c...', 'yxyxyxyxyxyxyxyx', 'hat', [[D.SIDE_STICK, '...x..x..x.x..x.'], [D.HIHAT_OPEN, '..x...x...x...x.']])],
+    half: [G('x...............', '........c.......', 'yxyxyxyxyxyxyxyx')],
+    fills: ['sparse'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+    strict: true,
+  },
+  'drum-and-bass': {
+    // Two-step break at 170+: kick on 1 and the "and" of 3, snare on 2 & 4, busy 16th hats/ride.
+    low: [G('x.........x.....', '....x.......x...', EIGHTHS)],
+    mid: [G('x.........x.....', '....x.......x...', SIXTEENTHS), G('x.x.......x.....', '....x.......x..g', SIXTEENTHS)],
+    high: [G('x.........xx....', '....X..g.g..X..g', SIXTEENTHS, 'ride'), G('x.x.......x.....', '....X.......X...', 'xxoxxxoxxxoxxxox')],
+    half: [G('x...............', '........X.......', EIGHTHS)],
+    fills: ['electronic', 'snare'],
+    ghosts: true,
+    hat16: true,
+    ride: true,
+    electronic: true,
+  },
+  breakbeat: {
+    // Chopped funk break ("Amen"-style): kick on 1, the "and" of 1 and around 3, snare 2 & 4 with pushes.
+    low: [G('x.x.......x.....', '....x.......x...', EIGHTHS)],
+    mid: [G('x.x.......xx....', '....x..x.x..x..x', EIGHTHS, 'ride')],
+    high: [G('x.x.......xx....', '....X..x.x..X..x', 'X.x.X.x.X.x.X.x.', 'ride'), G('x.x...x...x.....', '....X..x.x.xX..x', SIXTEENTHS)],
+    half: [G('x.........x.....', '........X.......', EIGHTHS)],
+    fills: ['snare', 'mixed'],
+    ghosts: true,
+    hat16: true,
+    ride: true,
+  },
+  dubstep: {
+    // Half-time at 140: kick on 1, snare on 3, syncopated kicks and busy hats under the wobble.
+    low: [G('x...............', '........x.......', '..x...x...x...x.')],
+    mid: [G('x.........x.....', '........X.......', EIGHTHS)],
+    high: [G('x.....x...x.....', '........X.......', SIXTEENTHS), G('x.........x..x..', '........X.....x.', 'x.xxx.xxx.xxx.xx')],
+    half: [G('x...............', '........x.......', '..x...x...x...x.')],
+    fills: ['electronic', 'sparse'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+  },
+  techno: {
+    // Relentless four on the floor, off-beat open hats, clap on 2 & 4, rim syncopation.
+    low: [G('x...x...x...x...', '................', OFFBEATS)],
+    mid: [G('x...x...x...x...', '....c.......c...', 'x.o.x.o.x.o.x.o.', 'hat', [[D.SIDE_STICK, '...x.....x....x.']])],
+    high: [G('x...x...x...x...', '....c.......c...', 'xxoxxxoxxxoxxxox', 'hat', [[D.SIDE_STICK, '...x.....x.x..x.']])],
+    half: [G('x...x...x...x...', '................', OFFBEATS)],
+    fills: ['electronic'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+    strict: true,
+  },
+  'two-step': {
+    // UK garage: skippy kick that skips beat 3, snare on 2 & 4, shuffled 16th hats with open lifts.
+    low: [G('x.........x.....', '....x.......x...', EIGHTHS)],
+    mid: [G('x......x..x.....', '....x.......x...', 'xxoxxxoxxxoxxxox'), G('x.........x..x..', '....x.......x...', SIXTEENTHS)],
+    high: [G('x......x..x...x.', '....X.......X...', 'xxoxxxoxxxoxxxox'), G('x..x......x..x..', '....X.......X...', 'xxoxxxoxxxoxxxox')],
+    half: [G('x.........x.....', '........x.......', EIGHTHS)],
+    fills: ['sparse', 'electronic'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+  },
+  drill: {
+    // Drill at ~140 half-time: sliding kick figure, snare on 3 plus a late snare in the second bar, 3-3-2 hats.
+    low: [G('x.........x.....', '........x.......', 'x..x..x.x..x..x.')],
+    mid: [G('x.....x...x.....', '........x...............x.....x.', 'x..x..x.x..x..x.')],
+    high: [G('x.....x...x.....x.........x..x..', '........X...............X.....X.', 'x..x..x.x.xxx..x'), G('x..x......x.....', '........X.....X.', 'x..x..x.x..x..xx')],
+    half: [G('x...............', '........x.......', 'x..x..x.x..x..x.')],
+    fills: ['sparse'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+    strict: true,
+  },
+  phonk: {
+    // Memphis / drift phonk: trap half-time with a cowbell figure riding on top.
+    low: [G('x.........x.....', '........x.......', EIGHTHS)],
+    mid: [G('x.........x.....', '........X.......', SIXTEENTHS, 'hat', [[D.COWBELL, 'x..x..x...x..x..']])],
+    high: [G('x.....x...x..x..', '........X.......', SIXTEENTHS, 'hat', [[D.COWBELL, 'x..x..x.x..x..x.']])],
+    half: [G('x...............', '........x.......', EIGHTHS)],
+    fills: ['sparse', 'electronic'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+  },
+  'jersey-club': {
+    // Jersey club: the bouncing five-kick figure, clap on 2 & 4, sparse hats.
+    low: [G('x..x..x.x.......', '....c.......c...', '..x...x...x...x.')],
+    mid: [G('x..x..x.x...x...', '....c.......c...', '..x...x...x...x.')],
+    high: [G('x..x..x.x...x.x.', '....X.......X...', 'x.x.x.x.x.x.x.x.')],
+    half: [G('x.......x.......', '........c.......', '..x...x...x...x.')],
+    fills: ['electronic'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+    strict: true,
+  },
+  footwork: {
+    // Footwork / juke at ~160: stuttering 3-3-2 kicks, sparse snare, open-hat accents.
+    low: [G('x..x..x...x.....', '........x.......', '..x...x...x...x.')],
+    mid: [G('x..x..x...x..x..', '....x.......x...', 'x.x.x.x.x.x.x.x.')],
+    high: [G('x..x..x.x..x..x.', '....X.......X...', 'x.o.x.o.x.o.x.o.')],
+    half: [G('x.........x.....', '........x.......', '..x...x...x...x.')],
+    fills: ['electronic'],
+    ghosts: false,
+    hat16: true,
+    ride: false,
+    electronic: true,
+    strict: true,
+  },
+  'baile-funk': {
+    // Funk carioca tamborzão: syncopated kick and conga-like drums over a clapped snare.
+    low: [G('x..x......x..x..', '....x.......x...', '................', 'none', [[D.CONGA_LOW, 'x..x..x...x..x..']])],
+    mid: [G('x..x......x..x..', '....x..x....x...', EIGHTHS, 'hat', [[D.CONGA_LOW, 'x..x..x...x..x..'], [D.CONGA_HIGH, '..x.....x.x.....']])],
+    high: [G('x..x..x...x..x..', '....X..x....X..x', EIGHTHS, 'hat', [[D.CONGA_LOW, 'x..x..x...x..x..'], [D.CONGA_HIGH, '..x.....x.x.....']])],
+    half: [G('x.........x.....', '........x.......', EIGHTHS)],
+    fills: ['sparse'],
+    ghosts: false,
+    hat16: false,
+    ride: false,
+    electronic: true,
+    strict: true,
+  },
+  flamenco: {
+    // Rumba flamenca on cajón (kick = bass tone, snare = slap) with off-beat palmas.
+    low: [G('x.....x.x.......', '....x.......x...', '................', 'none', [[D.CLAP, '..x...x...x...x.']])],
+    mid: [G('x.....x.x.....x.', '....x..g....x..g', '................', 'none', [[D.CLAP, '..x...x...x...x.']])],
+    high: [G('x..x..x.x.....x.', '....X..g.g..X..g', '................', 'none', [[D.CLAP, '..x.x.x...x.x.x.']])],
+    half: [G('x.......x.......', '........x.......', '................', 'none', [[D.CLAP, '..x...x...x...x.']])],
+    fills: ['snare'],
+    ghosts: false,
+    hat16: false,
+    ride: false,
+    strict: true,
+  },
+  celtic: {
+    // Bodhrán-style driving eighths on the low drum with accented off-beats; kit backbeat when it lifts.
+    low: [G('x.......x.......', '................', '................', 'none', [[D.FLOOR_TOM_LOW, 'x.x.x.x.x.x.x.x.'], [D.TOM_LOW, '..x.......x.....']])],
+    mid: [G('x.......x.......', '....x.......x...', '................', 'none', [[D.FLOOR_TOM_LOW, 'x.x.x.x.x.x.x.x.'], [D.TOM_LOW, '..x...x...x...x.']])],
+    high: [G('x...x...x...x...', '....X.......X...', EIGHTHS, 'hat', [[D.FLOOR_TOM_LOW, 'x.x.x.x.x.x.x.x.']])],
+    half: [G('x...............', '........x.......', '................', 'none', [[D.FLOOR_TOM_LOW, 'x...x...x...x...']])],
+    fills: ['toms', 'snare'],
+    ghosts: false,
+    hat16: false,
+    ride: false,
+    strict: true,
+  },
+  bhangra: {
+    // Dhol chaal: 3-3-2 bass-side strokes with the treble stick on the off-beats, clapped backbeat.
+    low: [G('x.......x.......', '....c.......c...', '................', 'none', [[D.FLOOR_TOM_LOW, 'x..x..x.x..x..x.'], [D.TOM_HIGH, '..x...x...x...x.']])],
+    mid: [G('x.......x.......', '....c.......c...', EIGHTHS, 'hat', [[D.FLOOR_TOM_LOW, 'x..x..x.x..x..x.'], [D.TOM_HIGH, '..x...x...x...x.']])],
+    high: [G('x...x...x...x...', '....X.......X...', EIGHTHS, 'hat', [[D.FLOOR_TOM_LOW, 'x..x..x.x..x..x.'], [D.TOM_HIGH, '.xx..xx..xx..xx.'], [D.TAMBOURINE, 'x.x.x.x.x.x.x.x.']])],
+    half: [G('x...............', '........c.......', '................', 'none', [[D.FLOOR_TOM_LOW, 'x..x..x.........']])],
+    fills: ['toms'],
+    ghosts: false,
+    hat16: false,
+    ride: false,
+    strict: true,
+  },
+  ambient: {
+    // Barely-there pulse: a soft kick, a distant rim, felt off-beat hats only when the music lifts.
+    low: [G('x...............', '................', '................', 'none')],
+    mid: [G('x.......x.......', '........r.......', '..y...y...y...y.')],
+    high: [G('x...x...x...x...', '....x.......x...', EIGHTHS)],
+    half: [G('x...............', '........r.......', '................', 'none')],
+    fills: ['sparse'],
+    ghosts: false,
+    hat16: false,
+    ride: false,
+    electronic: true,
+    strict: true,
+  },
 };
+
 
 const TOMS_DESC = [D.TOM_HIGH, D.TOM_HIGH_MID, D.TOM_LOW_MID, D.TOM_LOW, D.FLOOR_TOM_HIGH, D.FLOOR_TOM_LOW];
 
@@ -283,20 +655,28 @@ function templateBar(d: DrumCtx, g: Groove, bar: BarInfo, level: Level, barRng: 
   if (tk === 'hat' && def.ride && level === 'high' && e >= 0.85 && (c.kind === 'chorus' || c.kind === 'final-chorus' || c.kind === 'solo')) tk = 'ride';
   const sideStick = def.sideStickLow && level === 'low' && e < 0.42 && c.kind !== 'chorus' && c.kind !== 'final-chorus';
   const quarterOnly = d.density < 0.28 || (c.kind === 'intro' && e < 0.3);
-  const sixteenths = def.hat16 && tk === 'hat' && d.density > 0.68 && e > 0.45;
+  const sixteenths = def.hat16 && tk === 'hat' && d.density > 0.68 && e > 0.45 && !def.strict;
+  // Two-bar rows (clave grooves) alternate halves bar by bar.
+  const at = (row: string, i: number) => row[(bar.index % Math.max(1, Math.floor(row.length / 16))) * 16 + i] ?? '.';
   for (let i = 0; i < 16; i++) {
     const t = bar.tick + Math.round(i * step);
-    const kc = g.k[i];
+    const kc = at(g.k, i);
     if (kc === 'x' || kc === 'X') hits.push({ pitch: d.kick, tick: t, vel: scaleVel(d, kc === 'X' ? 114 : i % 4 === 0 ? 106 : 98, e) });
-    const sc = g.s[i];
+    const sc = at(g.s, i);
     if (sc === 'x' || sc === 'X') {
       const p = sideStick ? D.SIDE_STICK : d.snare;
       hits.push({ pitch: p, tick: t, vel: scaleVel(d, sc === 'X' ? 120 : 108, e) });
       if (d.electronic && !sideStick && e > 0.55) hits.push({ pitch: D.CLAP, tick: t, vel: scaleVel(d, 100, e) });
     } else if (sc === 'g') hits.push({ pitch: d.snare, tick: t, vel: 30 + Math.round(barRng.next() * 10), ghost: true });
-    let hc = g.h[i];
+    else if (sc === 'r') hits.push({ pitch: D.SIDE_STICK, tick: t, vel: scaleVel(d, 98, e) });
+    else if (sc === 'c') hits.push({ pitch: D.CLAP, tick: t, vel: scaleVel(d, 104, e) });
+    let hc = at(g.h, i);
     if (quarterOnly && i % 4 !== 0) hc = '.';
     if (sixteenths && hc === '.' && i % 2 === 1) hc = 'y';
+    if (hc === 'p') {
+      hits.push({ pitch: D.HIHAT_PEDAL, tick: t, vel: scaleVel(d, 70, e) });
+      hc = '.';
+    }
     if (hc !== '.') {
       const accent = hc === 'X' || i % 4 === 0;
       const off = i % 2 === 1;
@@ -342,12 +722,13 @@ function templateBar(d: DrumCtx, g: Groove, bar: BarInfo, level: Level, barRng: 
   }
   for (const [pitch, row] of g.extra ?? []) {
     for (let i = 0; i < 16; i++) {
-      const ch = row[i];
+      const ch = at(row, i);
       if (ch === 'x' || ch === 'X') hits.push({ pitch, tick: bar.tick + Math.round(i * step), vel: scaleVel(d, ch === 'X' ? 112 : 92, e), dur: 120 });
     }
   }
   // Groove variations: syncopated kicks, 16th pickups, ghost notes.
   const has = (pitch: number, i: number) => hits.some((h) => h.pitch === pitch && h.tick === bar.tick + Math.round(i * step));
+  if (def.strict) return hits;
   if (level !== 'low' && barRng.chance(d.syncopation * 0.45)) {
     const i = barRng.pick([6, 14, 10]);
     if (!has(d.kick, i) && !has(d.snare, i)) hits.push({ pitch: d.kick, tick: bar.tick + Math.round(i * step), vel: scaleVel(d, 94, e) });
@@ -491,6 +872,11 @@ function fillHits(d: DrumCtx, kind: FillKind, start: number, length: number, e: 
       if (length >= PPQ && rng.chance(0.5)) hits.push({ pitch: d.kick, tick: start + length - PPQ / 4, vel: scaleVel(d, 90, e) });
       break;
     }
+    case 'timbales':
+      // Latin timbale fill: alternating high/low shells, a cowbell-free flam into the downbeat.
+      for (let i = 0; i < n; i++) if (i % 4 !== 1 || rng.chance(0.6)) hits.push({ pitch: i % 2 === 0 ? D.TIMBALE_HIGH : D.TIMBALE_LOW, tick: start + i * grid, vel: vel(i) });
+      hits.push({ pitch: D.TIMBALE_HIGH, tick: start + length - grid, vel: scaleVel(d, 116, e), dur: grid });
+      break;
     case 'jazz':
       for (let i = 0; i < n; i++) if (i % 3 !== 1 || rng.chance(0.5)) hits.push({ pitch: i % 3 === 2 ? TOMS_DESC[Math.min(5, Math.floor(i / 2))] : d.snare, tick: start + i * grid, vel: vel(i) - 6 });
       hits.push({ pitch: d.kick, tick: start + length - grid, vel: scaleVel(d, 104, e) });
@@ -645,7 +1031,7 @@ export function generateDrums(c: Cell): RawNote[] {
     return true;
   });
   // Swing: delay off-beat subdivisions (and the jazz ride "let").
-  const sw8 = style === 'jazz-swing' ? Math.max(c.swing8, 0.66) : c.swing8;
+  const sw8 = style === 'jazz-swing' ? Math.max(c.swing8, 0.66) : def.swing8 ? Math.max(c.swing8, def.swing8) : c.swing8;
   const notes: RawNote[] = unique.map((h) => {
     const { meter, barStart } = c.meterAt(h.tick);
     let off = h.tick - barStart;

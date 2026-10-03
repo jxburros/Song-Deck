@@ -505,7 +505,68 @@ export type DrumStyle =
   | 'folk'
   | 'country'
   | 'orchestral'
-  | 'cinematic';
+  | 'cinematic'
+  // Groove families added with the genre expansion (see composer/styles.ts for their traits).
+  | 'funk'
+  | 'disco'
+  | 'soul'
+  | 'gospel'
+  | 'shuffle'
+  | 'boom-bap'
+  | 'one-drop'
+  | 'ska'
+  | 'dembow'
+  | 'bossa-nova'
+  | 'samba'
+  | 'salsa'
+  | 'cumbia'
+  | 'afrobeats'
+  | 'amapiano'
+  | 'drum-and-bass'
+  | 'breakbeat'
+  | 'dubstep'
+  | 'techno'
+  | 'two-step'
+  | 'drill'
+  | 'phonk'
+  | 'jersey-club'
+  | 'footwork'
+  | 'baile-funk'
+  | 'flamenco'
+  | 'celtic'
+  | 'bhangra'
+  | 'ambient';
+
+/**
+ * Idiomatic bass-line patterns a genre (or tag) can ask for. Without one the bass generator picks a
+ * pattern from the drum style.
+ */
+export type BassPattern =
+  | 'kick-lock'
+  | 'eighths'
+  | 'root-fifth'
+  | 'walking'
+  | 'offbeat'
+  | 'rolling'
+  | 'sustain'
+  | 'eight-o-eight'
+  | 'pulse'
+  | 'octave'
+  | 'funk'
+  | 'boogie'
+  | 'reggae'
+  | 'tumbao'
+  | 'bossa'
+  | 'samba'
+  | 'log-drum'
+  | 'wobble';
+
+/**
+ * Idiomatic accompaniment (keys and rhythm guitar) a genre (or tag) can ask for: reggae/ska skank,
+ * funk scratch, salsa montuno, bossa nova comping, bluegrass chop and banjo roll, flamenco
+ * rasgueado, blues boogie, highlife picking, house stabs, arpeggios or sustained chords.
+ */
+export type CompStyle = 'skank' | 'funk' | 'montuno' | 'bossa' | 'chop' | 'roll' | 'rasgueado' | 'boogie' | 'highlife' | 'stabs' | 'arpeggio' | 'sustain';
 
 export interface GenreProfile {
   id: string;
@@ -541,6 +602,10 @@ export interface GenreProfile {
     /** Base subdivision of grooves: 8ths, 16ths, or 12 (triplet 8ths). */
     subdivision: 8 | 12 | 16;
     halfTimeChance?: number;
+    /** Idiomatic bass pattern (overrides the drum style's default). */
+    bassStyle?: BassPattern;
+    /** Idiomatic keys/guitar accompaniment (overrides the drum style's default). */
+    compStyle?: CompStyle;
   };
   dynamics: {
     /** Typical energy (0..100) per section kind. */
@@ -677,6 +742,8 @@ export interface SongDNA {
   energyCurve: number[];
   repetition: { pattern: string; repeatRatio: number };
   genreBlend: GenreWeight[];
+  /** Tag ids of the song (style, mood, era…), carried into DNA compositions. */
+  tags?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -919,6 +986,12 @@ export interface Song {
   macros: MacroSettings;
   locks: LockMap;
   genreBlend: GenreWeight[];
+  /**
+   * Tag ids from the tag catalog (`composer/tags.ts`) the song was composed with. They shape the
+   * blended genre profile and shift `macros` (the user's base) at generation time, so
+   * regeneration and variations keep them. Falls back to `blueprint.tags` when absent.
+   */
+  tags?: string[];
   blueprint?: Blueprint;
   plan?: CompositionPlan;
   dna?: SongDNA;

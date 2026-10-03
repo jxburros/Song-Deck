@@ -25,6 +25,7 @@ import { getInstrument } from './instruments';
 import { fillMixer, mixerForGenre, trackColor } from './mixer';
 import { buildSongMotifs } from './motifs';
 import { planComposition } from './planner';
+import { drumStyleInfo } from './styles';
 import { sectionsFromPlan, writePlanChords } from './structure';
 import { extractSongDNA } from './dna';
 import { meterInfo } from './util';
@@ -143,7 +144,7 @@ export function composeInternal(blueprint: Blueprint, planIn: CompositionPlan | 
         syncopation: song.macros.syncopation,
         movement: song.macros.melodicMovement,
         riff: RIFF_STYLES.includes(genre.rhythm.drumStyle) && Boolean(riffTrack),
-        flatVocal: genre.rhythm.drumStyle === 'hip-hop' || genre.rhythm.drumStyle === 'trap',
+        flatVocal: drumStyleInfo(genre.rhythm.drumStyle).rap === true,
         sources,
       });
 

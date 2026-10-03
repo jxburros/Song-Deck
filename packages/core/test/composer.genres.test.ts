@@ -90,6 +90,9 @@ describe('instrument profiles (§17)', () => {
     ['synth-arp', 'synth', 'pluck'], ['synth-seq', 'synth', 'pluck'], ['choir', 'vocal', 'choir'], ['lead-vocal', 'vocal', 'vocal-placeholder'],
     ['backing-vocal', 'vocal', 'vocal-placeholder'], ['harp', 'strings', 'harp'], ['timpani', 'percussion', 'timpani'], ['glockenspiel', 'percussion', 'bell'],
     ['marimba', 'percussion', 'mallet'],
+    ['nylon-guitar', 'guitar', 'guitar-nylon'], ['banjo', 'guitar', 'banjo'], ['mandolin', 'guitar', 'mandolin'], ['pedal-steel', 'guitar', 'pedal-steel'],
+    ['sitar', 'guitar', 'sitar'], ['clavinet', 'keys', 'clavinet'], ['accordion', 'keys', 'accordion'], ['harmonica', 'woodwind', 'harmonica'],
+    ['steel-pan', 'percussion', 'steel-pan'], ['log-drum', 'bass', 'log-drum'], ['808-bass', 'bass', 'bass-808'], ['chip-lead', 'synth', 'chip-pulse'],
   ];
 
   it('uses the exact ids, families and patch ids of the contract', () => {
@@ -117,6 +120,10 @@ describe('instrument profiles (§17)', () => {
     expect(getInstrument('heavy guitar').id).toBe('electric-guitar-distorted');
     expect(getInstrument('gm-33').id).toBe('electric-bass');
     expect(getInstrument('kazoo-9000').id).toBe('piano');
+    expect(getInstrument('808').id).toBe('808-bass');
+    expect(getInstrument('steel drums').id).toBe('steel-pan');
+    expect(getInstrument('classical guitar').id).toBe('nylon-guitar');
+    expect(getInstrument('clav').id).toBe('clavinet');
     expect(getInstrument('').id).toBeTruthy();
     const custom = { ...getInstrument('violin'), id: 'my-erhu', name: 'Erhu', custom: true };
     expect(getInstrument('my-erhu', [custom]).name).toBe('Erhu');

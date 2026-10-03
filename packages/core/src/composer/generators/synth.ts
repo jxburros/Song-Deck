@@ -8,6 +8,7 @@ import { chordPitchClasses } from '../../theory/chords';
 import { mod12 } from '../../theory/pitch';
 import { voiceChord } from '../../theory/voicing';
 import type { Cell } from '../context';
+import { drumStyleInfo } from '../styles';
 import { chordAtIn, clamp, humanize, toVelocity, type RawNote } from '../util';
 
 type ArpMode = 'up' | 'down' | 'updown' | 'converge' | 'random' | 'pinky';
@@ -15,7 +16,7 @@ type ArpMode = 'up' | 'down' | 'updown' | 'converge' | 'random' | 'pinky';
 function arpRate(c: Cell, m: Cell['meter']): number {
   const d = c.g.drumStyle;
   if (m.compound || m.denominator >= 8) return m.unitTicks / (c.intensity > 0.7 ? 2 : 1);
-  const electronic = d === 'trance' || d === 'four-on-floor' || d === 'synth-pop' || d === 'trap';
+  const electronic = d === 'trance' || d === 'four-on-floor' || d === 'synth-pop' || d === 'trap' || (drumStyleInfo(d).electronic && d !== 'hip-hop');
   let rate = electronic || (c.bpm < 110 && c.macros.density > 0.5) ? PPQ / 4 : PPQ / 2;
   if (c.intensity < 0.3) rate *= 2;
   if (c.bpm > 160 && rate < PPQ / 2) rate = PPQ / 2;

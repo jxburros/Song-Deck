@@ -14,6 +14,7 @@ export { regenerateUnlocked, type RegenerateOptions, type RegenerateResult } fro
 export { createVariation, BRANCH_TEMPLATES, type ComposerBranchTemplate, type VariationOptions as CreateVariationOptions } from './variation';
 export { extractSongDNA, composeFromDNA, type ComposeFromDnaOptions } from './dna';
 export { generateAsset, type GenerateAssetOptions } from './asset';
+export { DRUM_STYLE_INFO, ALL_DRUM_STYLES, drumStyleInfo, baseDrumStyle, type DrumStyleInfo, type BaseDrumStyle } from './styles';
 export {
   BUILTIN_TAGS,
   listTags,
