@@ -30,6 +30,7 @@ import {
   toProvenanceRecord,
   type ArtifactInfo,
   type ChatMessage as AiChatMessage,
+  type Capability,
   type CostEstimate,
   type CostEstimateInput,
   type DataFlowDescriptor,
@@ -273,22 +274,38 @@ export interface RoleOption {
   location?: string;
 }
 
+/**
+ * Capability sets that can serve a role, in order of preference. Production can be done by
+ * generating from text, or by performing the composition (MIDI or stem conditioning, audio to
+ * audio) — the on-device producer does the latter (spec §29-§30, §38).
+ */
+const ROLE_CAPABILITY_SETS: Partial<Record<TaskRole, Capability[][]>> = {
+  production: [['TEXT_TO_MUSIC'], ['MIDI_CONDITIONING'], ['STEM_CONDITIONING'], ['AUDIO_TO_AUDIO']],
+};
+
 /** Options for a provider picker: Auto, on-device engine, and every compatible provider. */
 export function roleOptions(role: TaskRole): RoleOption[] {
   const reg = getRegistry();
   const info = ROLE_INFO[role];
+  const sets = ROLE_CAPABILITY_SETS[role] ?? [info.capabilities];
   const out: RoleOption[] = [];
-  let predicted = '';
-  try {
-    predicted = getRouter().select({ role }).providerName;
-  } catch {
-    predicted = 'no compatible provider';
+  let predicted = 'no compatible provider';
+  for (const capabilities of sets) {
+    try {
+      predicted = getRouter().select({ role, capabilities }).providerName;
+      break;
+    } catch {
+      /* try the next way to serve this role */
+    }
   }
   out.push({ value: 'auto', label: `Auto (${routingSettings().mode}) → ${predicted}` });
   const internalId = INTERNAL_FOR_ROLE[role];
   if (internalId && reg.has(internalId)) out.push({ value: 'internal', label: `${reg.get(internalId)!.descriptor.name}`, location: 'internal' });
-  for (const c of reg.findCompatible(info.capabilities, { interface: info.interface, includeUnavailable: true })) {
-    if (c.location === 'internal') continue;
+  const seen = new Set<string>();
+  const compatible = sets.flatMap((capabilities) => reg.findCompatible(capabilities, { interface: info.interface, includeUnavailable: true }));
+  for (const c of compatible) {
+    if (c.location === 'internal' || seen.has(c.providerId)) continue;
+    seen.add(c.providerId);
     out.push({
       value: c.providerId,
       label: `${c.providerName} · ${c.location}${c.status !== 'ready' ? ` (${c.status})` : ''}`,

@@ -13,7 +13,7 @@ import {
   type EditSelection,
   type Song,
 } from '@songdeck/core';
-import { STOCK_VOICES, encodeWav, type AudioData } from '@songdeck/audio';
+import { STOCK_VOICES, encodeWav, type AudioData, type LoudnessReport } from '@songdeck/audio';
 import {
   createInternalProvider,
   type AudioGenerationProvider,
@@ -28,6 +28,7 @@ import {
 import { INTERNAL_DESCRIPTORS } from './internalDescriptors';
 import { jobs } from './jobs';
 import { decodeAudioBytes } from '../state/assets';
+import { collectAssets } from './mix-render';
 import { allCustomGenres } from './plugins';
 
 /**
@@ -211,16 +212,33 @@ function producer(): AudioGenerationProvider {
     },
     async generateMusic(req) {
       if (!req.song) throw new Error('The built-in producer renders the composition itself — no song was supplied');
-      const audio = await jobs.call<AudioData>('renderMix', { song: req.song, sampleRate: 44100, applyMaster: true }, { signal: req.signal });
+      // Audio-track clips (stems, recordings) are part of the performance too.
+      const assets = await collectAssets(req.song);
+      const audio = await jobs.call<AudioData>('renderMix', { song: req.song, assets, sampleRate: 44100, applyMaster: true, seed: req.seed }, { signal: req.signal });
       return { audio: wav(audio), model: 'dsp-producer', seed: req.seed, confidence: 0.5 };
     },
     async transformAudio(req) {
-      // Stem "production" without a neural model: glue compression, saturation-friendly EQ tilt, width.
+      // Stem "production" without a neural model: glue compression, saturation-friendly EQ tilt and
+      // width — then matched back to the input's loudness so the mix balance between stems survives.
       const audio = await decodeAudioBytes(req.audio.data);
-      const r = await jobs.call<{ output: AudioData }>('master', { audio, settings: { method: 'builtin', target: 'demo', tone: 0.15, width: 1.1 } }, { signal: req.signal });
-      return { audio: wav(r.output), model: 'dsp-producer', seed: req.seed, confidence: 0.4 };
+      const [before, r] = await Promise.all([
+        jobs.call<LoudnessReport>('loudness', audio, { signal: req.signal }),
+        jobs.call<{ output: AudioData }>('master', { audio, settings: { method: 'builtin', target: 'demo', tone: 0.15, width: 1.1 } }, { signal: req.signal }),
+      ]);
+      const after = await jobs.call<LoudnessReport>('loudness', r.output, { signal: req.signal });
+      return { audio: wav(matchLoudness(r.output, before, after)), model: 'dsp-producer', seed: req.seed, confidence: 0.4 };
     },
   };
+}
+
+/** Scale `audio` from loudness `after` back to `before` (peak-limited to avoid clipping). */
+function matchLoudness(audio: AudioData, before: LoudnessReport, after: LoudnessReport): AudioData {
+  if (!Number.isFinite(before.integratedLufs) || !Number.isFinite(after.integratedLufs)) return audio;
+  let gain = 10 ** ((before.integratedLufs - after.integratedLufs) / 20);
+  let peak = 0;
+  for (const ch of audio.channels) for (let i = 0; i < ch.length; i++) peak = Math.max(peak, Math.abs(ch[i]));
+  if (peak * gain > 0.989) gain = 0.989 / Math.max(peak, 1e-9);
+  return { sampleRate: audio.sampleRate, channels: audio.channels.map((ch) => ch.map((v) => v * gain)) };
 }
 
 export function createInternalProviders(ctx: InternalContext): ProviderInstance[] {

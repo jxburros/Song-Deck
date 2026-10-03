@@ -38,7 +38,7 @@ export const INTERNAL_DESCRIPTORS = {
     name: 'Built-in DSP producer (non-neural)',
     adapter: 'internal',
     location: 'internal',
-    capabilities: ['STEM_GENERATION', 'STEM_CONDITIONING', 'MIDI_CONDITIONING', 'SECTION_GENERATION', 'INSTRUMENTAL_ONLY', 'STEM_OUTPUT'],
+    capabilities: ['STEM_GENERATION', 'STEM_CONDITIONING', 'MIDI_CONDITIONING', 'AUDIO_TO_AUDIO', 'SECTION_GENERATION', 'INSTRUMENTAL_ONLY', 'STEM_OUTPUT'],
     qualityTier: 1,
     description: 'Renders the composition with production presets (layered synthesis, saturation, bus processing). Deterministic.',
   },

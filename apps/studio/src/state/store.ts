@@ -199,6 +199,8 @@ function summarize(project: Project): ProjectSummary {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+/** Confirmations waiting behind the one on screen. */
+const confirmQueue: PendingConfirm[] = [];
 
 /** Listeners notified after every local commit (collaboration, analytics). */
 type CommitListener = (project: Project, revision: Revision) => void;
@@ -582,13 +584,16 @@ export const useStudio = create<StudioState>((set, get) => {
       set({ chat: [] });
     },
     requestConfirm(c) {
+      // Concurrent requests (e.g. two cloud tasks) queue up and are shown one at a time.
       return new Promise<boolean>((resolve) => {
-        set({ confirm: { ...c, id: nextId('c'), resolve } });
+        const pending = { ...c, id: nextId('c'), resolve };
+        if (get().confirm) confirmQueue.push(pending);
+        else set({ confirm: pending });
       });
     },
     resolveConfirm(ok) {
       const c = get().confirm;
-      set({ confirm: null });
+      set({ confirm: confirmQueue.shift() ?? null });
       c?.resolve(ok);
     },
 

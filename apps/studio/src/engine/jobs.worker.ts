@@ -66,8 +66,8 @@ async function run(req: JobRequest, signal: AbortSignal): Promise<unknown> {
     self.postMessage({ id: req.id, progress: p, stage, detail } satisfies JobResponse);
   switch (req.method) {
     case 'renderMix': {
-      const a = req.args as { song: Song; assets?: Record<string, AudioData>; sampleRate?: number; applyMaster?: boolean; trackIds?: string[] };
-      return audio.renderSong(a.song, { ...instrumentConfig, sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), applyMaster: a.applyMaster, trackIds: a.trackIds });
+      const a = req.args as { song: Song; assets?: Record<string, AudioData>; sampleRate?: number; applyMaster?: boolean; trackIds?: string[]; seed?: number };
+      return audio.renderSong(a.song, { ...instrumentConfig, sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), applyMaster: a.applyMaster, trackIds: a.trackIds, seed: a.seed });
     }
     case 'renderStems': {
       const a = req.args as { song: Song; assets?: Record<string, AudioData>; sampleRate?: number; by?: 'stemGroup' | 'track' };
