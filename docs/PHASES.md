@@ -158,6 +158,10 @@ Limitations (honest):
   provider; voice conversion always needs a provider.
 * Syllables and pronunciations come from English rules plus a small dictionary, without stress
   marks; placeholder lyrics are template-based.
+* "Fit the melody's rhythm to the lyrics" splits notes only down to sixteenth notes, so very dense
+  lines can stay a syllable or two off; the alignment report flags them.
+* Recorded takes rely on the browser's reported latency plus a user offset setting; headphones are
+  needed to keep the song out of the microphone.
 
 
 ## Phase 5 — Professional workflow (§70)
