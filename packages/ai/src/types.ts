@@ -335,6 +335,12 @@ export interface DesignBlueprintRequest extends BaseCompositionRequest {
   genres?: { id: string; name: string }[];
   /** Known instrument profiles the model may reference. */
   instruments?: { id: string; name: string; family?: string }[];
+  /** Tag catalog entries (style, mood, era, production…) the model may put in `tags`. */
+  tags?: { id: string; name: string; kind?: string }[];
+  /** Choices the user fixed in the Compose builder, in plain language: the model must keep them. */
+  constraints?: string[];
+  /** The user's own lyrics: the song is built around them and the words are never changed. */
+  lyrics?: string;
 }
 
 export interface DesignBlueprintResult {

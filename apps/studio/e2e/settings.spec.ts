@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import http from 'node:http';
@@ -188,12 +189,7 @@ async function browserStorageDump(page: Page): Promise<string> {
 }
 
 async function composeSong(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page.getByLabel('Song prompt').fill('Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
+  await composeQuickSong(page, 'Alt-rock band', 60_000);
 }
 
 // ---------------------------------------------------------------------------

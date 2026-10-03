@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 
 /**
  * MIDI keyboard capture (spec §27 "play an instrument … and convert that performance into MIDI"),
@@ -33,12 +34,7 @@ test('records a MIDI keyboard take into the selected track as one undoable revis
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page.getByLabel('Song prompt').fill('Laid-back hip-hop beat at 88 BPM with jazzy piano, upright bass and swung drums.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible();
+  await composeQuickSong(page, 'Laid-back hip-hop');
 
   await page.locator('.wb-left .track-row', { hasText: 'Piano' }).first().click();
   await page.getByRole('tab', { name: 'Piano Roll' }).click();

@@ -6,6 +6,7 @@ import { localGet, localSet } from '../../state/persistence';
 import { openSettings } from '../settings/nav';
 import { Badge, Button, FileButton, Modal, TextInput } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
+import { useComposeSession } from '../compose/session';
 
 export default function Home() {
   const projects = useStudio((s) => s.projects);
@@ -43,6 +44,16 @@ export default function Home() {
           <div className="row wrap" style={{ marginTop: 14 }}>
             <Button variant="primary" size="lg" icon="sparkles" onClick={() => st.setMode('compose')}>
               Compose a new song
+            </Button>
+            <Button
+              size="lg"
+              icon="book"
+              onClick={() => {
+                useComposeSession.getState().set({ tab: 'lyrics' });
+                st.setMode('compose');
+              }}
+            >
+              Start from lyrics
             </Button>
             <Button size="lg" icon="plus" onClick={() => setNewName('Untitled project')}>
               Empty project

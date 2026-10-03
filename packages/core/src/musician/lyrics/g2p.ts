@@ -642,3 +642,55 @@ export function syllableToPhonemes(syllable: string): string[] {
 export function wordsToPhonemes(text: string): { word: string; phonemes: string[] }[] {
   return [...text.matchAll(WORD_RE)].map((m) => ({ word: m[0], phonemes: wordPhonemes(m[0]) }));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Lexical stress (the vocal generator puts stressed syllables on strong beats)
+// ---------------------------------------------------------------------------------------------
+
+/** Monosyllabic function words: unstressed when sung in a line. */
+const FUNCTION_WORDS = new Set(
+  (
+    'a an the and or but nor of to in on at by for with from as than then so if is am are was were be been ' +
+    'it its i me my you your he him his she her we us our they them their that this these those do does did has have had ' +
+    'can could will would shall should may might must just there what when who whom whose which how ' +
+    "i'm i'll i've i'd you're you'll you've you'd he's she's it's we're we'll we've they're they'll they've that's there's"
+  ).split(' '),
+);
+
+/** Words the stress heuristic gets wrong (index of the stressed syllable as `syllabify` splits them). */
+const STRESS_EXCEPTIONS: Record<string, number> = {
+  into: 0, onto: 0, unto: 0, under: 0, even: 0, over: 0, only: 0, ever: 0, every: 0, never: 0, any: 0, many: 0, very: 0,
+  inner: 0, enter: 0, entire: 1, indeed: 1, instead: 1, between: 1, believe: 1, become: 1, because: 1, without: 1, within: 1,
+};
+
+/**
+ * Per-syllable lexical stress of one word (1 = primary stress, 0 = unstressed), aligned with
+ * `syllabify(word)`. Monosyllabic function words ("the", "and", "my"…) are unstressed; other
+ * one-syllable words carry the stress.
+ */
+export function wordStress(word: string): number[] {
+  const w = word.toLowerCase().replace(/[’‘`]/g, "'").replace(/[^a-z']/g, '');
+  const sylls = syllabify(word).map((s) => s.toLowerCase());
+  if (sylls.length <= 1) return [FUNCTION_WORDS.has(w) ? 0 : 1];
+  const letters = w.replace(/[^a-z]/g, '');
+  const idx = STRESS_EXCEPTIONS[letters] ?? stressIndex(sylls, letters);
+  return sylls.map((_, i) => (i === idx ? 1 : 0));
+}
+
+const STRESS_WORD_RE = /[A-Za-z]+(?:['’][A-Za-z]+)*(?:-[A-Za-z]+(?:['’][A-Za-z]+)*)*/g;
+
+/** Stress of every sung syllable of a text, in order (aligned with `lyricTokens`). */
+export function lyricStress(text: string): { syllable: string; word: string; stress: 0 | 1 }[] {
+  const out: { syllable: string; word: string; stress: 0 | 1 }[] = [];
+  for (const m of text.matchAll(STRESS_WORD_RE)) {
+    const word = m[0];
+    const sylls = syllabify(word);
+    if (!sylls.length) {
+      out.push({ syllable: word, word, stress: 1 });
+      continue;
+    }
+    const stress = wordStress(word);
+    sylls.forEach((s, i) => out.push({ syllable: s, word, stress: stress[i] === 1 ? 1 : 0 }));
+  }
+  return out;
+}

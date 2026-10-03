@@ -15,6 +15,41 @@ export { createVariation, BRANCH_TEMPLATES, type ComposerBranchTemplate, type Va
 export { extractSongDNA, composeFromDNA, type ComposeFromDnaOptions } from './dna';
 export { generateAsset, type GenerateAssetOptions } from './asset';
 export {
+  blueprintFromChoices,
+  applyBuilderConstraints,
+  describeChoices,
+  normalizeGenreWeights,
+  resolveTagIds,
+  builderTagIds,
+  builderBlend,
+  builderGenre,
+  tempoForFeel,
+  tempoBand,
+  structureTemplateNames,
+  genreExpectsVocal,
+  suggestInstruments,
+  titleFromLyrics,
+  type BuilderChoices,
+  type BuilderInstrument,
+  type BuilderGenre,
+  type BuilderMood,
+  type BuilderVocal,
+  type BuilderOptions,
+  type TempoFeel,
+  type SongLength,
+} from './builder';
+export {
+  structureFromLyrics,
+  lyricSectionBars,
+  syllablesPerBar,
+  matchLyricsToSections,
+  placeBlueprintLyrics,
+  leadVocalTrack,
+  creditLyricWriter,
+  INSTRUMENTAL_KINDS,
+  type LyricsStructureOptions,
+} from './lyrics-first';
+export {
   BUILTIN_TAGS,
   listTags,
   getTag,
