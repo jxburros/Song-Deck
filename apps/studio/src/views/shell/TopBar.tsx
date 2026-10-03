@@ -3,6 +3,7 @@ import { useStudio, type Mode } from '../../state/store';
 import { Icon, BrandMark, type IconName } from '../../ui/icons';
 import { Button } from '../../ui/kit';
 import { formatTime, usePlayhead, usePlayerState } from '../../hooks';
+import { CollabPresence } from '../shared/CollabPresence';
 
 const MODES: { mode: Mode; label: string; icon: IconName; needsProject?: boolean; title: string }[] = [
   { mode: 'compose', label: 'Compose', icon: 'compose', title: 'Prompt → Blueprint → Plan → MIDI (spec §25 Compose)' },
@@ -108,6 +109,7 @@ export function TopBar() {
         ))}
       </nav>
       <div className="spacer" />
+      <CollabPresence />
       {project && (
         <div className="row">
           <Button variant="ghost" size="sm" icon="undo" title="Undo (Ctrl/Cmd+Z)" onClick={() => useStudio.getState().undo()} />
