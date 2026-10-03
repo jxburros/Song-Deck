@@ -13,9 +13,12 @@ import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import {
   classifyCompatibility,
+  getPreset,
   inferModelCapabilities,
+  isLoopbackUrl,
   LOCAL_MODEL_CATALOG,
   type LocalModelEntry,
+  type LocalServiceTarget,
   type ModelQuantization,
 } from '@songdeck/ai';
 import type { HardwareInfo, HardwareService } from './hardware';
@@ -558,6 +561,8 @@ export interface ModelManagerOptions {
   providers: ProviderStore;
   ollamaUrl: string | false;
   lmStudioUrl: string | false;
+  /** Other well-known local services (llama.cpp, vLLM, bridges) probed even when not configured. */
+  localServices?: LocalServiceTarget[];
   timeoutMs: number;
   fetch: typeof fetch;
   logger: Logger;
@@ -618,6 +623,21 @@ export class ModelManager {
         if (!openaiUrls.has(trimSlash(c.baseUrl))) openaiUrls.set(trimSlash(c.baseUrl), c.name);
       } else if (BRIDGE_CATEGORY[c.adapter]) {
         track(`provider:${c.id}`, trimSlash(c.baseUrl), discoverBridge(fetchImpl, c, timeoutMs));
+      }
+    }
+    // Well-known local services that are not configured yet (default ports, loopback only).
+    const bridgeUrls = new Set(this.opts.providers.list().map((c) => (c.baseUrl ? trimSlash(c.baseUrl) : '')));
+    for (const t of this.opts.localServices ?? []) {
+      const u = trimSlash(t.baseUrl);
+      if (!isLoopbackUrl(u)) continue;
+      const preset = getPreset(t.presetId);
+      if (t.kind === 'ollama') ollamaUrls.add(u.replace(/\/(api|v1)$/, ''));
+      else if (t.kind === 'openai') {
+        if (!openaiUrls.has(u)) openaiUrls.set(u, preset?.name ?? t.presetId);
+      } else if (!bridgeUrls.has(u) && preset) {
+        bridgeUrls.add(u);
+        const config: StoredProviderConfig = { id: t.presetId, presetId: t.presetId, name: preset.name, adapter: preset.adapter, location: 'local', baseUrl: u, auth: { type: 'none' } };
+        track(`local:${t.presetId}`, u, discoverBridge(fetchImpl, config, timeoutMs));
       }
     }
     for (const u of ollamaUrls) track('ollama', `${u}/api/tags`, discoverOllama(fetchImpl, u, timeoutMs));
