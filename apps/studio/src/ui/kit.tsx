@@ -190,7 +190,7 @@ export function Slider({
 
 export function Toggle({ on, onChange, label, title }: { on: boolean; onChange: (v: boolean) => void; label?: ReactNode; title?: string }) {
   return (
-    <label className="row" style={{ cursor: 'pointer' }} title={title}>
+    <label className="row toggle-label" style={{ cursor: 'pointer' }} title={title}>
       <button type="button" role="switch" aria-checked={on} className={`toggle ${on ? 'on' : ''}`} onClick={() => onChange(!on)} />
       {label && <span>{label}</span>}
     </label>

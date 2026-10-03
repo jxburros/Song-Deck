@@ -118,7 +118,10 @@ async function syncProvidersToServer() {
 function configureProviders() {
   if (!registry) return;
   const deps = { transport: currentTransport(), credentials: sessionCredentials };
-  const result = registry.configure(useSettings.getState().providers, deps);
+  // The managed "Automatic" gateway runs on the local server: an empty base URL means that server.
+  const base = serverBase();
+  const providers = useSettings.getState().providers.map((p) => (p.adapter === 'managed' && !p.baseUrl?.trim() && base ? { ...p, baseUrl: base } : p));
+  const result = registry.configure(providers, deps);
   for (const e of result.errors) console.warn(`[ai] provider ${e.id}: ${e.error}`);
   bump();
   void syncProvidersToServer();

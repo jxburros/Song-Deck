@@ -101,6 +101,8 @@ function persist(s: SettingsState) {
 }
 
 export function serverBase(): string {
-  const url = useSettings.getState().serverUrl.trim();
-  return url.replace(/\/+$/, '');
+  let url = useSettings.getState().serverUrl.trim().replace(/\/+$/, '');
+  // "localhost:7788" → "http://localhost:7788" ('' keeps same-origin requests).
+  if (url && !/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) url = `http://${url}`;
+  return url;
 }

@@ -66,6 +66,16 @@
   --accent-soft: rgba(232, 102, 28, 0.12);
   --ai: #148a93;
   --ai-soft: rgba(20, 138, 147, 0.12);
+  /* Status colours darkened for contrast on white surfaces. */
+  --success: #16865a;
+  --success-soft: rgba(22, 134, 90, 0.12);
+  --danger: #c93636;
+  --danger-soft: rgba(201, 54, 54, 0.1);
+  --warning: #a86a00;
+  --warning-soft: rgba(168, 106, 0, 0.12);
+  --diff-added: #16865a;
+  --diff-removed: #c93636;
+  --diff-modified: #b86e00;
   --grid-line: rgba(0, 0, 0, 0.04);
   --grid-beat: rgba(0, 0, 0, 0.08);
   --grid-bar: rgba(0, 0, 0, 0.18);
