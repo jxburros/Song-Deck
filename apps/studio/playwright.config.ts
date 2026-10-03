@@ -4,6 +4,8 @@ const PORT = Number(process.env.E2E_PORT ?? 5199);
 
 export default defineConfig({
   testDir: './e2e',
+  // One output folder per dev-server port, so concurrent runs (E2E_PORT=…) never clobber each other.
+  outputDir: `test-results/port-${PORT}`,
   timeout: 120_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,

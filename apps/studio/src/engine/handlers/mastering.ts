@@ -2,6 +2,7 @@ import {
   ENGINE_VERSION,
   assetPathFor,
   randomId,
+  removeAsset,
   type AnalysisRecord,
   type AudioAssetMeta,
   type MasteringSettings,
@@ -12,6 +13,7 @@ import {
 } from '@songdeck/core';
 import type { AudioData, LoudnessReport } from '@songdeck/audio';
 import { useStudio } from '../../state/store';
+import { assetStore } from '../../state/assets';
 import { useSettings } from '../../state/settings';
 import { jobs } from '../jobs';
 import { cacheMaster, cacheMix } from '../mix-cache';
@@ -271,10 +273,30 @@ const master: TaskHandler<MasterInput, MasterOutput> = async (ctx) => {
         'production',
       );
   }
+  await pruneOldMasters(assetId);
   const summary = `${target.label}: ${loudnessSummary(after)}`;
   ctx.progress(1, 'Done');
   return { assetId, hash, before, after, report, providerName, fallbackReason, summary };
 };
+
+/** Master renders kept per project; each is ~30 MB and older ones can be re-mastered from their revision. */
+const KEEP_MASTERS = 2;
+
+/**
+ * Delete superseded master renders (their provenance records stay, spec §64). A master used as
+ * an audio clip in any revision is kept.
+ */
+async function pruneOldMasters(keepId: string): Promise<void> {
+  const project = useStudio.getState().project;
+  if (!project) return;
+  const inClips = new Set(project.history.revisions.flatMap((r) => r.snapshot.tracks.flatMap((t) => (t.clips ?? []).map((c) => c.assetId))));
+  for (const t of project.song.tracks) for (const c of t.clips ?? []) inClips.add(c.assetId);
+  const masters = project.meta.assets.filter((a) => a.kind === 'master').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const stale = masters.slice(KEEP_MASTERS).filter((a) => a.id !== keepId && !inClips.has(a.id));
+  if (!stale.length) return;
+  for (const a of stale) await assetStore.remove(a.id);
+  useStudio.getState().updateProject((p) => stale.reduce((acc, a) => removeAsset(acc, a.id), p));
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const handlers: Record<string, TaskHandler<any, any>> = {
