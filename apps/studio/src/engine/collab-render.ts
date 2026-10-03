@@ -3,6 +3,7 @@ import { decodeWav, encodeWav, type AudioData } from '@songdeck/audio';
 import { base64ToBytes, bytesToBase64 } from '@songdeck/ai';
 import { serverBase, useSettings, type RenderNodeConfig } from '../state/settings';
 import { jobs } from './jobs';
+import { currentRenderInstruments } from './render-instruments';
 import { abortError, isAbortError, renderStemsAudio, renderableSong, throwIfAborted } from './mix-render';
 
 /**
@@ -267,8 +268,14 @@ export async function renderStemsDistributed(song: Song, assets: Record<string, 
   const results: Record<string, AudioData> = {};
   const queue: StemJob[] = [];
   const local: { job: StemJob; reason: string }[] = [];
+  // Nodes get the custom instrument profiles; plugin sample sets stay on this device, so stems
+  // using sampled instruments render here (identical output either way).
+  const { instruments, sampleInstruments } = currentRenderInstruments();
+  const sampled = new Set(instruments.filter((p) => sampleInstruments[p.patchId]).map((p) => p.id));
+  const usesSamples = (job: StemJob) => job.trackIds.some((id) => sampled.has(s.tracks.find((t) => t.id === id)?.instrumentId ?? ''));
   for (const j of all) {
     if (j.assetIds.length && !opts.uploadAssets) local.push({ job: j, reason: 'audio clips render on this device' });
+    else if (usesSamples(j)) local.push({ job: j, reason: 'sampled plugin instruments render on this device' });
     else queue.push(j);
   }
 
@@ -293,7 +300,7 @@ export async function renderStemsDistributed(song: Song, assets: Record<string, 
       throwIfAborted(signal);
       const job = queue.shift()!;
       const payloadAssets = assetPayload(job);
-      const body = `{"kind":"stems","song":${songJson},"options":${JSON.stringify({ sampleRate, by, trackIds: job.trackIds, applyMaster: false, bitDepth })},"assets":${JSON.stringify(payloadAssets)}}`;
+      const body = `{"kind":"stems","song":${songJson},"options":${JSON.stringify({ sampleRate, by, trackIds: job.trackIds, applyMaster: false, bitDepth, ...(instruments.length ? { instruments } : {}) })},"assets":${JSON.stringify(payloadAssets)}}`;
       if (body.length > MAX_REQUEST_BYTES) {
         local.push({ job, reason: 'request too large for a render node' });
         continue;

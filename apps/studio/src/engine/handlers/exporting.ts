@@ -19,12 +19,12 @@ import {
   instrumentalTrackIds,
   masterAudioBuffer,
   renderMixAudio,
-  renderStemsAudio,
   renderTrackAudio,
   throwIfAborted,
   vocalTrackIds,
   ProgressMix,
 } from '../mix-render';
+import { renderStemsDistributed } from '../collab-render';
 import { describeEncoding, encodeAudio, formatInfo, zipEntries, type AudioFormat, type FlacBits, type WavBits, type ZipEntry } from '../export-audio';
 import { deliverFile, MIME, sanitizeFileName } from '../export-files';
 
@@ -214,7 +214,17 @@ async function buildStems(
   song: Song,
   opts: { by: 'stemGroup' | 'track'; wavBits: WavBits; sampleRate: number; includeAudioTracks: boolean; signal: AbortSignal; assets: Record<string, AudioData>; onProgress: (p: number) => void; log: (m: string) => void },
 ): Promise<{ entries: ZipEntry[]; names: string[] }> {
-  const stems = await renderStemsAudio(song, { by: opts.by, sampleRate: opts.sampleRate, signal: opts.signal, assets: opts.assets, onProgress: (p) => opts.onProgress(p * 0.6) });
+  // Spread stem groups across render nodes when enabled (Settings → Render nodes); otherwise,
+  // or when no node is healthy, this renders on this device exactly like renderStemsAudio.
+  const stems = await renderStemsDistributed(song, opts.assets, {
+    by: opts.by,
+    sampleRate: opts.sampleRate,
+    signal: opts.signal,
+    onProgress: (p) => opts.onProgress(p * 0.6),
+    onPlacement: (pl) => {
+      if (pl.where !== 'this device') opts.log(`Stem ${pl.stem} rendered on ${pl.where} in ${(pl.ms / 1000).toFixed(1)} s`);
+    },
+  });
   throwIfAborted(opts.signal);
   const keys = Object.keys(stems);
   const ordered =
