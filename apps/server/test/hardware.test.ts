@@ -112,7 +112,9 @@ describe('hardware detection', () => {
     expect(hw.accelerationBackends).toEqual(['cuda', 'cpu']);
     expect(hw.backends).toEqual(['cuda', 'cpu']);
     const llama = LOCAL_MODEL_CATALOG.find((m) => m.id === 'llama-3.1-8b-instruct');
-    if (llama) expect(classifyCompatibility(llama, hw).rating).toBe('excellent');
+    // The rating also depends on system RAM; pin it so the result doesn't vary with the host
+    // (hosted macOS runners have 7 GB, under this model's 8 GB minimum).
+    if (llama) expect(classifyCompatibility(llama, { ...hw, ramGb: 32 }).rating).toBe('excellent');
   });
 });
 
