@@ -695,7 +695,7 @@ export default function PianoRoll() {
           options={[{ value: '', label: 'No ghost track' }, ...song.tracks.filter((t) => t.id !== track.id && t.kind === 'midi').map((t) => ({ value: t.id, label: `Ghost: ${t.name}` }))]}
           style={{ width: 160 }}
         />
-        <Button size="sm" variant={showChordTones ? 'ai' : 'ghost'} onClick={() => setShowChordTones(!showChordTones)} title="Highlight chord tones under the harmony">
+        <Button size="sm" variant="ghost" active={showChordTones} onClick={() => setShowChordTones(!showChordTones)} title="Highlight chord tones under the harmony">
           Chord tones
         </Button>
         <Button size="sm" variant="ghost" onClick={() => st.setView({ keyHeight: Math.max(6, keyH - 2) })} title="Shorter rows">
