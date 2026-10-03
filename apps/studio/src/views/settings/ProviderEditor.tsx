@@ -94,6 +94,7 @@ export function cleanConfig(c: ProviderConfig): ProviderConfig {
     else if (typeof v === 'string') out[k] = v.trim();
   }
   if (out.models && !out.models.length) delete out.models;
+  if (!out.enabledModels?.length) delete out.enabledModels;
   if (out.models) out.models = out.models.filter((m) => m.id.trim()).map((m) => ({ ...m, id: m.id.trim(), ...(m.capabilities?.length ? {} : { capabilities: undefined }) }));
   if (out.capabilities && !out.capabilities.length) delete out.capabilities;
   const auth = { ...out.auth };
@@ -217,10 +218,15 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
           tone: 'success',
           text: `Stored ${backend === 'keychain' ? 'in the OS keychain' : `in the server’s ${describeVaultBackend(backend)}${backend === 'encrypted-file' ? ' (no OS keychain on this machine)' : ''}`} via the local Song Deck server (backend: ${backend ?? 'vault'}). The browser never sees it again.`,
         });
+      } else if (where === 'browser') {
+        setKeyNote({
+          tone: 'success',
+          text: 'Stored encrypted in this browser — it survives reloads and never goes into settings or projects. Start the local server to keep keys in the OS keychain instead (Song Deck offers to move them).',
+        });
       } else {
         setKeyNote({
           tone: 'warning',
-          text: 'Kept in this browser session only — not saved. It is forgotten when you reload. Start the local server (and enable “use the server’s keychain vault & proxy”) to store keys in the OS keychain.',
+          text: 'Kept in this browser session only — this browser cannot store it, so it is forgotten when you reload. Start the local server (and enable “use the server’s keychain vault & proxy”) to store keys in the OS keychain.',
         });
       }
       await refreshKey();
@@ -491,6 +497,8 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
                   <span>
                     Key stored in the server vault <span className="dim">({describeVaultBackend(vaultBackend)})</span>
                   </span>
+                ) : keyWhere === 'browser' ? (
+                  <span>Key stored encrypted in this browser</span>
                 ) : keyWhere === 'session' ? (
                   <span>Key held for this browser session only</span>
                 ) : keyWhere === 'none' ? (
@@ -515,7 +523,7 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
                   type="password"
                   autoComplete="off"
                   spellCheck={false}
-                  placeholder={keyWhere === 'vault' || keyWhere === 'session' ? 'Enter a new key to replace it' : `Paste your ${preset?.credentialLabel ?? 'API key'}`}
+                  placeholder={keyWhere === 'vault' || keyWhere === 'browser' || keyWhere === 'session' ? 'Enter a new key to replace it' : `Paste your ${preset?.credentialLabel ?? 'API key'}`}
                   value={keyInput}
                   onChange={(e) => setKeyInput(e.target.value)}
                   aria-label={preset?.credentialLabel ?? 'API key'}
@@ -523,7 +531,7 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
                 <Button type="submit" variant="primary" icon="lock" disabled={!keyInput.trim() || !!busy}>
                   {busy === 'key' ? 'Saving…' : 'Save key'}
                 </Button>
-                {(keyWhere === 'vault' || keyWhere === 'session') && (
+                {(keyWhere === 'vault' || keyWhere === 'browser' || keyWhere === 'session') && (
                   <Button variant="ghost" icon="trash" onClick={() => void removeKey()} disabled={!!busy} title="Delete the stored key">
                     Delete
                   </Button>
@@ -537,7 +545,7 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
               <div className="small dim">
                 {server === 'online' && useServerProxy
                   ? 'Keys go to the local server and are injected server-side into requests for this provider only.'
-                  : 'No local server: the key would stay in this tab’s memory and requests go directly from the browser.'}
+                  : 'No local server: the key is stored encrypted in this browser and requests go directly from the browser to the provider.'}
               </div>
               <details className="st-adv">
                 <summary>Vault reference</summary>
@@ -596,6 +604,18 @@ export function ProviderEditor({ initial, isNew, onClose }: { initial: ProviderC
               </Field>
             )}
           </div>
+          {!!draft.enabledModels?.length && (
+            <div className="callout row" data-testid="enabled-models">
+              <Icon name="check" size={14} />
+              <span className="grow">
+                Song Deck uses only the {draft.enabledModels.length} model{draft.enabledModels.length === 1 ? '' : 's'} chosen when this service was connected:{' '}
+                <span className="mono small">{draft.enabledModels.join(', ')}</span>
+              </span>
+              <Button size="sm" variant="ghost" onClick={() => set({ enabledModels: undefined })}>
+                Use every model
+              </Button>
+            </div>
+          )}
           <ModelTable models={models} defaultModel={draft.defaultModel} onUse={(id) => set({ defaultModel: id })} />
           <ManualModels value={draft.models ?? []} onChange={(m) => set({ models: m })} />
         </Panel>

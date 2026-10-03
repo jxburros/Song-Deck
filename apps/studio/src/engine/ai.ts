@@ -19,7 +19,6 @@ import {
   CapabilityRouter,
   DEFAULT_ROUTING_SETTINGS,
   DirectTransport,
-  MemoryCredentialStore,
   Orchestrator,
   ProviderRegistry,
   ROLE_INFO,
@@ -27,10 +26,10 @@ import {
   ServerVaultClient,
   buildMusicContext,
   contextDataKinds,
+  roleCapabilitySets,
   toProvenanceRecord,
   type ArtifactInfo,
   type ChatMessage as AiChatMessage,
-  type Capability,
   type CostEstimate,
   type CostEstimateInput,
   type DataFlowDescriptor,
@@ -52,6 +51,7 @@ import { createInternalProviders } from './internalProviders';
 import { INTERNAL_FOR_ROLE } from './internalDescriptors';
 import { allCustomGenres, allCustomInstruments, loadEnabledPlugins, onPluginProviders } from './plugins';
 import { propose } from './proposals';
+import { browserCredentials } from './credentials';
 
 /**
  * Studio AI runtime (spec §2.2, §5-§8, §49-§50, §59-§60).
@@ -74,8 +74,11 @@ export interface AiRuntimeState {
 
 export const useAiRuntime = create<AiRuntimeState>(() => ({ version: 0, providers: [], transport: 'direct', events: [] }));
 
-/** Session-only secrets when no local server is running (never persisted, spec §7). */
-export const sessionCredentials = new MemoryCredentialStore();
+/**
+ * Secrets held by the browser when the server vault is not in use: encrypted at rest in IndexedDB
+ * (or this tab's memory where that is unavailable) — see engine/credentials.ts.
+ */
+export { browserCredentials };
 
 let registry: ProviderRegistry | null = null;
 let router: CapabilityRouter | null = null;
@@ -94,7 +97,7 @@ function currentTransport(): Transport {
     return new ServerProxyTransport(serverBase());
   }
   transportKind = 'direct';
-  return new DirectTransport(sessionCredentials);
+  return new DirectTransport(browserCredentials);
 }
 
 function bump() {
@@ -118,7 +121,7 @@ async function syncProvidersToServer() {
 
 function configureProviders() {
   if (!registry) return;
-  const deps = { transport: currentTransport(), credentials: sessionCredentials };
+  const deps = { transport: currentTransport(), credentials: browserCredentials };
   // The managed "Automatic" gateway runs on the local server: an empty base URL means that server.
   const base = serverBase();
   const providers = useSettings.getState().providers.map((p) => (p.adapter === 'managed' && !p.baseUrl?.trim() && base ? { ...p, baseUrl: base } : p));
@@ -130,7 +133,7 @@ function configureProviders() {
 
 export function initAi(): void {
   if (registry) return;
-  registry = new ProviderRegistry({ deps: { transport: currentTransport(), credentials: sessionCredentials } });
+  registry = new ProviderRegistry({ deps: { transport: currentTransport(), credentials: browserCredentials } });
   for (const p of createInternalProviders({
     song: () => useStudio.getState().project?.song ?? null,
     selection: () => useStudio.getState().selection,
@@ -219,7 +222,8 @@ export function getBudget(): BudgetManager {
 }
 
 // ---------------------------------------------------------------------------
-// Credentials (BYOK, spec §7): server vault (OS keychain) when available, else session memory.
+// Credentials (BYOK, spec §7): server vault (OS keychain) when available, else encrypted in this
+// browser (session memory where the browser cannot store them).
 // ---------------------------------------------------------------------------
 
 export async function refreshVaultStatus(): Promise<void> {
@@ -231,14 +235,19 @@ export async function refreshVaultStatus(): Promise<void> {
   }
 }
 
-export async function saveCredential(ref: string, secret: string, label?: string): Promise<'vault' | 'session'> {
-  if (useRuntime.getState().server.status === 'online' && useSettings.getState().useServerProxy) {
+function vaultInUse(): boolean {
+  return useRuntime.getState().server.status === 'online' && useSettings.getState().useServerProxy;
+}
+
+export async function saveCredential(ref: string, secret: string, label?: string): Promise<'vault' | 'browser' | 'session'> {
+  if (vaultInUse()) {
     await new ServerVaultClient(serverBase()).setSecret(ref, secret, label);
+    // One place per key: a copy left in the browser would outlive a vault deletion.
+    await browserCredentials.delete(ref);
     await syncProvidersToServer();
     return 'vault';
   }
-  await sessionCredentials.set(ref, secret, label);
-  return 'session';
+  return browserCredentials.put(ref, secret, label);
 }
 
 export async function deleteCredential(ref: string): Promise<void> {
@@ -249,18 +258,50 @@ export async function deleteCredential(ref: string): Promise<void> {
       /* not in vault */
     }
   }
-  await sessionCredentials.delete(ref);
+  await browserCredentials.delete(ref);
 }
 
 export async function hasCredential(ref: string): Promise<boolean> {
-  if (useRuntime.getState().server.status === 'online' && useSettings.getState().useServerProxy) {
+  if (vaultInUse()) {
     try {
       return await new ServerVaultClient(serverBase()).has(ref);
     } catch {
       return false;
     }
   }
-  return (await sessionCredentials.get(ref)) !== undefined;
+  return (await browserCredentials.where(ref)) !== 'none';
+}
+
+/** Keys held by this browser (encrypted or session-only) — candidates to move into the server vault. */
+export async function browserKeyRefs(): Promise<{ ref: string; label?: string }[]> {
+  return browserCredentials.list();
+}
+
+/** Move browser-held keys into the server vault (OS keychain), then delete them from the browser. */
+export async function moveBrowserKeysToVault(): Promise<{ moved: number; failed: string[] }> {
+  if (!vaultInUse()) throw new Error('The local server (with its vault & proxy) is not in use');
+  const vault = new ServerVaultClient(serverBase());
+  let moved = 0;
+  const failed: string[] = [];
+  for (const { ref, label } of await browserCredentials.list()) {
+    try {
+      const secret = await browserCredentials.get(ref);
+      if (!secret) continue;
+      await vault.setSecret(ref, secret, label);
+      await browserCredentials.delete(ref);
+      moved++;
+    } catch {
+      failed.push(ref);
+    }
+  }
+  await syncProvidersToServer();
+  void refreshVaultStatus();
+  return { moved, failed };
+}
+
+/** Forget every key stored in this browser (the server vault is untouched). */
+export async function forgetBrowserKeys(): Promise<void> {
+  await browserCredentials.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -274,20 +315,13 @@ export interface RoleOption {
   location?: string;
 }
 
-/**
- * Capability sets that can serve a role, in order of preference. Production can be done by
- * generating from text, or by performing the composition (MIDI or stem conditioning, audio to
- * audio) — the on-device producer does the latter (spec §29-§30, §38).
- */
-const ROLE_CAPABILITY_SETS: Partial<Record<TaskRole, Capability[][]>> = {
-  production: [['TEXT_TO_MUSIC'], ['MIDI_CONDITIONING'], ['STEM_CONDITIONING'], ['AUDIO_TO_AUDIO']],
-};
-
 /** Options for a provider picker: Auto, on-device engine, and every compatible provider. */
 export function roleOptions(role: TaskRole): RoleOption[] {
   const reg = getRegistry();
   const info = ROLE_INFO[role];
-  const sets = ROLE_CAPABILITY_SETS[role] ?? [info.capabilities];
+  // Production can generate from text or perform the composition (MIDI / stem conditioning, audio
+  // to audio) — the on-device producer does the latter (spec §29-§30, §38).
+  const sets = roleCapabilitySets(role);
   const out: RoleOption[] = [];
   let predicted = 'no compatible provider';
   for (const capabilities of sets) {

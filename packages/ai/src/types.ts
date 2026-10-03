@@ -280,6 +280,11 @@ export interface LLMResponse {
 
 export interface LLMProvider {
   listModels(signal?: AbortSignal): Promise<ModelInfo[]>;
+  /**
+   * Models the last `listModels()` saw but left out because they are not chat models (embeddings,
+   * images, speech…), with no capabilities — for "show all models" views. Optional.
+   */
+  readonly skippedModels?: ModelInfo[];
   complete(req: LLMRequest): Promise<LLMResponse>;
 }
 

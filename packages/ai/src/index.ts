@@ -18,10 +18,17 @@ export * from './presets';
 export * from './factory';
 export * from './model-heuristics';
 
+// Connecting services: key formats, validation probes, model → app use, local services
+export * from './connect-keys';
+export * from './connect-models';
+export * from './connect-probe';
+export * from './local-services';
+
 // Transports & credentials
 export * from './transport/direct';
 export * from './transport/proxy';
 export * from './transport/vault';
+export * from './transport/encrypted-store';
 export * from './transport/multipart';
 export * from './transport/limiter';
 export * from './transport/http';

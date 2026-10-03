@@ -66,6 +66,8 @@ HTTP status (`400` validation, `401` token, `403` origin/host/allowlist, `404`, 
 | `GET /api/hardware[?refresh=1]` | `HardwareInfo` (cached 60 s) |
 | `GET /api/models[?refresh=1]` | `{ categories: [{ id, label, models: ModelEntry[] }], sources, hardware, scannedAt }` |
 | `POST /api/models/rescan` | same, rescanned |
+| `GET /api/local-services` | `{ services: [{ presetId, name, baseUrl, status: 'found' \| 'absent' \| 'error', models, capabilities?, version? }], scannedAt }` |
+| `POST /api/connect/probe` | body `{ presetId, secret }` → `{ ok: true, result: { models, listed, account?, note? } }` or `{ ok: false, error: { kind, status?, message } }` |
 | `GET /api/node/info` | `{ id, name, version, engineVersion, cpuCores, loadAvg, busyJobs, queuedJobs, maxJobs, maxQueue, capabilities, mode, … }` |
 | `POST /api/render` | render job (see below) |
 | `GET /api/collab/rooms` | `[{ projectId, peers, revisions }]` |
@@ -152,7 +154,19 @@ OpenAI-compatible / Ollama provider configs, local bridge providers (`GET {baseU
 `/voices` for singing bridges) and `<data-dir>/models/<dir>/model.json` manifests (a directory
 named after a catalog id marks that catalog model installed; its `version` drives
 `updateStatus`). Every entry is classified with `classifyCompatibility` against the detected
-hardware.
+hardware. Well-known local services are probed even before they are configured: llama.cpp
+(`127.0.0.1:8080/v1`), vLLM (`127.0.0.1:8000/v1`), the Song Deck bridges (`127.0.0.1:8810`-`8815`,
+`GET /info`) and a custom audio bridge (`127.0.0.1:8820`); `discovery.localServices` overrides the
+list (loopback URLs only) and `false` turns it off.
+
+### Connecting services
+
+`GET /api/local-services` probes the same local services plus Ollama and LM Studio in parallel
+(short timeouts, loopback only) for the studio's "Found on this machine" list — the server sees
+servers the browser cannot reach because of CORS. `POST /api/connect/probe` validates a pasted API
+key against one of the connectable cloud presets (`CONNECTABLE_PRESET_IDS`) and lists its models
+before anything is saved: only the preset's own base URL is contacted, the key is held in memory
+for the request and never stored or logged.
 
 ## Security model
 

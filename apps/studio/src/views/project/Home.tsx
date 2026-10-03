@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { midiToSong } from '@songdeck/core';
 import { useStudio } from '../../state/store';
+import { useSettings } from '../../state/settings';
+import { localGet, localSet } from '../../state/persistence';
+import { openSettings } from '../settings/nav';
 import { Badge, Button, FileButton, Modal, TextInput } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 
@@ -58,6 +61,8 @@ export default function Home() {
             </Button>
           </div>
         </div>
+
+        <ConnectNudge />
 
         <div className="section-title">
           <h3>Recent projects</h3>
@@ -170,6 +175,37 @@ export default function Home() {
           <TextInput value={newName} onChange={setNewName} autoFocus />
         </Modal>
       )}
+    </div>
+  );
+}
+
+const NUDGE_KEY = 'connect-nudge-dismissed';
+
+/** First-run hint: the studio works offline; connecting an AI service is one paste away. */
+function ConnectNudge() {
+  const hasProviders = useSettings((s) => s.providers.length > 0);
+  const [dismissed, setDismissed] = useState(() => localGet<boolean>(NUDGE_KEY, false));
+  if (hasProviders || dismissed) return null;
+  return (
+    <div className="card row" data-testid="connect-nudge" style={{ gap: 12, marginBottom: 18, borderColor: 'var(--ai)', background: 'var(--ai-soft)' }}>
+      <Icon name="plug" />
+      <div className="grow" style={{ minWidth: 0 }}>
+        <strong>Works offline — add AI when you want it.</strong>
+        <div className="small muted">Paste an API key (Gemini, Claude, OpenAI, ElevenLabs…) or use a local model server; Song Deck lists what each model can do here.</div>
+      </div>
+      <Button variant="ai" icon="plug" onClick={() => openSettings('providers', 'connect')}>
+        Connect an AI service
+      </Button>
+      <Button
+        variant="ghost"
+        icon="close"
+        aria-label="Dismiss"
+        title="Dismiss"
+        onClick={() => {
+          localSet(NUDGE_KEY, true);
+          setDismissed(true);
+        }}
+      />
     </div>
   );
 }

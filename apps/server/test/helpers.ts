@@ -25,7 +25,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<TestServer>
     vault: 'memory',
     logLevel: 'silent',
     pluginDirs: [],
-    discovery: { ollamaUrl: false, lmStudioUrl: false, ...(opts.discovery ?? {}) },
+    discovery: { ollamaUrl: false, lmStudioUrl: false, localServices: false, ...(opts.discovery ?? {}) },
     ...opts,
     dataDir,
   });

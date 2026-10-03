@@ -1,8 +1,16 @@
 import {
+  DEFAULT_LOCAL_SERVICE_TARGETS,
   DirectTransport,
+  MemoryCredentialStore,
+  ProviderError,
   ServerProxyTransport,
   ServerVaultClient,
   authForConfig,
+  detectLocalServices,
+  probeProvider,
+  type ConnectProbeResult,
+  type DetectedLocalService,
+  type ProviderErrorKind,
   type AccelerationBackend,
   type Capability,
   type ModelQuantization,
@@ -10,7 +18,7 @@ import {
 } from '@songdeck/ai';
 import { serverBase, useSettings } from '../../state/settings';
 import { useRuntime } from '../../engine/runtime';
-import { getRegistry, sessionCredentials, useAiRuntime } from '../../engine/ai';
+import { browserCredentials, getRegistry, useAiRuntime } from '../../engine/ai';
 import { useExtensions, type PluginManifest } from '../../engine/plugins';
 
 /**
@@ -175,7 +183,8 @@ export async function syncProvidersNow(): Promise<void> {
   }
 }
 
-export type CredentialWhere = 'vault' | 'session' | 'none';
+/** vault = server vault (OS keychain); browser = encrypted in this browser; session = this tab only. */
+export type CredentialWhere = 'vault' | 'browser' | 'session' | 'none';
 
 export interface VaultInfo {
   backend?: string;
@@ -199,7 +208,7 @@ export async function credentialLocations(refs: string[]): Promise<Record<string
   const out: Record<string, CredentialWhere> = {};
   const vault = serverOnline() ? await vaultInfo() : null;
   const inVault = new Set((vault?.refs ?? []).map((r) => r.ref));
-  for (const ref of refs) out[ref] = inVault.has(ref) ? 'vault' : sessionCredentials.has(ref) ? 'session' : 'none';
+  for (const ref of refs) out[ref] = inVault.has(ref) ? 'vault' : await browserCredentials.where(ref);
   return out;
 }
 
@@ -224,7 +233,7 @@ function joinUrl(base: string, path: string): string {
 /** Reachability probe for bridges without model discovery (`GET {base}/info`). */
 export async function probeEndpoint(config: ProviderConfig, path = 'info'): Promise<{ status: number; ms: number; body?: unknown }> {
   const useProxy = serverOnline() && useSettings.getState().useServerProxy;
-  const transport = useProxy ? new ServerProxyTransport(serverBase()) : new DirectTransport(sessionCredentials);
+  const transport = useProxy ? new ServerProxyTransport(serverBase()) : new DirectTransport(browserCredentials);
   const t0 = performance.now();
   const res = await transport.fetch(joinUrl(config.baseUrl, path), { method: 'GET' }, authForConfig(config));
   let body: unknown;
@@ -282,4 +291,46 @@ export async function checkProvider(config: ProviderConfig, mode: 'discover' | '
     text: mode === 'test' ? `Connected in ${ms} ms — ${what} available.` : `Found ${what} (${ms} ms).`,
     models: list.length,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Connect a service: key validation and local service detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a pasted key and list the account's models without saving anything. With the local
+ * server online the check runs there (no CORS limits); otherwise straight from this page.
+ */
+export async function probeKey(presetId: string, key: string, signal?: AbortSignal): Promise<ConnectProbeResult & { via: 'server' | 'browser' }> {
+  if (serverOnline()) {
+    const r = await serverJson<{ ok: boolean; result?: ConnectProbeResult; error?: { kind: ProviderErrorKind; status?: number; message: string } }>('/api/connect/probe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ presetId, secret: key }),
+      signal,
+    });
+    if (!r.ok || !r.result) throw new ProviderError(r.error?.kind ?? 'unknown', r.error?.message ?? 'Validation failed', { status: r.error?.status });
+    return { ...r.result, via: 'server' };
+  }
+  const ref = `connect:${presetId}`;
+  const transport = new DirectTransport(new MemoryCredentialStore({ [ref]: key }));
+  return { ...(await probeProvider(presetId, { transport, credentialRef: ref, signal })), via: 'browser' };
+}
+
+export interface LocalScan {
+  services: DetectedLocalService[];
+  via: 'server' | 'browser';
+}
+
+/** Local AI services on this machine: from the server when online, else probed from the page (CORS permitting). */
+export async function scanLocalServices(): Promise<LocalScan> {
+  if (serverOnline()) {
+    try {
+      const r = await serverJson<{ services: DetectedLocalService[] }>('/api/local-services');
+      return { services: r.services ?? [], via: 'server' };
+    } catch {
+      /* an older server without the endpoint: fall back to the browser */
+    }
+  }
+  return { services: await detectLocalServices(DEFAULT_LOCAL_SERVICE_TARGETS, { timeoutMs: 1500 }), via: 'browser' };
 }
