@@ -7,10 +7,18 @@ name: Release
 #
 # The version must match every package.json and have a CHANGELOG.md section;
 # `node scripts/release/bump.mjs <version>` prepares both. See docs/RELEASING.md.
+# Pull requests that change the release tooling get a dry run: everything but publishing.
 
 on:
   push:
     tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - scripts/release/**
+      - CHANGELOG.md
+      - package.json
+      - package-lock.json
   workflow_dispatch:
     inputs:
       version:
@@ -23,7 +31,7 @@ permissions:
 
 concurrency:
   group: release-${{ inputs.version || github.ref_name }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -48,7 +56,8 @@ jobs:
       - name: Check the version
         id: version
         env:
-          REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          # The dispatched version or the pushed tag; a pull request checks the package version as is.
+          REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event_name == 'push' && github.ref_name || '' }}
         run: node scripts/release/check.mjs "$REQUESTED" --github-output
 
       - name: Make sure the tag is new
@@ -131,6 +140,7 @@ jobs:
   publish:
     name: Publish the GitHub release
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

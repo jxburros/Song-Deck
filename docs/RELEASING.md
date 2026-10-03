@@ -36,6 +36,9 @@ GitHub release, so a failed step publishes nothing.
    The `Publish the GitHub release` job (the only one with write access) creates the release as a
    draft with the notes from CHANGELOG.md and the files attached, then publishes it.
 
+Pull requests that change the release tooling, `CHANGELOG.md` or the package manifests run the
+`Test and package` job as a dry run, so a broken release is caught before it is merged.
+
 If a run fails, fix the problem on `main` and release again. A tag that never got a release can be
 deleted and pushed again (`git push origin :refs/tags/v0.2.0`); a published version is never
 replaced — release the next patch version instead.

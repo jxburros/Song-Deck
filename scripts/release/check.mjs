@@ -12,7 +12,7 @@ import { changelogSection, DEPENDENCY_FIELDS, fail, isPrerelease, manifests, par
 
 const args = process.argv.slice(2);
 const githubOutput = args.includes('--github-output');
-const requested = args.find((a) => !a.startsWith('--'));
+const requested = args.find((a) => a && !a.startsWith('--')); // '' counts as not given
 
 const all = manifests();
 const version = all[0].pkg.version;
