@@ -1,0 +1,11 @@
+{
+  "id": "abc-notation-exporter",
+  "name": "ABC Notation Exporter",
+  "version": "1.0.0",
+  "kind": "exporter",
+  "description": "Exports the lead melody with chord symbols as ABC notation (abcnotation.com), a plain-text score format.",
+  "author": "Song Deck examples",
+  "entry": "index.js",
+  "files": ["index.js"],
+  "permissions": []
+}

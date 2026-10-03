@@ -1,0 +1,11 @@
+{
+  "id": "lofi-hiphop-genre",
+  "name": "Lo-fi Hip-Hop Genre Profile",
+  "version": "1.0.0",
+  "kind": "genre-profile",
+  "description": "Community genre profile: swung, jazzy, dusty lo-fi hip-hop with extended chords and mellow dynamics.",
+  "author": "Song Deck examples",
+  "entry": "index.js",
+  "files": ["index.js", "profile.json"],
+  "permissions": []
+}
