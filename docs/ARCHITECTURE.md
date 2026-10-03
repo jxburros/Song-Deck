@@ -130,6 +130,8 @@ validateSong(song, opts?): ValidationReport
 validateChange(before, after, opts?): ValidationReport   // locked material unchanged, region honored …
 diffSongs(before, after): SongDiff
 createProposal(before, ops, meta): Proposal; proposalFromSongs(before, after, meta): Proposal
+acceptProposalOnto(proposal, currentSong): { song; conflicts }   // three-way merge: edits made while
+rebaseProposal(before, after, current): { song; conflicts }       // the proposal was pending survive
 ```
 
 ### 3.5 core/io
@@ -155,7 +157,7 @@ undoRevision / redoRevision helpers, addAsset, addProvenance, recordProviderUse
 ### 3.7 core/tasks
 ```ts
 class TaskQueue {  // §63
-  constructor(opts?: { concurrency?: number; persistence?: TaskPersistence; now?: () => string })
+  constructor(opts?: { concurrency?: number; persistence?: TaskPersistence; now?: () => string; awaitHandlers?: boolean })
   register<I, O>(type: string, handler: TaskHandler<I, O>): void
   enqueue<I>(spec: { type; title; input: I; dependsOn?; priority?; maxAttempts?; providerId?; runner? }): TaskRecord
   cancel(id); retry(id); pause(id); resume(id); remove(id); get(id); list(); subscribe(listener): () => void
@@ -194,3 +196,29 @@ Llama API, Together, Groq, LM Studio, vLLM, llama.cpp), Anthropic, Gemini, Ollam
 ElevenLabs Music, Stability Stable Audio, Google Lyria (Vertex), local music HTTP (ACE-Step bridge),
 singing HTTP (DiffSinger bridge), transcription/separation/voice-conversion/mastering HTTP,
 `LOCAL_MODEL_CATALOG` + `classifyCompatibility` (§61-§62).
+
+### 3.11 apps/studio (runtime wiring)
+* `state/store.ts` — the open project, proposals (accepted with `acceptProposalOnto`), revisions,
+  branches, undo/redo (shared revisions while collaborating), confirmations, transport.
+* `engine/player.ts` + `playback.worker.ts` — live playback: the worker runs `SongRenderer` and
+  streams chunks scheduled sample-accurately on an `AudioContext`.
+* `engine/jobs.ts` + `jobs.worker.ts` — a worker pool for offline renders, mastering, codecs,
+  singing, transcription, separation and Rebuild. `render-instruments.ts` keeps both the player and
+  the pool configured with custom instrument profiles and plugin sample sets.
+* `engine/runtime.ts` — the task queue (§63; inputs of unfinished tasks persist, so they resume
+  after a reload) and local-server status. Task handlers live in `engine/handlers/*`.
+* `engine/ai.ts` — the AI runtime: registry, router, budget and orchestrator; internal (on-device)
+  providers from `internalProviders.ts`; plugin providers; role helpers used by every mode.
+* `engine/plugins.ts` — plugin loading and the plugin API (`docs/PLUGINS.md`).
+* `engine/collab.ts`, `collab-render.ts` — collaboration client and distributed stem renders.
+* `engine/midi-input.ts`, `midi-take.ts` — MIDI keyboard capture into the piano roll (§27).
+* `views/*` — one folder per mode (compose, workbench, generate, transcribe, rebuild, produce,
+  vocals, mix, export, settings) plus shell and shared components.
+
+### 3.12 apps/server
+CLI `apps/server/src/cli.ts`; modules: `vault/` (OS keychain, encrypted-file fallback), `proxy.ts`
+(provider proxy with allowlist and credential injection), `hardware.ts`, `models.ts` (model
+manager), `render/` (render node: worker-thread pool), `collab/` (WebSocket rooms, persisted
+revisions, comments, chat), `plugins.ts` (manifest validation and file serving), `managed.ts`
+(the "Automatic" gateway), `projects.ts`, `static.ts` (serves the built studio). Security model
+and endpoints: `apps/server/README.md`.
