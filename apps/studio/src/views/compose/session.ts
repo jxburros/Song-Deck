@@ -87,10 +87,22 @@ export const useComposeSession = create<ComposeSession>((set) => ({
   tab: 'sound',
   seed: randomSeed(),
   planner: 'auto',
-  patch: (p) => set((s) => ({ draft: { ...s.draft, ...p } })),
+  patch: (p) => set((s) => ({ draft: withSinger(s.draft, { ...s.draft, ...p }, p) })),
   set: (p) => set(p),
   reset: () => set({ draft: EMPTY_DRAFT, tab: 'sound' }),
 }));
+
+/**
+ * Lyrics need a singer: pasting lyrics, or applying a starting point (a whole sound, which may be
+ * instrumental) while lyrics are present, turns an instrumental setting back to an automatic vocal.
+ * Choosing "Instrumental" on its own is respected.
+ */
+export function withSinger(prev: ComposeDraft, next: ComposeDraft, p: Partial<ComposeDraft>): ComposeDraft {
+  if (!next.lyricsText.trim() || next.vocal !== 'none') return next;
+  const lyricsAdded = !prev.lyricsText.trim();
+  const soundOverLyrics = 'genres' in p && 'vocal' in p;
+  return lyricsAdded || soundOverLyrics ? { ...next, vocal: 'auto', vocalMode: 'default' } : next;
+}
 
 /** Parsed lyrics with the user's section-kind overrides applied (undefined when there are none). */
 export function draftLyrics(

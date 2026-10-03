@@ -132,3 +132,16 @@ test('lyrics-first: pasted lyrics are sung, shown in Vocals and locked', async (
   expect(rights.join(' ')).not.toMatch(/AI|Placeholder/);
   expect(errors, errors.join('\n')).toEqual([]);
 });
+
+test('lyrics-first: an instrumental starting point still gets a singer for your lyrics', async ({ page }) => {
+  await page.goto('/');
+  await openComposer(page);
+  const builder = page.getByTestId('compose-builder');
+  // "Laid-back hip-hop" is instrumental; pasting lyrics afterwards brings the vocal back.
+  await builder.getByRole('button', { name: 'Laid-back hip-hop', exact: true }).click();
+  await builder.getByRole('tab', { name: /^Lyrics/ }).click();
+  await builder.getByLabel('Lyrics', { exact: true }).fill(LYRICS);
+  await page.getByRole('button', { name: 'Generate song' }).click();
+  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('.wb-left .track-row', { hasText: 'Lead Vocal' })).toHaveCount(1);
+});
