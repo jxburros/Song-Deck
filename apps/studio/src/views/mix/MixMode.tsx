@@ -177,7 +177,7 @@ export default function MixMode() {
               <span>
                 {stats.tracks} tracks{stats.audio ? ` · ${stats.audio} audio` : ''}
               </span>
-              {stats.lanes > 0 && <Badge tone="ai">{stats.lanes} automation lanes</Badge>}
+              {stats.lanes > 0 && <Badge>{stats.lanes} automation lanes</Badge>}
               {stats.locked > 0 && (
                 <Badge tone="warning">
                   <Icon name="lock" size={11} /> {stats.locked} locked

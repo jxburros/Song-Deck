@@ -66,7 +66,7 @@
 }
 .vx-mode.selected .vx-mode-icon {
   background: var(--accent);
-  color: #1b0f05;
+  color: var(--on-accent);
 }
 .vx-mode-label {
   font-weight: 600;
@@ -77,7 +77,7 @@
   text-overflow: ellipsis;
 }
 .vx-mode-check {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .vx-mode-does {
   font-size: 11.5px;
@@ -156,7 +156,7 @@
   overflow: hidden;
 }
 .vx-lyric-section.locked {
-  border-color: rgba(245, 196, 81, 0.45);
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
 }
 .vx-lyric-head {
   display: flex;
@@ -371,11 +371,11 @@
 }
 .vx-input.out {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-soft);
 }
 .vx-input.out strong {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .vx-task {
   display: flex;
@@ -387,10 +387,10 @@
   border: 1px solid var(--border);
 }
 .vx-task.failed {
-  border-color: rgba(255, 93, 93, 0.5);
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
 }
 .vx-task.succeeded {
-  border-color: rgba(62, 207, 142, 0.4);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
 }
 .vx-audition {
   display: flex;
@@ -418,7 +418,7 @@
 
 /* ---- Voices & consent (§36) ------------------------------------------------------------------- */
 .vx-consent {
-  border: 1px solid rgba(245, 196, 81, 0.35);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
   border-radius: var(--radius-lg);
   background: var(--warning-soft);
   padding: 12px;
@@ -444,7 +444,7 @@
 
 /* ---- Takes ------------------------------------------------------------------------------------ */
 .vx-take.active {
-  border-color: rgba(62, 207, 142, 0.45);
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
 }
 .vx-headphones {
   display: flex;

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import * as core from '@songdeck/core';
+import type * as core from '@songdeck/core';
 import type { GenreProfile, InstrumentProfile, Song } from '@songdeck/core';
-import { createInternalProvider, type InternalProviderSpec, type PricingInfo, type ProviderInstance } from '@songdeck/ai';
+import type { InternalProviderSpec, PricingInfo, ProviderInstance } from '@songdeck/ai';
 import type { SampleInstrument } from '@songdeck/audio';
 import { serverBase, useSettings } from '../state/settings';
 import { loadSfzInstrument } from './sfz-loader';
@@ -148,9 +148,12 @@ export async function loadPlugin(manifest: PluginManifest): Promise<void> {
   const contributions: string[] = [];
   const mine = ownedBy(manifest.id);
   const fileUrl = (p: string) => `${serverBase()}/api/plugins/${encodeURIComponent(manifest.id)}/files/${p.split('/').map(encodeURIComponent).join('/')}`;
+  // The whole core namespace and the provider factory are only needed once a plugin loads, so they
+  // are fetched here instead of weighing down the studio's entry chunk.
+  const [coreModule, { createInternalProvider }] = await Promise.all([import('@songdeck/core'), import('@songdeck/ai')]);
   const api: SongDeckPluginApi = {
     apiVersion: 1,
-    core,
+    core: coreModule,
     ai: {
       createProvider({ location, pricing, ...spec }) {
         const inst = createInternalProvider({ ...spec, id: spec.id ?? manifest.id, name: spec.name ?? manifest.name });

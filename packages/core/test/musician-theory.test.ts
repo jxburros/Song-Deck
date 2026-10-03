@@ -3,6 +3,7 @@ import { applyTheoryControl, explainSection, explainSong, suggestChordSubstituti
 import { parseChordSymbol } from '../src/theory/chords';
 import { LockKeys } from '../src/locks';
 import { stableStringify } from '../src/ir/song-utils';
+import { composeSong, parsePromptToBlueprint } from '../src/composer';
 import { deepFreeze, makeSong, opsOfType } from './musician-fixtures';
 
 describe('explainSection (Theory View §43)', () => {
@@ -79,6 +80,30 @@ describe('explainSection (Theory View §43)', () => {
     expect(ex.overview[0]).toMatch(/G major, 120 BPM in 4\/4, 36 bars/);
     expect(ex.overview.join(' ')).toMatch(/borrowed chords and secondary dominants in Bridge\./);
     expect(ex.overview.join(' ')).toMatch(/Chorus 2 repeats Chorus 1/);
+  });
+
+  it('states each fact once per section (narrative and comparisons together)', () => {
+    const songs = [song, ...['epic pop with a huge chorus', 'sad folk waltz in 6/8', 'dark trance 140 bpm', 'jazz in D dorian'].map((p, i) => composeSong(parsePromptToBlueprint(p, { seed: i + 1 })))];
+    const sentences = (text: string) => text.split(/(?<=[.!?])\s+/).map((t) => t.trim()).filter(Boolean);
+    for (const s of songs) {
+      for (const sec of s.sections) {
+        const ex = explainSection(s, sec.id);
+        const all = [...ex.narrative, ...ex.comparisons].flatMap(sentences);
+        const repeated = all.filter((t, i) => all.indexOf(t) !== i);
+        expect(repeated, `${s.title} / ${sec.name}`).toEqual([]);
+        // The energy step to each neighbouring section is reported in exactly one place.
+        for (const other of s.sections.filter((o) => o.id !== sec.id)) {
+          const names = new RegExp(` ${other.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
+          expect(all.filter((t) => /^Energy \d/.test(t) && names.test(t)).length, `${sec.name} vs ${other.name}`).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+    const chorus = explainSection(song, 'sec-chorus1');
+    const lift = 'The verse emphasizes E minor while the chorus places more weight on G major, producing a perceptual emotional lift without requiring a full modulation.';
+    expect(chorus.narrative.filter((t) => t === lift)).toHaveLength(1);
+    expect(chorus.comparisons).not.toContain(lift);
+    expect(chorus.comparisons.filter((t) => t.startsWith('Energy 90') && t.includes('Pre-Chorus'))).toHaveLength(1);
+    expect(explainSection(song, 'sec-bridge').comparisons.some((t) => t.startsWith('Energy 70→95 vs'))).toBe(true);
   });
 
   it('is pure and throws on unknown sections', () => {

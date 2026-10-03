@@ -1,5 +1,5 @@
 import { memo, useState, type KeyboardEvent } from 'react';
-import { LockKeys, type ChannelStrip, type MixerState, type Song, type Track } from '@songdeck/core';
+import { LockKeys, TRACK_NEUTRAL, type ChannelStrip, type MixerState, type Song, type Track } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { LockButton } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
@@ -80,7 +80,7 @@ function ChannelStripImpl({ track, strip: ch, locked, selected, onSelect, onOpen
   const name = track.name;
   const set = (path: string, v: unknown) => previewMixer((m) => setStripField(m, id, path, v));
   const toggle = (path: string, v: boolean) => applyMixer((m) => setStripField(m, id, path, v));
-  const knob = (path: string, label: string, def: number, extra: { bipolar?: boolean; tone?: 'accent' | 'ai' | 'muted' } = {}) => {
+  const knob = (path: string, label: string, def: number, extra: { bipolar?: boolean; tone?: 'accent' | 'secondary' | 'muted' } = {}) => {
     const meta = FIELD_META[path];
     return (
       <Knob
@@ -104,7 +104,7 @@ function ChannelStripImpl({ track, strip: ch, locked, selected, onSelect, onOpen
   return (
     <div
       className={`mx-strip ${selected ? 'selected' : ''} ${locked ? 'locked' : ''} ${ch.mute ? 'muted' : ''}`}
-      style={{ ['--strip-color' as string]: track.color || '#9aa3b2' }}
+      style={{ ['--strip-color' as string]: track.color || TRACK_NEUTRAL }}
       role="group"
       aria-label={`${name} channel strip`}
       onPointerDownCapture={onSelect}
@@ -154,8 +154,8 @@ function ChannelStripImpl({ track, strip: ch, locked, selected, onSelect, onOpen
       </div>
       <EqThumb eq={ch.eq} label={name} onClick={() => onOpen('eq')} />
       <div className="mx-knob-grid">
-        {knob('reverbSend', 'Rev', 0.15, { tone: 'ai' })}
-        {knob('delaySend', 'Dly', 0, { tone: 'ai' })}
+        {knob('reverbSend', 'Rev', 0.15, { tone: 'secondary' })}
+        {knob('delaySend', 'Dly', 0, { tone: 'secondary' })}
         {knob('width', 'Width', 1, { bipolar: true, tone: 'muted' })}
         {knob('drive', 'Drive', 0, { tone: 'muted' })}
       </div>
@@ -293,7 +293,7 @@ export function MasterStripView({ song, mixer, selected, onSelect, onOpen }: { s
           max={0}
           step={0.1}
           defaultValue={-1}
-          tone="ai"
+          tone="secondary"
           onPreview={(v) => set('limiter.ceilingDb', v)}
           onCommit={() => commitMixer()}
           onKeyCommit={() => commitMixerSoon()}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  TRACK_PALETTE,
   applyOperations,
   chordFunction,
   isChordSectionLocked,
@@ -19,10 +20,10 @@ import { Badge, Button, LockButton, TextInput } from '../../ui/kit';
 import { propose } from '../../engine/proposals';
 
 const FN_COLOR: Record<string, string> = {
-  tonic: 'var(--success)',
-  predominant: 'var(--ai)',
-  dominant: 'var(--accent)',
-  chromatic: 'var(--warning)',
+  tonic: TRACK_PALETTE[5],
+  predominant: TRACK_PALETTE[10],
+  dominant: TRACK_PALETTE[1],
+  chromatic: TRACK_PALETTE[3],
 };
 
 /** Chord View (spec §18): harmony & chord manipulation with theory-aware substitutions. */

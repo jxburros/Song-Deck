@@ -35,7 +35,7 @@ const avatar = (color: string, i: number): CSSProperties => ({
   height: 22,
   borderRadius: '50%',
   background: color,
-  color: '#121418',
+  color: 'var(--on-track)',
   fontSize: 9.5,
   fontWeight: 800,
   letterSpacing: '-0.02em',

@@ -49,6 +49,17 @@ export default defineConfig({
   build: {
     target: 'es2022',
     sourcemap: true,
-    chunkSizeWarningLimit: 4000,
+    // Keep in step with the entry budget in scripts/size.mjs (`npm run size`).
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // React changes far less often than the app, so it gets its own long-cacheable chunk. Leave
+        // the workspace packages to Rollup: forcing them into named chunks drags their shared
+        // dependencies into the initial load (`npm run size` catches that).
+        manualChunks(id) {
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'vendor-react';
+        },
+      },
+    },
   },
 });

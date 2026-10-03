@@ -15,6 +15,7 @@ import { useStudio } from '../../state/store';
 import { usePlayhead } from '../../hooks';
 import { LockButton } from '../../ui/kit';
 import { colorForRole } from './SidePanel';
+import { sectionColor } from '../../ui/theme';
 import { useLoopSync } from './useLoopSync';
 
 const HEAD_W = 172;
@@ -22,23 +23,6 @@ const SECTION_H = 22;
 const RULER_H = 20;
 const CHORD_H = 22;
 const HEADER_H = SECTION_H + RULER_H + CHORD_H;
-
-const SECTION_COLORS: Record<string, string> = {
-  intro: '#4b5563',
-  verse: '#2f6f8f',
-  'pre-chorus': '#7a5c2e',
-  chorus: '#8f3b2f',
-  'post-chorus': '#7d3b5c',
-  bridge: '#4c3f8f',
-  breakdown: '#2f5f4f',
-  build: '#7a6a2e',
-  drop: '#8f2f4f',
-  solo: '#5f7a2e',
-  interlude: '#3f5f6f',
-  'final-chorus': '#a3402c',
-  outro: '#4b5563',
-  custom: '#4b5563',
-};
 
 const SectionBlock = memo(function SectionBlock({
   song,
@@ -92,7 +76,7 @@ const SectionBlock = memo(function SectionBlock({
         borderStyle: notes.length || track.kind === 'audio' ? 'solid' : 'dashed',
         overflow: 'hidden',
         cursor: 'pointer',
-        boxShadow: locked ? 'inset 0 0 0 1px rgba(245,196,81,0.55)' : undefined,
+        boxShadow: locked ? 'inset 0 0 0 1px color-mix(in srgb, var(--lock) 55%, transparent)' : undefined,
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -256,9 +240,10 @@ export default function ArrangementView() {
                   width: (span.endTick - span.startTick) * pxPerTick,
                   top: 0,
                   height: SECTION_H,
-                  background: SECTION_COLORS[span.section.kind] ?? '#4b5563',
+                  background: `color-mix(in srgb, ${sectionColor(span.section.kind)} 34%, var(--bg-elev-2))`,
+                  borderLeft: `3px solid ${sectionColor(span.section.kind)}`,
                   borderRight: '1px solid var(--bg)',
-                  color: '#fff',
+                  color: 'var(--text)',
                   fontSize: 11,
                   fontWeight: 600,
                   padding: '3px 6px',
@@ -372,8 +357,8 @@ export default function ArrangementView() {
                       width: Math.max(4, (endTick - c.tick) * pxPerTick),
                       top: 4,
                       height: view.trackHeight - 8,
-                      background: 'var(--ai-soft)',
-                      border: '1px solid var(--ai)',
+                      background: `${track.color || colorForRole(track.role)}22`,
+                      border: `1px solid ${track.color || colorForRole(track.role)}`,
                       borderRadius: 5,
                       fontSize: 11,
                       padding: '2px 6px',
@@ -398,7 +383,7 @@ export default function ArrangementView() {
               width: selW,
               top: HEADER_H,
               bottom: 0,
-              background: 'rgba(255,138,61,0.06)',
+              background: 'color-mix(in srgb, var(--accent) 6%, transparent)',
               borderLeft: '1px solid var(--accent)',
               borderRight: '1px solid var(--accent)',
               pointerEvents: 'none',

@@ -183,7 +183,7 @@ export function Knob({
   log?: boolean;
   disabled?: boolean;
   size?: number;
-  tone?: 'accent' | 'ai' | 'muted';
+  tone?: 'accent' | 'secondary' | 'muted';
   /** Value quantization (linear knobs). */
   step?: number;
 }) {

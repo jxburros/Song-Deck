@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import {
+  TRACK_NEUTRAL,
   BUILTIN_INSTRUMENTS,
   getInstrument,
   midiToNoteName,
@@ -97,7 +98,7 @@ export default function InspectorPanel() {
               />
             </Field>
             <Field label="Colour">
-              <input type="color" value={track.color || '#888888'} onChange={(e) => updateTrack({ color: e.target.value }, `${track.name}: colour`)} style={{ height: 30, width: '100%', background: 'none', border: 'none' }} />
+              <input type="color" value={track.color || TRACK_NEUTRAL} onChange={(e) => updateTrack({ color: e.target.value }, `${track.name}: colour`)} style={{ height: 30, width: '100%', background: 'none', border: 'none' }} />
             </Field>
           </div>
           <Field label="Plays in sections" hint="None selected = arrangement engine decides">

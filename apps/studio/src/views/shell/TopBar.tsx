@@ -1,7 +1,7 @@
 import { createTimeMap, tickToMusical, keyAtBar, keyName } from '@songdeck/core';
 import { useStudio, type Mode } from '../../state/store';
 import { Icon, BrandMark, type IconName } from '../../ui/icons';
-import { Button } from '../../ui/kit';
+import { Button, Select } from '../../ui/kit';
 import { formatTime, usePlayhead, usePlayerState } from '../../hooks';
 import { CollabPresence } from '../shared/CollabPresence';
 
@@ -69,6 +69,13 @@ export function TopBar() {
   const project = useStudio((s) => s.project);
   const setMode = useStudio((s) => s.setMode);
   const branch = project?.history.branches.find((b) => b.id === project.history.currentBranchId);
+  // Phones swap the icon tabs for a native picker (see layout.css); home and settings are reachable
+  // from the brand and the settings button but listed here too so the picker always has a value.
+  const modeOptions = [
+    { value: 'home' as Mode, label: 'Projects' },
+    ...MODES.map((m) => ({ value: m.mode, label: m.label, disabled: m.needsProject && !project })),
+    { value: 'settings' as Mode, label: 'Settings' },
+  ];
 
   return (
     <header className="topbar">
@@ -77,12 +84,12 @@ export function TopBar() {
         {!project && <span>Song Deck</span>}
       </div>
       {project && (
-        <div className="row" style={{ minWidth: 0 }}>
+        <div className="row topbar-project">
           <span className="project-name ellipsis" title={project.meta.name}>
             {project.meta.name}
           </span>
           {branch && (
-            <button className="badge accent" style={{ cursor: 'pointer' }} title="Branches & version history" onClick={() => {
+            <button className="badge accent branch-badge" title="Branches & version history" onClick={() => {
               useStudio.getState().setRightPanel('history');
               setMode('workbench');
             }}>
@@ -108,16 +115,18 @@ export function TopBar() {
           </button>
         ))}
       </nav>
+      <Select className="select mode-select" aria-label="Studio mode" value={mode} onChange={setMode} options={modeOptions} />
       <div className="spacer" />
       <CollabPresence />
       {project && (
-        <div className="row">
+        <div className="row topbar-history">
           <Button variant="ghost" size="sm" icon="undo" title="Undo (Ctrl/Cmd+Z)" onClick={() => useStudio.getState().undo()} />
           <Button variant="ghost" size="sm" icon="redo" title="Redo (Ctrl/Cmd+Shift+Z)" onClick={() => useStudio.getState().redo()} />
         </div>
       )}
+      <div className="topbar-break" />
       <Transport />
-      <Button variant="ghost" icon="settings" title="Settings: providers, privacy, budgets, models, plugins" onClick={() => setMode('settings')} active={mode === 'settings'} />
+      <Button variant="ghost" icon="settings" className="topbar-settings" title="Settings: providers, privacy, budgets, models, plugins" onClick={() => setMode('settings')} active={mode === 'settings'} />
     </header>
   );
 }

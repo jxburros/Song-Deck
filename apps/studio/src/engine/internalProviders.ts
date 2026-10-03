@@ -1,4 +1,5 @@
 import {
+  ROLE_COLORS,
   answerQuestion,
   explainSection,
   explainSong,
@@ -132,7 +133,7 @@ function singingRequestToSong(req: SingingRequest): Song {
       instrumentId: 'lead-vocal',
       constraints: {},
       clips: [],
-      color: '#ff7ac6',
+      color: ROLE_COLORS.vocal,
       stemGroup: 'vocals',
       notes: req.notes.map((n) => {
         const tick = Math.round(tm.secondsToTick(n.startSeconds));

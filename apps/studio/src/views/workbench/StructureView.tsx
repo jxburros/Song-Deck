@@ -67,7 +67,7 @@ export default function StructureView() {
                 {s.name}
               </div>
               <div className="small dim">{s.bars} bars</div>
-              <div style={{ height: 4, marginTop: 6, borderRadius: 2, background: `linear-gradient(to right, rgba(255,138,61,${s.energy / 100}), rgba(255,138,61,${(s.energyEnd ?? s.energy) / 100}))` }} />
+              <div style={{ height: 4, marginTop: 6, borderRadius: 2, background: `linear-gradient(to right, color-mix(in srgb, var(--accent) ${s.energy}%, transparent), color-mix(in srgb, var(--accent) ${s.energyEnd ?? s.energy}%, transparent))` }} />
             </button>
           );
         })}

@@ -9,6 +9,7 @@ import { useTaskRecord } from '../../engine/mix-tasks';
 import { Badge, Button, Progress, Spinner, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { formatTime, useElementSize } from '../../hooks';
+import { useThemeName } from '../../ui/theme';
 import { comparePlayer, useComparePosition, useCompareState } from './comparePlayer';
 import { useProduceUi } from './state';
 
@@ -107,6 +108,7 @@ export function Waveform({
   const [ref, size] = useElementSize<HTMLDivElement>();
   const canvas = useRef<HTMLCanvasElement>(null);
   const theme = useStudio((s) => s.project?.meta.id);
+  const uiTheme = useThemeName();
   useEffect(() => {
     const cv = canvas.current;
     if (!cv || !size.width) return;
@@ -119,13 +121,13 @@ export function Waveform({
     g.clearRect(0, 0, size.width, height);
     const css = getComputedStyle(document.documentElement);
     const mid = height / 2;
-    g.fillStyle = css.getPropertyValue('--border').trim() || '#262c37';
+    g.fillStyle = css.getPropertyValue('--border').trim();
     g.fillRect(0, mid, size.width, 1);
     if (!audio) return;
     const audioDur = (audio.channels[0]?.length ?? 0) / audio.sampleRate;
     const cols = Math.max(1, Math.round(size.width * Math.min(1, audioDur / Math.max(0.001, duration))));
     const peaks = peaksFor(audio, cols);
-    g.fillStyle = css.getPropertyValue('--ai').trim() || '#46c2cb';
+    g.fillStyle = css.getPropertyValue('--ai').trim();
     for (let x = 0; x < cols; x++) {
       const mn = peaks[x * 2];
       const mx = peaks[x * 2 + 1];
@@ -133,7 +135,7 @@ export function Waveform({
       const y1 = mid - Math.max(-1, mn) * (mid - 2);
       g.fillRect(x, y0, 1, Math.max(1, y1 - y0));
     }
-  }, [audio, size.width, height, duration, theme]);
+  }, [audio, size.width, height, duration, theme, uiTheme]);
   const pct = (s: number) => `${Math.max(0, Math.min(100, (s / Math.max(0.001, duration)) * 100))}%`;
   return (
     <div
