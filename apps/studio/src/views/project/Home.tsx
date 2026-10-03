@@ -198,7 +198,7 @@ function ConnectNudge() {
   const [dismissed, setDismissed] = useState(() => localGet<boolean>(NUDGE_KEY, false));
   if (hasProviders || dismissed) return null;
   return (
-    <div className="card row" data-testid="connect-nudge" style={{ gap: 12, marginBottom: 18, borderColor: 'var(--ai)', background: 'var(--ai-soft)' }}>
+    <div className="card row" data-testid="connect-nudge" style={{ gap: 12, marginBottom: 18, borderColor: 'var(--ai-line)', boxShadow: 'inset 3px 0 0 var(--ai)' }}>
       <Icon name="plug" />
       <div className="grow" style={{ minWidth: 0 }}>
         <strong>Works offline — add AI when you want it.</strong>

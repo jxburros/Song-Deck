@@ -178,7 +178,7 @@ function SectionLyrics({
             if (e.key === 'Escape') setDraft(original);
           }}
         />
-        <div className="vx-gutter" aria-label={`Syllable counts for ${span.section.name}`}>
+        <div className="vx-gutter" role="group" aria-label={`Syllable counts for ${span.section.name}`}>
           {texts.map((t, i) => {
             const s = stats[i];
             const line = lines[i];

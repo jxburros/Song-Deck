@@ -111,7 +111,7 @@ export function MeterBar({ id, height, label, readoutId }: { id: string; height:
     return register(id, e);
   }, [id, readoutId]);
   return (
-    <div className="mx-meter" style={{ height, ['--mh' as string]: `${height - 7}px` }} role="img" aria-label={`${label} level meter`}>
+    <div className="mx-meter" style={{ height, ['--mh' as string]: `${height - 7}px` }} role="group" aria-label={`${label} level meter`}>
       <button
         ref={clip}
         type="button"

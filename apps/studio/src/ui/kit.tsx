@@ -289,7 +289,7 @@ export function Progress({ value, ai }: { value: number; ai?: boolean }) {
 }
 
 export function Spinner() {
-  return <span className="spinner" aria-label="Working" />;
+  return <span className="spinner" role="status" aria-label="Working" />;
 }
 
 export function LockButton({ locked, onToggle, title }: { locked: boolean; onToggle: () => void; title?: string }) {
