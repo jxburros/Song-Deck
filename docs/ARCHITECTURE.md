@@ -113,7 +113,8 @@ explainSection(song, sectionId): SectionExplanation; explainSong(song): SongExpl
 applyTheoryControl(song, sectionId, control: TheoryControl, opts: { seed }): EditInterpretation
 suggestChordSubstitutions(song, chordId): ChordSuggestion[]
 syllabify(word): string[]; syllabifyText(text); countSyllables(text); textToPhonemes(text): string[]
-alignLyrics(song, trackId, opts?): { song: Song; report: LyricAlignmentReport }                // §48 lyrics ↔ vocal events
+alignLyrics(song, trackId, opts?): { operations: MusicOperation[]; report: LyricAlignmentEntry[]; warnings: string[] }  // §48 lyrics ↔ vocal events (apply via core/edit)
+validateLyricAlignment(song, trackId): { ok: boolean; issues: string[] }
 generatePlaceholderLyrics(opts): string[]
 interpretVocalInstruction(song, trackId, instruction, selection): EditInterpretation & { regenerateRange?: { startTick; endTick } }
 interpretMixInstruction(song, instruction): EditInterpretation      // §41 → set_mixer / set_automation
