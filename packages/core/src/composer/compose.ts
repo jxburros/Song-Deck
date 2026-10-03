@@ -20,7 +20,7 @@ import { IdFactory } from '../util/ids';
 import { resolveFunction } from './arrangement';
 import { buildSongGen, type StyleOverrides } from './context';
 import { writeCells } from './engine';
-import { blendGenres } from './genres';
+import { blendForBlueprint, genreForBlueprint, normalizeTagIds } from './tags';
 import { getInstrument } from './instruments';
 import { fillMixer, mixerForGenre, trackColor } from './mixer';
 import { buildSongMotifs } from './motifs';
@@ -28,7 +28,7 @@ import { planComposition } from './planner';
 import { drumStyleInfo } from './styles';
 import { sectionsFromPlan, writePlanChords } from './structure';
 import { extractSongDNA } from './dna';
-import { meterInfo } from './util';
+import { effectiveMacros, meterInfo } from './util';
 
 export interface ComposeOptions {
   seed?: number;
@@ -95,11 +95,15 @@ export function tracksFromBlueprint(bp: Blueprint, seed: number, custom?: Instru
 export function composeInternal(blueprint: Blueprint, planIn: CompositionPlan | undefined, opts: ComposeOptions, internal: ComposeInternals): Song {
   const seed = Math.floor(Math.abs(opts.seed ?? blueprint.seed ?? 1));
   const plan = planIn ?? planComposition(blueprint, { seed, customGenres: opts.customGenres });
-  const blend = blueprint.genreBlend && blueprint.genreBlend.length ? blueprint.genreBlend : [{ genreId: 'pop', weight: 1 }];
-  const genre = blendGenres(blend, opts.customGenres);
+  // Style tags pull an empty blend toward their parent genres; all tags then shape the profile.
+  const blend = blendForBlueprint(blueprint);
+  const tags = normalizeTagIds(blueprint.tags);
+  const genre = genreForBlueprint({ genreBlend: blend, tags }, opts.customGenres);
   const songId = opts.songId ?? new IdFactory(seed, 'song').next('song');
   const song = createEmptySong({ id: songId, title: blueprint.title || 'Untitled', bpm: plan.tempo, meter: plan.meter, key: plan.key, seed });
   song.genreBlend = blend.map((g) => ({ ...g }));
+  if (tags.length) song.tags = tags;
+  // The blueprint's macros stay the user's base; tag deltas apply at generation (effectiveMacros).
   song.macros = { ...defaultMacros(), ...(blueprint.macros ?? {}) };
   song.blueprint = cloneSong(blueprint);
   song.plan = cloneSong(plan);
@@ -134,15 +138,16 @@ export function composeInternal(blueprint: Blueprint, planIn: CompositionPlan | 
   if (riffTrack) sources.riff = riffTrack.id;
   const firstVerse = song.sections.find((s) => s.kind === 'verse') ?? song.sections[0];
   void firstVerse;
+  const motifMacros = effectiveMacros(song);
   song.motifs = internal.motifs
     ? cloneSong(internal.motifs)
     : buildSongMotifs({
         seed,
         meter: meterInfo(plan.meter, song.ppq),
         bpm: plan.tempo,
-        density: song.macros.density,
-        syncopation: song.macros.syncopation,
-        movement: song.macros.melodicMovement,
+        density: motifMacros.density,
+        syncopation: motifMacros.syncopation,
+        movement: motifMacros.melodicMovement,
         riff: RIFF_STYLES.includes(genre.rhythm.drumStyle) && Boolean(riffTrack),
         flatVocal: drumStyleInfo(genre.rhythm.drumStyle).rap === true,
         sources,

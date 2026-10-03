@@ -27,6 +27,7 @@ import { hashSeed, deriveRng, type Rng } from '../util/random';
 import { pitchClassFromName } from '../theory/pitch';
 import { blendGenres, getGenre } from './genres';
 import { getInstrument } from './instruments';
+import { applyTagsToGenre, blendForBlueprint, findTags, normalizeTagIds } from './tags';
 import { clamp, clamp01, lerp } from './util';
 
 // ---------------------------------------------------------------------------
@@ -516,12 +517,16 @@ function vocalExpected(genre: GenreProfile): boolean {
  * typical tempo, the most common structure, essential instrumentation.
  */
 export function defaultBlueprint(opts: Partial<Blueprint> = {}): Blueprint {
-  const genreBlend: GenreWeight[] = opts.genreBlend && opts.genreBlend.length ? opts.genreBlend.map((g) => ({ ...g })) : [{ genreId: 'pop', weight: 1 }];
-  const genre = blendGenres(genreBlend);
+  const tags = normalizeTagIds(opts.tags);
+  // Style tags pull an empty blend toward their parents; tags shape tempo, structure and line-up,
+  // while the base macros come from the untagged blend (tag deltas apply at generation time).
+  const genreBlend: GenreWeight[] = blendForBlueprint({ genreBlend: opts.genreBlend ?? [], tags });
+  const baseGenre = blendGenres(genreBlend);
+  const genre = applyTagsToGenre(baseGenre, tags);
   const minorDefault = (genre.modes[0]?.mode ?? 'major') !== 'major';
   const key: KeySignature = opts.key ?? (minorDefault ? { tonic: 9, mode: 'minor' } : { tonic: 0, mode: 'major' });
   const vocal = opts.vocal === undefined ? (vocalExpected(genre) ? { voiceType: 'tenor' as VoiceType, mode: 'melody-only' as const } : undefined) : opts.vocal;
-  const macros: MacroSettings = { ...defaultMacros(), ...(genre.macros ?? {}), ...(opts.macros ?? {}) };
+  const macros: MacroSettings = { ...defaultMacros(), ...(baseGenre.macros ?? {}), ...(opts.macros ?? {}) };
   const structure = opts.structure && opts.structure.length ? opts.structure.map((s) => ({ ...s })) : shapeEnergies(structureFromTemplate(genre, null), genre);
   const instrumentation =
     opts.instrumentation && opts.instrumentation.length ? opts.instrumentation.map((t) => ({ ...t })) : instrumentationFromGenre(genre, null, Boolean(vocal));
@@ -540,6 +545,7 @@ export function defaultBlueprint(opts: Partial<Blueprint> = {}): Blueprint {
     seed: opts.seed ?? 1,
   };
   if (opts.prompt !== undefined) bp.prompt = opts.prompt;
+  if (tags.length) bp.tags = tags;
   if (vocal) bp.vocal = { ...vocal };
   if (opts.lyricsTheme !== undefined) bp.lyricsTheme = opts.lyricsTheme;
   return bp;

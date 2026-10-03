@@ -25,7 +25,7 @@ import { PPQ } from '../ir/types';
 import { bpmAtTick, keyAtBar, meterAtBar, sectionLayout, tickToBar, barToTick, type SectionSpan } from '../timing';
 import { deriveRng, type Rng } from '../util/random';
 import { arrangementFor, isLeadVocal, resolveFunction } from './arrangement';
-import { genreForBlend } from './genres';
+import { genreForSong } from './tags';
 import { getInstrument, instrumentRange } from './instruments';
 import {
   barsOfSpan,
@@ -97,7 +97,7 @@ function resolveDrumStyle(genre: GenreProfile, song: Song): DrumStyle {
 }
 
 export function buildSongGen(song: Song, settings: GenSettings): SongGen {
-  const genre = genreForBlend(song.genreBlend, settings.customGenres);
+  const genre = genreForSong(song, settings.customGenres);
   const cache = new Map<string, InstrumentProfile>();
   const instrumentOf = (t: Track): InstrumentProfile => {
     let p = cache.get(t.instrumentId);

@@ -25,7 +25,7 @@ import { diatonicChord, formatChordSymbol } from '../theory/chords';
 import { chordDegree, chordToRoman } from '../theory/roman';
 import { buildSongGen, type StyleOverrides } from './context';
 import { writeCells, type CellChange } from './engine';
-import { genreForBlend } from './genres';
+import { genreForSong } from './tags';
 import { chooseProgression, colorProgression, expandHarmony, flavorFor, moodDarkness, snapHarmonicRhythm, type PlannedHarmony } from './harmony';
 import { buildSongMotifs } from './motifs';
 import { ornamentSong } from './ornament';
@@ -92,7 +92,7 @@ export function regenerateChords(song: Song, seed: number, scope: { sectionIds?:
     });
     return changed;
   }
-  const genre = genreForBlend(song.genreBlend, customGenres);
+  const genre = genreForSong(song, customGenres);
   const macros = effectiveMacros(song);
   const planned: PlannedHarmony = {};
   const groupChords = new Map<HarmonyGroup, ChordSpec[]>();
@@ -154,7 +154,7 @@ export function regenerateChords(song: Song, seed: number, scope: { sectionIds?:
  */
 function refreshMotifs(song: Song, seed: number, scope: { trackIds?: Set<string>; partial: boolean }, customGenres?: GenreProfile[]): void {
   if (isLocked(song.locks, LockKeys.motifs) || scope.partial || !song.motifs.length) return;
-  const genre = genreForBlend(song.genreBlend, customGenres);
+  const genre = genreForSong(song, customGenres);
   const macros = effectiveMacros(song);
   const meter = meterInfo(song.meterMap[0] ?? { numerator: 4, denominator: 4 }, song.ppq);
   const fresh = buildSongMotifs({
@@ -239,7 +239,7 @@ const RELATED_DRUMS: Partial<Record<DrumStyle, DrumStyle[]>> = {
 /** Seeded arrangement/feel changes for a reinterpretation pass. */
 export function reinterpretationOverrides(song: Song, seed: number, customGenres?: GenreProfile[]): StyleOverrides {
   const rng = deriveRng(seed, 'reinterpret');
-  const genre = genreForBlend(song.genreBlend, customGenres);
+  const genre = genreForSong(song, customGenres);
   const o: StyleOverrides = {
     accompaniment: rng.pick(['arp', 'sustain', 'block', 'pulse', 'stabs'] as const),
     densityBias: rng.pick([-0.7, -0.4, 0.4, 0.7]),

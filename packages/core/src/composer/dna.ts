@@ -14,6 +14,7 @@ import { resolveFunction } from './arrangement';
 import { defaultBlueprint, nameBlueprintTracks, nameSections } from './blueprint';
 import { composeInternal, type ComposeInternals } from './compose';
 import { blendGenres } from './genres';
+import { normalizeTagIds, songTags } from './tags';
 import { getInstrument } from './instruments';
 import { harmonyGroupOf, planComposition } from './planner';
 import { clamp01, sectionGroupId } from './util';
@@ -199,6 +200,7 @@ export function extractSongDNA(song: Song): SongDNA {
     energyCurve: song.sections.map((s) => s.energy),
     repetition: { pattern: rep.pattern, repeatRatio: rep.repeatRatio },
     genreBlend: song.genreBlend.map((g) => ({ ...g })),
+    ...(songTags(song).length ? { tags: songTags(song) } : {}),
   };
 }
 
@@ -208,6 +210,8 @@ export interface ComposeFromDnaOptions {
   genreBlend?: GenreWeight[];
   instrumentation?: BlueprintTrack[];
   tempo?: number;
+  /** Tag ids (default: the DNA's). */
+  tags?: string[];
 }
 
 function defaultFunctionFor(instrumentId: string, role: TrackRole): MusicalFunction | undefined {
@@ -218,7 +222,9 @@ function defaultFunctionFor(instrumentId: string, role: TrackRole): MusicalFunct
 /** Blueprint that reproduces a DNA's identity (structure, energies, principal progressions, instrumentation). */
 export function blueprintFromDNA(dna: SongDNA, opts: ComposeFromDnaOptions): Blueprint {
   const genreBlend = opts.genreBlend && opts.genreBlend.length ? opts.genreBlend : dna.genreBlend.length ? dna.genreBlend : [{ genreId: 'pop', weight: 1 }];
-  const genre = blendGenres(genreBlend);
+  // Base macros come from the untagged blend: tag deltas apply at generation time.
+  const baseGenre = blendGenres(genreBlend);
+  const tags = normalizeTagIds(opts.tags ?? dna.tags);
   const progByKind = new Map(dna.principalProgressions.map((p) => [p.sectionKind, p.roman]));
   const progByGroup = new Map(dna.principalProgressions.map((p) => [harmonyGroupOf(p.sectionKind), p.roman]));
   const n = dna.structure.length;
@@ -243,7 +249,7 @@ export function blueprintFromDNA(dna: SongDNA, opts: ComposeFromDnaOptions): Blu
   const synco = dna.rhythmicIdentity.length ? dna.rhythmicIdentity.reduce((t, r) => t + r.syncopation, 0) / dna.rhythmicIdentity.length : 0.4;
   const macros = {
     ...defaultMacros(),
-    ...(genre.macros ?? {}),
+    ...(baseGenre.macros ?? {}),
     syncopation: clamp01(synco * 1.2),
     repetition: clamp01(1 - dna.repetition.repeatRatio),
     harmonicTension: clamp01(0.2 + dna.harmonicLanguage.extensionRate * 0.6 + dna.harmonicLanguage.borrowedChordRate * 0.8),
@@ -260,6 +266,7 @@ export function blueprintFromDNA(dna: SongDNA, opts: ComposeFromDnaOptions): Blu
     macros,
     seed: opts.seed,
   });
+  if (tags.length) bp.tags = tags;
   if (hasLead) bp.vocal = { voiceType: bp.vocal?.voiceType ?? 'tenor', mode: 'melody-only' };
   else delete bp.vocal;
   return bp;

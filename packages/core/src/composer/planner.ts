@@ -6,7 +6,7 @@ import type { Blueprint, BlueprintSection, ChordSpec, CompositionPlan, GenreProf
 import { defaultMacros } from '../ir/defaults';
 import { deriveRng } from '../util/random';
 import { keyName } from '../theory/scales';
-import { blendGenres } from './genres';
+import { applyTagsToMacros, blendForBlueprint, genreForBlueprint, tagMeter } from './tags';
 import { defaultBlueprint } from './blueprint';
 import {
   chooseProgression,
@@ -109,12 +109,12 @@ export interface PlanOptions {
  */
 export function planComposition(blueprint: Blueprint, opts: PlanOptions = {}): CompositionPlan {
   const seed = opts.seed ?? blueprint.seed ?? 1;
-  const blend = blueprint.genreBlend && blueprint.genreBlend.length ? blueprint.genreBlend : [{ genreId: 'pop', weight: 1 }];
-  const genre = blendGenres(blend, opts.customGenres);
+  const blend = blendForBlueprint(blueprint);
+  const genre = genreForBlueprint({ genreBlend: blend, tags: blueprint.tags }, opts.customGenres);
   const key = { ...blueprint.key };
-  const meter = { numerator: blueprint.meter?.numerator ?? 4, denominator: blueprint.meter?.denominator ?? 4 };
+  const meter = tagMeter(blueprint.tags) ?? { numerator: blueprint.meter?.numerator ?? 4, denominator: blueprint.meter?.denominator ?? 4 };
   const tempo = clamp(Math.round(blueprint.tempo || genre.tempo.typical), 20, 400);
-  const macros = { ...defaultMacros(), ...(blueprint.macros ?? {}) };
+  const macros = applyTagsToMacros({ ...defaultMacros(), ...(blueprint.macros ?? {}) }, blueprint.tags);
   const sections: BlueprintSection[] = (blueprint.structure && blueprint.structure.length ? blueprint.structure : defaultBlueprint({ genreBlend: blend }).structure).filter(
     (s) => s.bars > 0,
   );
