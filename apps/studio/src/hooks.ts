@@ -1,5 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import type { GenreProfile, InstrumentProfile } from '@songdeck/core';
 import { player } from './engine/player';
+import { useExtensions } from './engine/plugins';
+import { useSettings } from './state/settings';
+import { useStudio } from './state/store';
+import { mergeById } from './state/profiles';
 
 /** Current playhead position in seconds, updated every animation frame while playing. */
 export function usePlayhead(): number {
@@ -78,4 +83,27 @@ export function formatTime(seconds: number): string {
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+const NO_GENRES: GenreProfile[] = [];
+const NO_INSTRUMENTS: InstrumentProfile[] = [];
+
+/**
+ * Custom genre profiles visible to the composer (spec §14): plugin-provided, user-defined in
+ * Settings and bundled with the open project, de-duplicated by id (later sources win).
+ * Reactive counterpart of `allCustomGenres()`.
+ */
+export function useCustomGenres(): GenreProfile[] {
+  const plugin = useExtensions((s) => s.genres);
+  const user = useSettings((s) => s.customGenres);
+  const project = useStudio((s) => s.project?.meta.customGenres ?? NO_GENRES);
+  return useMemo(() => mergeById(plugin, user, project), [plugin, user, project]);
+}
+
+/** Custom instrument profiles from plugins, Settings and the open project (see useCustomGenres). */
+export function useCustomInstruments(): InstrumentProfile[] {
+  const plugin = useExtensions((s) => s.instruments);
+  const user = useSettings((s) => s.customInstruments);
+  const project = useStudio((s) => s.project?.meta.customInstruments ?? NO_INSTRUMENTS);
+  return useMemo(() => mergeById(plugin, user, project), [plugin, user, project]);
 }

@@ -1,6 +1,6 @@
 import { isTrackSectionLocked, LockKeys, lockCount, randomSeed, regenerateUnlocked } from '@songdeck/core';
 import { useStudio } from '../../../state/store';
-import { useSettings } from '../../../state/settings';
+import { useCustomInstruments } from '../../../hooks';
 import { Button, LockButton } from '../../../ui/kit';
 
 const SONG_LOCKS: { key: string; label: string }[] = [
@@ -16,7 +16,7 @@ const SONG_LOCKS: { key: string; label: string }[] = [
 /** Locking System (spec §22). "Regenerate unlocked material" is guaranteed at the symbolic layer. */
 export default function LocksPanel() {
   const song = useStudio((s) => s.project?.song ?? null);
-  const customInstruments = useSettings((s) => s.customInstruments);
+  const customInstruments = useCustomInstruments();
   const st = useStudio.getState();
   if (!song) return null;
   const noteLocks = song.tracks.reduce((n, t) => n + t.notes.filter((x) => x.locked).length, 0);

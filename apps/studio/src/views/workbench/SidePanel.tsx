@@ -14,7 +14,7 @@ import {
   type TrackRole,
 } from '@songdeck/core';
 import { useStudio } from '../../state/store';
-import { useSettings } from '../../state/settings';
+import { useCustomInstruments } from '../../hooks';
 import { Button, Field, LockButton, Modal, Select, TextInput, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { TRACK_ROLES } from '../compose/BlueprintEditor';
@@ -48,7 +48,7 @@ function TrackRow({ song, track, selected }: { song: Song; track: Track; selecte
   const st = useStudio.getState();
   const ch = channelFor(song, track.id);
   const locked = !!song.locks[LockKeys.track(track.id)];
-  const customInstruments = useSettings((s) => s.customInstruments);
+  const customInstruments = useCustomInstruments();
   const inst = getInstrument(track.instrumentId, customInstruments);
   return (
     <div className={`track-row ${selected ? 'selected' : ''}`} onClick={() => st.selectTrack(track.id)} onDoubleClick={() => st.setWorkbenchView('piano-roll')}>
@@ -86,7 +86,7 @@ function TrackRow({ song, track, selected }: { song: Song; track: Track; selecte
 
 function AddTrackModal({ onClose }: { onClose: () => void }) {
   const song = useStudio((s) => s.project?.song)!;
-  const customInstruments = useSettings((s) => s.customInstruments);
+  const customInstruments = useCustomInstruments();
   const instruments = useMemo(() => [...BUILTIN_INSTRUMENTS, ...customInstruments], [customInstruments]);
   const [instrumentId, setInstrumentId] = useState('string-ensemble');
   const inst = instruments.find((i) => i.id === instrumentId) ?? instruments[0];

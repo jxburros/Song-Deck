@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { randomSeed, regenerateUnlocked, tickToMusical, lockCount } from '@songdeck/core';
 import { useStudio } from '../../state/store';
-import { useSettings } from '../../state/settings';
+import { useCustomInstruments } from '../../hooks';
 import { Badge, Button } from '../../ui/kit';
 
 /** Toolbar actions shared by all workbench views: zoom, selection scope, "Regenerate unlocked material". */
@@ -10,7 +10,7 @@ export function WorkbenchToolbar() {
   const view = useStudio((s) => s.view);
   const selection = useStudio((s) => s.selection);
   const selectedTrackId = useStudio((s) => s.selectedTrackId);
-  const customInstruments = useSettings((s) => s.customInstruments);
+  const customInstruments = useCustomInstruments();
   const [busy, setBusy] = useState(false);
   const st = useStudio.getState();
   if (!song) return null;

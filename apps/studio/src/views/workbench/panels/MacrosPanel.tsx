@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { applyMacroTransforms, randomSeed, regenerateUnlocked, type MacroSettings } from '@songdeck/core';
 import { useStudio } from '../../../state/store';
-import { useSettings } from '../../../state/settings';
+import { useCustomInstruments } from '../../../hooks';
 import { Button, Select, Slider } from '../../../ui/kit';
 import { MACRO_INFO } from '../../compose/BlueprintEditor';
 
@@ -9,7 +9,7 @@ import { MACRO_INFO } from '../../compose/BlueprintEditor';
 export default function MacrosPanel() {
   const song = useStudio((s) => s.project?.song ?? null);
   const selectedTrackId = useStudio((s) => s.selectedTrackId);
-  const customInstruments = useSettings((s) => s.customInstruments);
+  const customInstruments = useCustomInstruments();
   const st = useStudio.getState();
   const [scope, setScope] = useState<'song' | 'track'>('song');
   const track = song?.tracks.find((t) => t.id === selectedTrackId);

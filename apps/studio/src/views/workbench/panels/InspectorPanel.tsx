@@ -9,7 +9,7 @@ import {
   type Track,
 } from '@songdeck/core';
 import { useStudio } from '../../../state/store';
-import { useSettings } from '../../../state/settings';
+import { useCustomInstruments } from '../../../hooks';
 import { Badge, Button, CommitText, Field, Select } from '../../../ui/kit';
 import { AVOID_RULES, FUNCTIONS, TRACK_ROLES } from '../../compose/BlueprintEditor';
 
@@ -28,7 +28,7 @@ const RIGHTS_FIELDS: { key: keyof RightsMetadata; label: string }[] = [
 export default function InspectorPanel() {
   const project = useStudio((s) => s.project);
   const selectedTrackId = useStudio((s) => s.selectedTrackId);
-  const customInstruments = useSettings((s) => s.customInstruments);
+  const customInstruments = useCustomInstruments();
   const instruments = useMemo(() => [...BUILTIN_INSTRUMENTS, ...customInstruments], [customInstruments]);
   const st = useStudio.getState();
   if (!project) return null;
