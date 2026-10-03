@@ -3,13 +3,18 @@ import { useEffect, useMemo } from 'react';
 import {
   BUILTIN_GENRES,
   BUILTIN_INSTRUMENTS,
+  applyBuilderConstraints,
   defaultMacros,
+  describeChoices,
   getInstrument,
+  listTags,
   parseChordSymbol,
   parsePromptToBlueprint,
   planComposition,
   randomSeed,
+  resolveTagIds,
   type Blueprint,
+  type BuilderChoices,
   type CompositionPlan,
   type EditSelection,
   type Song,
@@ -316,6 +321,50 @@ export function roleOptions(role: TaskRole): RoleOption[] {
   return out;
 }
 
+export interface RoleRoute {
+  providerId: string;
+  providerName: string;
+  location: string;
+  /** The on-device engine (no model). */
+  internal: boolean;
+}
+
+/**
+ * Who would serve a role for a picker choice — a router dry run for "auto" (the same selection
+ * `roleOptions` predicts), the on-device engine for "internal", or the chosen provider. Null when
+ * nothing can serve it.
+ */
+export function routeFor(role: TaskRole, choice: string | undefined): RoleRoute | null {
+  const reg = getRegistry();
+  let id: string | undefined;
+  if (choice === 'internal') id = INTERNAL_FOR_ROLE[role];
+  else if (!choice || choice === 'auto') {
+    for (const capabilities of ROLE_CAPABILITY_SETS[role] ?? [ROLE_INFO[role].capabilities]) {
+      try {
+        id = getRouter().select({ role, capabilities }).providerId;
+        break;
+      } catch {
+        /* try the next way to serve this role */
+      }
+    }
+  } else id = choice;
+  const inst = id ? reg.get(id) : undefined;
+  if (!id || !inst) return null;
+  const location = inst.descriptor.location;
+  return { providerId: id, providerName: inst.descriptor.name, location, internal: location === 'internal' };
+}
+
+/** `routeFor` as a hook: re-evaluated when providers, routing or plugins change. */
+export function useRoleRoute(role: TaskRole, choice: string | undefined): RoleRoute | null {
+  const version = useAiRuntime((s) => s.version);
+  const routing = useSettings((s) => s.routing);
+  useEffect(() => {
+    initAi();
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => routeFor(role, choice), [role, choice, version, routing]);
+}
+
 export function useRoleOptions(role: TaskRole): RoleOption[] {
   const version = useAiRuntime((s) => s.version);
   const routing = useSettings((s) => s.routing);
@@ -412,6 +461,10 @@ export function sanitizeBlueprint(candidate: Partial<Blueprint> | undefined, pro
     macros: { ...defaultMacros(), ...base.macros, ...(candidate.macros ?? {}) },
     seed,
   };
+  // Tags: only ids the catalog knows (a model's invented tags are dropped).
+  const tags = resolveTagIds(Array.isArray(candidate.tags) ? candidate.tags.map(String) : []);
+  if (tags.length) bp.tags = tags;
+  else if (!bp.tags?.length) delete bp.tags;
   if (!bp.genreBlend.length) bp.genreBlend = base.genreBlend;
   if (!bp.instrumentation.length) bp.instrumentation = base.instrumentation;
   if (!bp.structure.length) bp.structure = base.structure;
@@ -445,11 +498,23 @@ export function sanitizePlan(plan: CompositionPlan | undefined, blueprint: Bluep
   };
 }
 
-export async function aiDesignBlueprint(prompt: string, opts: AiCallOptions & { seed: number }): Promise<{ blueprint: Blueprint; source: string; provenance: RunProvenance }> {
+/**
+ * Design a blueprint from words. With `choices` (the Compose builder), the user's choices are hard
+ * constraints: they go into the request and are re-applied to whatever comes back, so the model
+ * fills in detail but cannot override them; their lyrics are sent too (and never rewritten).
+ */
+export async function aiDesignBlueprint(
+  prompt: string,
+  opts: AiCallOptions & { seed: number; choices?: BuilderChoices },
+): Promise<{ blueprint: Blueprint; source: string; provenance: RunProvenance }> {
+  const custom = { customGenres: allCustomGenres(), customInstruments: allCustomInstruments() };
+  const choices = opts.choices;
+  const lyrics = choices?.lyrics?.sections.length ? choices.lyrics.text : undefined;
+  const constraints = choices ? describeChoices(choices, custom) : [];
   const r = await runRole('composition', {
     ...opts,
-    dataKinds: ['song-description'],
-    estimateInput: { kind: 'llm', role: 'composition', inputChars: prompt.length + 6000 },
+    dataKinds: lyrics ? ['song-description', 'lyrics'] : ['song-description'],
+    estimateInput: { kind: 'llm', role: 'composition', inputChars: prompt.length + (lyrics?.length ?? 0) + constraints.join('\n').length + 6000 },
     title: 'Design Song Blueprint',
     execute: async (instance, model, signal) => {
       const res = await instance.composition!.designBlueprint({
@@ -457,10 +522,15 @@ export async function aiDesignBlueprint(prompt: string, opts: AiCallOptions & { 
         model,
         signal,
         defaults: { seed: opts.seed, macros: defaultMacros() },
-        genres: [...BUILTIN_GENRES, ...allCustomGenres()].map((g) => ({ id: g.id, name: g.name })),
-        instruments: [...BUILTIN_INSTRUMENTS, ...allCustomInstruments()].map((i) => ({ id: i.id, name: i.name, family: i.family })),
+        genres: [...BUILTIN_GENRES, ...custom.customGenres].map((g) => ({ id: g.id, name: g.name })),
+        instruments: [...BUILTIN_INSTRUMENTS, ...custom.customInstruments].map((i) => ({ id: i.id, name: i.name, family: i.family })),
+        tags: listTags().map((t) => ({ id: t.id, name: t.name, kind: t.kind })),
+        ...(constraints.length ? { constraints } : {}),
+        ...(lyrics ? { lyrics } : {}),
       });
-      return { ...res, blueprint: instance.descriptor.location === 'internal' ? res.blueprint : sanitizeBlueprint(res.blueprint, prompt, opts.seed) };
+      let blueprint = instance.descriptor.location === 'internal' ? res.blueprint : sanitizeBlueprint(res.blueprint, prompt, opts.seed);
+      if (choices) blueprint = applyBuilderConstraints(blueprint, choices, { seed: opts.seed, ...custom });
+      return { ...res, blueprint };
     },
   });
   return { blueprint: r.result.blueprint, source: sourceLabel(r.provenance), provenance: r.provenance };
