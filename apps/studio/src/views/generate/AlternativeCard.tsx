@@ -4,7 +4,7 @@ import type { AudioData } from '@songdeck/audio';
 import { jobs } from '../../engine/jobs';
 import { previewPlayer, usePreviewId, usePreviewPosition } from '../../engine/capture-playback';
 import { downloadBytes, slugify } from '../../engine/capture-files';
-import { useSettings } from '../../state/settings';
+import { useCustomInstruments } from '../../hooks';
 import { useStudio } from '../../state/store';
 import { Badge, Button, Spinner } from '../../ui/kit';
 import { SongTrackNotation } from '../shared/NotationPreview';
@@ -43,7 +43,7 @@ export function AlternativeCard({
   onInsert: (alt: Alternative) => void;
   onOpen: (alt: Alternative) => void;
 }) {
-  const customInstruments = useSettings((s) => s.customInstruments);
+  const customInstruments = useCustomInstruments();
   const [rendering, setRendering] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const playingId = usePreviewId();

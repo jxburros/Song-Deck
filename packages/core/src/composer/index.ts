@@ -13,4 +13,4 @@ export { applyMacroTransforms } from './macros';
 export { regenerateUnlocked, type RegenerateOptions, type RegenerateResult } from './regenerate';
 export { createVariation, BRANCH_TEMPLATES, type ComposerBranchTemplate, type VariationOptions as CreateVariationOptions } from './variation';
 export { extractSongDNA, composeFromDNA, type ComposeFromDnaOptions } from './dna';
-export { generateAsset } from './asset';
+export { generateAsset, type GenerateAssetOptions } from './asset';

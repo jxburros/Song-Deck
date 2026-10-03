@@ -12,7 +12,7 @@ import {
   type Proposal,
 } from '@songdeck/core';
 import { useStudio } from '../../state/store';
-import { useSettings } from '../../state/settings';
+import { useCustomGenres, useCustomInstruments } from '../../hooks';
 import { Badge, Button, Field, Spinner, TextArea } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { useStopPreviewOnUnmount } from '../../engine/capture-playback';
@@ -35,7 +35,8 @@ export default function GenerateMode() {
   const project = useStudio((s) => s.project);
   const song = project?.song ?? null;
   const st = useStudio.getState();
-  const customInstruments = useSettings((s) => s.customInstruments);
+  const customInstruments = useCustomInstruments();
+  const customGenres = useCustomGenres();
   const session = useGenerateSession();
   const { prompt, parsedPrompt, request, seed, alternatives, note } = session;
   const setPrompt = (v: string) => session.set({ prompt: v });
@@ -77,7 +78,7 @@ export default function GenerateMode() {
         const alts: Alternative[] = [];
         for (let i = 0; i < count; i++) {
           const s = baseSeed + i;
-          const res = generateAsset({ ...req, seed: s }, s);
+          const res = generateAsset({ ...req, seed: s }, s, { customGenres, customInstruments });
           alts.push({ id: randomId('alt'), label: LABELS[i] ?? String(i + 1), seed: s, song: res.song, trackId: res.trackId, request: req });
         }
         useGenerateSession.getState().set({ alternatives: alts });

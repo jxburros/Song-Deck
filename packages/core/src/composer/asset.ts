@@ -3,7 +3,7 @@
  * chord part… — as a one-track mini-song over the requested progression (symbols or roman
  * numerals) or a genre-appropriate one.
  */
-import type { AssetRequest, BlueprintSection, MacroSettings, SectionKind, Song, TrackRole } from '../ir/types';
+import type { AssetRequest, BlueprintSection, GenreProfile, InstrumentProfile, MacroSettings, SectionKind, Song, TrackRole } from '../ir/types';
 import { defaultBlueprint } from './blueprint';
 import { composeSong } from './compose';
 import { blendGenres } from './genres';
@@ -13,14 +13,21 @@ import { clamp, clamp01 } from './util';
 const HIGH_ENERGY = ['aggressive', 'angry', 'energetic', 'epic', 'huge', 'driving', 'intense', 'triumphant', 'euphoric', 'fast', 'heavy', 'anthemic', 'powerful'];
 const LOW_ENERGY = ['sad', 'melancholy', 'melancholic', 'calm', 'chill', 'gentle', 'soft', 'dreamy', 'peaceful', 'lonely', 'somber', 'slow', 'intimate', 'reflective'];
 
+export interface GenerateAssetOptions {
+  /** Custom genre profiles (Settings, plugins, project) the request may name. */
+  customGenres?: GenreProfile[];
+  /** Custom instrument profiles the request may name. */
+  customInstruments?: InstrumentProfile[];
+}
+
 /** Generate one asset track. The returned song has exactly one track. */
-export function generateAsset(request: AssetRequest, seed: number): { song: Song; trackId: string } {
-  const inst = getInstrument(request.instrumentId);
+export function generateAsset(request: AssetRequest, seed: number, opts: GenerateAssetOptions = {}): { song: Song; trackId: string } {
+  const inst = getInstrument(request.instrumentId, opts.customInstruments);
   const role: TrackRole = request.role ?? inst.defaultRole;
   const fn = request.function ?? (role === 'vocal' ? 'melody' : inst.defaultFunction);
   const genreIds = request.genreIds && request.genreIds.length ? request.genreIds : ['pop'];
   const genreBlend = genreIds.map((genreId) => ({ genreId, weight: 1 }));
-  const genre = blendGenres(genreBlend);
+  const genre = blendGenres(genreBlend, opts.customGenres);
   const bars = clamp(Math.round(request.bars || 8), 1, 256);
   const moods = (request.moods ?? []).map((m) => m.toLowerCase());
   const text = `${moods.join(' ')} ${request.description ?? ''}`.toLowerCase();
@@ -73,6 +80,6 @@ export function generateAsset(request: AssetRequest, seed: number): { song: Song
   });
   if (role === 'vocal') bp.vocal = { voiceType: 'tenor', mode: 'melody-only' };
   else delete bp.vocal;
-  const song = composeSong(bp, undefined, { seed: request.seed ?? seed });
+  const song = composeSong(bp, undefined, { seed: request.seed ?? seed, customGenres: opts.customGenres, customInstruments: opts.customInstruments });
   return { song, trackId: song.tracks[0].id };
 }

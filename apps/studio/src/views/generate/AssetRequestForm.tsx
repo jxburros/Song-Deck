@@ -15,7 +15,7 @@ import {
   type Song,
   type TrackRole,
 } from '@songdeck/core';
-import { useSettings } from '../../state/settings';
+import { useCustomGenres, useCustomInstruments } from '../../hooks';
 import { Button, Field, NumberInput, Select, TextInput } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { FUNCTIONS, MODES, TRACK_ROLES } from '../compose/BlueprintEditor';
@@ -53,8 +53,8 @@ export function AssetRequestForm({
   /** Open project (enables "use project chords / key / tempo"). */
   song: Song | null;
 }) {
-  const customInstruments = useSettings((s) => s.customInstruments);
-  const customGenres = useSettings((s) => s.customGenres);
+  const customInstruments = useCustomInstruments();
+  const customGenres = useCustomGenres();
   const instruments: InstrumentProfile[] = useMemo(() => [...BUILTIN_INSTRUMENTS, ...customInstruments], [customInstruments]);
   const genres = useMemo(() => [...BUILTIN_GENRES, ...customGenres], [customGenres]);
   const [moodDraft, setMoodDraft] = useState('');
