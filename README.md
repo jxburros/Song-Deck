@@ -26,6 +26,23 @@ npm run typecheck
 npm run e2e            # Playwright end-to-end tests (Chromium)
 ```
 
+### Local AI models (optional)
+
+Local engines plug in through small JSON/HTTP contracts. To try the whole pipeline without any
+model, run the dependency-free mock bridge and add a local preset under Settings → Providers:
+
+```bash
+python3 bridges/mock_bridge.py --role all   # music, singing, separation, transcription, voice, mastering on :8810-8815
+```
+
+Reference bridges for ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC and Matchering are in
+[`bridges/`](./bridges); Ollama, LM Studio, llama.cpp and vLLM work through their own presets.
+
+### Plugins
+
+Enable the bundled examples under Settings → Plugins (the local server must be running). How to
+write your own: [`docs/PLUGINS.md`](./docs/PLUGINS.md).
+
 ## Repository layout
 
 | Path | What it is |
@@ -36,7 +53,7 @@ npm run e2e            # Playwright end-to-end tests (Chromium)
 | `apps/studio` | The workstation UI (React + Vite) |
 | `apps/server` | Local runtime server (Node) |
 | `plugins/` | Example plugins: a genre profile, an exporter (ABC notation) and an SFZ sampled instrument |
-| `bridges/` | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC) |
+| `bridges/` | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC, Matchering) and a dependency-free mock bridge |
 
 ## License
 
