@@ -145,3 +145,6 @@ export async function initRuntime(): Promise<void> {
   await Promise.all([handlers, ai, instruments]);
   await taskQueue.restore();
 }
+
+// The task queue and its handlers are page-wide singletons: reload the page instead of hot-swapping them.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());

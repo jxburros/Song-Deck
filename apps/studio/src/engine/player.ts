@@ -283,3 +283,6 @@ export class Player {
 }
 
 export const player = new Player();
+
+// One audio context and playback worker per page: reload instead of hot-swapping.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());

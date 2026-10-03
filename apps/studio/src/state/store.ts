@@ -640,3 +640,6 @@ player.subscribe(() => {
 
 /** Convenience selector: the working song (or null). */
 export const useSong = () => useStudio((s) => s.project?.song ?? null);
+
+// The studio store holds the open project: reload the page instead of hot-swapping it (which would lose state).
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());

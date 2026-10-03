@@ -625,3 +625,6 @@ export const aiAudio = {
   master: (req: Parameters<Orchestrator['master']>[0], opts: AiCallOptions = {}) => getOrchestrator().master(req, runOpts('mastering', opts)),
   convertVoice: (req: Parameters<Orchestrator['convertVoice']>[0], opts: AiCallOptions = {}) => getOrchestrator().convertVoice(req, runOpts('voice-conversion', opts)),
 };
+
+// The provider registry, router and orchestrator are page-wide singletons: reload instead of hot-swapping.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());

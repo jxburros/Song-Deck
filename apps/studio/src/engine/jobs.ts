@@ -97,3 +97,6 @@ class JobPool {
 }
 
 export const jobs = new JobPool();
+
+// One worker pool per page: reload instead of hot-swapping.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());
