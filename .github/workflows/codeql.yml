@@ -18,6 +18,9 @@ concurrency:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
+    # Code scanning results can only be uploaded to public repositories, or private ones with
+    # GitHub Advanced Security enabled.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
