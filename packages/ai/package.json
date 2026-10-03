@@ -1,0 +1,18 @@
+{
+  "name": "@songdeck/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI Orchestrator: capability taxonomy, provider registry, capability router, provider profiles, routing rules, privacy/data-flow, cost/budget, provider adapters, MusicContext builder, structured output parsing.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@songdeck/core": "0.1.0"
+  }
+}

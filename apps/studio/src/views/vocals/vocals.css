@@ -1,0 +1,480 @@
+/* Vocals mode (spec §32-§37). Prefix: vx- */
+
+.vx-page {
+  padding-bottom: 40px;
+}
+
+/* ---- Vocal modes (§33) ------------------------------------------------------------------- */
+.vx-modes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1320px) {
+  .vx-modes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .vx-modes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.vx-mode {
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+}
+.vx-mode:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-elev-2);
+}
+.vx-mode.selected {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-soft), transparent 75%), var(--bg-elev-1);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.vx-mode-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.vx-mode-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elev-3);
+  color: var(--text-muted);
+  flex: none;
+}
+.vx-mode.selected .vx-mode-icon {
+  background: var(--accent);
+  color: #1b0f05;
+}
+.vx-mode-label {
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vx-mode-check {
+  color: var(--accent);
+}
+.vx-mode-does {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.vx-mode-status {
+  font-size: 11px;
+  color: var(--text-dim);
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+  margin-top: auto;
+}
+.vx-mode.selected .vx-mode-status {
+  color: var(--text);
+}
+
+/* ---- Layout -------------------------------------------------------------------------------- */
+.vx-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .vx-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.vx-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.vx-side {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.vx-tabbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.vx-tabbar .tabs {
+  flex-wrap: wrap;
+}
+.vx-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 1280px) {
+  .vx-two {
+    grid-template-columns: 1fr;
+  }
+}
+.vx-write-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+/* ---- Lyrics -------------------------------------------------------------------------------- */
+.vx-lyric-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elev-1);
+  overflow: hidden;
+}
+.vx-lyric-section.locked {
+  border-color: rgba(245, 196, 81, 0.45);
+}
+.vx-lyric-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  flex-wrap: wrap;
+  min-height: 38px;
+}
+.vx-lyric-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+.vx-lyric-text {
+  --lh: 24px;
+  display: block;
+  width: 100%;
+  border: none;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: var(--lh);
+  padding: 8px 12px;
+  resize: none;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: calc(var(--lh) * 2 + 16px);
+}
+.vx-lyric-text:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.vx-lyric-text[readonly] {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+.vx-gutter {
+  padding: 8px 0;
+  background: var(--bg-elev-1);
+  min-width: 0;
+}
+.vx-gutter-row {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.vx-gutter-row .mono {
+  min-width: 34px;
+}
+.vx-gutter-row.ok .mono,
+.vx-gutter-row.ok .vx-gutter-diff {
+  color: var(--success);
+}
+.vx-gutter-row.warn .mono,
+.vx-gutter-row.warn .vx-gutter-diff {
+  color: var(--warning);
+}
+.vx-gutter-row.err .mono,
+.vx-gutter-row.err .vx-gutter-diff {
+  color: var(--danger);
+}
+.vx-gutter-row.focus {
+  background: var(--bg-elev-3);
+}
+.vx-gutter-diff {
+  min-width: 46px;
+}
+.vx-author {
+  margin-left: auto;
+  font-size: 10.5px;
+  line-height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-elev-3);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.vx-author.warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.vx-author.ai {
+  background: var(--ai-soft);
+  color: var(--ai);
+}
+.vx-phonemes {
+  padding: 6px 12px 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: baseline;
+}
+.vx-ph {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  background: var(--bg-elev-3);
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--ai);
+}
+.vx-report .table td,
+.vx-report .table th {
+  padding: 4px 8px;
+}
+
+/* ---- Phrases --------------------------------------------------------------------------------- */
+.vx-phrases {
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 2px;
+}
+.vx-phrase {
+  padding: 6px 4px 4px 9px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  outline: none;
+}
+.vx-phrase:hover {
+  border-color: var(--border-strong);
+}
+.vx-phrase:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+.vx-phrase.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.vx-phrase-label {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* ---- Expression ------------------------------------------------------------------------------- */
+.vx-expr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px 16px;
+}
+.vx-ignored {
+  opacity: 0.6;
+}
+.vx-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+}
+.vx-param {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  border: 1px solid var(--border);
+}
+.vx-param.ok {
+  color: var(--success);
+  background: var(--success-soft);
+  border-color: transparent;
+}
+.vx-param.off {
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+
+/* ---- Render ------------------------------------------------------------------------------------ */
+.vx-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vx-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  max-width: 100%;
+}
+.vx-input strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.vx-input.ok .icon-svg {
+  color: var(--success);
+}
+.vx-input.out {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.vx-input.out strong {
+  color: var(--accent);
+}
+.vx-task {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+}
+.vx-task.failed {
+  border-color: rgba(255, 93, 93, 0.5);
+}
+.vx-task.succeeded {
+  border-color: rgba(62, 207, 142, 0.4);
+}
+.vx-audition {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vx-wave-skeleton {
+  border-radius: var(--radius);
+  background: repeating-linear-gradient(90deg, var(--bg-elev-3) 0 2px, transparent 2px 6px);
+  opacity: 0.5;
+}
+.vx-empty-render {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: var(--text-muted);
+}
+.vx-proposal {
+  border-left: 3px solid var(--ai);
+}
+.vx-diff {
+  margin: 6px 0;
+  padding-left: 16px;
+}
+
+/* ---- Voices & consent (§36) ------------------------------------------------------------------- */
+.vx-consent {
+  border: 1px solid rgba(245, 196, 81, 0.35);
+  border-radius: var(--radius-lg);
+  background: var(--warning-soft);
+  padding: 12px;
+}
+.vx-attest {
+  margin-top: 8px;
+  gap: 8px;
+}
+.vx-attest input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.vx-steps {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  display: grid;
+  gap: 4px;
+}
+
+/* ---- Takes ------------------------------------------------------------------------------------ */
+.vx-take.active {
+  border-color: rgba(62, 207, 142, 0.45);
+}
+.vx-headphones {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.vx-headphones .icon-svg {
+  margin-top: 2px;
+}
+
+/* ---- Melody ----------------------------------------------------------------------------------- */
+.vx-sections td {
+  padding: 4px 8px;
+}
+.vx-row-focus td {
+  background: var(--accent-soft);
+}
+
+/* ---- Activity ---------------------------------------------------------------------------------- */
+.vx-activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.vx-activity li {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 6px;
+  font-size: 11.5px;
+  align-items: start;
+}

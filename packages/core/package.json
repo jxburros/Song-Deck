@@ -1,0 +1,17 @@
+{
+  "name": "@songdeck/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Music Engine: Music IR, theory engine, composition engine, arrangement, validation, serialization, project + version history, task engine.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
+  }
+}

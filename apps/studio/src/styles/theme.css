@@ -1,0 +1,161 @@
+/* Song Deck design tokens — a dark, focused workstation theme with a light variant. */
+:root {
+  --font-ui: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --bg: #0e1014;
+  --bg-elev-1: #14171d;
+  --bg-elev-2: #1a1e26;
+  --bg-elev-3: #222731;
+  --bg-input: #0f1217;
+  --border: #262c37;
+  --border-strong: #343b48;
+  --text: #e7eaf0;
+  --text-muted: #9099a8;
+  --text-dim: #646d7c;
+
+  --accent: #ff8a3d;
+  --accent-strong: #ff7417;
+  --accent-soft: rgba(255, 138, 61, 0.14);
+  --ai: #46c2cb;
+  --ai-soft: rgba(70, 194, 203, 0.14);
+  --success: #3ecf8e;
+  --success-soft: rgba(62, 207, 142, 0.14);
+  --danger: #ff5d5d;
+  --danger-soft: rgba(255, 93, 93, 0.14);
+  --warning: #f5c451;
+  --warning-soft: rgba(245, 196, 81, 0.14);
+  --lock: #f5c451;
+
+  --diff-added: #3ecf8e;
+  --diff-removed: #ff5d5d;
+  --diff-modified: #f5a524;
+
+  --grid-line: rgba(255, 255, 255, 0.045);
+  --grid-beat: rgba(255, 255, 255, 0.08);
+  --grid-bar: rgba(255, 255, 255, 0.16);
+  --playhead: #ff8a3d;
+
+  --radius-sm: 4px;
+  --radius: 7px;
+  --radius-lg: 12px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --focus-ring: 0 0 0 2px rgba(255, 138, 61, 0.55);
+
+  --topbar-h: 52px;
+  --statusbar-h: 26px;
+  --sidebar-w: 248px;
+  --rightbar-w: 340px;
+
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: #f3f4f7;
+  --bg-elev-1: #ffffff;
+  --bg-elev-2: #f6f7fa;
+  --bg-elev-3: #eceef3;
+  --bg-input: #ffffff;
+  --border: #dde1e8;
+  --border-strong: #c9ced8;
+  --text: #171a21;
+  --text-muted: #5a6372;
+  --text-dim: #8a93a2;
+  --accent: #e8661c;
+  --accent-strong: #d4570f;
+  --accent-soft: rgba(232, 102, 28, 0.12);
+  --ai: #148a93;
+  --ai-soft: rgba(20, 138, 147, 0.12);
+  /* Status colours darkened for contrast on white surfaces. */
+  --success: #16865a;
+  --success-soft: rgba(22, 134, 90, 0.12);
+  --danger: #c93636;
+  --danger-soft: rgba(201, 54, 54, 0.1);
+  --warning: #a86a00;
+  --warning-soft: rgba(168, 106, 0, 0.12);
+  --diff-added: #16865a;
+  --diff-removed: #c93636;
+  --diff-modified: #b86e00;
+  --grid-line: rgba(0, 0, 0, 0.04);
+  --grid-beat: rgba(0, 0, 0, 0.08);
+  --grid-bar: rgba(0, 0, 0, 0.18);
+  --shadow: 0 10px 30px rgba(20, 24, 35, 0.15);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0 0 8px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+h1 { font-size: 22px; }
+h2 { font-size: 17px; }
+h3 { font-size: 14px; }
+h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+
+p {
+  margin: 0 0 8px;
+}
+
+a {
+  color: var(--ai);
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 10px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
