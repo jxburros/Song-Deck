@@ -14,6 +14,7 @@ import {
   ENGINE_VERSION,
   IdFactory,
   PPQ,
+  ROLE_COLORS,
   chordToRoman,
   createEmptySong,
   defaultChannelStrip,
@@ -102,16 +103,16 @@ const STAGES: { id: RebuildStageId; label: string }[] = [
 const OTHER_CANDIDATES = ['piano', 'electric-guitar-clean', 'electric-guitar-distorted', 'acoustic-guitar', 'synth-pad', 'string-ensemble', 'synth-lead'] as const;
 
 const INSTRUMENT_INFO: Record<string, { name: string; stemGroup: StemGroup; range: [number, number]; color: string }> = {
-  'drum-kit': { name: 'Drums', stemGroup: 'drums', range: [27, 87], color: '#e4572e' },
-  'electric-bass': { name: 'Bass', stemGroup: 'bass', range: [28, 60], color: '#4c6ef5' },
-  'lead-vocal': { name: 'Vocal Melody', stemGroup: 'vocals', range: [45, 84], color: '#f2c14e' },
-  piano: { name: 'Piano', stemGroup: 'keys', range: [28, 100], color: '#2bb3a3' },
-  'electric-guitar-clean': { name: 'Clean Guitar', stemGroup: 'guitars', range: [40, 88], color: '#9b5de5' },
-  'electric-guitar-distorted': { name: 'Distorted Guitar', stemGroup: 'guitars', range: [40, 88], color: '#c0392b' },
-  'acoustic-guitar': { name: 'Acoustic Guitar', stemGroup: 'guitars', range: [40, 84], color: '#b5838d' },
-  'synth-pad': { name: 'Synth Pad', stemGroup: 'keys', range: [36, 96], color: '#43aa8b' },
-  'string-ensemble': { name: 'Strings', stemGroup: 'strings', range: [28, 100], color: '#577590' },
-  'synth-lead': { name: 'Synth Lead', stemGroup: 'keys', range: [48, 96], color: '#f8961e' },
+  'drum-kit': { name: 'Drums', stemGroup: 'drums', range: [27, 87], color: ROLE_COLORS.drums },
+  'electric-bass': { name: 'Bass', stemGroup: 'bass', range: [28, 60], color: ROLE_COLORS.bass },
+  'lead-vocal': { name: 'Vocal Melody', stemGroup: 'vocals', range: [45, 84], color: ROLE_COLORS.vocal },
+  piano: { name: 'Piano', stemGroup: 'keys', range: [28, 100], color: ROLE_COLORS.keys },
+  'electric-guitar-clean': { name: 'Clean Guitar', stemGroup: 'guitars', range: [40, 88], color: ROLE_COLORS['rhythm-guitar'] },
+  'electric-guitar-distorted': { name: 'Distorted Guitar', stemGroup: 'guitars', range: [40, 88], color: ROLE_COLORS['lead-guitar'] },
+  'acoustic-guitar': { name: 'Acoustic Guitar', stemGroup: 'guitars', range: [40, 84], color: ROLE_COLORS.percussion },
+  'synth-pad': { name: 'Synth Pad', stemGroup: 'keys', range: [36, 96], color: ROLE_COLORS['synth-pad'] },
+  'string-ensemble': { name: 'Strings', stemGroup: 'strings', range: [28, 100], color: ROLE_COLORS.strings },
+  'synth-lead': { name: 'Synth Lead', stemGroup: 'keys', range: [48, 96], color: ROLE_COLORS['synth-lead'] },
 };
 
 function round3(v: number): number {

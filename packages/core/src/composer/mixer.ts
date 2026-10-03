@@ -5,26 +5,11 @@
  */
 import type { ChannelStrip, GenreProfile, InstrumentProfile, MixerState, Song, Track, TrackRole } from '../ir/types';
 import { defaultChannelStrip, defaultCompressor, defaultEq, defaultMixer } from '../ir/defaults';
+import { colorForRole } from '../ir/palette';
 import { clamp, clamp01 } from './util';
 
-export const ROLE_COLORS: Record<TrackRole, string> = {
-  drums: '#e05252',
-  percussion: '#e07b52',
-  bass: '#e0a852',
-  'rhythm-guitar': '#c9c94f',
-  'lead-guitar': '#8fd14f',
-  keys: '#4fd18f',
-  strings: '#4fc9d1',
-  'synth-pad': '#4f8fd1',
-  'synth-arp': '#6f6fe0',
-  'synth-lead': '#a35be0',
-  'synth-seq': '#d15bc9',
-  vocal: '#e05b9a',
-  custom: '#9aa3ad',
-};
-
 export function trackColor(role: TrackRole): string {
-  return ROLE_COLORS[role] ?? ROLE_COLORS.custom;
+  return colorForRole(role);
 }
 
 const HPF_BY_INSTRUMENT: Record<string, number> = {
