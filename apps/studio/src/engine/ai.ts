@@ -373,7 +373,7 @@ export function routeFor(role: TaskRole, choice: string | undefined): RoleRoute 
   let id: string | undefined;
   if (choice === 'internal') id = INTERNAL_FOR_ROLE[role];
   else if (!choice || choice === 'auto') {
-    for (const capabilities of ROLE_CAPABILITY_SETS[role] ?? [ROLE_INFO[role].capabilities]) {
+    for (const capabilities of roleCapabilitySets(role)) {
       try {
         id = getRouter().select({ role, capabilities }).providerId;
         break;
