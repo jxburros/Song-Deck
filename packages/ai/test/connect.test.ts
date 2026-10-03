@@ -207,8 +207,10 @@ describe('connect probes', () => {
     expect(r.note).toMatch(/Lyria/);
     const ids = r.models.map((x) => x.id);
     expect(ids).toContain('lyria-3-clip-preview');
-    expect(ids).not.toContain('lyria-realtime-exp');
-    expect(ids).not.toContain('text-embedding-004');
+    // Models Song Deck cannot use are reported without capabilities (for "show all").
+    expect(r.models.find((x) => x.id === 'text-embedding-004')?.capabilities).toEqual([]);
+    expect(r.models.find((x) => x.id === 'lyria-realtime-exp')?.capabilities).toEqual([]);
+    expect(groupModels(r.models).unusable.map((x) => x.id).sort()).toEqual(['imagen-4.0-generate-001', 'lyria-realtime-exp', 'text-embedding-004']);
     const lyria = r.models.find((x) => x.id === 'lyria-3-clip-preview')!;
     expect(modelUses(lyria)).toEqual(['music']);
     const rec = recommendModels(r.models);
@@ -223,7 +225,9 @@ describe('connect probes', () => {
     const r = await probeProvider('openai', { transport: transportFor(m.fetch, 'provider:openai', 'sk-proj-test0123456789') });
     expect(m.calls[0].url).toBe('https://api.openai.com/v1/models');
     expect(m.calls[0].headers.get('authorization')).toBe('Bearer sk-proj-test0123456789');
-    expect(r.models.map((x) => x.id)).toEqual(['gpt-5', 'gpt-4o-mini']);
+    const g = groupModels(r.models);
+    expect(g.groups[0].models.map((x) => x.model.id)).toEqual(['gpt-5', 'gpt-4o-mini']);
+    expect(g.unusable.map((x) => x.id).sort()).toEqual(['dall-e-3', 'whisper-1']);
     const groq = mockFetch(() => jsonResponse({ data: [{ id: 'llama-3.3-70b-versatile' }] }));
     await probeProvider('groq', { transport: transportFor(groq.fetch, 'provider:groq', 'gsk_abc0123456789') });
     expect(groq.calls[0].url).toBe('https://api.groq.com/openai/v1/models');

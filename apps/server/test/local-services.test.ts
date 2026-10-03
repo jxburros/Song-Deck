@@ -19,6 +19,7 @@ afterEach(async () => {
 const HW: HardwareInfo = {
   cpu: { model: 'Test CPU', cores: 8, threads: 16 },
   ramGb: 32,
+  freeRamGb: 20,
   gpus: [],
   storageFreeGb: 500,
   backends: ['cpu'],

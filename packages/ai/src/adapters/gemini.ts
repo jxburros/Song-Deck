@@ -109,6 +109,7 @@ export function geminiModelInfo(m: GeminiModel): ModelInfo | undefined {
 export class GeminiLLM implements LLMProvider {
   private mode: StructuredOutputMode;
   private modelsCache?: ModelInfo[];
+  skippedModels: ModelInfo[] = [];
 
   constructor(
     readonly config: ProviderConfig,
@@ -123,6 +124,7 @@ export class GeminiLLM implements LLMProvider {
 
   async listModels(signal?: AbortSignal): Promise<ModelInfo[]> {
     const out: ModelInfo[] = [];
+    const skipped: ModelInfo[] = [];
     let pageToken: string | undefined;
     for (let page = 0; page < 10; page++) {
       const json = await this.http.json<{ models?: GeminiModel[]; nextPageToken?: string }>({
@@ -133,10 +135,12 @@ export class GeminiLLM implements LLMProvider {
       for (const m of json?.models ?? []) {
         const info = geminiModelInfo(m);
         if (info) out.push(info);
+        else if (m.name) skipped.push({ id: m.name.replace(/^models\//, ''), ...(m.displayName ? { name: m.displayName } : {}), capabilities: [] });
       }
       pageToken = json?.nextPageToken;
       if (!pageToken) break;
     }
+    this.skippedModels = skipped;
     this.modelsCache = mergeManualModels(out, this.config, [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON']);
     return this.modelsCache;
   }

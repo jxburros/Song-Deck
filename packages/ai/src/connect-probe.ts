@@ -64,7 +64,7 @@ export async function probeProvider(presetId: string, opts: ConnectProbeOptions)
   if (preset.adapter === 'stability-audio') return probeStability(config, opts);
   const inst = createProvider(config, deps(opts.transport));
   if (!inst.llm) throw new ProviderError('unsupported', `${preset.name} cannot be connected with a key here — use Advanced`);
-  const models = await inst.llm.listModels(opts.signal);
+  const models = [...(await inst.llm.listModels(opts.signal)), ...(inst.llm.skippedModels ?? [])];
   const note = presetId === 'gemini' && models.some((m) => isGeminiMusicModel(m.id)) ? 'This key can also use Lyria music models.' : undefined;
   return { presetId, models: [...models].sort(compareModelsForRecommendation), listed: true, ...(note ? { note } : {}) };
 }

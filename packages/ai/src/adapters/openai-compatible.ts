@@ -59,6 +59,7 @@ interface ChatCompletion {
 export class OpenAICompatibleLLM implements LLMProvider {
   private mode: StructuredOutputMode;
   private modelsCache?: ModelInfo[];
+  skippedModels: ModelInfo[] = [];
 
   constructor(
     readonly config: ProviderConfig,
@@ -88,13 +89,20 @@ export class OpenAICompatibleLLM implements LLMProvider {
     const list: OpenAIModelEntry[] = Array.isArray(json) ? json : Array.isArray(record?.data) ? (record!.data as OpenAIModelEntry[]) : Array.isArray(record?.models) ? (record!.models as OpenAIModelEntry[]) : [];
     const structured = this.mode !== 'prompt';
     const models: ModelInfo[] = [];
+    const skipped: ModelInfo[] = [];
     for (const entry of list) {
       const id = entry.id ?? entry.name;
       if (!id) continue;
-      if (entry.type && !/^(chat|language|text|llm)$/i.test(entry.type)) continue;
+      if (entry.type && !/^(chat|language|text|llm)$/i.test(entry.type)) {
+        skipped.push({ id, capabilities: [] });
+        continue;
+      }
       const contextLength = entry.context_length ?? entry.context_window ?? entry.max_model_len ?? entry.meta?.n_ctx ?? entry.meta?.n_ctx_train;
       const inferred = inferModelCapabilities(id, { contextLength, structuredOutput: structured });
-      if (!inferred) continue;
+      if (!inferred) {
+        skipped.push({ id, capabilities: [] });
+        continue;
+      }
       const model: ModelInfo = { id, ...inferred };
       const name = entry.display_name ?? (entry.name && entry.name !== id ? entry.name : undefined);
       if (name) model.name = name;
@@ -102,6 +110,7 @@ export class OpenAICompatibleLLM implements LLMProvider {
       models.push(model);
     }
     models.sort((a, b) => a.id.localeCompare(b.id));
+    this.skippedModels = skipped;
     this.modelsCache = mergeManualModels(models, this.config, [...LLM_BASE_CAPABILITIES]);
     return this.modelsCache;
   }
