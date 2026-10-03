@@ -6,6 +6,7 @@
 import * as audio from '@songdeck/audio';
 import type { AudioData } from '@songdeck/audio';
 import type { MasteringSettings, Song } from '@songdeck/core';
+import type { RenderInstrumentConfig } from './render-config';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -28,7 +29,8 @@ export type JobMethod =
   | 'rebuild'
   | 'separate'
   | 'analyze'
-  | 'cancel';
+  | 'cancel'
+  | 'configure';
 
 export type JobResponse =
   | { id: number; ok: true; result: unknown }
@@ -36,6 +38,8 @@ export type JobResponse =
   | { id: number; progress: number; stage?: string; detail?: unknown };
 
 const controllers = new Map<number, AbortController>();
+/** Custom and sampled instruments for renders (set by the pool's `configure`). */
+let instrumentConfig: RenderInstrumentConfig = { instruments: [], sampleInstruments: {} };
 
 function collectTransfer(value: unknown, out: Transferable[] = [], seen = new Set<unknown>()): Transferable[] {
   if (!value || typeof value !== 'object' || seen.has(value)) return out;
@@ -63,15 +67,15 @@ async function run(req: JobRequest, signal: AbortSignal): Promise<unknown> {
   switch (req.method) {
     case 'renderMix': {
       const a = req.args as { song: Song; assets?: Record<string, AudioData>; sampleRate?: number; applyMaster?: boolean; trackIds?: string[] };
-      return audio.renderSong(a.song, { sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), applyMaster: a.applyMaster, trackIds: a.trackIds });
+      return audio.renderSong(a.song, { ...instrumentConfig, sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), applyMaster: a.applyMaster, trackIds: a.trackIds });
     }
     case 'renderStems': {
       const a = req.args as { song: Song; assets?: Record<string, AudioData>; sampleRate?: number; by?: 'stemGroup' | 'track' };
-      return audio.renderStems(a.song, { sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), by: a.by ?? 'stemGroup', applyMaster: false });
+      return audio.renderStems(a.song, { ...instrumentConfig, sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), by: a.by ?? 'stemGroup', applyMaster: false });
     }
     case 'renderTrack': {
       const a = req.args as { song: Song; trackId: string; assets?: Record<string, AudioData>; sampleRate?: number };
-      return audio.renderTrack(a.song, a.trackId, { sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), applyMaster: false });
+      return audio.renderTrack(a.song, a.trackId, { ...instrumentConfig, sampleRate: a.sampleRate ?? 44100, assets: resolverFrom(a.assets), applyMaster: false });
     }
     case 'master': {
       const a = req.args as { audio: AudioData; settings: MasteringSettings };
@@ -127,6 +131,10 @@ self.onmessage = async (ev: MessageEvent<JobRequest>) => {
   const req = ev.data;
   if (req.method === 'cancel') {
     controllers.get((req.args as { target: number }).target)?.abort();
+    return;
+  }
+  if (req.method === 'configure') {
+    instrumentConfig = req.args as RenderInstrumentConfig;
     return;
   }
   const controller = new AbortController();

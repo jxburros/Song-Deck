@@ -1,6 +1,7 @@
 import type { MixerState, Song } from '@songdeck/core';
 import type { AudioData } from '@songdeck/audio';
 import type { PlaybackInMessage, PlaybackOutMessage } from './playback.worker';
+import type { RenderInstrumentConfig } from './render-config';
 
 /**
  * Local MIDI/audio playback (spec §66 Phase 1 "local MIDI playback").
@@ -41,6 +42,7 @@ export class Player {
   private pausedAtSeconds = 0;
   private loop: { start: number; end: number } | null = null;
   private metronome = false;
+  private instruments: RenderInstrumentConfig | null = null;
   private listeners = new Set<Listener>();
   private lastError: string | null = null;
   playing = false;
@@ -72,6 +74,7 @@ export class Player {
       this.emit();
     };
     this.post({ type: 'init', sampleRate: this.sampleRate });
+    if (this.instruments) this.post({ type: 'instruments', ...this.instruments });
   }
 
   private post(msg: PlaybackInMessage, transfer: Transferable[] = []) {
@@ -97,6 +100,12 @@ export class Player {
     this.song = song;
     this.ensureWorker();
     this.post({ type: 'song', song });
+  }
+
+  /** Custom instrument profiles and sampled instruments in scope (plugins, Settings, project). */
+  setInstruments(config: RenderInstrumentConfig) {
+    this.instruments = config;
+    this.post({ type: 'instruments', ...config });
   }
 
   setMixer(mixer: MixerState) {

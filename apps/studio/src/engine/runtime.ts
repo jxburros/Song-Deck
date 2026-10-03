@@ -139,8 +139,9 @@ export async function initRuntime(): Promise<void> {
   // reacts to the server status when it arrives), so work queued at startup starts promptly.
   const handlers = import('./taskHandlers').then(({ registerTaskHandlers }) => registerTaskHandlers(taskQueue));
   const ai = import('./ai').then(({ initAi }) => initAi());
+  const instruments = import('./render-instruments').then(({ initInstrumentSync }) => initInstrumentSync());
   void checkServer();
   setInterval(() => void checkServer(), 15000);
-  await Promise.all([handlers, ai]);
+  await Promise.all([handlers, ai, instruments]);
   await taskQueue.restore();
 }

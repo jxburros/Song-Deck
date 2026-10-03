@@ -1,0 +1,11 @@
+{
+  "id": "felt-keys-sfz",
+  "name": "Felt Keys (SFZ sampled instrument)",
+  "version": "1.0.0",
+  "kind": "instrument",
+  "description": "Example sampled instrument: an SFZ file with four multisampled felt-piano notes. Shows how plugins add soundfont-style instruments that play back and export like built-in ones.",
+  "author": "Song Deck examples",
+  "entry": "index.js",
+  "files": ["index.js", "felt-keys.sfz", "samples/felt-c2.wav", "samples/felt-c3.wav", "samples/felt-c4.wav", "samples/felt-c5.wav"],
+  "permissions": ["audio"]
+}

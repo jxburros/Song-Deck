@@ -6,6 +6,7 @@
  */
 import { SongRenderer, type AudioData } from '@songdeck/audio';
 import type { MixerState, Song } from '@songdeck/core';
+import type { RenderInstrumentConfig } from './render-config';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -17,7 +18,8 @@ export type PlaybackInMessage =
   | { type: 'seek'; frame: number; gen: number }
   | { type: 'loop'; startFrame: number | null; endFrame?: number }
   | { type: 'pull'; count: number; gen: number }
-  | { type: 'options'; metronome: boolean };
+  | { type: 'options'; metronome: boolean }
+  | ({ type: 'instruments' } & RenderInstrumentConfig);
 
 export type PlaybackOutMessage =
   | { type: 'ready' }
@@ -41,6 +43,7 @@ let renderer: SongRenderer | null = null;
 let metronome = false;
 let loop: { startFrame: number | null; endFrame?: number } = { startFrame: null };
 const assets = new Map<string, AudioData>();
+let instrumentConfig: RenderInstrumentConfig = { instruments: [], sampleInstruments: {} };
 let chunkCounter = 0;
 
 function post(msg: PlaybackOutMessage, transfer: Transferable[] = []) {
@@ -55,6 +58,8 @@ function buildRenderer(keepPosition: boolean) {
     assets: (id: string) => assets.get(id),
     metronome,
     tailSeconds: 1.5,
+    instruments: instrumentConfig.instruments,
+    sampleInstruments: instrumentConfig.sampleInstruments,
   });
   if (loop.startFrame !== null) renderer.setLoop(loop.startFrame, loop.endFrame);
   if (pos) renderer.seekFrame(pos);
@@ -77,6 +82,10 @@ self.onmessage = (ev: MessageEvent<PlaybackInMessage>) => {
       case 'mixer':
         if (song) song = { ...song, mixer: msg.mixer };
         renderer?.updateMixer(msg.mixer);
+        break;
+      case 'instruments':
+        instrumentConfig = { instruments: msg.instruments, sampleInstruments: msg.sampleInstruments };
+        if (song) buildRenderer(true);
         break;
       case 'asset':
         assets.set(msg.id, { sampleRate: msg.sampleRate, channels: msg.channels });

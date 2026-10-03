@@ -1,4 +1,5 @@
 import type { JobMethod, JobRequest, JobResponse } from './jobs.worker';
+import type { RenderInstrumentConfig } from './render-config';
 
 /**
  * Promise-based client for the job worker. A small pool lets independent jobs
@@ -19,6 +20,13 @@ class JobPool {
   private load = new Map<Worker, number>();
   private pending = new Map<number, Pending>();
   private nextId = 1;
+  private config: RenderInstrumentConfig | null = null;
+
+  /** Instruments every render job needs (sent to current and future workers). */
+  configure(config: RenderInstrumentConfig) {
+    this.config = config;
+    for (const w of this.workers) w.postMessage({ id: 0, method: 'configure', args: config } satisfies JobRequest);
+  }
 
   private spawn(): Worker {
     const w = new Worker(new URL('./jobs.worker.ts', import.meta.url), { type: 'module' });
@@ -47,6 +55,7 @@ class JobPool {
         }
       }
     };
+    if (this.config) w.postMessage({ id: 0, method: 'configure', args: this.config } satisfies JobRequest);
     this.workers.push(w);
     this.load.set(w, 0);
     return w;

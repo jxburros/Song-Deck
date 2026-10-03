@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import * as core from '@songdeck/core';
 import type { GenreProfile, InstrumentProfile, Song } from '@songdeck/core';
 import type { ProviderInstance } from '@songdeck/ai';
+import type { SampleInstrument } from '@songdeck/audio';
 import { serverBase, useSettings } from '../state/settings';
+import { loadSfzInstrument } from './sfz-loader';
 
 /**
  * Plugin ecosystem (spec §57, Phase 5).
@@ -43,6 +45,12 @@ export interface SongDeckPluginApi {
   core: typeof core;
   registerGenre(profile: GenreProfile): void;
   registerInstrument(profile: InstrumentProfile): void;
+  /**
+   * Register a sampled instrument: an SFZ file plus WAV/FLAC samples shipped in the plugin
+   * (spec §57 "Instruments: Soundfonts"). The profile's General MIDI program is the fallback
+   * sound wherever the samples are unavailable (e.g. a project opened without the plugin).
+   */
+  registerSampleInstrument(def: { profile: InstrumentProfile; sfz: string }): Promise<void>;
   registerExporter(exporter: Exporter): void;
   registerProvider(instance: ProviderInstance): void;
   /** URL of a file shipped with the plugin (samples, SFZ, JSON…). */
@@ -62,6 +70,8 @@ interface ExtensionsState {
   loaded: Record<string, LoadedPlugin>;
   genres: GenreProfile[];
   instruments: InstrumentProfile[];
+  /** Sampled instruments by patch id (`sfz:<plugin>/<instrument>`). */
+  sampleInstruments: Record<string, SampleInstrument>;
   exporters: Exporter[];
   providers: ProviderInstance[];
   scanError?: string;
@@ -72,6 +82,7 @@ export const useExtensions = create<ExtensionsState>(() => ({
   loaded: {},
   genres: [],
   instruments: [],
+  sampleInstruments: {},
   exporters: [],
   providers: [],
 }));
@@ -113,6 +124,19 @@ export async function loadPlugin(manifest: PluginManifest): Promise<void> {
     registerInstrument(profile) {
       useExtensions.setState((s) => ({ instruments: [...s.instruments.filter((i) => i.id !== profile.id), { ...profile, custom: true }] }));
       contributions.push(`instrument ${profile.name}`);
+    },
+    async registerSampleInstrument({ profile, sfz }) {
+      const patchId = `sfz:${manifest.id}/${profile.id}`;
+      const loaded = await loadSfzInstrument(sfz, async (path) => {
+        const res = await fetch(fileUrl(path));
+        if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+        return new Uint8Array(await res.arrayBuffer());
+      });
+      useExtensions.setState((s) => ({
+        sampleInstruments: { ...s.sampleInstruments, [patchId]: { ...loaded.instrument, name: loaded.instrument.name ?? profile.name } },
+        instruments: [...s.instruments.filter((i) => i.id !== profile.id), { ...profile, patchId, custom: true }],
+      }));
+      contributions.push(`sampled instrument ${profile.name} (${loaded.samples} samples, ${Math.round(loaded.bytes / 1024)} KB)`);
     },
     registerExporter(exporter) {
       useExtensions.setState((s) => ({ exporters: [...s.exporters.filter((e) => e.id !== exporter.id), exporter] }));
