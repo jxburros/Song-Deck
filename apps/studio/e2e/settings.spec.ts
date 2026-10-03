@@ -451,6 +451,10 @@ test('collaboration: two people in one room — a commit by Alice appears in Bob
   await b.locator('.right-tabs .tab', { hasText: 'History' }).click();
   await expect(b.locator('.right-body')).toContainText('Locked tempo', { timeout: 20_000 });
   await expect(b.locator('.right-body')).toContainText('Alice');
+
+  // While collaborating, Alice's undo is a shared revision too: Bob receives it.
+  await a.getByTitle('Undo (Ctrl/Cmd+Z)').click();
+  await expect(b.locator('.right-body')).toContainText('Undo: Locked tempo', { timeout: 20_000 });
   await b.screenshot({ path: `${SHOTS}/settings-e2e-collab-bob-history.png` });
 
   // Bob comments on a section; Alice sees it anchored, and resolves it.

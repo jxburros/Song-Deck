@@ -206,6 +206,31 @@ export function subscribeCommits(fn: CommitListener): () => void {
   return () => commitListeners.delete(fn);
 }
 
+/** Tell commit listeners about the new head revision of the current branch. */
+function notifyHeadCommit(project: Project): void {
+  const branch = project.history.branches.find((b) => b.id === project.history.currentBranchId);
+  const rev = project.history.revisions.find((r) => r.id === branch?.headRevisionId);
+  if (rev) for (const l of commitListeners) l(project, rev);
+}
+
+/*
+ * Linear undo while collaborating. Normally undo/redo move the branch head locally; peers never
+ * see that, and the next commit forks. While collaborating, undo commits the previous state as
+ * a new revision ("Undo: …") and redo re-commits the undone one, so history stays shared. The
+ * cursor walks the original chain, so repeated undos keep going back instead of undoing the undo.
+ */
+let linearHistoryProbe: () => boolean = () => false;
+/** Collaboration registers a probe; while it returns true, undo/redo are committed as revisions. */
+export function setLinearHistoryProbe(fn: () => boolean): void {
+  linearHistoryProbe = fn;
+}
+const linear: { projectId: string | null; cursor: string | null; redo: string[] } = { projectId: null, cursor: null, redo: [] };
+function resetLinear(projectId: string | null = null) {
+  linear.projectId = projectId;
+  linear.cursor = null;
+  linear.redo = [];
+}
+
 export const useStudio = create<StudioState>((set, get) => {
   const scheduleSave = () => {
     if (saveTimer) clearTimeout(saveTimer);
@@ -321,11 +346,10 @@ export const useStudio = create<StudioState>((set, get) => {
     commit(song, message, kind = 'edit') {
       const p = get().project;
       if (!p) return;
+      resetLinear(p.meta.id); // a new edit ends any linear undo/redo sequence
       const next = commitRevision(p, song, message, kind, useAuthor());
       applyProject(next);
-      const branch = next.history.branches.find((b) => b.id === next.history.currentBranchId);
-      const rev = next.history.revisions.find((r) => r.id === branch?.headRevisionId);
-      if (rev) for (const l of commitListeners) l(next, rev);
+      notifyHeadCommit(next);
     },
 
     applyRemoteRevision(revision, branchName) {
@@ -358,6 +382,19 @@ export const useStudio = create<StudioState>((set, get) => {
     undo() {
       const p = get().project;
       if (!p) return;
+      if (linearHistoryProbe()) {
+        if (linear.projectId !== p.meta.id) resetLinear(p.meta.id);
+        const branch = p.history.branches.find((b) => b.id === p.history.currentBranchId);
+        const from = p.history.revisions.find((r) => r.id === (linear.cursor ?? branch?.headRevisionId));
+        const target = from && p.history.revisions.find((r) => r.id === from.parents[0]);
+        if (!from || !target) return;
+        const next = commitRevision(p, target.snapshot, `Undo: ${from.message}`, 'restore', useAuthor());
+        applyProject(next);
+        linear.redo.push(from.id);
+        linear.cursor = target.id;
+        notifyHeadCommit(next);
+        return;
+      }
       const next = stepHistory(p, 'undo');
       if (next === p) return;
       applyProject(next);
@@ -366,6 +403,17 @@ export const useStudio = create<StudioState>((set, get) => {
     redo() {
       const p = get().project;
       if (!p) return;
+      if (linearHistoryProbe()) {
+        if (linear.projectId !== p.meta.id) return;
+        const rev = p.history.revisions.find((r) => r.id === linear.redo[linear.redo.length - 1]);
+        if (!rev) return;
+        const next = commitRevision(p, rev.snapshot, `Redo: ${rev.message}`, 'restore', useAuthor());
+        applyProject(next);
+        linear.redo.pop();
+        linear.cursor = rev.id;
+        notifyHeadCommit(next);
+        return;
+      }
       const next = stepHistory(p, 'redo');
       if (next === p) return;
       applyProject(next);
@@ -403,14 +451,20 @@ export const useStudio = create<StudioState>((set, get) => {
     restoreRevision(revisionId) {
       const p = get().project;
       if (!p) return;
-      applyProject(coreRestoreRevision(p, revisionId));
+      resetLinear(p.meta.id);
+      const next = coreRestoreRevision(p, revisionId);
+      applyProject(next);
+      notifyHeadCommit(next);
       get().toast('success', 'Revision restored as a new version');
     },
 
     mergeSelected(fromRevisionId, selection, message) {
       const p = get().project;
       if (!p) return;
-      applyProject(coreMergeSelected(p, fromRevisionId, selection, message));
+      resetLinear(p.meta.id);
+      const next = coreMergeSelected(p, fromRevisionId, selection, message);
+      applyProject(next);
+      notifyHeadCommit(next);
       get().toast('success', 'Merged selected changes');
     },
 

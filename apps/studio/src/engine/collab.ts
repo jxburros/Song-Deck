@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { randomId, unpackProject, type Project, type Revision, type Song } from '@songdeck/core';
 import { serverBase, useSettings } from '../state/settings';
-import { subscribeCommits, useStudio } from '../state/store';
+import { setLinearHistoryProbe, subscribeCommits, useStudio } from '../state/store';
 import { useRuntime } from './runtime';
 
 /**
@@ -928,6 +928,13 @@ class CollabClient {
 }
 
 const client = new CollabClient();
+
+// While connected to the open project's room, undo/redo are committed as revisions so peers
+// receive them (the store asks at undo time).
+setLinearHistoryProbe(() => {
+  const s = useCollab.getState();
+  return s.status === 'connected' && !!s.projectId && s.projectId === useStudio.getState().project?.meta.id;
+});
 
 // ---------------------------------------------------------------------------
 // Public API
