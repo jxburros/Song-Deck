@@ -26,6 +26,7 @@ import { Badge, Button, Select } from '../../ui/kit';
 import { colorForRole } from './SidePanel';
 import { auditionNote } from '../../engine/audition';
 import { useLoopSync } from './useLoopSync';
+import { useMidiRecorder } from './useMidiRecorder';
 
 const KEY_W = 56;
 const RULER_H = 32;
@@ -99,6 +100,8 @@ export default function PianoRoll() {
   const layout = useMemo(() => (song ? sectionLayout(song) : []), [song]);
   const selected = useMemo(() => new Set(selection.noteIds), [selection.noteIds]);
   const isVocal = track?.role === 'vocal';
+  const snapLabel = (SNAPS.find((s) => s.value === snap) ?? SNAPS[3]).label;
+  const recorder = useMidiRecorder(track?.kind === 'midi' ? track.id : undefined, { ticks: snapTicks, label: snapLabel });
 
   const diffForTrack = useMemo(() => {
     if (!proposal || !track) return null;
@@ -653,6 +656,23 @@ export default function PianoRoll() {
           </button>
         </div>
         <Select size="sm" value={snap} onChange={setSnap} options={SNAPS.map((s) => ({ value: s.value, label: `Snap ${s.label}` }))} style={{ width: 130 }} />
+        <Button
+          size="sm"
+          variant={recorder.recording ? 'danger' : 'ghost'}
+          icon="record"
+          onClick={recorder.toggle}
+          disabled={!!proposal && !recorder.recording}
+          aria-pressed={recorder.recording}
+          title={
+            proposal
+              ? 'Accept or reject the pending proposal before recording'
+              : recorder.recording
+                ? 'Stop recording and keep the take'
+                : `Record a MIDI keyboard into ${track.name} over playback (overdub; onsets snap to ${snapLabel})`
+          }
+        >
+          {recorder.recording ? `Stop · ${recorder.count} notes` : 'Record'}
+        </Button>
         <Select
           size="sm"
           value={laneParam}
