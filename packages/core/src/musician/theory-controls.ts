@@ -26,7 +26,6 @@ import {
 import {
   MODE_LABEL,
   brightenChord,
-  brighterMode,
   chooseModalColour,
   darkenChord,
   darkerMode,
@@ -103,25 +102,24 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
   switch (control) {
     case 'darker': {
       scaleTarget = darkerMode(key.mode);
-      let keptDominant: ChordSpec | null = null;
+      const kept: { chord: ChordSpec; next: ChordSpec }[] = [];
       for (const s of inSec) {
         const nxt = slots[slots.indexOf(s) + 1]?.spec;
         const dark = darkenChord(s.spec, key, nxt);
-        if (sameChord(dark, s.spec) && !sameChord(darkenChord(s.spec, key), s.spec)) keptDominant = s.spec;
+        if (nxt && sameChord(dark, s.spec) && !sameChord(darkenChord(s.spec, key), s.spec) && !kept.some((k) => sameChord(k.chord, s.spec))) kept.push({ chord: s.spec, next: nxt });
         put(s, [dark]);
       }
       why = isMinorMode(key.mode)
         ? `Phrygian colour: the lowered 2nd (and natural-minor 6th/7th) push the harmony further into shadow while keeping the same roots and phrase rhythm.`
         : `Modal interchange with ${spellPitchClass(key.tonic, key)} minor: bright major thirds become minor and the 6th/7th degrees are lowered — same roots and phrase rhythm, but a shadowed, bittersweet colour.`;
-      if (keptDominant)
-        why += ` ${spellChord(keptDominant, key)} (${romanOf(keptDominant, key)}) keeps its major third because it resolves to the tonic — the harmonic-minor dominant keeps the pull home.`;
+      for (const k of kept)
+        why += ` ${spellChord(k.chord, key)} (${romanOf(k.chord, key)}) keeps its major third because it resolves down a fifth to ${spellChord(k.next, key)} — the dominant keeps its pull, so the cadence still lands.`;
       break;
     }
     case 'brighter': {
-      scaleTarget = brighterMode(key.mode);
       for (const s of inSec) put(s, [brightenChord(s.spec, key)]);
-      why = scaleTarget
-        ? `Borrowing from the parallel major raises the 3rd/6th/7th degrees: minor chords turn major and the leading tone returns, lifting the mood without moving the bass roots.`
+      why = isMinorMode(key.mode)
+        ? `Borrowing from the parallel major without moving any roots — a major tonic (Picardy third), the Dorian major IV and the harmonic-minor major V — lifts the mood while the bass line and phrase rhythm stay put.`
         : `Raising the thirds of the minor chords (ii → II, iii → III, vi → VI) adds secondary-dominant brightness and forward motion while the roots stay put.`;
       break;
     }

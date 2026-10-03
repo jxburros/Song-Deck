@@ -283,7 +283,7 @@ function lowerWord(word: string): string {
 }
 
 /** Restore the original capitalization of `word` onto syllables of its lowercase form. */
-function recase(word: string, sylls: string[]): string[] {
+function recase(word: string, sylls: readonly string[]): string[] {
   const letters = word.replace(/[^A-Za-z'’]/g, '');
   let i = 0;
   return sylls.map((s) => {
@@ -415,6 +415,18 @@ function syllabifyBaseForSuffix(base: string): string[] {
   return core(base, true);
 }
 
+/** Memo of lower-cased word → syllables (pure function, so caching never changes results). */
+const SYLLABLE_CACHE = new Map<string, readonly string[]>();
+
+function syllabifyLowerCached(w: string): readonly string[] {
+  const hit = SYLLABLE_CACHE.get(w);
+  if (hit) return hit;
+  const sylls = Object.freeze([...syllabifyLower(w)]);
+  if (SYLLABLE_CACHE.size >= 4096) SYLLABLE_CACHE.clear();
+  SYLLABLE_CACHE.set(w, sylls);
+  return sylls;
+}
+
 /** Split an English word into syllables ("cathartic" → ["ca", "thar", "tic"]). */
 export function syllabify(word: string): string[] {
   const trimmed = word.trim();
@@ -422,8 +434,7 @@ export function syllabify(word: string): string[] {
   if (trimmed.includes('-') && /[A-Za-z]-[A-Za-z]/.test(trimmed)) return trimmed.split('-').filter(Boolean).flatMap((p) => syllabify(p));
   const w = lowerWord(trimmed);
   if (!w || !/[a-z]/.test(w)) return [];
-  const sylls = syllabifyLower(w);
-  return recase(trimmed, sylls);
+  return recase(trimmed, syllabifyLowerCached(w));
 }
 
 const WORD_RE = /[A-Za-z]+(?:['’][A-Za-z]+)*(?:-[A-Za-z]+(?:['’][A-Za-z]+)*)*/g;

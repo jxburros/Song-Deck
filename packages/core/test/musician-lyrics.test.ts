@@ -203,6 +203,8 @@ describe('generatePlaceholderLyrics', () => {
     const aabb = rhymes(ends[0], ends[1]) || rhymes(ends[2], ends[3]);
     const abab = rhymes(ends[0], ends[2]) || rhymes(ends[1], ends[3]);
     expect(aabb || abab).toBe(true);
+    // Lines vary: no two lines are identical in a verse.
+    expect(new Set(lines).size).toBe(lines.length);
     expect(generatePlaceholderLyrics({ sectionKind: 'bridge', lines: 0, seed: 1 })).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { answerQuestion, parseAssetPrompt } from '../src/musician';
 import { stableStringify } from '../src/ir/song-utils';
 import type { MusicOperation } from '../src/ir/types';
+import { createEmptySong } from '../src/ir/defaults';
 import { deepFreeze, makeSong, opTick, opsOfType } from './musician-fixtures';
 
 const BAR = 1920;
@@ -163,6 +164,15 @@ describe('answerQuestion (§44 project-aware assistant)', () => {
     expect((performance.now() - t0) / qs.length).toBeLessThan(50);
   });
 
+  it('copes with an empty song', () => {
+    const empty = createEmptySong({ id: 'empty', seed: 1 });
+    expect(answerQuestion(empty, 'what are the chords').answer).toMatch(/^There are no chords yet/);
+    expect(answerQuestion(empty, 'how long is the song').answer).toMatch(/no sections yet/);
+    expect(answerQuestion(empty, 'is the melody repetitive?').answer).toBe('There is no melody yet.');
+    expect(answerQuestion(empty, 'Add strings').answer).toMatch(/no sections yet/);
+    expect(answerQuestion(empty, 'hello').intents).toEqual(['summary']);
+  });
+
   it('places proposals on real bars/beats (1-based)', () => {
     const r = answerQuestion(song, 'Add strings without making the arrangement crowded');
     const notes = (r.operations!.find((o) => o.op === 'add_notes') as Extract<MusicOperation, { op: 'add_notes' }>).notes;
@@ -206,6 +216,7 @@ describe('parseAssetPrompt (§25 Generate MIDI)', () => {
     expect(flute).toMatchObject({ instrumentId: 'flute', function: 'counter-melody', meter: { numerator: 6, denominator: 8 }, seed: 42, key: { tonic: 2, mode: 'minor' } });
     expect(parseAssetPrompt('two dark ambient pad textures in C# minor')).toMatchObject({ instrumentId: 'synth-pad', function: 'pad', count: 2, key: { tonic: 1, mode: 'minor' } });
     expect(parseAssetPrompt('a 4-bar drum fill').function).toBe('fills');
+    expect(parseAssetPrompt('a 999 bar cello melody').bars).toBe(256);
   });
 
   it('uses defaults: minor for sad moods, the song tempo when given', () => {

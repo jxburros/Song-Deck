@@ -269,6 +269,26 @@ describe('interpretEditInstruction — other intents', () => {
     expect(r.understood).toBe(true);
     expect(r.operations).toHaveLength(0);
     expect(r.explanation).toMatch(/no trumpet track/);
+    expect(r.explanation).not.toMatch(/No changes were needed/);
+  });
+
+  it('colours each section in the key it centres on (verse in E minor, chorus in G major)', () => {
+    // Verse 1 is i – VI – III – VII in E minor: darker = E Phrygian, so only D → Dm (VII → vii).
+    const verse = interpretEditInstruction(song, 'make the verse darker', {}, { seed: 1 });
+    const sc = opsOfType(verse.operations, 'set_chords');
+    expect(sc).toEqual([expect.objectContaining({ region: { start_bar: 7, end_bar: 8 } })]);
+    expect(sc[0].chords.map((c) => c.symbol)).toEqual(['Dm']);
+    expect(verse.explanation).toMatch(/E Phrygian/);
+    expect(verse.explanation).toMatch(/D → Dm \(VII → vii\)/);
+    // The whole song: the pre-chorus' closing D (V) still resolves to the chorus' G, so it stays major.
+    const all = interpretEditInstruction(song, 'make the whole song darker', {}, { seed: 1 });
+    const pre = opsOfType(all.operations, 'set_chords').find((o) => o.region.start_bar === 9)!;
+    expect(pre.region.end_bar).toBe(11);
+    expect(pre.chords.map((c) => c.symbol)).toEqual(['Cm', 'Dm', 'Eb']);
+    expect(all.explanation).toMatch(/D \(V\) kept major — it resolves down a fifth to G/);
+    // Brighter in a minor centre: roots stay, the tonic gets a major third.
+    const bright = interpretEditInstruction(song, 'make the verse brighter', {}, { seed: 1 });
+    expect(opsOfType(bright.operations, 'set_chords').flatMap((o) => o.chords.map((c) => c.symbol))).toEqual(['E']);
   });
 });
 

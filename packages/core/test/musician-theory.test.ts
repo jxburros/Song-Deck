@@ -146,6 +146,29 @@ describe('applyTheoryControl (§43 controls)', () => {
     expect(r.explanation).toMatch(/Em → E \(vi → V\/ii\)/);
   });
 
+  it('"Make darker" keeps a dominant that resolves down a fifth (the cadence still lands)', () => {
+    // Bridge: C – Cm – G – A7 – D, and D (V) resolves to Chorus 2's G.
+    const r = applyTheoryControl(song, 'sec-bridge', 'darker', { seed: 1 });
+    const symbols = opsOfType(r.operations, 'set_chords').flatMap((o) => o.chords.map((c) => c.symbol));
+    expect(symbols).toContain('Gm');
+    expect(symbols).not.toContain('Dm');
+    expect(r.explanation).toMatch(/D \(V\) keeps its major third because it resolves down a fifth to G/);
+  });
+
+  it('"Make brighter" in a minor-centred section borrows from the parallel major without moving roots', () => {
+    // Verse 1 centres on E minor (i – VI – III – VII): only the tonic gets a major third.
+    const r = applyTheoryControl(song, 'sec-verse1', 'brighter', { seed: 1 });
+    const sc = opsOfType(r.operations, 'set_chords');
+    expect(sc).toHaveLength(1);
+    expect(sc[0].region).toEqual({ start_bar: 1, end_bar: 2 });
+    expect(sc[0].chords.map((c) => c.symbol)).toEqual(['E']);
+    expect(r.explanation).toMatch(/Em → E \(i → I\)/);
+    expect(r.explanation).toMatch(/Picardy/);
+    // The melody's G (minor third) over the new E major chord moves to G#.
+    const vocal = opsOfType(r.operations, 'transform_notes').filter((o) => o.track === 't-vocal');
+    expect(vocal.some((o) => o.transform.transpose === 1)).toBe(true);
+  });
+
   it('respects chord locks', () => {
     const locked = makeSong();
     locked.locks[LockKeys.sectionChords('sec-chorus1')] = true;

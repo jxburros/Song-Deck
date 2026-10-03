@@ -98,22 +98,6 @@ export function darkerMode(mode: ModeName): ModeName {
   }
 }
 
-/** Target mode for "brighter": minor-like → parallel major; major keys brighten chord by chord (null). */
-export function brighterMode(mode: ModeName): ModeName | null {
-  switch (mode) {
-    case 'minor':
-    case 'harmonic-minor':
-    case 'melodic-minor':
-    case 'dorian':
-    case 'phrygian':
-    case 'locrian':
-    case 'mixolydian':
-      return 'major';
-    default:
-      return null;
-  }
-}
-
 export const MODE_LABEL: Record<ModeName, string> = {
   major: 'major',
   minor: 'minor',
@@ -212,10 +196,18 @@ export { sameChord };
 // Colour transformations
 // ---------------------------------------------------------------------------
 
-/** A major/dominant V whose next chord is the tonic: the cadence that pulls the music home. */
+/**
+ * A major/dominant chord resolving down a fifth: V → I, or a secondary dominant (a dominant seventh,
+ * or a major chord from outside the key) → its target. Darkening it would weaken the cadence.
+ */
 export function isCadentialDominant(chord: ChordSpec, next: ChordSpec | undefined, key: KeySignature): boolean {
-  if (!next || mod12(chord.root - key.tonic) !== 7 || mod12(next.root - key.tonic) !== 0) return false;
-  return chord.quality === 'maj' || (isDominantQuality(chord.quality) && chord.quality !== '7sus4');
+  if (!next || mod12(chord.root - next.root) !== 7) return false;
+  const target = triadQuality(next.quality);
+  if (target !== 'maj' && target !== 'min') return false;
+  if (!(chord.quality === 'maj' || (isDominantQuality(chord.quality) && chord.quality !== '7sus4'))) return false;
+  const deg = mod12(chord.root - key.tonic);
+  if (deg === 7) return true;
+  return deg !== 0 && (isDominantQuality(chord.quality) || !isDiatonic({ root: chord.root, quality: 'maj' }, key));
 }
 
 /**
@@ -227,12 +219,22 @@ export function darkenChord(chord: ChordSpec, key: KeySignature, next?: ChordSpe
   return mapChordByMode(chord, key, { tonic: key.tonic, mode: darkerMode(key.mode) });
 }
 
+/**
+ * Brighter colour, chord by chord — roots never move (mapping a whole minor passage onto the parallel
+ * major would turn III/VI/VII into #iii/#vi/#vii° and change the key rather than the colour).
+ * Minor-like keys borrow from the parallel major: major tonic (Picardy third), Dorian IV, harmonic-
+ * minor V, minor ii instead of ii°. Major-like keys: minor chords turn major (secondary-dominant
+ * colour: ii → II, iii → III, vi → VI, a borrowed v → V).
+ */
 export function brightenChord(chord: ChordSpec, key: KeySignature): ChordSpec {
-  const target = brighterMode(key.mode);
-  if (target) return mapChordByMode(chord, key, { tonic: key.tonic, mode: target });
-  // Major keys: minor chords on ii / iii / vi become major (secondary-dominant colour).
   const deg = chordDegree(chord, key);
-  if (isMinorQuality(chord.quality) && (deg === 0 || deg === 1 || deg === 2 || deg === 3 || deg === 5)) return { ...chord, quality: raiseThird(chord.quality) };
+  const tq = triadQuality(chord.quality);
+  if (isMinorMode(key.mode)) {
+    if (tq === 'min' && (deg === 0 || deg === 3 || deg === 4)) return { ...chord, quality: raiseThird(chord.quality) };
+    if (tq === 'dim' && deg === 1) return { ...chord, quality: chord.quality === 'm7b5' ? 'min7' : 'min' };
+    return chord;
+  }
+  if (isMinorQuality(chord.quality) && deg >= 0 && deg <= 5) return { ...chord, quality: raiseThird(chord.quality) };
   return chord;
 }
 
@@ -397,7 +399,11 @@ export function refitMelodicPitch(pitch: number, newChord: ChordSpec | undefined
   const pc = mod12(pitch);
   const tones = chordPitchClasses(newChord);
   if (tones.includes(pc)) return pitch;
-  const avoid = tones.some((t) => mod12(pc - t) === 1);
+  // Avoid notes: a half step above a chord tone, or the "wrong" third (minor 3rd over a major triad,
+  // major 3rd over a minor one) — e.g. the old G over a Picardy E major chord.
+  const tq = triadQuality(newChord.quality);
+  const wrongThird = ((tq === 'maj' || tq === 'aug') && mod12(pc - newChord.root) === 3) || (tq === 'min' && mod12(pc - newChord.root) === 4);
+  const avoid = wrongThird || tones.some((t) => mod12(pc - t) === 1);
   if (scalePcs.includes(pc) && !avoid) return pitch;
   let best = pitch;
   let bestD = 99;

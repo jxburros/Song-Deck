@@ -289,7 +289,7 @@ export function parseAssetPrompt(prompt: string, opts: { defaultTempo?: number }
   // Bars.
   const barsM = /\b(\d+)[\s-]?(?:bars?|measures?)\b/.exec(text);
   const drums = instrument.role === 'drums' || instrument.role === 'percussion';
-  const bars = barsM ? Math.max(1, parseInt(barsM[1], 10)) : progressionList ? Math.max(4, progressionList.length) : drums ? 4 : 8;
+  const bars = barsM ? Math.min(256, Math.max(1, parseInt(barsM[1], 10))) : progressionList ? Math.max(4, progressionList.length) : drums ? 4 : 8;
 
   // Moods.
   const moods: string[] = [];

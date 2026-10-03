@@ -1,6 +1,6 @@
-import type { ChordSpec, EditSelection, MusicOperation, Note, NoteTransform, Song, Track } from '../ir/types';
+import type { ChordSpec, EditSelection, KeySignature, MusicOperation, Note, NoteTransform, Song, Track } from '../ir/types';
 import { deriveRng, type Rng } from '../util/random';
-import { barToTick, musicalToTick, sectionLayout } from '../timing';
+import { barToTick, musicalToTick, sectionLayout, type SectionSpan } from '../timing';
 import { LockKeys, isChordSectionLocked, isLocked } from '../locks';
 import { keyName } from '../theory/scales';
 import { mod12, spellPitchClass } from '../theory/pitch';
@@ -48,8 +48,9 @@ import {
   chordSlots,
   barIndex,
 } from './op-helpers';
-import { ambiguousChord, brightenChord, brighterMode, chordChangeText, darkenChord, darkerMode, relaxChord, romanOf, sameChord, scaleMapFn, spellChord, tenseChord } from './harmony';
+import { ambiguousChord, brightenChord, chordChangeText, darkenChord, darkerMode, relaxChord, romanOf, sameChord, scaleMapFn, spellChord, tenseChord } from './harmony';
 import type { EditInterpretation } from './types';
+import { sectionAnalysisKey } from './theory-explain';
 
 /**
  * §20 AI MIDI editing — offline, rule-based interpreter of natural-language edits on a
@@ -454,6 +455,10 @@ class EditState {
   readonly extraOps: MusicOperation[] = [];
   readonly intents: string[] = [];
   readonly original: Map<string, Note>;
+  /** Clauses actually applied (not skipped for a missing instrument). */
+  appliedClauses = 0;
+  private readonly layout: SectionSpan[];
+  private readonly keyCache = new Map<string, KeySignature>();
 
   constructor(
     readonly song: Song,
@@ -462,6 +467,33 @@ class EditState {
   ) {
     this.slots = chordSlots(song);
     this.original = new Map(song.tracks.flatMap((t) => t.notes.map((n) => [n.id, n] as [string, Note])));
+    this.layout = sectionLayout(song);
+  }
+
+  /**
+   * The key the harmony is heard in at a tick: the section's analysis key (its relative minor/major
+   * when the section centres there), exactly as the Theory View analyses it.
+   */
+  harmonicKey(tick: number): KeySignature {
+    const span = this.layout.find((sp) => tick >= sp.startTick && tick < sp.endTick);
+    if (!span) return keyAt(this.song, tick);
+    let k = this.keyCache.get(span.section.id);
+    if (!k) {
+      k = sectionAnalysisKey(this.song, span.section.id);
+      this.keyCache.set(span.section.id, k);
+    }
+    return k;
+  }
+
+  /** Distinct harmonic keys of the sections a set of ranges touches (in order). */
+  harmonicKeys(ranges: TickRange[]): KeySignature[] {
+    const out: KeySignature[] = [];
+    const ticks = ranges.length ? this.layout.filter((sp) => ranges.some((r) => r.startTick < sp.endTick && r.endTick > sp.startTick)).map((sp) => Math.max(sp.startTick, ranges[0].startTick)) : [0];
+    for (const t of ticks.length ? ticks : [ranges[0]?.startTick ?? 0]) {
+      const k = this.harmonicKey(t);
+      if (!out.some((x) => x.tonic === k.tonic && x.mode === k.mode)) out.push(k);
+    }
+    return out;
   }
 
   tw(track: Track): TrackWork {
@@ -624,9 +656,10 @@ function chordLockedAt(song: Song, tick: number): string | null {
 type HarmonicKind = 'darker' | 'brighter' | 'ambiguous' | 'tension' | 'relax' | 'simplify';
 
 /** Rewrite the chords whose onset lies in the scope; returns the old timeline. */
-function rewriteChords(st: EditState, scope: ResolvedScope, kind: HarmonicKind): { old: ChordSlot[]; changed: number } {
+function rewriteChords(st: EditState, scope: ResolvedScope, kind: HarmonicKind): { old: ChordSlot[]; changed: number; lines: string[] } {
   const old = st.slots.map((s) => ({ ...s }));
-  if (st.noChords) return { old, changed: 0 };
+  if (st.noChords) return { old, changed: 0, lines: [] };
+  const firstLine = st.chordLines.length;
   const rng = st.rng('chords', kind, scope.rangeLabel);
   const next: ChordSlot[] = [];
   let changed = 0;
@@ -644,14 +677,14 @@ function rewriteChords(st: EditState, scope: ResolvedScope, kind: HarmonicKind):
       next.push(s);
       continue;
     }
-    const key = keyAt(st.song, s.tick);
+    const key = st.harmonicKey(s.tick);
     let spec = s.spec;
     let label = '';
     if (kind === 'darker') {
       const nxt = old[old.indexOf(s) + 1]?.spec;
       spec = darkenChord(s.spec, key, nxt);
       if (sameChord(spec, s.spec) && !sameChord(darkenChord(s.spec, key), s.spec))
-        st.chordLines.push(`${spellChord(s.spec, key)} (${romanOf(s.spec, key)}) kept major — it resolves to ${spellChord(nxt!, key)}, so the cadence still lands`);
+        st.chordLines.push(`${spellChord(s.spec, key)} (${romanOf(s.spec, key)}) kept major — it resolves down a fifth to ${spellChord(nxt!, key)}, so the cadence still lands`);
     }
     else if (kind === 'brighter') spec = brightenChord(s.spec, key);
     else if (kind === 'ambiguous') {
@@ -694,7 +727,7 @@ function rewriteChords(st: EditState, scope: ResolvedScope, kind: HarmonicKind):
     st.slots = merged;
   } else st.slots = next;
   for (const n of lockedNames) st.lockNotes.add(`Chords${n === 'song' ? '' : ` in ${n}`} are locked — harmony left unchanged there`);
-  return { old, changed };
+  return { old, changed, lines: st.chordLines.slice(firstLine) };
 }
 
 /** Refit every unlocked pitched track (optionally restricted) to the new chord timeline within the scope. */
@@ -717,21 +750,27 @@ function refitTracks(st: EditState, scope: ResolvedScope, old: ChordSlot[], filt
 }
 
 function harmonicShade(st: EditState, scope: ResolvedScope, mood: 'darker' | 'brighter', amount: number, explicitTracks: boolean) {
-  const keyStart = keyAt(st.song, scope.ranges[0]?.startTick ?? 0);
-  const target = mood === 'darker' ? darkerMode(keyStart.mode) : brighterMode(keyStart.mode);
   const targets = scope.tracks.filter((t) => t.kind === 'midi');
   const affectsTexture = !explicitTracks || scope.chordsMentioned || targets.filter(isPitchedTrack).length >= st.song.tracks.filter(isPitchedTrack).length;
-  const { old, changed } = rewriteChords(st, scope, mood);
+  const { old, changed, lines: chordLines } = rewriteChords(st, scope, mood);
+  // Darker maps passing tones onto the darker mode; brighter is chord-local (no scale map).
+  const targetOf = (k: KeySignature) => (mood === 'darker' ? darkerMode(k.mode) : null);
   const scaleMapAt = (tick: number) => {
-    const k = keyAt(st.song, tick);
-    const m = mood === 'darker' ? darkerMode(k.mode) : brighterMode(k.mode);
+    const k = st.harmonicKey(tick);
+    const m = targetOf(k);
     return m && m !== k.mode ? scaleMapFn(k, { tonic: k.tonic, mode: m }) : undefined;
   };
-  const modeText = target && target !== keyStart.mode ? `${spellPitchClass(keyStart.tonic, keyStart)} ${target === 'minor' ? 'minor' : target === 'major' ? 'major' : target}` : null;
+  // "G minor", or "E Phrygian / G minor" when the scope spans sections heard in different keys.
+  const modeLabels = st
+    .harmonicKeys(scope.ranges)
+    .map((k) => ({ k, m: targetOf(k) }))
+    .filter((x) => x.m && x.m !== x.k.mode)
+    .map((x) => `${spellPitchClass(x.k.tonic, x.k)} ${x.m === 'minor' || x.m === 'major' ? x.m : `${x.m![0].toUpperCase()}${x.m!.slice(1)}`}`);
+  const modeText = modeLabels.length ? [...new Set(modeLabels)].join(' / ') : null;
   if (changed) {
     const others = refitTracks(st, scope, old, (t) => !targets.includes(t), scaleMapAt);
     st.lines.push(
-      `Harmony (${scope.rangeLabel}): ${mood === 'darker' ? `borrowed from the parallel ${modeText ?? 'minor'} (modal interchange)` : modeText ? `brightened toward ${modeText}` : 'minor chords turned major (raised thirds)'}: ${st.chordLines.slice(-changed).slice(0, 6).join('; ')}${changed > 6 ? '; …' : ''}.`,
+      `Harmony (${scope.rangeLabel}): ${mood === 'darker' ? `borrowed from the parallel ${modeText ?? 'minor'} (modal interchange)` : modeText ? `brightened toward ${modeText}` : 'minor chords turned major (raised thirds)'}: ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`,
     );
     if (others.length) st.lines.push(`Adjusted other parts so they agree with the new chords: ${others.join(', ')}.`);
   } else if (!st.noChords && affectsTexture && !modeText) st.lines.push(`Harmony (${scope.rangeLabel}): no chords to ${mood === 'darker' ? 'darken' : 'brighten'}.`);
@@ -750,7 +789,7 @@ function harmonicShade(st: EditState, scope: ResolvedScope, mood: 'darker' | 'br
       });
       const shaded = ctx.isMelodic || !affectsTexture ? T.shadeExpression(ctx, fitted.notes, mood) : { notes: fitted.notes, summary: '' };
       const parts = [
-        fitted.summary && `${fitted.summary.replace('re-pitched', mood === 'darker' ? 'lowered the 3rd/6th/7th degrees on' : 'raised the 3rd/6th/7th degrees on')}${modeText ? ` (${modeText})` : ''}`,
+        fitted.summary && `${mood === 'darker' ? fitted.summary.replace('re-pitched', 'lowered the 3rd/6th/7th degrees on') : fitted.summary}${modeText ? ` (${modeText})` : ''}`,
         shaded.summary,
       ].filter(Boolean);
       return { notes: shaded.notes, summary: parts.join('; ') || 'no notes needed to change' };
@@ -792,6 +831,7 @@ export function interpretEditInstruction(song: Song, instruction: string, select
       prev = scope;
       continue;
     }
+    st.appliedClauses++;
     for (const intent of clause.intents) {
       st.intents.push(intent.id);
       applyIntent(st, intent.id, clause.text, scope, melody, selection);
@@ -813,9 +853,9 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
     }
     case 'simplify': {
       if (scope.chordsMentioned && !scope.explicitTracks) {
-        const { old, changed } = rewriteChords(st, scope, 'simplify');
+        const { old, changed, lines: chordLines } = rewriteChords(st, scope, 'simplify');
         if (changed) {
-          st.lines.push(`Chords (${scope.rangeLabel}): simplified to plain diatonic triads — ${st.chordLines.slice(-changed).slice(0, 6).join('; ')}.`);
+          st.lines.push(`Chords (${scope.rangeLabel}): simplified to plain diatonic triads — ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`);
           const others = refitTracks(st, scope, old, (t) => !isMelodicTrack(t));
           if (others.length) st.lines.push(`Accompaniment adjusted to the simpler chords: ${others.join(', ')}.`);
         } else st.lines.push(`Chords (${scope.rangeLabel}): already simple triads.`);
@@ -844,9 +884,9 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
     case 'tension': {
       const harmonic = !scope.explicitTracks || scope.chordsMentioned;
       if (harmonic) {
-        const { old, changed } = rewriteChords(st, scope, 'tension');
+        const { old, changed, lines: chordLines } = rewriteChords(st, scope, 'tension');
         if (changed) {
-          st.lines.push(`Chords (${scope.rangeLabel}): added extensions and suspensions — ${st.chordLines.slice(-changed).slice(0, 6).join('; ')}.`);
+          st.lines.push(`Chords (${scope.rangeLabel}): added extensions and suspensions — ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`);
           const others = refitTracks(st, scope, old, (t) => !isMelodicTrack(t));
           if (others.length) st.lines.push(`Parts adjusted for the suspensions: ${others.join(', ')}.`);
         }
@@ -856,9 +896,9 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
       return;
     }
     case 'less-tension': {
-      const { old, changed } = rewriteChords(st, scope, 'relax');
+      const { old, changed, lines: chordLines } = rewriteChords(st, scope, 'relax');
       if (changed) {
-        st.lines.push(`Chords (${scope.rangeLabel}): back to stable diatonic triads — ${st.chordLines.slice(-changed).slice(0, 6).join('; ')}.`);
+        st.lines.push(`Chords (${scope.rangeLabel}): back to stable diatonic triads — ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`);
         const others = refitTracks(st, scope, old, (t) => !isMelodicTrack(t));
         if (others.length) st.lines.push(`Accompaniment adjusted: ${others.join(', ')}.`);
       }
@@ -867,12 +907,12 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
       return;
     }
     case 'ambiguous': {
-      const { old, changed } = rewriteChords(st, scope, 'ambiguous');
+      const { old, changed, lines: chordLines } = rewriteChords(st, scope, 'ambiguous');
       if (!changed) {
         st.lines.push(st.noChords ? 'Chords were not changed (you asked to keep them).' : `Chords (${scope.rangeLabel}): nothing to change (no chords, or they are locked/already suspended).`);
         return;
       }
-      st.lines.push(`Chords (${scope.rangeLabel}): removed or blurred the defining thirds — ${st.chordLines.slice(-changed).slice(0, 8).join('; ')}.`);
+      st.lines.push(`Chords (${scope.rangeLabel}): removed or blurred the defining thirds — ${chordLines.slice(0, 8).join('; ')}${chordLines.length > 8 ? '; …' : ''}.`);
       const others = refitTracks(st, scope, old, (t) => !isMelodicTrack(t));
       if (others.length) st.lines.push(`Accompaniment voicings follow the new chords: ${others.join(', ')}. The melody was left as is.`);
       return;
@@ -1179,7 +1219,8 @@ function finish(st: EditState, instruction: string): EditInterpretation {
   const head = `Interpreted "${instruction.trim()}" as: ${uniqueIntents.map((i) => INTENT_LABEL[i as EditIntentId] ?? i).join(' + ')}.`;
   const parts = [head, ...st.lines];
   if (st.lockNotes.size) parts.push(`Locked material was skipped — ${[...st.lockNotes].join('; ')}.`);
-  if (!ops.length) parts.push('No changes were needed (or everything in range is locked).');
+  if (!ops.length && st.lockNotes.size) parts.push('Nothing was changed: everything in range is locked.');
+  else if (!ops.length && st.appliedClauses) parts.push('No changes were needed — the music already matches that request.');
   void noteOps;
   return { operations: ops, explanation: parts.join(' '), intents: uniqueIntents, understood: true };
 }

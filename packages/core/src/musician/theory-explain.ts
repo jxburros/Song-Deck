@@ -470,7 +470,9 @@ function explainSpan(song: Song, layout: SectionSpan[], idx: number, withCompari
     void _avg;
     melody = rest;
     narrative.push(
-      `The melody spans ${mel.range} with ${/^[aeiou]/.test(mel.contour) ? 'an' : 'a'} ${mel.contour} contour; ${Math.round(mel.chordToneRatio * 100)}% of its notes are chord tones and ${Math.round(mel.stepwiseRatio * 100)}% of its motion is stepwise.`,
+      explained.length
+        ? `The melody spans ${mel.range} with ${/^[aeiou]/.test(mel.contour) ? 'an' : 'a'} ${mel.contour} contour; ${Math.round(mel.chordToneRatio * 100)}% of its notes are chord tones and ${Math.round(mel.stepwiseRatio * 100)}% of its motion is stepwise.`
+        : `The melody spans ${mel.range} with ${/^[aeiou]/.test(mel.contour) ? 'an' : 'a'} ${mel.contour} contour; ${Math.round(mel.stepwiseRatio * 100)}% of its motion is stepwise.`,
     );
   }
   const r = rhythmStats(song, span);
@@ -579,7 +581,9 @@ export function explainSong(song: Song): SongExplanation {
       ? `Harmony is mostly diatonic, with borrowed chords and secondary dominants in ${listJoin(borrowedSecs)}.`
       : borrowedSecs.length || secondarySecs.length
         ? `Harmony is mostly diatonic${borrowedSecs.length ? `, with borrowed chords in ${listJoin(borrowedSecs)}` : ''}${secondarySecs.length ? `${borrowedSecs.length ? ' and' : ', with'} secondary dominants in ${listJoin(secondarySecs)}` : ''}.`
-        : 'Harmony is entirely diatonic.',
+        : song.chords.length
+          ? 'Harmony is entirely diatonic.'
+          : 'There are no chords yet.',
   );
   const repeats = layout.filter((s) => s.section.repeatOf).map((s) => `${s.section.name} repeats ${song.sections.find((x) => x.id === s.section.repeatOf)?.name ?? 'an earlier section'}`);
   if (repeats.length) overview.push(`${repeats.join('; ')}.`);

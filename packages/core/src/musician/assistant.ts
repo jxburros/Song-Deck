@@ -152,11 +152,13 @@ function answerChords(song: Song, text: string, selection?: EditSelection): Assi
     seen.set(line, [...(seen.get(line) ?? []), `${s.section.name} (${barsLabel(s)})`]);
   }
   const lines = [...seen.entries()].map(([line, names]) => `${listJoin(names)}: ${line}`);
+  if (!song.chords.length || !lines.length) return { answer: 'There are no chords yet — compose or enter a progression first.', intents: ['chords'] };
   return { answer: lines.join('\n'), intents: ['chords'] };
 }
 
 function answerLength(song: Song, text: string, selection?: EditSelection): AssistantAnswer {
   const layout = sectionLayout(song);
+  if (!layout.length) return { answer: 'The song has no sections yet, so it has no length.', intents: ['length'] };
   const mentioned = findSectionMentions(song, text).flatMap((m) => m.sections);
   const ids = mentioned.length ? mentioned.map((m) => m.id) : /\bthis (?:section|part)\b/.test(text) ? (selection?.sectionIds ?? []) : [];
   if (ids.length) {
@@ -316,7 +318,8 @@ function answerMelody(song: Song, text: string, selection?: EditSelection): Assi
     const distinct = new Set(notes.map((n) => n.pitch)).size;
     const lo = Math.min(...notes.map((n) => n.pitch));
     const hi = Math.max(...notes.map((n) => n.pitch));
-    const ex = explainSection(song, sp.section.id).melody;
+    const sx = explainSection(song, sp.section.id);
+    const ex = sx.melody;
     const facts: string[] = [];
     facts.push(
       `${plural(phrases.length, 'phrase')}${phrases.length > 1 ? ` using ${rhythms.size === 1 ? 'one rhythm throughout' : `${rhythms.size} different rhythms`}` : ''}`,
@@ -324,7 +327,7 @@ function answerMelody(song: Song, text: string, selection?: EditSelection): Assi
     if (exact) facts.push(`${plural(exact, 'phrase')} ${exact === 1 ? 'repeats' : 'repeat'} an earlier one exactly`);
     if (sharedOpenings) facts.push(`${sharedOpenings === 1 ? 'one phrase starts' : `${sharedOpenings} phrases start`} like an earlier one and then goes somewhere new`);
     facts.push(`${distinct} different pitches over ${ex?.lowest ?? lo}–${ex?.highest ?? hi} (${hi - lo} semitones)`);
-    if (ex) facts.push(`${Math.round(ex.stepwiseRatio * 100)}% stepwise motion, ${Math.round(ex.chordToneRatio * 100)}% chord tones, ${ex.contour} contour`);
+    if (ex) facts.push(`${Math.round(ex.stepwiseRatio * 100)}% stepwise motion${sx.chords.length ? `, ${Math.round(ex.chordToneRatio * 100)}% chord tones` : ''}, ${ex.contour} contour`);
     const share = phrases.length > 1 ? (exact + 0.5 * sharedOpenings) / (phrases.length - 1) : 0;
     const sameRhythm = phrases.length >= 3 && rhythms.size === 1;
     const narrow = hi - lo <= 7 || distinct <= 4;
