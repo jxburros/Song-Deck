@@ -1,6 +1,7 @@
 import { expect, test, type Download, type Page } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
+import { attestUpload } from './rights';
 
 /**
  * Mix & Master and Export, end to end and entirely on-device:
@@ -216,6 +217,7 @@ test('stem import, strip locks, automation drawing and EQ editing', async ({ pag
   // ---- Stem mixing: import an audio file as a new audio track ---------------------------------
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Import stem/audio' }).click()]);
   await chooser.setFiles({ name: 'backing_vocals_stem.wav', mimeType: 'audio/wav', buffer: stemWav() });
+  await attestUpload(page);
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText(/0:03 · 44\.1 kHz · stereo/)).toBeVisible();
   await expect(dialog.getByRole('combobox', { name: 'Stem group' })).toHaveValue('vocals');

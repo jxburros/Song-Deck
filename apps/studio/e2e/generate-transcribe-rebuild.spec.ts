@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { attestUpload } from './rights';
 
 /**
  * Generate MIDI / Transcribe / Rebuild (spec §25-§27), entirely on-device:
@@ -226,6 +227,7 @@ test('transcribe an uploaded WAV melody and start a project from the idea', asyn
   await page.getByRole('radio', { name: 'Singing' }).click();
   await page.getByRole('tab', { name: 'Upload' }).click();
   await page.getByTestId('upload-drop').locator('input[type=file]').setInputFiles(file);
+  await attestUpload(page);
   await expect(page.getByTestId('capture-summary')).toBeVisible();
   const summary = page.getByTestId('transcription-summary');
   await expect(summary).toBeVisible({ timeout: 60_000 });
@@ -308,6 +310,7 @@ test('rebuild a synthesized mix and open it as a project with stems', async ({ p
   await expect(page.getByTestId('rebuild-mode')).toBeVisible();
   await expect(page.getByTestId('rebuild-honesty')).toContainText('lower confidence than neural separators');
   await page.getByTestId('rebuild-drop').locator('input[type=file]').setInputFiles(file);
+  await attestUpload(page);
   await expect(page.getByTestId('rebuild-source')).toBeVisible();
   await page.getByLabel('Project title').fill('E2E Rebuild');
   await page.getByTestId('start-rebuild').click();

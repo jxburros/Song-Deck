@@ -23,6 +23,8 @@ export interface ConfirmBody {
   model?: string;
   durationSeconds?: number;
   warning?: string;
+  /** Rights reminder for uploaded audio in the request (warn-only). */
+  rightsWarning?: string;
   confirmLabel?: string;
 }
 
@@ -101,6 +103,11 @@ export function ConfirmDialog() {
               <span className="mono">{formatDuration(body.durationSeconds)}</span>
             </div>
           )}
+        </div>
+      )}
+      {body.rightsWarning && (
+        <div className="callout warning" style={{ marginTop: 12 }} data-testid="dataflow-rights-warning">
+          {body.rightsWarning}
         </div>
       )}
       {body.warning && (

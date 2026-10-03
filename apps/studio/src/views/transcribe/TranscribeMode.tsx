@@ -5,6 +5,7 @@ import { decodeAudioBytes, guessMime } from '../../state/assets';
 import { enqueueTask, useTask } from '../../engine/capture-tasks';
 import { useStopPreviewOnUnmount } from '../../engine/capture-playback';
 import { AUDIO_ACCEPT, baseName, readFileBytes } from '../../engine/capture-files';
+import { requestAttestation } from '../../engine/rights';
 import { externalProvider, type TranscribeTaskInput } from '../../engine/handlers/analysis';
 import { ProviderPicker } from '../shared/ProviderPicker';
 import { Badge, Button, Field, FileButton, NumberInput, Select, Tabs, Toggle } from '../../ui/kit';
@@ -144,7 +145,13 @@ export default function TranscribeMode() {
       const audio = await decodeAudioBytes(bytes);
       const durationSeconds = (audio.channels[0]?.length ?? 0) / audio.sampleRate;
       if (durationSeconds < 0.2) throw new Error('The file is too short.');
-      accept({ id: randomId('cap'), name: baseName(f.name), origin: 'upload', bytes, mimeType: guessMime(f.name, bytes), audio, durationSeconds, createdAt: new Date().toISOString() });
+      // Uploaded files need a rights attestation before they are used (mic takes and taps do not).
+      const attested = await requestAttestation([{ name: f.name, bytes, audio }], { context: 'transcribe', purpose: 'Transcribe an uploaded recording to MIDI' });
+      if (!attested) {
+        st.toast('info', `Upload of “${f.name}” cancelled.`);
+        return;
+      }
+      accept({ id: randomId('cap'), name: baseName(f.name), origin: 'upload', bytes, mimeType: guessMime(f.name, bytes), audio, durationSeconds, createdAt: new Date().toISOString(), attestation: attested[0] });
     } catch (err) {
       st.toast('error', `Could not read ${f.name}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {

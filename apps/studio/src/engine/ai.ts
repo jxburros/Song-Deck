@@ -52,6 +52,7 @@ import { createInternalProviders } from './internalProviders';
 import { INTERNAL_FOR_ROLE } from './internalDescriptors';
 import { allCustomGenres, allCustomInstruments, loadEnabledPlugins, onPluginProviders } from './plugins';
 import { propose } from './proposals';
+import { dataFlowRightsWarning } from './rights';
 
 /**
  * Studio AI runtime (spec §2.2, §5-§8, §49-§50, §59-§60).
@@ -158,6 +159,8 @@ export function initAi(): void {
           estimate,
           model: ctx.decision.modelId,
           warning: ctx.budgetWarning,
+          // Uploaded audio attested as personal study, or flagged/matched by the rights checks (docs/RIGHTS.md).
+          rightsWarning: dataFlowRightsWarning(useStudio.getState().project, flow),
           confirmLabel: 'Send',
         },
       }),

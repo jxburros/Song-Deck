@@ -29,6 +29,7 @@ export type JobMethod =
   | 'rebuild'
   | 'separate'
   | 'analyze'
+  | 'fingerprint'
   | 'cancel'
   | 'configure';
 
@@ -113,6 +114,11 @@ async function run(req: JobRequest, signal: AbortSignal): Promise<unknown> {
       progress(0.8, 'loudness');
       const loudness = audio.measureLoudness(buf);
       return { tempo, key, loudness };
+    }
+    case 'fingerprint': {
+      // Chromaprint fingerprint for the opt-in content check (docs/RIGHTS.md); the audio never leaves.
+      const fp = audio.chromaprintFingerprint((req.args as { audio: AudioData }).audio);
+      return { fingerprint: fp.fingerprint, durationSeconds: fp.durationSeconds };
     }
     case 'rebuild': {
       const a = req.args as { audio: AudioData; title?: string };

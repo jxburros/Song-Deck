@@ -6,6 +6,7 @@ import { taskQueue } from '../../engine/runtime';
 import { enqueueTask, isActive, useTask } from '../../engine/capture-tasks';
 import { previewPlayer, usePreviewId, usePreviewPosition, useStopPreviewOnUnmount } from '../../engine/capture-playback';
 import { AUDIO_ACCEPT, baseName, readFileBytes } from '../../engine/capture-files';
+import { requestAttestation } from '../../engine/rights';
 import { externalProvider, type RebuildTaskInput, type RebuildTaskOutput } from '../../engine/handlers/analysis';
 import { ProviderPicker } from '../shared/ProviderPicker';
 import { Badge, Button, Field, FileButton, Progress, Spinner, TextInput, Toggle } from '../../ui/kit';
@@ -42,9 +43,15 @@ export default function RebuildMode() {
       const audio = await decodeAudioBytes(bytes);
       const durationSeconds = (audio.channels[0]?.length ?? 0) / audio.sampleRate;
       if (durationSeconds < 1) throw new Error('The recording is shorter than a second.');
+      // Rights attestation before the recording is used (docs/RIGHTS.md): warn, never block.
+      const attested = await requestAttestation([{ name: f.name, bytes, audio }], { context: 'rebuild', purpose: 'Rebuild a recording into an editable project' });
+      if (!attested) {
+        st.toast('info', `Upload of “${f.name}” cancelled.`);
+        return;
+      }
       previewPlayer.stop();
       s.set({
-        source: { name: f.name, bytes, mimeType: guessMime(f.name, bytes), audio, durationSeconds },
+        source: { name: f.name, bytes, mimeType: guessMime(f.name, bytes), audio, durationSeconds, attestation: attested[0] },
         title: baseName(f.name),
         taskId: null,
         runId: null,

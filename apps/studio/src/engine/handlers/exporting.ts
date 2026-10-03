@@ -1,4 +1,5 @@
 import {
+  rightsSummaryText,
   songToDawProject,
   songToMidi,
   songToMusicXML,
@@ -391,6 +392,9 @@ const exportEverything: TaskHandler<EverythingInput, ExportResult> = async (ctx)
   entries.push({ name: 'Song.mid', data: midi });
   entries.push({ name: 'Song.musicxml', data: xml });
   entries.push({ name: `${input.fileBase}.songproject`, data: project, compress: false });
+  // Rights & attribution with the upload attestations (docs/RIGHTS.md), when there are any.
+  const meta = useStudio.getState().project?.meta;
+  if (meta?.attestations?.length) entries.push({ name: 'RIGHTS.txt', data: new TextEncoder().encode(rightsSummaryText(meta)) });
   const listing = entries.map((e) => e.name);
   pZip(0.2);
   const zip = await zipEntries(entries, signal);

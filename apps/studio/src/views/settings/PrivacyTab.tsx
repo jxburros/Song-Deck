@@ -21,6 +21,7 @@ import { Icon } from '../../ui/icons';
 import { PRIVACY_CONFIRM_OPTIONS } from './constants';
 import { useRouting } from './RoutingTab';
 import { ChipSet, Empty, LocationBadge, Panel, TabHeader, timeAgo, usd } from './ui';
+import { ContentCheckPanel } from './ContentCheckPanel';
 
 /** Privacy controls (spec §50) and offline mode (spec §51). */
 
@@ -158,6 +159,7 @@ export default function PrivacyTab() {
         </Panel>
       </div>
 
+      <ContentCheckPanel />
       <DataFlowExplainer />
       <ActivityLog />
     </>
