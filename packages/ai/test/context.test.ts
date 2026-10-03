@@ -99,7 +99,7 @@ describe('tags in the AI layers', () => {
   it('lists catalog tags in the context STYLE TAGS line and in the production style tags', () => {
     const song = makeSong();
     song.tags = ['warm', 'lo-fi', 'midwest-emo', 'falsetto', 'unknown-tag'];
-    const ctx = buildMusicContext(song, {});
+    const ctx = buildMusicContext(song, { instruction: 'Describe the style' });
     expect(ctx.tags).toEqual(['Warm (mood)', 'Lo-fi (production)', 'Midwest emo (style)', 'Falsetto (vocal)']);
     expect(musicContextToPrompt(ctx)).toContain('STYLE TAGS: Warm (mood), Lo-fi (production), Midwest emo (style), Falsetto (vocal)');
     const tags = songStyleTags(song);
