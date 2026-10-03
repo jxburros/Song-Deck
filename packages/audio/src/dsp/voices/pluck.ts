@@ -337,7 +337,7 @@ export class PluckVoice extends Voice {
     this.dz = Math.abs(dz) < 1e-25 ? 0 : dz;
     this.outGain = og;
     this.peak = peak;
-    if (peak < 3e-5) this.quiet += end - start;
+    if (peak < 1e-4) this.quiet += end - start;
     else this.quiet = 0;
     if ((this.killed && og <= 0) || (this.quiet > 0.05 * sr && this.t > 0.05)) this.active = false;
   }

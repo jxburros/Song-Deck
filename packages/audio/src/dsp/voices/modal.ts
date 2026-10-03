@@ -29,6 +29,7 @@ export class ModalVoice extends Voice {
   private readonly amp = new Float64Array(MAXM);
   private readonly coef = new Float64Array(MAXM);
   private n = 0;
+  private readonly buf = new Float64Array(64);
   private drop = 0;
   private dropCoef = 0;
   private strike = 0;
@@ -51,6 +52,7 @@ export class ModalVoice extends Voice {
   start(ev: NoteEvent): void {
     this.begin(ev);
     const p = this.p, sr = this.sr;
+    this.n = Math.min(MAXM, p.modes.length);
     const f0 = midiToHz(ev.pitch);
     const v = Math.max(0, Math.min(1, ev.velocity / 127));
     const short = (ev.art & (ART_DEAD | ART_PALM)) !== 0;
@@ -94,7 +96,6 @@ export class ModalVoice extends Voice {
   render(L: Float64Array, R: Float64Array, start: number, end: number): void {
     const env = this.host.scratch;
     const alive = this.env.process(env, start, end);
-    const n = this.n;
     const ph = this.ph, inc = this.inc, amp = this.amp, coef = this.coef;
     // pitch drop applied per block
     const pm = Math.pow(2, this.drop);
@@ -106,15 +107,36 @@ export class ModalVoice extends Voice {
     const vg = this.vg;
     const gl = this.stereo ? this.pg[0] : 1, gr = this.pg[1];
     let peak = 0;
-    for (let i = start; i < end; i++) {
-      let s = 0;
-      for (let k = 0; k < n; k++) {
-        let p = ph[k] + inc[k] * pm;
+    // drop fully decayed modes (the list only shrinks; order is irrelevant)
+    let nm = this.n;
+    for (let k = 0; k < nm; ) {
+      if (amp[k] < 1e-4) {
+        nm--;
+        amp[k] = amp[nm];
+        ph[k] = ph[nm];
+        inc[k] = inc[nm];
+        coef[k] = coef[nm];
+      } else k++;
+    }
+    this.n = nm;
+    const buf = this.buf;
+    for (let i = start; i < end; i++) buf[i] = 0;
+    for (let k = 0; k < nm; k++) {
+      let p = ph[k];
+      const dp = inc[k] * pm;
+      let a = amp[k];
+      const c = coef[k];
+      for (let i = start; i < end; i++) {
+        p += dp;
         if (p >= 1) p -= 1;
-        ph[k] = p;
-        s += sin01(p) * amp[k];
-        amp[k] *= coef[k];
+        buf[i] += sin01(p) * a;
+        a *= c;
       }
+      ph[k] = p;
+      amp[k] = a;
+    }
+    for (let i = start; i < end; i++) {
+      let s = buf[i];
       if (st > 1e-5) {
         ns = xorshift(ns);
         lp += a * (ns * NOISE_SCALE - lp);
@@ -133,7 +155,7 @@ export class ModalVoice extends Voice {
     this.lp = lp;
     this.noise = ns;
     this.peak = peak;
-    if (peak < 2e-5) this.quiet += end - start;
+    if (peak < 1e-4) this.quiet += end - start;
     else this.quiet = 0;
     if (!alive || this.quiet > 0.03 * this.sr) this.active = false;
   }

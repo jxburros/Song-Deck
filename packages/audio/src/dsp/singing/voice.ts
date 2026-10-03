@@ -7,9 +7,12 @@
  *    glottal period; vibrato with delayed onset; drift; scoop/fall/rise pitch gestures; legato glides
  *  - aspiration noise (pitch-synchronous, through the vocal tract) by breathiness
  *  - vocal tract: 5 cascaded Klatt resonators (F1–F5) per vowel, scaled per voice type, with formant
- *    tuning (F1 ≥ f0 at high pitch) and smoothing between targets (coarticulation)
+ *    tuning (F1 ≥ f0 at high pitch) and smoothing between targets (coarticulation), plus fixed
+ *    higher poles F6–F8 and a parallel high band (source → high-pass) standing in for the poles the
+ *    truncated cascade lacks (otherwise nothing survives above ~5 kHz and the voice sounds muffled)
  *  - consonants: fricatives (band-passed noise branch), plosives (closure / voice bar → burst →
- *    aspiration), affricates, nasals (murmur low-pass), liquids/glides (formant transitions)
+ *    aspiration), affricates, nasals (murmur low-pass, gliding in log-frequency so the release does
+ *    not click), liquids/glides (formant transitions)
  *  - onset styles (soft / normal / hard / scoop) and release styles (normal / falling / rising /
  *    breathy / cut); legato phonation across notes of a phrase (incl. melismas "_").
  * A whole vocal track becomes a timeline of parameter segments rendered by one mono engine.
@@ -373,8 +376,6 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
   const phon = resolveNotePhonemes(notes);
   const base = voice.base;
   const scale = voice.formantScale;
-  const bw = base === 'male' ? BANDWIDTHS_MALE : BANDWIDTHS_FEMALE;
-  void bw;
   const segs: VSeg[] = [];
   const vnotes: VNote[] = [];
   const toFrame = (sec: number) => Math.round((sec - opts.startSec) * sr);
@@ -605,6 +606,12 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
   // remove overlaps (later segments win)
   for (let k = 0; k + 1 < segs.length; k++) if (segs[k].end > segs[k + 1].start) segs[k].end = Math.max(segs[k].start, segs[k + 1].start);
   const filtered = segs.filter((s) => s.end > s.start);
+  // legato: bridge short gaps (≤ 30 ms) so phonation continues between connected notes
+  const bridge = Math.round(0.03 * sr);
+  for (let k = 0; k + 1 < filtered.length; k++) {
+    const gap = filtered[k + 1].start - filtered[k].end;
+    if (gap > 0 && gap <= bridge) filtered[k].end = filtered[k + 1].start;
+  }
   const last = vnotes.length ? vnotes[vnotes.length - 1].end : 0;
   return { segs: filtered, notes: vnotes, voice, sampleRate: sr, endFrame: last + Math.round(0.4 * sr) };
 }
@@ -614,6 +621,16 @@ export function buildVocalTimeline(song: Song, track: Track, opts: VocalBuildOpt
 // ---------------------------------------------------------------------------
 
 const CR = 16;
+const NRES = 8;
+/** Parallel high band: 4th-order high-pass corner, gain and one-pole roll-off (Hz before formantScale). */
+const HF_HZ = 4000;
+const HF_GAIN = 1.2;
+const HF_LP = 5500;
+/** Fixed higher poles F6..F8 (Hz, before formantScale) and bandwidths. */
+const HIGH_POLES: Record<'male' | 'female', { f: number[]; bw: number[] }> = {
+  male: { f: [5000, 5900, 6900], bw: [420, 560, 760] },
+  female: { f: [5800, 6800, 7900], bw: [460, 620, 820] },
+};
 
 export class VocalEngine {
   private tl: VocalTimeline | null = null;
@@ -627,20 +644,28 @@ export class VocalEngine {
   private af = 0;
   private fricF = 4000;
   private fricBw = 3000;
-  private lpHz = 0;
+  /** Smoothed log2 cutoff of the closure/nasal low-pass (bypassed at `lpOpen`). */
+  private lpLog = 0;
+  private readonly lpOpen: number;
   private gain = 0;
   private tension = 0.5;
   private bright = 0.5;
-  // resonators
-  private readonly rA = new Float64Array(5);
-  private readonly rB = new Float64Array(5);
-  private readonly rC = new Float64Array(5);
-  private readonly y1 = new Float64Array(5);
-  private readonly y2 = new Float64Array(5);
+  // resonators: F1..F5 track the phonemes, F6..F8 are fixed higher poles (without them the
+  // cascade falls off at ~60 dB/oct above F5 and the voice sounds muffled)
+  private readonly rA = new Float64Array(NRES);
+  private readonly rB = new Float64Array(NRES);
+  private readonly rC = new Float64Array(NRES);
+  private readonly y1 = new Float64Array(NRES);
+  private readonly y2 = new Float64Array(NRES);
   private readonly fric = new Biquad();
   private readonly ring = new Biquad();
   private lpState = 0;
   private tiltState = 0;
+  /** Parallel high band (source → 4th-order high-pass): the energy the truncated cascade lacks. */
+  private readonly hf1 = new Biquad();
+  private readonly hf2 = new Biquad();
+  private hfLp = 0;
+  private readonly hfLpA: number;
   private phase = 0;
   private jit = 1;
   private shim = 1;
@@ -667,6 +692,28 @@ export class VocalEngine {
     for (let k = 0; k < 5; k++) this.B[k] = bw[k];
     vowelFormants('V', voice.base, voice.formantScale, this.F);
     this.ring.design('peak', 2900 * voice.formantScale, 1.4, voice.ringDb, sampleRate);
+    const hp = HIGH_POLES[voice.base];
+    for (let k = 5; k < NRES; k++) {
+      const F = hp.f[k - 5] * voice.formantScale;
+      if (F >= sampleRate * 0.42) {
+        this.rA[k] = 1;
+        this.rB[k] = 0;
+        this.rC[k] = 0;
+        continue;
+      }
+      const r = Math.exp((-Math.PI * hp.bw[k - 5]) / sampleRate);
+      const C = -r * r;
+      const Bc = 2 * r * Math.cos((2 * Math.PI * F) / sampleRate);
+      this.rA[k] = 1 - Bc - C;
+      this.rB[k] = Bc;
+      this.rC[k] = C;
+    }
+    const hfHz = Math.min(HF_HZ * voice.formantScale, sampleRate * 0.4);
+    this.hf1.design('highpass', hfHz, 0.5412, 0, sampleRate);
+    this.hf2.design('highpass', hfHz, 1.3066, 0, sampleRate);
+    this.hfLpA = 1 - Math.exp((-2 * Math.PI * Math.min(HF_LP * voice.formantScale, sampleRate * 0.45)) / sampleRate);
+    this.lpOpen = Math.log2(Math.min(20000, sampleRate * 0.45));
+    this.lpLog = this.lpOpen;
     this.baseGain = 0.085 * Math.pow(10, voice.gainDb / 20);
   }
 
@@ -693,6 +740,10 @@ export class VocalEngine {
     this.y2.fill(0);
     this.fric.reset();
     this.ring.reset();
+    this.hf1.reset();
+    this.hf2.reset();
+    this.hfLp = 0;
+    this.lpLog = this.lpOpen;
     this.lpState = 0;
     this.tiltState = 0;
     this.lastNote = null;
@@ -793,9 +844,13 @@ export class VocalEngine {
       const kA = 1 - Math.exp(-dt / Math.max(0.0008, ampTau));
       this.av += (tAv - this.av) * kA;
       this.ah += (tAh - this.ah) * kA;
+      if (this.af < 1e-4 && tAf > 0) this.fric.reset(); // frication restarts from a clean filter state
       this.af += (tAf - this.af) * (1 - Math.exp(-dt / 0.003));
       this.gain += (tGain - this.gain) * (1 - Math.exp(-dt / 0.02));
-      this.lpHz = tLp;
+      // the closure / nasal low-pass glides in log-frequency (an abrupt bypass switch clicks)
+      const lpTarget = tLp > 0 ? Math.min(this.lpOpen, Math.log2(tLp)) : this.lpOpen;
+      this.lpLog += (lpTarget - this.lpLog) * (1 - Math.exp(-dt / 0.006));
+      if (this.lpOpen - this.lpLog < 0.02 && lpTarget === this.lpOpen) this.lpLog = this.lpOpen;
       if (this.av < 1e-4 && this.ah < 1e-4 && this.af < 1e-4 && tAv === 0 && tAh === 0 && tAf === 0) {
         i = segEnd;
         continue;
@@ -816,7 +871,7 @@ export class VocalEngine {
         this.rC[k] = C;
       }
       if (this.af > 1e-4) this.fric.design('bandpass', this.fricF, clampNum(this.fricF / Math.max(200, this.fricBw), 0.4, 8), 0, sr);
-      const lpA = this.lpHz > 0 ? 1 - Math.exp((-2 * Math.PI * this.lpHz) / sr) : 1;
+      const lpA = this.lpLog < this.lpOpen ? 1 - Math.exp((-2 * Math.PI * Math.pow(2, this.lpLog)) / sr) : 1;
       // tilt (one-pole lowpass blend): darker for low brightness
       const tiltA = 1 - Math.exp((-2 * Math.PI * (900 + 5000 * this.bright)) / sr);
       const tiltMix = 0.35 + 0.65 * this.bright;
@@ -835,6 +890,10 @@ export class VocalEngine {
       let ph = this.phase;
       let ns = this.noise, ns2 = this.noise2;
       let lp = this.lpState, tilt = this.tiltState;
+      // front vowels (high F2) carry more high-band energy than back vowels
+      const hfG = HF_GAIN * (0.55 + 0.45 * clampNum((this.F[1] - 800) / 1400, 0, 1));
+      const hf1 = this.hf1, hf2 = this.hf2, hfLpA = this.hfLpA;
+      let hfLp = this.hfLp;
       const jitter = this.voice.jitter, shimmer = this.voice.shimmer;
       for (let j = i; j < segEnd; j++) {
         ph += baseInc * this.jit;
@@ -854,13 +913,15 @@ export class VocalEngine {
         const nz = ns * NOISE_SCALE;
         const fl = wtRead(flow, ph);
         let x = src + nz * ah * (0.35 + 0.65 * fl) * 0.6;
+        hfLp += hfLpA * (hf2.tick(hf1.tick(x)) - hfLp);
         // cascade
-        for (let k = 0; k < 5; k++) {
+        for (let k = 0; k < NRES; k++) {
           const y = rA[k] * x + rB[k] * y1[k] + rC[k] * y2[k];
           y2[k] = y1[k];
           y1[k] = y;
           x = y;
         }
+        x += hfLp * hfG;
         if (af > 1e-4) {
           ns2 = xorshift(ns2);
           x += this.fric.tick(ns2 * NOISE_SCALE) * af * 2.2;
@@ -875,15 +936,18 @@ export class VocalEngine {
       this.noise = ns;
       this.noise2 = ns2;
       this.lpState = lp;
+      this.hfLp = hfLp;
       this.tiltState = tilt;
-      for (let k = 0; k < 5; k++) {
+      for (let k = 0; k < NRES; k++) {
         if (Math.abs(y1[k]) < 1e-25) y1[k] = 0;
         if (Math.abs(y2[k]) < 1e-25) y2[k] = 0;
       }
       i = segEnd;
     }
-    if (this.voice.ringDb !== 0 && (sounding || !this.idle)) this.ring.processMono(out, offset, offset + n);
+    if ((sounding || !this.idle) && this.voice.ringDb !== 0) this.ring.processMono(out, offset, offset + n);
     this.fric.flush();
+    this.hf1.flush();
+    this.hf2.flush();
     this.idle = !sounding;
   }
 }

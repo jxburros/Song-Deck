@@ -7,7 +7,7 @@
  */
 import type { AudioData } from '../../types';
 import type { SampleZone } from '../sampler';
-import { NOISE_SCALE, midiToHz, seedState, xorshift } from '../utils';
+import { midiToHz, seedState, xorshift } from '../utils';
 
 export interface PianoParams {
   engine: 'piano';
@@ -107,7 +107,6 @@ export function renderPianoNote(sr: number, pitch: number, velocity: number, p: 
     if (r < fl) x *= r / fl;
     res[t] = x;
   }
-  void NOISE_SCALE;
   return res;
 }
 

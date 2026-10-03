@@ -136,6 +136,10 @@ export class SongRenderer {
   private readonly clickHi: Float32Array;
   private readonly clickLo: Float32Array;
   private readonly stripIdleBlocks: number;
+  private revIdle = 0;
+  private dlyIdle = 0;
+  private revTail = 0;
+  private dlyTail = 0;
   private peakDecay = 1;
   private rmsCoef = 1;
   private outPeak = 0;
@@ -401,6 +405,13 @@ export class SongRenderer {
     this.master.setMaster(mixer.master ?? def.master, snap);
     this.reverb.configure(mixer.reverb ?? def.reverb);
     this.delay.configure(mixer.delay ?? def.delay, this.tm.bpmAt(this.startTick), snap);
+    const rv = mixer.reverb ?? def.reverb;
+    const dl = mixer.delay ?? def.delay;
+    // tails: reverb ≈ 1.4·RT60 + pre-delay (−84 dB); delay: until the feedback has decayed by 80 dB
+    this.revTail = Math.round((1.4 * clampNum(num(rv.decaySeconds, 2), 0.1, 30) + 0.6) * this.sampleRate);
+    const fb = clampNum(num(dl.feedback, 0.3), 0, 0.95);
+    const repeats = fb > 0.001 ? Math.min(400, Math.ceil(Math.log(1e-4) / Math.log(fb))) + 1 : 1;
+    this.dlyTail = Math.round(Math.min(60, repeats * ((clampNum(num(dl.timeBeats, 0.75), 0.01, 16) * 60) / 30) + 0.5) * this.sampleRate);
     const rr = dbToGain(clampNum(num((mixer.reverb ?? def.reverb).returnDb, -4), -120, 12));
     const dr = dbToGain(clampNum(num((mixer.delay ?? def.delay).returnDb, -8), -120, 12));
     if (snap) {
@@ -447,6 +458,8 @@ export class SongRenderer {
     this.reverb.reset();
     this.delay.reset();
     this.master.reset();
+    this.revIdle = this.revTail + 1;
+    this.dlyIdle = this.dlyTail + 1;
     this.revReturn.snap(this.revReturn.target);
     this.dlyReturn.snap(this.dlyReturn.target);
     this.clickCur = lowerBoundF(this.clicks, f - this.clickHi.length);
@@ -494,6 +507,7 @@ export class SongRenderer {
     mL.fill(0, 0, n);
     mR.fill(0, 0, n);
     const sends = this.includeSends;
+    let sendFlags = 0;
     if (sends) {
       rvL.fill(0, 0, n);
       rvR.fill(0, 0, n);
@@ -540,27 +554,38 @@ export class SongRenderer {
         const lanes = ts.lanes;
         for (let k = 0; k < lanes.length; k++) auto[lanes[k].paramIndex] = lanes[k].valueAt(pos);
       }
-      ts.strip.process(L, R, n, auto, mL, mR, sends ? rvL : null, sends ? rvR : null, sends ? dlL : null, sends ? dlR : null);
+      sendFlags |= ts.strip.process(L, R, n, auto, mL, mR, sends ? rvL : null, sends ? rvR : null, sends ? dlL : null, sends ? dlR : null);
     }
+    // a bus whose input has been silent for longer than its tail is skipped entirely
+    if (sendFlags & 1) this.revIdle = 0;
+    else this.revIdle += n;
+    if (sendFlags & 2) this.dlyIdle = 0;
+    else this.dlyIdle += n;
+    const runRev = sends && this.revIdle <= this.revTail;
+    const runDly = sends && this.dlyIdle <= this.dlyTail;
     if (sends) {
       const wL = this.wetL, wR = this.wetR;
       const r0 = this.revReturn.current;
       const r1 = this.revReturn.step();
-      this.reverb.process(rvL, rvR, wL, wR, 0, n);
-      for (let i = 0; i < n; i++) {
-        const g = r0 + ((r1 - r0) * (i + 1)) / n;
-        mL[i] += wL[i] * g;
-        mR[i] += wR[i] * g;
+      if (runRev) {
+        this.reverb.process(rvL, rvR, wL, wR, 0, n);
+        for (let i = 0; i < n; i++) {
+          const g = r0 + ((r1 - r0) * (i + 1)) / n;
+          mL[i] += wL[i] * g;
+          mR[i] += wR[i] * g;
+        }
       }
-      const tick = this.tm.secondsToTick(this.startSec + pos / this.sampleRate);
-      this.delay.setBpm(this.tm.bpmAt(tick));
       const d0 = this.dlyReturn.current;
       const d1 = this.dlyReturn.step();
-      this.delay.process(dlL, dlR, wL, wR, 0, n);
-      for (let i = 0; i < n; i++) {
-        const g = d0 + ((d1 - d0) * (i + 1)) / n;
-        mL[i] += wL[i] * g;
-        mR[i] += wR[i] * g;
+      if (runDly) {
+        const tick = this.tm.secondsToTick(this.startSec + pos / this.sampleRate);
+        this.delay.setBpm(this.tm.bpmAt(tick));
+        this.delay.process(dlL, dlR, wL, wR, 0, n);
+        for (let i = 0; i < n; i++) {
+          const g = d0 + ((d1 - d0) * (i + 1)) / n;
+          mL[i] += wL[i] * g;
+          mR[i] += wR[i] * g;
+        }
       }
     }
     if (this.applyMaster) {
@@ -722,8 +747,8 @@ export function renderStems(song: Song, opts: RenderOptions & { by?: 'stemGroup'
     groups.get(key)!.push(t.id);
   }
   const out: Record<string, AudioData> = {};
-  const { by: _by, ...rest } = opts;
-  void _by;
+  const rest: RenderOptions = { ...opts };
+  delete (rest as { by?: unknown }).by;
   for (const [key, ids] of groups) out[key] = renderSong(song, { applyMaster: false, ...rest, trackIds: ids });
   return out;
 }

@@ -28,6 +28,7 @@ export class LookaheadLimiter {
   private bpos = 0;
   private bsum: number;
   private env = 1;
+  private onesRun = 0;
   enabled = true;
   /** Most negative gain change (dB) applied in the last processed block. */
   gainReductionDb = 0;
@@ -57,6 +58,7 @@ export class LookaheadLimiter {
     this.qh = this.qt = 0;
     this.idx = 0;
     this.env = 1;
+    this.onesRun = 0;
     this.dpos = 0;
     this.gainReductionDb = 0;
   }
@@ -86,6 +88,8 @@ export class LookaheadLimiter {
     let e = this.env + (1 - this.env) * this.releaseCoef;
     if (m < e) e = m;
     this.env = e;
+    if (e === 1) this.onesRun++;
+    else this.onesRun = 0;
     const old = this.box[this.bpos];
     this.box[this.bpos] = e;
     this.bpos = this.bpos + 1 === this.win ? 0 : this.bpos + 1;
@@ -97,6 +101,40 @@ export class LookaheadLimiter {
   process(L: Float64Array, R: Float64Array, start: number, end: number): void {
     const ceil = this.ceiling;
     const dl = this.dl, dr = this.dr, win = this.win;
+    // fast path: no gain reduction pending and the block stays below the ceiling → pure delay
+    if (this.env === 1 && this.onesRun >= win && this.qv[this.qh] >= 1) {
+      let pk = 0;
+      for (let i = start; i < end; i++) {
+        const a = L[i] < 0 ? -L[i] : L[i];
+        const b = R[i] < 0 ? -R[i] : R[i];
+        if (a > pk) pk = a;
+        if (b > pk) pk = b;
+      }
+      if (!this.enabled || pk <= ceil) {
+        let p = this.dpos;
+        const wrap = win - 1;
+        for (let i = start; i < end; i++) {
+          const ol = dl[p], or = dr[p];
+          dl[p] = L[i];
+          dr[p] = R[i];
+          L[i] = ol;
+          R[i] = or;
+          p = p + 1 === wrap ? 0 : p + 1;
+        }
+        this.dpos = p;
+        // the window now holds only 1.0 values: collapse the deque to one entry
+        const n = end - start;
+        this.idx += n;
+        this.qh = 0;
+        this.qt = 1;
+        this.qv[0] = 1;
+        this.qi[0] = this.idx - 1;
+        this.onesRun += n;
+        this.bsum = win; // all box entries are exactly 1 (also cancels running-sum drift)
+        this.gainReductionDb = 0;
+        return;
+      }
+    }
     let minG = 1;
     for (let i = start; i < end; i++) {
       const xl = L[i], xr = R[i];

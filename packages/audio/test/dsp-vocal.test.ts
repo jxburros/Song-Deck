@@ -63,9 +63,9 @@ describe('singing synthesis', () => {
 
   it('renders consonants (fricative noise) and onset/release styles', () => {
     const fric = synthesizeVocal(vocalSong([mkNote(57, 960, 1920, 100, { syllable: 'sea' })]), 'v', { sampleRate: SR }).channels[0];
-    // /s/ before the vowel: high-frequency noise around the note start
-    const sStart = Math.round(0.85 * SR);
-    expect(bandEnergy(fric, SR, 5000, 9000, sStart, 4096, 100)).toBeGreaterThan(bandEnergy(fric, SR, 5000, 9000, Math.round(1.6 * SR), 4096, 100) * 3);
+    // /s/ just before the note start (1.0 s): strong 5-9 kHz noise, ≥ 10 dB above the vowel's high band
+    const sStart = Math.round(0.9 * SR);
+    expect(bandEnergy(fric, SR, 5000, 9000, sStart, 4096, 100)).toBeGreaterThan(bandEnergy(fric, SR, 5000, 9000, Math.round(1.6 * SR), 4096, 100) * 10);
     // scoop onset starts below the target pitch
     const sc = synthesizeVocal(vocalSong([mkNote(57, 0, 1920, 100, { syllable: 'ah', expression: { onset: 'scoop', vibrato: 0 } })]), 'v', { sampleRate: SR }).channels[0];
     expect(cents(yinF0(sc, SR, Math.round(0.02 * SR), 1024, 60, 1000), 220)).toBeLessThan(-40);

@@ -677,6 +677,7 @@ export class DrumVoice extends Voice {
     if (this.nN > 0) {
       const burstOn = this.burstSpacing > 0;
       for (let k = 0; k < this.nN; k++) {
+        if (this.nAmp[k] < 1e-6 && (!burstOn || this.burstLeft === 0)) continue;
         const flt = this.nf[k];
         const type = this.nType[k];
         let amp = this.nAmp[k];
@@ -810,7 +811,7 @@ export class DrumVoice extends Voice {
     }
     this.fade = fade;
     this.peak = peak * this.gain;
-    if (peak < 1e-5) this.quiet += end - start;
+    if (peak < 5e-5) this.quiet += end - start;
     else this.quiet = 0;
     if ((this.killed && this.fade <= 0) || this.quiet > 0.02 * sr) this.active = false;
   }

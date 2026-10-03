@@ -89,36 +89,64 @@ const TP_PHASES: Float64Array[] = (() => {
 
 /**
  * Per-sample true-peak magnitude: out[n] = max(|x[n]|, |x̂(n + 1/4)|, |x̂(n + 1/2)|, |x̂(n + 3/4)|).
+ * With `floor` > 0, 16-sample blocks whose neighbourhood provably cannot exceed `floor`
+ * (Σ|h| · local max ≤ floor) get |x[n]| instead — exact for consumers that only act on values
+ * above `floor` (a limiter with that ceiling), and much cheaper on program material.
  */
-export function truePeakEnvelope(x: ArrayLike<number>, out: Float64Array): void {
+export function truePeakEnvelope(x: ArrayLike<number>, out: Float64Array, floor = 0): void {
   const n = x.length;
   const h0 = TP_PHASES[0], h1 = TP_PHASES[1], h2 = TP_PHASES[2];
-  for (let i = 0; i < n; i++) {
-    let m = Math.abs(x[i]);
-    const base = i - (TP_HALF - 1);
-    let s0 = 0, s1 = 0, s2 = 0;
-    if (base >= 0 && base + TP_TAPS <= n) {
-      for (let k = 0; k < TP_TAPS; k++) {
-        const v = x[base + k];
-        s0 += h0[k] * v;
-        s1 += h1[k] * v;
-        s2 += h2[k] * v;
-      }
-    } else {
-      for (let k = 0; k < TP_TAPS; k++) {
-        const j = base + k;
-        if (j < 0 || j >= n) continue;
-        const v = x[j];
-        s0 += h0[k] * v;
-        s1 += h1[k] * v;
-        s2 += h2[k] * v;
-      }
+  const B = TP_TAPS;
+  const nb = Math.ceil(n / B);
+  const blockMax = (s: number): number => {
+    let mm = 0;
+    const e = Math.min(n, s + B);
+    for (let i = s; i < e; i++) {
+      const a = Math.abs(x[i]);
+      if (a > mm) mm = a;
     }
-    const a0 = Math.abs(s0), a1 = Math.abs(s1), a2 = Math.abs(s2);
-    if (a0 > m) m = a0;
-    if (a1 > m) m = a1;
-    if (a2 > m) m = a2;
-    out[i] = m;
+    return mm;
+  };
+  let prevMax = 0;
+  let curMax = nb > 0 ? blockMax(0) : 0;
+  for (let b = 0; b < nb; b++) {
+    const s = b * B;
+    const e = Math.min(n, s + B);
+    const nextMax = b + 1 < nb ? blockMax(e) : 0;
+    const local = Math.max(prevMax, curMax, nextMax);
+    prevMax = curMax;
+    curMax = nextMax;
+    if (floor > 0 && local * TP_SUM_ABS <= floor) {
+      for (let i = s; i < e; i++) out[i] = Math.abs(x[i]);
+      continue;
+    }
+    for (let i = s; i < e; i++) {
+      let m = Math.abs(x[i]);
+      const base = i - (TP_HALF - 1);
+      let s0 = 0, s1 = 0, s2 = 0;
+      if (base >= 0 && base + TP_TAPS <= n) {
+        for (let k = 0; k < TP_TAPS; k++) {
+          const v = x[base + k];
+          s0 += h0[k] * v;
+          s1 += h1[k] * v;
+          s2 += h2[k] * v;
+        }
+      } else {
+        for (let k = 0; k < TP_TAPS; k++) {
+          const j = base + k;
+          if (j < 0 || j >= n) continue;
+          const v = x[j];
+          s0 += h0[k] * v;
+          s1 += h1[k] * v;
+          s2 += h2[k] * v;
+        }
+      }
+      const a0 = Math.abs(s0), a1 = Math.abs(s1), a2 = Math.abs(s2);
+      if (a0 > m) m = a0;
+      if (a1 > m) m = a1;
+      if (a2 > m) m = a2;
+      out[i] = m;
+    }
   }
 }
 

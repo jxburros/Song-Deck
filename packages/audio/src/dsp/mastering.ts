@@ -10,7 +10,7 @@ import type { AudioData } from '../types';
 import { Compressor } from './effects/compressor';
 import { LookaheadLimiter } from './effects/limiter';
 import { Biquad } from './filters';
-import { integratedLoudness, measureLoudness, truePeakEnvelope, truePeakLinear } from './loudness';
+import { integratedLoudness, measureLoudness, truePeakEnvelope } from './loudness';
 import { MIN_DB, clampNum, num } from './utils';
 
 export interface MasteringPreset {
@@ -158,12 +158,13 @@ export function masterAudio(input: AudioData, settings: MasteringSettings, opts:
   const target: MasteringTarget = MASTERING_PRESETS[settings?.target] ? settings.target : 'streaming';
   const preset = MASTERING_PRESETS[target];
   const sr = input.sampleRate;
-  const pre = measureLoudness(input);
-  opts.onProgress?.(0.05);
   if (settings?.method === 'none' || !input.channels.length || !input.channels[0].length) {
+    const pre = measureLoudness(input);
     const out = { sampleRate: sr, channels: input.channels.map((c) => new Float32Array(c)) };
     return { output: out, report: { preLufs: pre.integratedLufs, postLufs: pre.integratedLufs, truePeakDb: pre.truePeakDb, gainDb: 0, lra: pre.lra, target, iterations: 0 } };
   }
+  const pre = { integratedLufs: integratedLoudness(input) };
+  opts.onProgress?.(0.05);
   const chs = toF64(input);
   const n = chs[0].length;
   const isStereo = chs.length > 1;
@@ -247,9 +248,10 @@ export function masterAudio(input: AudioData, settings: MasteringSettings, opts:
       }
     }
     // true-peak detector (max over channels)
-    truePeakEnvelope(work[0], tpEnv);
+    // (blocks that provably stay below the ceiling skip the interpolation; the limiter ignores them)
+    truePeakEnvelope(work[0], tpEnv, ceil * 0.999);
     for (let c = 1; c < work.length; c++) {
-      truePeakEnvelope(work[c], tpTmp);
+      truePeakEnvelope(work[c], tpTmp, ceil * 0.999);
       for (let i = 0; i < n; i++) if (tpTmp[i] > tpEnv[i]) tpEnv[i] = tpTmp[i];
     }
     const lim = new LookaheadLimiter(sr, la);
@@ -259,11 +261,13 @@ export function masterAudio(input: AudioData, settings: MasteringSettings, opts:
   };
   let g0 = preset.targetLufs - baseLufs;
   let l0 = run(g0);
+  let lastG = g0;
   let iterations = 1;
   let bestG = g0, bestErr = Math.abs(preset.targetLufs - l0);
   let g1 = g0 + (preset.targetLufs - l0);
   for (let it = 0; it < 8 && bestErr > 0.1; it++) {
     const l1 = run(g1);
+    lastG = g1;
     iterations++;
     const err = Math.abs(preset.targetLufs - l1);
     if (err < bestErr) {
@@ -279,18 +283,18 @@ export function masterAudio(input: AudioData, settings: MasteringSettings, opts:
     g1 = clampNum(next, g1 - 12, g1 + 12);
   }
   // final render at the best gain (if the last run was not the best)
-  if (bestG !== g1 || bestErr > 0.1) run(bestG);
+  if (bestG !== lastG) run(bestG);
   let out = toAudio(work, sr);
+  opts.onProgress?.(0.95);
+  let post = measureLoudness(out);
   // guarantee the ceiling on the float32 result
-  let tp = 0;
-  for (const c of out.channels) tp = Math.max(tp, truePeakLinear(c));
   const limitLin = Math.pow(10, preset.truePeakDb / 20);
+  const tp = Math.pow(10, post.truePeakDb / 20);
   if (tp > limitLin) {
     const trim = (limitLin / tp) * 0.9995;
     out = { sampleRate: sr, channels: out.channels.map((c) => Float32Array.from(c, (v) => v * trim)) };
+    post = measureLoudness(out);
   }
-  opts.onProgress?.(0.97);
-  const post = measureLoudness(out);
   opts.onProgress?.(1);
   return {
     output: out,

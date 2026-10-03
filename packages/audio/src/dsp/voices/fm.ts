@@ -159,7 +159,7 @@ export class FmVoice extends Voice {
     this.noise = ns;
     this.lp = lp;
     this.peak = peak;
-    if (peak < 2e-5) this.quiet += end - start;
+    if (peak < 1e-4) this.quiet += end - start;
     else this.quiet = 0;
     if (!alive || this.quiet > 0.03 * this.sr) this.active = false;
   }

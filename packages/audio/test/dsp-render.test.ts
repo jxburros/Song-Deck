@@ -232,6 +232,64 @@ describe('renderSong', () => {
   });
 });
 
+describe('robustness', () => {
+  it('renders at other sample rates, extreme pitches/velocities and empty songs without NaN', () => {
+    for (const sr of [22050, 96000]) {
+      const song = bandSong(1);
+      const out = renderSong(song, { sampleRate: sr, tailSeconds: 0.3 });
+      expect(out.sampleRate).toBe(sr);
+      expect(out.channels[0].length).toBe(Math.round(2.3 * sr));
+      expect(hasNonFinite(out)).toBe(false);
+      const one = mkSong(1);
+      one.tracks = [mkTrack('a', 'sine', [mkNote(69, 0, 1800)])];
+      setStrip(one, 'a', {});
+      const tone = renderSong(one, { sampleRate: sr, applyMaster: false, includeSends: false, tailSeconds: 0 });
+      expect(Math.abs(cents(yinF0(tone.channels[0], sr, Math.round(0.5 * sr), 2048), 440))).toBeLessThan(5);
+    }
+    const ext = mkSong(1);
+    const patches = ['piano', 'guitar-distorted', 'bass-electric', 'strings-ensemble', 'epiano', 'organ', 'choir', 'timpani', 'lead-saw', 'harp', 'vocal-placeholder'];
+    ext.tracks = patches.map((p) => mkTrack(p, p, [mkNote(0, 0, 400, 1), mkNote(127, 480, 400, 127), mkNote(60, 960, 1, 64), mkNote(-5, 1000, 100, 300 as number)]));
+    for (const t of ext.tracks) setStrip(ext, t.id, {});
+    const o = renderSong(ext, { sampleRate: SR, patchOverrides: Object.fromEntries(patches.map((p) => [p, p])), tailSeconds: 0.5 });
+    expect(hasNonFinite(o)).toBe(false);
+    const empty = mkSong(0);
+    empty.sections = [];
+    const e = renderSong(empty, { sampleRate: SR, tailSeconds: 0.25 });
+    expect(e.channels[0].length).toBe(Math.round(0.25 * SR));
+    expect(peak(e.channels[0])).toBe(0);
+  });
+
+  it('automates pan, width, sends and EQ filters', () => {
+    const song = mkSong(2);
+    song.tracks = [mkTrack('a', 'pad-bright', [mkNote(60, 0, 3840, 100), mkNote(67, 0, 3840, 100)])];
+    setStrip(song, 'a', {});
+    song.automation = [
+      { id: 'p', target: 'a', param: 'pan', enabled: true, points: [{ tick: 0, value: -1 }, { tick: 3840, value: 1 }] },
+      { id: 'lp', target: 'a', param: 'eq.lowpassHz', enabled: true, points: [{ tick: 0, value: 400 }, { tick: 3840, value: 400 }] },
+      { id: 'w', target: 'a', param: 'width', enabled: true, points: [{ tick: 0, value: 0 }] },
+      { id: 'r', target: 'a', param: 'reverbSend', enabled: true, points: [{ tick: 0, value: 0.8 }] },
+      { id: 'x', target: 'a', param: 'eq.highShelfDb', enabled: false, points: [{ tick: 0, value: 12 }] },
+    ];
+    const out = renderSong(song, { sampleRate: SR, applyMaster: false, tailSeconds: 0.2 });
+    expect(hasNonFinite(out)).toBe(false);
+    const L = out.channels[0], R = out.channels[1];
+    const early = [Math.round(0.4 * SR), Math.round(0.8 * SR)] as const;
+    const late = [Math.round(3.2 * SR), Math.round(3.6 * SR)] as const;
+    expect(rms(L, ...early)).toBeGreaterThan(rms(R, ...early) * 2);
+    expect(rms(R, ...late)).toBeGreaterThan(rms(L, ...late) * 2);
+    // the 400 Hz low-pass removes the bright pad's upper partials
+    const nolp = cloneSong(song);
+    nolp.automation = nolp.automation.filter((l) => l.id !== 'lp');
+    const bright = renderSong(nolp, { sampleRate: SR, applyMaster: false, tailSeconds: 0.2 });
+    const hf = (x: Float32Array) => {
+      let e = 0;
+      for (let i = Math.round(1.5 * SR); i < Math.round(2.5 * SR); i++) e += (x[i] - x[i - 1]) ** 2;
+      return e;
+    };
+    expect(hf(bright.channels[0]) + hf(bright.channels[1])).toBeGreaterThan((hf(L) + hf(R)) * 4);
+  });
+});
+
 describe('SongRenderer transport', () => {
   it('seeks, reports position, ends with 0 and loops', () => {
     const song = bandSong(2);

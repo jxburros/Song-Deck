@@ -198,7 +198,7 @@ export class StripProcessor {
     revR: Float64Array | null,
     dlyL: Float64Array | null,
     dlyR: Float64Array | null,
-  ): void {
+  ): number {
     const s = this.strip;
     const volDb = av(auto, AP_VOLUME, this.vol.step());
     const pan = clampNum(av(auto, AP_PAN, this.pan.step()), -1, 1);
@@ -304,6 +304,7 @@ export class StripProcessor {
     this.sd0 = dly;
     this.first = false;
     this.meter.push(pk, ms / (2 * n), n);
+    return (doRev ? 1 : 0) | (doDly ? 2 : 0);
   }
 }
 
