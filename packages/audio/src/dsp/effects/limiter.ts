@@ -66,16 +66,22 @@ export class LookaheadLimiter {
     const qv = this.qv, qi = this.qi, cap = qv.length;
     const i = this.idx++;
     // pop back while larger
-    while (this.qt !== this.qh) {
-      const back = (this.qt - 1 + cap) % cap;
-      if (qv[back] >= req) this.qt = back;
+    let qt = this.qt;
+    const qh0 = this.qh;
+    while (qt !== qh0) {
+      const back = qt === 0 ? cap - 1 : qt - 1;
+      if (qv[back] >= req) qt = back;
       else break;
     }
-    qv[this.qt] = req;
-    qi[this.qt] = i;
-    this.qt = (this.qt + 1) % cap;
+    qv[qt] = req;
+    qi[qt] = i;
+    qt = qt + 1 === cap ? 0 : qt + 1;
+    this.qt = qt;
     // pop front if out of window
-    while (qi[this.qh] <= i - this.win) this.qh = (this.qh + 1) % cap;
+    let qh = qh0;
+    const lim = i - this.win;
+    while (qi[qh] <= lim) qh = qh + 1 === cap ? 0 : qh + 1;
+    this.qh = qh;
     const m = qv[this.qh];
     let e = this.env + (1 - this.env) * this.releaseCoef;
     if (m < e) e = m;

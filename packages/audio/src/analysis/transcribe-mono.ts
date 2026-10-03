@@ -26,6 +26,8 @@ export interface MonophonicOptions {
   splitRepeats?: boolean;
   /** Aperiodicity above which frames are unvoiced (default 0.35; raise for breathy singing). */
   voicingThreshold?: number;
+  /** Minimum energy dip (dB) that splits a sustained pitch into repeated notes (default 5). */
+  splitDipDb?: number;
 }
 
 export interface MonophonicResult {
@@ -151,6 +153,7 @@ export function notesFromPitchTrack(track: PitchTrack, opts: MonophonicOptions =
   if (opts.splitRepeats !== false) {
     const out: Run[] = [];
     const minSplit = Math.max(3, Math.round(0.06 / hop));
+    const dip = opts.splitDipDb ?? 5;
     for (const r of runs) {
       let a = r.a;
       for (let t = r.a + minSplit; t < r.b - minSplit; t++) {
@@ -161,7 +164,7 @@ export function notesFromPitchTrack(track: PitchTrack, opts: MonophonicOptions =
         let rmax = -Infinity;
         for (let k = Math.max(a, t - w); k < t; k++) lmax = Math.max(lmax, rmsDb[k]);
         for (let k = t + 1; k <= Math.min(r.b - 1, t + w); k++) rmax = Math.max(rmax, rmsDb[k]);
-        if (lmax - v >= 5 && rmax - v >= 5 && t - a >= minSplit) {
+        if (lmax - v >= dip && rmax - v >= dip && t - a >= minSplit) {
           out.push({ s: r.s, a, b: t, cut: a !== r.a ? true : r.cut });
           a = t + 1;
         }

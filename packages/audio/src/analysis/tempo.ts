@@ -265,6 +265,13 @@ function beatChange(_env: OnsetEnvelope, beats: number[], bandProfile?: (t: numb
     }
     out.push(na > 0 && nb > 0 ? 1 - d / Math.sqrt(na * nb) : 0);
   }
+  // the first and last beats have no complete neighbouring interval: make them neutral
+  if (out.length > 3) {
+    const inner = out.slice(1, -1).sort((x, y) => x - y);
+    const med = inner[inner.length >> 1];
+    out[0] = med;
+    out[out.length - 1] = med;
+  }
   return out;
 }
 
@@ -303,7 +310,8 @@ export function estimateMeter(accents: number[], meters: number[] = [4, 3]): Met
           noff++;
         }
       }
-      const s = (non ? on / non : 0) - (noff ? off / noff : 0);
+      // tiny tie-break: music usually starts on a downbeat (the first tracked beat is a strong beat)
+      const s = (non ? on / non : 0) - (noff ? off / noff : 0) + (ph === 0 ? 0.05 : 0);
       if (s > best) {
         best = s;
         bestPhase = ph;

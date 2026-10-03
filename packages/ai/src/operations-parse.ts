@@ -448,7 +448,7 @@ function clampMixer(param: string, v: number): number {
   return v;
 }
 
-function parseItem(item: Item, index: number): { op?: MusicOperation; errors: string[]; warnings: string[]; name?: string } {
+function parseItem(item: Item): { op?: MusicOperation; errors: string[]; warnings: string[]; name?: string } {
   const p = new ItemParser(item);
   const name = normalizeOpName(item.op ?? item.operation ?? item.type ?? item.action);
   if (!name) return { errors: [`unknown operation ${JSON.stringify(item.op ?? item.operation ?? item.type ?? null)}`], warnings: [] };
@@ -799,7 +799,7 @@ export function parseOperations(json: unknown, opts: ParseOperationsOptions = {}
       result.errors.push({ index, message: 'operation is not an object' });
       return;
     }
-    const parsed = parseItem(normalized, index);
+    const parsed = parseItem(normalized);
     for (const w of parsed.warnings) result.warnings.push({ index, op: parsed.name, message: w });
     if (!parsed.op) {
       for (const e of parsed.errors) result.errors.push({ index, op: parsed.name, message: e });

@@ -25,6 +25,16 @@ export interface ApplyResult {
 
 type Handler = (song: Song, op: Record<string, unknown>, c: OpContext) => boolean;
 
+/**
+ * Per-operation draft. Only the song object and its track objects are copied; notes, chords,
+ * sections, lyrics, mixer, automation… are shared with the previous state, so handlers must
+ * REPLACE those containers/objects (never mutate them in place). This keeps each operation
+ * atomic at O(tracks) cost and lets lock checks skip untouched material by identity.
+ */
+function draftOf(song: Song): Song {
+  return { ...song, tracks: song.tracks.map((t) => ({ ...t })) };
+}
+
 function opRegenerate(song: Song, op: Record<string, unknown>, c: OpContext): boolean {
   const name = 'regenerate';
   const regen = c.opts.regenerate;
@@ -47,11 +57,13 @@ function opRegenerate(song: Song, op: Record<string, unknown>, c: OpContext): bo
     startTick = region.startTick;
     endTick = region.endTick;
   }
+  let sectionIds: string[] | undefined;
   if (op.sections !== undefined && op.sections !== null) {
     if (!Array.isArray(op.sections)) {
       c.error('op.malformed', `${name}: "sections" must be an array of section ids or names.`);
       return false;
     }
+    sectionIds = [];
     const spans = sectionLayout(song);
     for (const ref of op.sections) {
       const s = findSection(song, toStr(ref) ?? '');
@@ -59,14 +71,19 @@ function opRegenerate(song: Song, op: Record<string, unknown>, c: OpContext): bo
         c.error('section.not-found', `${name}: section ${JSON.stringify(ref)} not found.`);
         return false;
       }
+      sectionIds.push(s.id);
       const span = spans.find((x) => x.section.id === s.id)!;
       startTick = startTick === undefined ? span.startTick : Math.min(startTick, span.startTick);
       endTick = endTick === undefined ? span.endTick : Math.max(endTick, span.endTick);
     }
   }
+  // The engine receives the request with references resolved to ids.
+  const request = { ...(op as unknown as RegenerateOperation), op: 'regenerate' as const };
+  if (trackIds) request.track = trackIds[0];
+  if (sectionIds) request.sections = sectionIds;
   let result: Song;
   try {
-    result = regen(cloneSong(song), op as unknown as RegenerateOperation);
+    result = regen(cloneSong(song), request);
   } catch (e) {
     c.error('op.failed', `${name}: the composition engine failed: ${e instanceof Error ? e.message : String(e)}`);
     return false;
@@ -139,7 +156,9 @@ function opName(op: Record<string, unknown>): string | undefined {
  */
 export function applyOperations(song: Song, ops: MusicOperation[], opts: ApplyOptions = {}): ApplyResult {
   const issues = new IssueList();
-  let work = cloneSong(song);
+  // One private deep copy; each operation then works on a cheap structural draft of it.
+  const initial = cloneSong(song);
+  let work = initial;
   const ids = new IdAllocator(work, opts.ids);
   const lockMap: LockMap = {};
   for (const [k, v] of Object.entries(song.locks ?? {})) if (v === true) lockMap[k] = true;
@@ -169,7 +188,7 @@ export function applyOperations(song: Song, ops: MusicOperation[], opts: ApplyOp
     }
     const opIssues = new IssueList(Infinity);
     const ctx = createOpContext(opIndex, opIssues, opts, ids, lockMap);
-    const draft = cloneSong(work);
+    const draft = draftOf(work);
     let ok = false;
     try {
       ok = handler(draft, raw, ctx);
@@ -201,7 +220,7 @@ export function applyOperations(song: Song, ops: MusicOperation[], opts: ApplyOp
   finalizeNotes(work, touched, opts, issues, originalLocks);
   if (opts.respectLocks !== false) {
     // Safety net: nothing (including the auto-fix pass) may alter locked material.
-    for (const v of lockViolations(song, work, originalLocks)) issues.add(v);
+    for (const v of lockViolations(initial, work, originalLocks)) issues.add(v);
   }
   return { song: work, report: issues.report(), applied, skipped };
 }
@@ -219,6 +238,8 @@ function finalizeNotes(song: Song, touched: Map<string, Set<string>>, opts: Appl
     sortNotes(track.notes);
     const ids = touched.get(track.id);
     if (!ids || !ids.size || track.kind !== 'midi') continue;
+    // Fix on private copies (note objects may be shared with earlier states).
+    track.notes = track.notes.map((n) => ({ ...n }));
     const drums = isDrumTrack(track, lookup);
     const range = trackRange(track, lookup);
     const removed = new Set<Note>();
@@ -230,6 +251,9 @@ function finalizeNotes(song: Song, touched: Map<string, Set<string>>, opts: Appl
         issues.warn('note.invalid', `Invalid note data on "${track.name}" removed.`, { trackId: track.id, noteId: n.id, fixed: true });
         continue;
       }
+      if (!Number.isInteger(n.pitch)) n.pitch = Math.round(n.pitch);
+      if (!Number.isInteger(n.tick)) n.tick = Math.round(n.tick);
+      if (!Number.isInteger(n.duration)) n.duration = Math.round(n.duration);
       if (n.pitch < 0 || n.pitch > 127) {
         if (autoFix) {
           const p = foldMidi(n.pitch);

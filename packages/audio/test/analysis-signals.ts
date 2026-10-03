@@ -96,6 +96,31 @@ export function addTone(out: Float32Array, sampleRate: number, start: number, du
   }
 }
 
+/** RBJ-cookbook biquad (direct form I). */
+function biquad(type: 'lp' | 'hp', fc: number, sampleRate: number, q = 0.707): (x: number) => number {
+  const w0 = (2 * Math.PI * Math.min(fc, sampleRate * 0.49)) / sampleRate;
+  const cos = Math.cos(w0);
+  const alpha = Math.sin(w0) / (2 * q);
+  const b0 = type === 'lp' ? (1 - cos) / 2 : (1 + cos) / 2;
+  const b1 = type === 'lp' ? 1 - cos : -(1 + cos);
+  const b2 = b0;
+  const a0 = 1 + alpha;
+  const a1 = -2 * cos;
+  const a2 = 1 - alpha;
+  let x1 = 0;
+  let x2 = 0;
+  let y1 = 0;
+  let y2 = 0;
+  return (x: number) => {
+    const y = (b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0;
+    x2 = x1;
+    x1 = x;
+    y2 = y1;
+    y1 = y;
+    return y;
+  };
+}
+
 export function addNoiseBurst(
   out: Float32Array,
   sampleRate: number,
@@ -105,34 +130,16 @@ export function addNoiseBurst(
   const rnd = lcg(opts.seed);
   const s0 = Math.round(start * sampleRate);
   const n = Math.round((opts.duration ?? opts.decay * 6) * sampleRate);
-  // one-pole filters
-  const hpA = opts.highpassHz ? Math.exp((-2 * Math.PI * opts.highpassHz) / sampleRate) : 0;
-  const lpA = opts.lowpassHz ? Math.exp((-2 * Math.PI * opts.lowpassHz) / sampleRate) : 0;
-  let hpPrevIn = 0;
-  let hpPrevOut = 0;
-  let hp2PrevIn = 0;
-  let hp2PrevOut = 0;
-  let lp = 0;
-  let lp2 = 0;
+  const hp = opts.highpassHz ? [biquad('hp', opts.highpassHz, sampleRate), biquad('hp', opts.highpassHz, sampleRate)] : [];
+  const lp = opts.lowpassHz && opts.lowpassHz < sampleRate * 0.45 ? [biquad('lp', opts.lowpassHz, sampleRate), biquad('lp', opts.lowpassHz, sampleRate)] : [];
   for (let i = 0; i < n; i++) {
     const idx = s0 + i;
     if (idx >= out.length) break;
     let v = rnd() * 2 - 1;
-    if (opts.highpassHz) {
-      const y = hpA * (hpPrevOut + v - hpPrevIn);
-      hpPrevIn = v;
-      hpPrevOut = y;
-      const y2 = hpA * (hp2PrevOut + y - hp2PrevIn);
-      hp2PrevIn = y;
-      hp2PrevOut = y2;
-      v = y2;
-    }
-    if (opts.lowpassHz) {
-      lp = (1 - lpA) * v + lpA * lp;
-      lp2 = (1 - lpA) * lp + lpA * lp2;
-      v = lp2;
-    }
-    const env = Math.exp(-(i / sampleRate) / opts.decay) * Math.min(1, i / (0.0015 * sampleRate));
+    for (const f of hp) v = f(v);
+    for (const f of lp) v = f(v);
+    const fade = Math.min(1, (n - i) / (0.02 * sampleRate));
+    const env = Math.exp(-(i / sampleRate) / opts.decay) * Math.min(1, i / (0.0015 * sampleRate)) * fade;
     if (idx >= 0) out[idx] += opts.amp * env * v;
   }
 }
@@ -147,7 +154,8 @@ export function addKick(out: Float32Array, sampleRate: number, start: number, am
     const t = i / sampleRate;
     const f = 50 + 110 * Math.exp(-t / 0.03);
     phase += (2 * Math.PI * f) / sampleRate;
-    const env = Math.exp(-t / 0.13) * Math.min(1, i / (0.001 * sampleRate));
+    const fade = Math.min(1, (n - i) / (0.05 * sampleRate));
+    const env = Math.exp(-t / 0.13) * Math.min(1, i / (0.001 * sampleRate)) * fade;
     if (idx >= 0) out[idx] += amp * env * Math.sin(phase);
   }
   addNoiseBurst(out, sampleRate, start, { amp: amp * 0.15, decay: 0.004, lowpassHz: 3000, seed });
@@ -160,7 +168,7 @@ export function addSnare(out: Float32Array, sampleRate: number, start: number, a
     const idx = s0 + i;
     if (idx >= out.length) break;
     const t = i / sampleRate;
-    const env = Math.exp(-t / 0.06);
+    const env = Math.exp(-t / 0.06) * Math.min(1, (n - i) / (0.03 * sampleRate));
     if (idx >= 0) out[idx] += amp * 0.5 * env * Math.sin(2 * Math.PI * 185 * t);
   }
   addNoiseBurst(out, sampleRate, start, { amp: amp * 0.8, decay: 0.09, highpassHz: 900, lowpassHz: 9000, seed });
@@ -184,7 +192,8 @@ export function addTom(out: Float32Array, sampleRate: number, start: number, hz:
     const t = i / sampleRate;
     const f = hz * (1 + 0.15 * Math.exp(-t / 0.05));
     phase += (2 * Math.PI * f) / sampleRate;
-    const env = Math.exp(-t / 0.2) * Math.min(1, i / (0.001 * sampleRate));
+    const fade = Math.min(1, (n - i) / (0.05 * sampleRate));
+    const env = Math.exp(-t / 0.2) * Math.min(1, i / (0.001 * sampleRate)) * fade;
     if (idx >= 0) out[idx] += amp * env * (Math.sin(phase) + 0.2 * Math.sin(2 * phase));
   }
 }
@@ -337,4 +346,116 @@ export function correlation(a: Float32Array, b: Float32Array): number {
     bb += b[i] * b[i];
   }
   return aa > 0 && bb > 0 ? ab / Math.sqrt(aa * bb) : 0;
+}
+
+export interface SynthSongSection {
+  label: string;
+  bars: number;
+  chords: string[];
+  /** 0..1 */
+  energy: number;
+}
+
+export interface SynthSong {
+  sampleRate: number;
+  left: Float32Array;
+  right: Float32Array;
+  bpm: number;
+  /** Section start times (s). */
+  sectionStarts: number[];
+  chords: { start: number; end: number; symbol: string }[];
+  melody: MelodyNote[];
+  bassNotes: MelodyNote[];
+  drums: DrumEvent[];
+  stems: { drums: Float32Array; bass: Float32Array; vocals: Float32Array; padL: Float32Array; padR: Float32Array };
+}
+
+/**
+ * A small arrangement: drums (energy-dependent pattern), bass on chord roots, a centred sung
+ * melody (vibrato) and a wide pad (left/right voicings differ). One chord per bar.
+ */
+export function synthSong(sampleRate: number, sections: SynthSongSection[], opts: { bpm?: number; lead?: number; tail?: number; vocalGain?: number } = {}): SynthSong {
+  const bpm = opts.bpm ?? 120;
+  const beat = 60 / bpm;
+  const bar = 4 * beat;
+  const lead = opts.lead ?? 0.25;
+  const totalBars = sections.reduce((a, s) => a + s.bars, 0);
+  const seconds = lead + totalBars * bar + (opts.tail ?? 1);
+  const drumsEv: DrumEvent[] = [];
+  const bass = silence(sampleRate, seconds);
+  const padL = silence(sampleRate, seconds);
+  const padR = silence(sampleRate, seconds);
+  const melody: MelodyNote[] = [];
+  const bassNotes: MelodyNote[] = [];
+  const chords: { start: number; end: number; symbol: string }[] = [];
+  const sectionStarts: number[] = [];
+  let t = lead;
+  let mi = 0;
+  for (const s of sections) {
+    sectionStarts.push(t);
+    for (let b = 0; b < s.bars; b++) {
+      const sym = s.chords[b % s.chords.length];
+      chords.push({ start: t, end: t + bar, symbol: sym });
+      const root = CHORD_ROOT[sym];
+      const tones = CHORD_TONES[sym];
+      // drums
+      for (let q = 0; q < 4; q++) {
+        const bt = t + q * beat;
+        if (q % 2 === 0) drumsEv.push({ time: bt, drum: 'kick' });
+        else if (s.energy > 0.5) drumsEv.push({ time: bt, drum: 'snare' });
+        drumsEv.push({ time: bt, drum: 'hat' });
+        if (s.energy > 0.5) drumsEv.push({ time: bt + beat / 2, drum: 'hat' });
+      }
+      // bass: roots on beats (8ths in high-energy sections)
+      const step = s.energy > 0.5 ? beat / 2 : beat;
+      for (let bt = 0; bt < bar - 1e-6; bt += step) {
+        const p = root + 12;
+        addTone(bass, sampleRate, t + bt, step * 0.9, p, { amp: 0.22 + 0.08 * s.energy, partials: [1, 0.5, 0.25, 0.12], attack: 0.005, release: 0.02 });
+        bassNotes.push({ pitch: p, start: t + bt, duration: step * 0.9 });
+      }
+      // pad: different voicing per side
+      for (const p of tones) {
+        addTone(padL, sampleRate, t, bar, p + 12, { amp: 0.05, partials: [1, 0.4, 0.2, 0.1], attack: 0.15, release: 0.15 });
+        addTone(padR, sampleRate, t, bar, p + 24, { amp: 0.035, partials: [1, 0.4, 0.2, 0.1], attack: 0.15, release: 0.15 });
+      }
+      // melody: two half-note-ish notes per bar from the chord, register by section energy
+      const reg = s.energy > 0.5 ? 72 : 64;
+      for (let k = 0; k < 2; k++) {
+        const pc = tones[(mi + k) % tones.length] % 12;
+        let p = reg - ((reg - pc) % 12);
+        if (p < reg - 5) p += 12;
+        melody.push({ pitch: p, start: t + k * 2 * beat + 0.02, duration: 2 * beat - 0.12 });
+      }
+      mi++;
+      t += bar;
+    }
+  }
+  const drums = renderDrums(sampleRate, seconds, drumsEv, 0.8);
+  const vocals = hummedMelody(sampleRate, melody, { seconds, seed: 21, partials: [1, 0.55, 0.35, 0.2, 0.12, 0.08] });
+  const vg = opts.vocalGain ?? 1;
+  const left = new Float32Array(drums.length);
+  const right = new Float32Array(drums.length);
+  for (const [src, gl, gr] of [
+    [drums, 0.8, 0.8],
+    [bass, 1, 1],
+    [vocals, vg, vg],
+    [padL, 1, 0.15],
+    [padR, 0.15, 1],
+  ] as const) {
+    addInto(left, src, gl);
+    addInto(right, src, gr);
+  }
+  // section-level loudness: scale quiet sections
+  let pos = lead;
+  for (const s of sections) {
+    const a = Math.round(pos * sampleRate);
+    const b = Math.round((pos + s.bars * bar) * sampleRate);
+    const g = 0.55 + 0.45 * s.energy;
+    for (let i = a; i < Math.min(b, left.length); i++) {
+      left[i] *= g;
+      right[i] *= g;
+    }
+    pos += s.bars * bar;
+  }
+  return { sampleRate, left, right, bpm, sectionStarts, chords, melody, bassNotes, drums: drumsEv, stems: { drums, bass, vocals, padL, padR } };
 }

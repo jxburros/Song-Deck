@@ -33,7 +33,7 @@ export function num(v: unknown, fallback: number): number {
 }
 
 export function midiToHz(pitch: number): number {
-  return 440 * Math.pow(2, (pitch - 69) / 12);
+  return 8.175798915643707 * Math.exp(pitch * 0.057762265046662105);
 }
 
 /** Smoothing coefficient for a one-pole lowpass with time constant `seconds` at `rate` updates/s. */

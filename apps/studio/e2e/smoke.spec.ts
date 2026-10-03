@@ -16,9 +16,9 @@ test('compose a song, edit it with words, and keep control', async ({ page }) =>
     'Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.',
   );
   await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await expect(page.getByText('Song Blueprint')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Song Blueprint' })).toBeVisible();
   await page.getByRole('button', { name: 'Plan composition' }).click();
-  await expect(page.getByText('Composition Plan')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Composition Plan' })).toBeVisible();
   await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
 
   // Workbench with tracks and sections.

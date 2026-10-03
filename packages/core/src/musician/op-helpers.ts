@@ -17,8 +17,9 @@ import type {
 } from '../ir/types';
 import { barToTick, chordAtTick, keyAtTick, sectionLayout, tickToBar, tickToMusical, ticksPerBeat, type SectionSpan } from '../timing';
 import { LockKeys, isChordSectionLocked, isLocked, isTrackSectionLocked } from '../locks';
-import { formatChordSymbol, parseChordSymbol } from '../theory/chords';
+import { parseChordSymbol } from '../theory/chords';
 import { stableStringify } from '../ir/song-utils';
+import { spellChord } from './harmony';
 
 /**
  * Helpers shared by the musician interpreters: internal ("work") notes in ticks ↔ 1-based
@@ -422,7 +423,7 @@ export function toOpChord(song: Song, tick: Ticks, duration: Ticks, spec: ChordS
   return {
     bar,
     beat: round6(beat),
-    symbol: formatChordSymbol(spec, key ?? keyAtTick(song, tick)),
+    symbol: spellChord(spec, key ?? keyAtTick(song, tick)),
     duration_beats: round6(duration / beatTicks(song, tick)),
   };
 }
@@ -461,10 +462,11 @@ export function chordOpsFromSlots(
   const layout = sectionLayout(song);
   const sectionOfBar = (bar: number) => layout.find((s) => bar >= s.startBar && bar < s.endBar);
   const bars = [...changedBars].sort((a, b) => a - b);
+  // One run per section (unchanged chords between changes are simply restated).
   const runs: { start: number; end: number }[] = [];
   for (const b of bars) {
     const last = runs[runs.length - 1];
-    if (last && b === last.end + 1 && sectionOfBar(b)?.section.id === sectionOfBar(last.end)?.section.id) last.end = b;
+    if (last && sectionOfBar(b)?.section.id === sectionOfBar(last.end)?.section.id && b - last.end <= 8) last.end = b;
     else runs.push({ start: b, end: b });
   }
   const ops: MusicOperation[] = [];
@@ -608,13 +610,16 @@ function transformGroups(
     }
   }
   const ops: MusicOperation[] = [];
+  // Ops apply sequentially and a region re-selects notes at apply time, so once any note moves in
+  // time every group must address notes by id (a moved note could otherwise be matched twice).
+  const moves = [...groups.values()].some((g) => g.transform.time_shift_beats !== undefined);
   for (const g of groups.values()) {
-    const region = exactRegion(song, original, g.ids);
+    const region = moves ? null : exactRegion(song, original, g.ids);
     if (region) ops.push({ op: 'transform_notes', track: track.id, region, transform: g.transform, reason });
     else ops.push({ op: 'transform_notes', track: track.id, note_ids: g.ids, transform: g.transform, reason });
   }
   for (const g of exprGroups.values()) {
-    const region = exactRegion(song, original, g.ids);
+    const region = moves ? null : exactRegion(song, original, g.ids);
     if (region) ops.push({ op: 'set_expression', track: track.id, region, expression: g.expression, reason });
     else ops.push({ op: 'set_expression', track: track.id, note_ids: g.ids, expression: g.expression, reason });
   }
@@ -657,6 +662,45 @@ function replaceOps(song: Song, track: Track, original: Note[], final: WorkNote[
     if (last && b === last.end + 1 && secOf(b) === secOf(last.end)) last.end = b;
     else runs.push({ start: b, end: b });
   }
+  // The edit module cuts notes that sustain into a replaced region and trims replacement notes that
+  // sustain past it, so extend runs to cover both (never into locked ranges or bars with locked notes).
+  const locked = lockedRanges(song, track);
+  const barFree = (b: number) => !blocked.has(b) && !locked.some((r) => barToTick(song, b) < r.endTick && barToTick(song, b + 1) > r.startTick);
+  const spanFree = (a: number, b: number) => {
+    for (let x = a; x <= b; x++) if (!barFree(x)) return false;
+    return true;
+  };
+  for (const run of runs) {
+    for (let guard = 0; guard < 64; guard++) {
+      let changed = false;
+      const s = barToTick(song, run.start);
+      const e = barToTick(song, run.end + 1);
+      for (const n of final) {
+        if (n.tick < s && n.tick + n.duration > s) {
+          const b = barIndex(song, n.tick);
+          if (b < run.start && spanFree(b, run.start - 1)) {
+            run.start = b;
+            changed = true;
+          }
+        } else if (n.tick >= s && n.tick < e && n.tick + n.duration > e) {
+          const b = barIndex(song, n.tick + n.duration - 1);
+          if (b > run.end && spanFree(run.end + 1, b)) {
+            run.end = b;
+            changed = true;
+          }
+        }
+      }
+      if (!changed) break;
+    }
+  }
+  runs.sort((a, b) => a.start - b.start);
+  for (let i = 1; i < runs.length; i++) {
+    if (runs[i].start <= runs[i - 1].end) {
+      runs[i - 1].end = Math.max(runs[i - 1].end, runs[i].end);
+      runs.splice(i, 1);
+      i--;
+    }
+  }
   const inRun = (tick: number) => {
     const b = barIndex(song, tick);
     return runs.some((r) => b >= r.start && b <= r.end);
@@ -691,31 +735,50 @@ function replaceOps(song: Song, track: Track, original: Note[], final: WorkNote[
  * Uniform transform over the editable notes of a scope: a region op per whole-bar run when
  * the run holds exactly those notes, otherwise an explicit note-id list.
  */
-export function uniformTransformOps(song: Song, track: Track, editable: Note[], transform: NoteTransform, reason: string): MusicOperation[] {
+export function uniformTransformOps(
+  song: Song,
+  track: Track,
+  editable: Note[],
+  transform: NoteTransform,
+  reason: string,
+  scopeRanges?: TickRange[],
+): MusicOperation[] {
   if (!editable.length) return [];
   const original = track.notes;
-  const byBar = new Map<number, Note[]>();
-  for (const n of editable) {
-    const b = barIndex(song, n.tick);
-    byBar.set(b, [...(byBar.get(b) ?? []), n]);
-  }
   const editableIds = new Set(editable.map((n) => n.id));
+  // Candidate bars: every bar of the scope (empty bars may join runs), else the bars holding notes.
+  const candidate = new Set<number>(editable.map((n) => barIndex(song, n.tick)));
+  for (const r of scopeRanges ?? []) {
+    const a = barIndex(song, r.startTick);
+    const b = barIndex(song, Math.max(r.startTick, r.endTick - 1));
+    if (barToTick(song, a) !== r.startTick || barToTick(song, b + 1) !== r.endTick) continue;
+    for (let x = a; x <= b; x++) candidate.add(x);
+  }
   const fullBars = new Set<number>();
-  for (const [b, ns] of byBar) {
+  for (const b of candidate) {
     const s = barToTick(song, b);
     const e = barToTick(song, b + 1);
     const all = original.filter((n) => n.tick >= s && n.tick < e);
-    if (all.length === ns.length && all.every((n) => editableIds.has(n.id) && !n.locked)) fullBars.add(b);
+    if (all.every((n) => editableIds.has(n.id) && !n.locked)) fullBars.add(b);
   }
   const ops: MusicOperation[] = [];
   const sorted = [...fullBars].sort((a, b) => a - b);
-  const runs: { start: number; end: number }[] = [];
+  const runs: { start: number; end: number; notes: number }[] = [];
   for (const b of sorted) {
     const last = runs[runs.length - 1];
-    if (last && b === last.end + 1) last.end = b;
-    else runs.push({ start: b, end: b });
+    const count = editable.filter((n) => barIndex(song, n.tick) === b).length;
+    if (last && b === last.end + 1) {
+      last.end = b;
+      last.notes += count;
+    } else runs.push({ start: b, end: b, notes: count });
   }
-  for (const r of runs) ops.push({ op: 'transform_notes', track: track.id, region: { start_bar: r.start + 1, end_bar: r.end + 1 }, transform, reason });
+  for (const r of runs) {
+    if (!r.notes) continue;
+    let { start, end } = r;
+    while (start < end && !editable.some((n) => barIndex(song, n.tick) === start)) start++;
+    while (end > start && !editable.some((n) => barIndex(song, n.tick) === end)) end--;
+    ops.push({ op: 'transform_notes', track: track.id, region: { start_bar: start + 1, end_bar: end + 1 }, transform, reason });
+  }
   const rest = editable.filter((n) => !fullBars.has(barIndex(song, n.tick)));
   if (rest.length) ops.push({ op: 'transform_notes', track: track.id, note_ids: rest.map((n) => n.id), transform, reason });
   return ops;

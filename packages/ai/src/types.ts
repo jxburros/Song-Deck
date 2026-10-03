@@ -236,6 +236,19 @@ export interface ChatMessage {
   content: string | ContentPart[];
 }
 
+/**
+ * Routing hints carried with a request. Only gateway-style adapters (the managed "Automatic"
+ * service, spec §8) use them to route server-side by task, quality and the user's privacy settings.
+ */
+export interface RequestHints {
+  role?: TaskRole;
+  quality?: QualityLevel;
+  /** Data kinds contained in this request. */
+  dataKinds?: DataKind[];
+  /** Data kinds that must not be sent to third-party clouds. */
+  neverUpload?: DataKind[];
+}
+
 export interface LLMRequest {
   model?: string;
   system?: string;
@@ -247,6 +260,7 @@ export interface LLMRequest {
   /** Sent only when explicitly set (several current models reject sampling parameters). */
   temperature?: number;
   signal?: AbortSignal;
+  hints?: RequestHints;
 }
 
 export interface LLMResponse {
@@ -287,6 +301,7 @@ export interface CallMeta {
 interface BaseCompositionRequest {
   model?: string;
   signal?: AbortSignal;
+  hints?: RequestHints;
 }
 
 export interface PlanSongRequest extends BaseCompositionRequest {
@@ -499,6 +514,7 @@ export interface MusicGenerationRequest {
   /** Number of samples/candidates (providers that support it). */
   samples?: number;
   signal?: AbortSignal;
+  hints?: RequestHints;
   /** Adapter-specific parameters. */
   extra?: Record<string, unknown>;
 }
@@ -527,6 +543,7 @@ export interface AudioTransformRequest {
   key?: string;
   model?: string;
   signal?: AbortSignal;
+  hints?: RequestHints;
 }
 
 export interface AudioExtendRequest {
@@ -537,6 +554,7 @@ export interface AudioExtendRequest {
   seed?: number;
   model?: string;
   signal?: AbortSignal;
+  hints?: RequestHints;
 }
 
 export interface AudioInpaintRequest {
@@ -547,6 +565,7 @@ export interface AudioInpaintRequest {
   seed?: number;
   model?: string;
   signal?: AbortSignal;
+  hints?: RequestHints;
 }
 
 /** Spec §31 AudioModelProvider: discover_models / get_capabilities / generate / transform / continue / inpaint / cancel. */
@@ -594,6 +613,7 @@ export interface SingingRequest {
   language?: string;
   model?: string;
   signal?: AbortSignal;
+  hints?: RequestHints;
 }
 
 export interface PhraseRegenerationRequest extends SingingRequest {
@@ -639,6 +659,7 @@ export interface AudioInputRequest {
   audio: EncodedAudio;
   model?: string;
   signal?: AbortSignal;
+  hints?: RequestHints;
 }
 
 export interface TranscriptionRequest extends AudioInputRequest {

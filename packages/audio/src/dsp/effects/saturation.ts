@@ -54,12 +54,19 @@ export class Drive {
   }
 }
 
-/** 31-tap halfband lowpass (Kaiser), odd-phase taps; even-phase is a pure 0.5 delay at the center. */
+/** Halfband length (taps) and derived polyphase constants. */
+const HB_N = 23;
+const HB_C = (HB_N - 1) / 2; // center tap index (odd)
+const HB_SIDE = (HB_N + 1) / 2; // non-zero side taps
+const HB_UP_DELAY = (HB_C - 1) / 2; // odd oversampled sample = x[t - HB_UP_DELAY]
+const HB_DN_DELAY = (HB_C + 1) / 2; // decimation center tap uses ya[t - HB_DN_DELAY]
+
+/** Kaiser-windowed halfband lowpass: the even-indexed (non-zero) side taps; the center tap is 0.5. */
 const HB_TAPS = (() => {
-  const N = 31;
-  const c = 15;
+  const N = HB_N;
+  const c = HB_C;
   const h = new Float64Array(N);
-  const beta = 7;
+  const beta = 6.5;
   const i0 = (x: number) => {
     let s = 1, t = 1;
     for (let k = 1; k < 40; k++) {
@@ -76,12 +83,12 @@ const HB_TAPS = (() => {
     h[n] = sincv * w;
   }
   // non-zero side taps are at odd offsets from the center → even indices
-  const side = new Float64Array(16);
-  for (let k = 0; k < 16; k++) side[k] = h[2 * k];
+  const side = new Float64Array(HB_SIDE);
+  for (let k = 0; k < HB_SIDE; k++) side[k] = h[2 * k];
   // normalize so the side phase sums to 0.5
   let s = 0;
-  for (let k = 0; k < 16; k++) s += side[k];
-  for (let k = 0; k < 16; k++) side[k] *= 0.5 / s;
+  for (let k = 0; k < HB_SIDE; k++) s += side[k];
+  for (let k = 0; k < HB_SIDE; k++) side[k] *= 0.5 / s;
   return side;
 })();
 
@@ -123,9 +130,9 @@ export class OversampledShaper {
       hist[hp + 32] = buf[i];
       // even oversampled sample: 16-tap FIR (×2 for the zero-stuffing gain)
       // odd oversampled sample: the center tap (0.5·2) → pure delay x[t-7]
-      const xa = hist[hp + 32 - 7];
+      const xa = hist[hp + 32 - HB_UP_DELAY];
       let xb = 0;
-      for (let k = 0; k < 16; k++) xb += h[k] * hist[hp + 32 - k];
+      for (let k = 0; k < HB_SIDE; k++) xb += h[k] * hist[hp + 32 - k];
       xb *= 2;
       const yb = shape(xb);
       const ya = shape(xa);
@@ -137,8 +144,8 @@ export class OversampledShaper {
       cp = (cp + 1) & 15;
       center[cp] = ya;
       let acc = 0;
-      for (let k = 0; k < 16; k++) acc += h[k] * hist2[h2 + 32 - k];
-      buf[i] = acc + 0.5 * center[(cp - 8 + 16) & 15];
+      for (let k = 0; k < HB_SIDE; k++) acc += h[k] * hist2[h2 + 32 - k];
+      buf[i] = acc + 0.5 * center[(cp - HB_DN_DELAY + 16) & 15];
     }
     this.hpos = hp;
     this.h2pos = h2;

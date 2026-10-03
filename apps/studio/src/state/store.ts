@@ -23,6 +23,7 @@ import {
   type Project,
   type Proposal,
   type ProvenanceRecord,
+  type Revision,
   type RevisionKind,
   type Song,
 } from '@songdeck/core';
@@ -109,6 +110,8 @@ interface StudioState {
 
   // song edits & history
   commit(song: Song, message: string, kind?: RevisionKind): void;
+  /** Merge a collaborator's revision into the history DAG (spec Phase 5 collaboration). */
+  applyRemoteRevision(revision: Revision, branchName: string): void;
   undo(): void;
   redo(): void;
   createBranch(name: string, fromRevisionId?: string, description?: string): void;
@@ -177,6 +180,14 @@ function summarize(project: Project): ProjectSummary {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Listeners notified after every local commit (collaboration, analytics). */
+type CommitListener = (project: Project, revision: Revision) => void;
+const commitListeners = new Set<CommitListener>();
+export function subscribeCommits(fn: CommitListener): () => void {
+  commitListeners.add(fn);
+  return () => commitListeners.delete(fn);
+}
 
 export const useStudio = create<StudioState>((set, get) => {
   const scheduleSave = () => {
@@ -293,13 +304,44 @@ export const useStudio = create<StudioState>((set, get) => {
     commit(song, message, kind = 'edit') {
       const p = get().project;
       if (!p) return;
-      applyProject(commitRevision(p, song, message, kind, useAuthor()));
+      const next = commitRevision(p, song, message, kind, useAuthor());
+      applyProject(next);
+      const branch = next.history.branches.find((b) => b.id === next.history.currentBranchId);
+      const rev = next.history.revisions.find((r) => r.id === branch?.headRevisionId);
+      if (rev) for (const l of commitListeners) l(next, rev);
+    },
+
+    applyRemoteRevision(revision, branchName) {
+      const p = get().project;
+      if (!p || p.history.revisions.some((r) => r.id === revision.id)) return;
+      // Fast-forward when the collaborator built on our branch head; otherwise fork onto a
+      // collaborator branch so concurrent work never overwrites local edits (merge later, spec §52).
+      let history = p.history;
+      let branch = history.branches.find((b) => b.id === revision.branchId) ?? history.branches.find((b) => b.name === branchName);
+      const parentIsHead = !!branch && revision.parents[0] === branch.headRevisionId;
+      if (!branch || !parentIsHead) {
+        const name = branch ? `${branchName} — ${revision.author ?? 'collaborator'}` : branchName;
+        const existing = history.branches.find((b) => b.name === name);
+        branch = existing ?? { id: `br_remote_${revision.id}`, name, headRevisionId: revision.id, baseRevisionId: revision.parents[0], createdAt: revision.createdAt, description: 'Collaborator branch' };
+        if (!existing) history = { ...history, branches: [...history.branches, branch] };
+      }
+      const number = Math.max(0, ...history.revisions.map((r) => r.number)) + 1;
+      const rev: Revision = { ...revision, number, branchId: branch.id };
+      const targetId = branch.id;
+      history = {
+        ...history,
+        revisions: [...history.revisions, rev],
+        branches: history.branches.map((b) => (b.id === targetId ? { ...b, headRevisionId: rev.id } : b)),
+      };
+      const onCurrent = targetId === p.history.currentBranchId;
+      applyProject({ ...p, history, song: onCurrent ? rev.snapshot : p.song });
+      if (!onCurrent) get().toast('info', `${revision.author ?? 'A collaborator'} committed “${revision.message}” on branch ${branch.name}`);
     },
 
     undo() {
       const p = get().project;
       if (!p) return;
-      const next = stepHistory(p, 'back');
+      const next = stepHistory(p, 'undo');
       if (next === p) return;
       applyProject(next);
     },
@@ -307,7 +349,7 @@ export const useStudio = create<StudioState>((set, get) => {
     redo() {
       const p = get().project;
       if (!p) return;
-      const next = stepHistory(p, 'forward');
+      const next = stepHistory(p, 'redo');
       if (next === p) return;
       applyProject(next);
     },
@@ -372,7 +414,14 @@ export const useStudio = create<StudioState>((set, get) => {
       const prop = get().proposals.find((x) => x.id === id);
       const p = get().project;
       if (!prop || !p) return;
-      const song = coreAcceptProposal(prop);
+      let song: Song;
+      try {
+        song = coreAcceptProposal(prop);
+      } catch (err) {
+        // The proposal would change locked material (locks may have changed since it was made).
+        get().toast('error', err instanceof Error ? err.message : String(err));
+        return;
+      }
       get().commit(song, prop.title, 'ai-proposal');
       set({
         proposals: get().proposals.map((x) => (x.id === id ? { ...x, status: 'accepted' as const } : x)),

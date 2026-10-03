@@ -43,7 +43,8 @@ function jsonType(v: unknown): JsonSchemaType {
 
 function typeMatches(v: unknown, t: JsonSchemaType): boolean {
   const jt = jsonType(v);
-  if (t === 'number') return jt === 'number' || jt === 'integer';
+  // Non-integral numbers for integer fields are handled (rounded or reported) after the type check.
+  if (t === 'number' || t === 'integer') return jt === 'number' || jt === 'integer';
   return jt === t;
 }
 
@@ -63,7 +64,7 @@ class Validator {
       this.errors.push({ path, message: 'is null/missing' });
       return v;
     }
-    let value = v;
+    let value: unknown = v;
     const wanted = types.filter((t) => t !== 'null');
     if (wanted.length && !wanted.some((t) => typeMatches(value, t))) {
       const coerced = this.opts.coerce ? this.coerceType(value, wanted) : undefined;

@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Song Deck local runtime: credential vault, provider proxy, hardware detection, model manager, render nodes, collaboration hub, plugin host, managed gateway.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "bin": {
     "songdeck-server": "./src/cli.ts"
   },

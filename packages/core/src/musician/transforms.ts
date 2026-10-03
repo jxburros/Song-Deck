@@ -7,7 +7,7 @@ import { isInScale, pitchToScaleIndex, scaleIndexToPitch, scalePitchClasses, tra
 import { chordFunction } from '../theory/analysis';
 import type { Rng } from '../util/random';
 import { DRUM_GROUPS } from './nlp';
-import { refitPitch } from './harmony';
+import { refitMelodicPitch, refitPitch, sameChord as sameChordSpec, signedPcDelta } from './harmony';
 import {
   type ChordSlot,
   type TickRange,
@@ -455,18 +455,45 @@ export function refitNotes(
 ): TransformResult {
   if (ctx.isDrums) return { notes, summary: '' };
   let moved = 0;
+  const melodic = ctx.isMelodic && !ctx.isBass;
   const out = notes.map((n) => {
     const oldC = slotAt(oldSlots, n.tick)?.spec;
     const newC = slotAt(newSlots, n.tick)?.spec;
     const map = scaleMapAt?.(n.tick);
-    const p = refitPitch(n.pitch, oldC, newC, map);
+    let p: number;
+    if (melodic) {
+      const pcs = scalePitchClasses(keyOf(ctx, n.tick)).map((pc) => (map ? map(pc) : pc));
+      const mapped = map ? n.pitch + signedPcDelta(mod12(n.pitch), map(mod12(n.pitch))) : n.pitch;
+      if (oldC && newC && sameChordSpec(oldC, newC) && chordPitchClasses(newC).includes(mod12(n.pitch))) p = n.pitch;
+      else p = refitMelodicPitch(mapped, newC, pcs);
+    } else p = refitPitch(n.pitch, oldC, newC, map);
     if (p !== n.pitch) {
       moved++;
       return { ...cloneN(n), pitch: p };
     }
     return n;
   });
-  return { notes: out, summary: moved ? `re-pitched ${moved} note${moved === 1 ? '' : 's'} to fit` : '' };
+  // A refitted chord tone must not collide with another note of the same chord (e.g. G → G5 moves
+  // the third onto the fifth): try another tone of the new chord, else drop the duplicate.
+  const byTick = new Map<number, WorkNote[]>();
+  for (const n of [...ctx.context.filter((c) => !notes.includes(c)), ...out]) byTick.set(n.tick, [...(byTick.get(n.tick) ?? []), n]);
+  const dropped = new Set<WorkNote>();
+  out.forEach((n, i) => {
+    if (n === notes[i]) return;
+    const group = byTick.get(n.tick) ?? [];
+    if (!group.some((m) => m !== n && m.pitch === n.pitch && !dropped.has(m))) return;
+    const newC = slotAt(newSlots, n.tick)?.spec;
+    const pcs = newC ? chordPitchClasses(newC) : [];
+    const used = new Set(group.filter((m) => m !== n).map((m) => m.pitch));
+    let best: number | undefined;
+    for (let d = 1; d <= 6 && best === undefined; d++) {
+      for (const cand of [notes[i].pitch - d, notes[i].pitch + d]) if (pcs.includes(mod12(cand)) && !used.has(cand) && cand >= ctx.low && cand <= ctx.high) best = cand;
+    }
+    if (best !== undefined) n.pitch = best;
+    else dropped.add(n);
+  });
+  const finalNotes = out.filter((n) => !dropped.has(n));
+  return { notes: finalNotes, summary: moved ? `re-pitched ${moved} note${moved === 1 ? '' : 's'} to fit${dropped.size ? ` (${dropped.size} doubled tone${dropped.size === 1 ? '' : 's'} removed)` : ''}` : '' };
 }
 
 /** Expressive tendencies for darker (softer, legato, lower) / brighter (lighter, detached, higher). */
@@ -480,14 +507,19 @@ export function shadeExpression(ctx: TransformContext, notes: WorkNote[], mood: 
     for (const n of out) n.velocity = clampVel(n.velocity - Math.round(8 * ctx.amount));
     parts.push('softer dynamics');
     if (!ctx.isDrums) {
+      let legato = 0;
       for (let i = 0; i < out.length; i++) {
         const n = out[i];
         const nextT = nextOnset(ctx, n.tick, out) ?? nextOnset(ctx, n.tick);
         const beat = tpb(ctx, n.tick);
-        if (nextT !== undefined && nextT - (n.tick + n.duration) > 0 && nextT - n.tick <= n.duration + beat) n.duration = nextT - n.tick - Math.round(beat / 32);
+        const gap = nextT !== undefined ? nextT - (n.tick + n.duration) : 0;
+        if (nextT !== undefined && gap >= beat / 8 && gap <= beat) {
+          n.duration = nextT - n.tick - Math.round(beat / 32);
+          legato++;
+        }
       }
-      parts.push('legato phrasing');
-      if (ctx.isMelodic && avg > mid + 5 && Math.min(...out.map((n) => n.pitch)) - 12 >= ctx.low) {
+      if (legato) parts.push('legato phrasing');
+      if (ctx.isMelodic && !ctx.isVocal && avg > mid + 7 && Math.min(...out.map((n) => n.pitch)) - 12 >= ctx.low) {
         for (const n of out) n.pitch -= 12;
         parts.push('an octave lower register');
       }
@@ -501,7 +533,7 @@ export function shadeExpression(ctx: TransformContext, notes: WorkNote[], mood: 
         if (n.duration >= beat / 2) n.duration = Math.max(Math.round(beat / 4), Math.round(n.duration * 0.88));
       }
       parts.push('slightly detached articulation');
-      if (ctx.isMelodic && avg < mid - 5 && Math.max(...out.map((n) => n.pitch)) + 12 <= ctx.high) {
+      if (ctx.isMelodic && !ctx.isVocal && avg < mid - 7 && Math.max(...out.map((n) => n.pitch)) + 12 <= ctx.high) {
         for (const n of out) n.pitch += 12;
         parts.push('an octave higher register');
       }
@@ -714,30 +746,35 @@ export function answerPhrases(ctx: TransformContext, notes: WorkNote[], referenc
     const nextStart = i + 1 < phrases.length ? phrases[i + 1][0].tick : scopeEnd(ctx, restStart - 1);
     const beat = tpb(ctx, restStart);
     const restEnd = Math.min(nextStart, scopeEnd(ctx, restStart - 1));
-    if (restEnd - restStart < beat * 0.95 || !inScope(ctx, restStart)) continue;
+    if (restEnd - restStart < beat * 0.75 || !inScope(ctx, restStart)) continue;
     if (kept.some((n) => n.tick >= restStart && n.tick < restEnd)) continue;
-    const motif = ph.slice(-4);
+    const startAt = restStart + ((Math.round(beat / 2) - ((restStart - barToTick(ctx.song, barIndex(ctx.song, restStart))) % Math.round(beat / 2))) % Math.round(beat / 2));
+    const avail = restEnd - startAt - Math.round(beat / 8);
+    if (avail < beat / 4) continue;
+    // Imitate the end of the phrase: as many of its last notes as fit (8th notes minimum).
+    const minLen = Math.round(avail >= beat * 2 ? beat / 2 : beat / 4);
+    const k = Math.max(1, Math.min(4, ph.length, Math.floor(avail / minLen)));
+    const motif = ph.slice(-k);
     const m0 = motif[0].tick;
     const motifLen = Math.max(1, motif[motif.length - 1].tick + motif[motif.length - 1].duration - m0);
-    const avail = restEnd - restStart - Math.round(beat / 4);
-    const startAt = restStart + ((Math.round(beat / 2) - ((restStart - barToTick(ctx.song, barIndex(ctx.song, restStart))) % Math.round(beat / 2))) % Math.round(beat / 2));
-    const scale = Math.min(1, (avail - (startAt - restStart)) / motifLen);
-    if (scale <= 0.2) continue;
+    const scale = Math.min(1, avail / motifLen);
+    const even = scale < 0.5;
+    const slot = Math.max(minLen, Math.floor(avail / k / minLen) * minLen);
     const key = keyOf(ctx, restStart);
     const steps = ctx.rng.pick([2, -2, 0, 4]);
     const shifted = motif.map((n) => transposeDiatonic(n.pitch, steps, key));
     const octave = Math.round((targetCenter - avgPitch(shifted.map((p) => ({ pitch: p })))) / 12) * 12;
-    const phraseNotes: WorkNote[] = motif.map((n, k) => ({
-      pitch: fold(ctx, shifted[k] + octave),
-      tick: startAt + Math.round((n.tick - m0) * scale),
-      duration: Math.max(Math.round(beat / 8), Math.round(n.duration * scale) - Math.round(beat / 32)),
-      velocity: clampVel(vel - 4 + k * 2),
+    const phraseNotes: WorkNote[] = motif.map((n, j) => ({
+      pitch: fold(ctx, shifted[j] + octave),
+      tick: even ? startAt + j * slot : startAt + Math.round((n.tick - m0) * scale),
+      duration: Math.max(Math.round(beat / 8), (even ? slot : Math.round(n.duration * scale)) - Math.round(beat / 32)),
+      velocity: clampVel(vel - 4 + j * 2),
       articulation: ctx.track.role === 'strings' ? 'legato' : undefined,
     }));
     const last = phraseNotes[phraseNotes.length - 1];
     last.pitch = fold(ctx, nearestChordTone(ctx, last.pitch, last.tick));
     // Let the last note sustain into the rest (but release before the reference re-enters).
-    last.duration = Math.max(last.duration, Math.min(restEnd - last.tick - Math.round(beat / 4), beat * 2));
+    last.duration = Math.max(last.duration, Math.min(restEnd - last.tick - Math.round(beat / 8), beat * 2));
     answers.push(...phraseNotes.filter((n) => n.duration > 0 && inScope(ctx, n.tick)).map(strip));
     count++;
   }
@@ -923,7 +960,7 @@ export function expressiveDynamics(ctx: TransformContext, notes: WorkNote[]): Tr
     if (ctx.isMelodic && !ctx.isDrums) {
       for (let i = 0; i + 1 < ph.length; i++) {
         const gap = ph[i + 1].tick - (ph[i].tick + ph[i].duration);
-        if (gap > 0 && gap <= beat / 4) ph[i].duration += gap - Math.round(beat / 32);
+        if (gap >= beat / 8 && gap <= beat / 2) ph[i].duration += gap - Math.round(beat / 32);
       }
     }
   }

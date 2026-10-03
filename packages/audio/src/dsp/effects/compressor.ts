@@ -15,6 +15,9 @@ export class Compressor {
   private makeup = 0;
   private attackCoef = 0;
   private releaseCoef = 0;
+  private attackCoef4 = 0;
+  private releaseCoef4 = 0;
+  private lastGain = 1;
   private env = 0; // smoothed gain reduction (dB, ≤ 0)
   /** Current gain reduction in dB (≤ 0) for metering. */
   gainReductionDb = 0;
@@ -28,11 +31,15 @@ export class Compressor {
     this.makeup = clampNum(s.makeupDb, -24, 36);
     this.attackCoef = Math.exp(-1 / (Math.max(0.05, s.attackMs) * 0.001 * this.sampleRate));
     this.releaseCoef = Math.exp(-1 / (Math.max(1, s.releaseMs) * 0.001 * this.sampleRate));
+    this.attackCoef4 = Math.pow(this.attackCoef, 4);
+    this.releaseCoef4 = Math.pow(this.releaseCoef, 4);
+    this.lastGain = Math.exp(this.makeup * DB_TO_LN);
   }
 
   reset(): void {
     this.env = 0;
     this.gainReductionDb = 0;
+    this.lastGain = Math.exp(this.makeup * DB_TO_LN);
   }
 
   /** Static curve: gain reduction (dB, ≤ 0) for input level x (dB). */
@@ -50,26 +57,41 @@ export class Compressor {
   process(L: Float64Array, R: Float64Array, start: number, end: number): void {
     let env = this.env;
     const ac = this.attackCoef, rc = this.releaseCoef;
+    const ac4 = this.attackCoef4, rc4 = this.releaseCoef4;
     const makeup = this.makeup;
     const kneeLo = this.threshold - this.knee / 2;
+    const kneeLoLin = Math.exp(kneeLo * DB_TO_LN);
     let minGr = 0;
-    for (let i = start; i < end; i++) {
-      const a = Math.abs(L[i]);
-      const b = Math.abs(R[i]);
-      const pk = a > b ? a : b;
-      let gr = 0;
-      if (pk > 1e-9) {
-        const xdb = LOG10_20 * Math.log(pk);
-        if (xdb > kneeLo) gr = this.computeGr(xdb);
+    let g0 = this.lastGain;
+    for (let i = start; i < end; i += 4) {
+      const e = Math.min(end, i + 4);
+      // peak over the sub-block
+      let pk = 0;
+      for (let j = i; j < e; j++) {
+        const a = L[j] < 0 ? -L[j] : L[j];
+        const b = R[j] < 0 ? -R[j] : R[j];
+        if (a > pk) pk = a;
+        if (b > pk) pk = b;
       }
-      env = gr < env ? ac * env + (1 - ac) * gr : rc * env + (1 - rc) * gr;
-      const g = Math.exp((env + makeup) * DB_TO_LN);
-      L[i] *= g;
-      R[i] *= g;
+      let gr = 0;
+      if (pk > kneeLoLin) gr = this.computeGr(LOG10_20 * Math.log(pk));
+      const full = e - i === 4;
+      if (gr < env) env = full ? ac4 * env + (1 - ac4) * gr : ac * env + (1 - ac) * gr;
+      else env = full ? rc4 * env + (1 - rc4) * gr : rc * env + (1 - rc) * gr;
+      const g1 = Math.exp((env + makeup) * DB_TO_LN);
+      const step = (g1 - g0) / (e - i);
+      let g = g0;
+      for (let j = i; j < e; j++) {
+        g += step;
+        L[j] *= g;
+        R[j] *= g;
+      }
+      g0 = g1;
       if (env < minGr) minGr = env;
     }
     if (env > -1e-9) env = 0;
     this.env = env;
+    this.lastGain = g0;
     this.gainReductionDb = minGr;
   }
 }

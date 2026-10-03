@@ -96,6 +96,42 @@ export function forEachStftFrame(
   return frames;
 }
 
+/** Random-access reader of single STFT frames with reusable buffers. */
+export class StftFrameReader {
+  private readonly scratch: Float64Array;
+  private readonly win: Float32Array;
+  private readonly pad: number;
+
+  constructor(
+    private readonly x: Float32Array,
+    private readonly fftSize: number,
+    private readonly hop: number,
+    window?: WindowType | Float32Array,
+    center = true,
+  ) {
+    this.scratch = new Float64Array(fftSize);
+    this.win = resolveWindow(window, fftSize);
+    this.pad = center ? fftSize >> 1 : 0;
+  }
+
+  /** Half spectrum of frame t into re/im (length ≥ fftSize/2 + 1). */
+  read(t: number, re: Float64Array, im: Float64Array): void {
+    const n = this.fftSize;
+    const s = t * this.hop - this.pad;
+    const plan = getFFT(n);
+    const len = this.x.length;
+    if (s >= 0 && s + n <= len) {
+      plan.realForward(this.x, re, im, this.win, s, n);
+      return;
+    }
+    for (let i = 0; i < n; i++) {
+      const j = s + i;
+      this.scratch[i] = j >= 0 && j < len ? this.x[j] : 0;
+    }
+    plan.realForward(this.scratch, re, im, this.win);
+  }
+}
+
 /** Complex STFT of a mono signal. */
 export function stft(buf: Float32Array, opts: StftOptions): Spectrogram {
   const n = opts.fftSize;
@@ -181,7 +217,7 @@ export class OverlapAdd {
     private readonly fftSize: number,
     private readonly hop: number,
     private readonly window: Float32Array,
-    private readonly center = true,
+    center = true,
     /** Shared normaliser (Σ w²); computed once per (length, fftSize, hop). */
     private readonly wsum: Float32Array = OverlapAdd.windowSum(length, fftSize, hop, window, center),
   ) {

@@ -265,11 +265,23 @@ export function slidingMedianStrided(
 // `toMono` / `resample`).
 // ---------------------------------------------------------------------------
 
-/** Average of all channels. Returns the channel itself (not a copy) for mono input — never mutate. */
+/** The signal itself, or a copy with NaN/±Infinity samples replaced by 0 (corrupt decoder output). */
+export function sanitizeSignal(x: Float32Array): Float32Array {
+  for (let i = 0; i < x.length; i++) {
+    if (!Number.isFinite(x[i])) {
+      const y = Float32Array.from(x);
+      for (let j = i; j < y.length; j++) if (!Number.isFinite(y[j])) y[j] = 0;
+      return y;
+    }
+  }
+  return x;
+}
+
+/** Average of all channels. Returns the channel itself (not a copy) for clean mono input — never mutate. */
 export function analysisMono(buf: AudioData): Float32Array {
   const chs = buf.channels;
   if (chs.length === 0) return new Float32Array(0);
-  if (chs.length === 1) return chs[0];
+  if (chs.length === 1) return sanitizeSignal(chs[0]);
   const n = chs[0].length;
   const out = new Float32Array(n);
   const g = 1 / chs.length;
@@ -277,7 +289,7 @@ export function analysisMono(buf: AudioData): Float32Array {
     const m = Math.min(n, ch.length);
     for (let i = 0; i < m; i++) out[i] += ch[i] * g;
   }
-  return out;
+  return sanitizeSignal(out);
 }
 
 const decimatorCache = new Map<number, Float64Array>();
@@ -285,10 +297,10 @@ const decimatorCache = new Map<number, Float64Array>();
 function decimationFilter(factor: number): Float64Array {
   const cached = decimatorCache.get(factor);
   if (cached) return cached;
-  const half = 16 * factor;
+  const half = 24 * factor;
   const taps = 2 * half + 1;
   const h = new Float64Array(taps);
-  const fc = (0.5 / factor) * 0.9; // cutoff, cycles per input sample
+  const fc = (0.5 / factor) * 0.95; // cutoff, cycles per input sample (passband ≈ 0.85 × new Nyquist)
   let sum = 0;
   for (let i = 0; i < taps; i++) {
     const n = i - half;
@@ -302,7 +314,7 @@ function decimationFilter(factor: number): Float64Array {
   return h;
 }
 
-/** Low-pass + keep every `factor`-th sample. */
+/** Low-pass + keep every `factor`-th sample (linear-phase FIR, symmetric taps folded). */
 export function analysisDecimate(x: Float32Array, factor: number): Float32Array {
   if (factor <= 1) return x;
   const h = decimationFilter(factor);
@@ -313,9 +325,15 @@ export function analysisDecimate(x: Float32Array, factor: number): Float32Array 
   for (let o = 0; o < outLen; o++) {
     const c = o * factor;
     let acc = 0;
-    const k0 = Math.max(0, half - c);
-    const k1 = Math.min(h.length - 1, half + (n - 1 - c));
-    for (let k = k0; k <= k1; k++) acc += h[k] * x[c + k - half];
+    if (c - half >= 0 && c + half < n) {
+      // interior: fold the symmetric impulse response (h[half - j] === h[half + j])
+      acc = h[half] * x[c];
+      for (let j = 1; j <= half; j++) acc += h[half + j] * (x[c - j] + x[c + j]);
+    } else {
+      const k0 = Math.max(0, half - c);
+      const k1 = Math.min(h.length - 1, half + (n - 1 - c));
+      for (let k = k0; k <= k1; k++) acc += h[k] * x[c + k - half];
+    }
     out[o] = acc;
   }
   return out;
@@ -373,11 +391,12 @@ export function prepareMono(buf: AudioData, target = ANALYSIS_RATE): { x: Float3
   return { x: analysisDecimate(mono, f), sr: buf.sampleRate / f };
 }
 
-/** All channels decimated towards the analysis rate. */
+/** All channels (sanitised) decimated towards the analysis rate. */
 export function prepareChannels(buf: AudioData, target = ANALYSIS_RATE): AudioData {
   const f = decimationFactor(buf.sampleRate, target);
-  if (f <= 1) return buf;
-  return { sampleRate: buf.sampleRate / f, channels: buf.channels.map((c) => analysisDecimate(c, f)) };
+  const chans = buf.channels.map(sanitizeSignal);
+  if (f <= 1) return chans.every((c, i) => c === buf.channels[i]) ? buf : { sampleRate: buf.sampleRate, channels: chans };
+  return { sampleRate: buf.sampleRate / f, channels: chans.map((c) => analysisDecimate(c, f)) };
 }
 
 export function rmsOf(x: ArrayLike<number>, start = 0, end = x.length): number {

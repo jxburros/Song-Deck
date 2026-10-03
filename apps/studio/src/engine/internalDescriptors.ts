@@ -11,7 +11,7 @@ export const INTERNAL_DESCRIPTORS = {
     name: 'On-device composer (deterministic theory engine)',
     adapter: 'internal',
     location: 'internal',
-    capabilities: ['MUSIC_THEORY_REASONING', 'MIDI_GENERATION', 'MIDI_EDITING', 'LYRIC_GENERATION', 'MIXING', 'STRUCTURED_JSON'],
+    capabilities: ['TEXT_REASONING', 'MUSIC_THEORY_REASONING', 'MIDI_GENERATION', 'MIDI_EDITING', 'LYRIC_GENERATION', 'MIXING', 'STRUCTURED_JSON'],
     qualityTier: 2,
     description: 'Rule-based composition, natural-language MIDI edits, theory explanations, placeholder lyrics and mix assistant. Works offline.',
   },

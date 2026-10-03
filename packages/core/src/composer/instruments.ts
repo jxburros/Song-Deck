@@ -212,14 +212,16 @@ export const BUILTIN_INSTRUMENTS: InstrumentProfile[] = [
     patchId: 'choir', clef: 'grand', stemGroup: 'vocals',
   },
   {
+    // Absolute range spans every voice type (bass E2 … soprano C6); the comfortable range is a
+    // tenor's. Generators use the track's voice type (VOICE_RANGES) for the actual tessitura.
     id: 'lead-vocal', name: 'Lead Vocal', family: 'vocal', gmProgram: 53,
-    range: { low: 48, high: 72, comfortableLow: 50, comfortableHigh: 69 }, polyphony: 'mono',
+    range: { low: 40, high: 84, comfortableLow: 50, comfortableHigh: 69 }, polyphony: 'mono',
     defaultRole: 'vocal', defaultFunction: 'melody', articulations: VOCAL_ARTIC,
     patchId: 'vocal-placeholder', clef: 'treble-8vb', notationTranspose: 12, stemGroup: 'vocals',
   },
   {
     id: 'backing-vocal', name: 'Backing Vocals', family: 'vocal', gmProgram: 52,
-    range: { low: 48, high: 79, comfortableLow: 52, comfortableHigh: 74 }, polyphony: 'mono',
+    range: { low: 40, high: 84, comfortableLow: 52, comfortableHigh: 74 }, polyphony: 'mono',
     defaultRole: 'vocal', defaultFunction: 'harmony', articulations: VOCAL_ARTIC,
     patchId: 'vocal-placeholder', clef: 'treble', stemGroup: 'vocals',
   },

@@ -30,7 +30,8 @@ export default function MacrosPanel() {
     st.commit(res.song, `Macros applied${scope === 'track' && track ? ` to ${track.name}` : ''} · regenerated unlocked material (seed ${seed})`, 'regenerate');
   };
   const transformOnly = () => {
-    const next = applyMacroTransforms(withMacros(), draft, scope === 'track' ? track?.id : undefined);
+    // applyMacroTransforms stores the macros itself; pass the current song so it sees the change.
+    const next = applyMacroTransforms(song, draft, scope === 'track' ? track?.id : undefined);
     st.commit(next, `Applied humanization/dynamics${scope === 'track' && track ? ` to ${track.name}` : ''}`, 'edit');
   };
 

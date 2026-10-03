@@ -5,9 +5,9 @@
  */
 import type { ChordQuality, ChordSpec, GenreProfile, KeySignature, ModeName, SectionKind } from '../ir/types';
 import { romanToChord } from '../theory/roman';
-import { formatChordSymbol, isDiatonic } from '../theory/chords';
+import { diatonicChord, formatChordSymbol, isDiatonic } from '../theory/chords';
 import { mod12 } from '../theory/pitch';
-import { isMinorMode } from '../theory/scales';
+import { MODE_INTERVALS, isMinorMode } from '../theory/scales';
 import type { Rng } from '../util/random';
 import { clamp01, sameChord } from './util';
 
@@ -219,7 +219,8 @@ export function chooseProgression(
         break;
       case 'pre-chorus':
       case 'build':
-        if (isDominantFunction(last, key)) w *= 1.8;
+        if (isDominantFunction(last, key)) w *= 2;
+        if (isTonic(last, key)) w *= 0.4;
         if (isTonic(first, key)) w *= 0.5;
         if (planned.verse && sameSequence(c.chords, planned.verse)) w *= 0.2;
         if (planned.chorus && sameSequence(c.chords, planned.chorus)) w *= 0.2;
@@ -227,7 +228,7 @@ export function chooseProgression(
       case 'bridge':
       case 'breakdown':
       case 'solo':
-        if (!isTonic(first, key)) w *= 1.6;
+        w *= isTonic(first, key) ? 0.5 : 1.8;
         if (planned.verse && sameSequence(c.chords, planned.verse)) w *= 0.25;
         if (planned.chorus && sameSequence(c.chords, planned.chorus)) w *= 0.25;
         break;
@@ -263,11 +264,31 @@ export interface ColorOptions {
   powerChords: boolean;
   /** Genre flavour for extension choices. */
   flavor: 'jazz' | 'soul' | 'pop' | 'rock' | 'ambient' | 'classical';
+  /** Keep the first chord as written (a chorus's lift chord, a verse's home chord). */
+  protectFirst?: boolean;
 }
 
 function extendChord(c: ChordSpec, key: KeySignature, flavor: ColorOptions['flavor'], rng: Rng): ChordSpec {
   const iv = rootInterval(c, key);
   const dominant = iv === 7 && (c.quality === 'maj' || c.quality === '7');
+  if (flavor === 'classical' && !dominant) return c;
+  // Diatonic chords take the key's own seventh (VII7 not VIImaj7 in minor) or a diatonic add9.
+  if (isDiatonic(c, key)) {
+    const scale = MODE_INTERVALS[key.mode].map((i) => mod12(key.tonic + i));
+    const degree = scale.indexOf(c.root);
+    if (degree >= 0) {
+      const seventh = diatonicChord(key, degree, true).quality;
+      const ninthOk = scale.includes(mod12(c.root + 2));
+      const wantsAdd9 = (flavor === 'pop' || flavor === 'rock' || flavor === 'ambient') && ninthOk && rng.chance(flavor === 'pop' ? 0.45 : 0.65);
+      if (wantsAdd9 && (c.quality === 'maj' || c.quality === 'min')) return { ...c, quality: c.quality === 'maj' ? 'add9' : 'minadd9' };
+      if ((flavor === 'jazz' || flavor === 'soul') && ninthOk && rng.chance(0.3)) {
+        if (seventh === 'maj7') return { ...c, quality: 'maj9' };
+        if (seventh === 'min7') return { ...c, quality: 'min9' };
+        if (seventh === '7') return { ...c, quality: '9' };
+      }
+      return { ...c, quality: seventh };
+    }
+  }
   switch (c.quality) {
     case 'maj':
       if (dominant) return { ...c, quality: flavor === 'jazz' && rng.chance(0.3) ? '9' : '7' };
@@ -306,7 +327,7 @@ export function colorProgression(chords: readonly ChordSpec[], key: KeySignature
   const pBorrow = clamp01(o.borrowedRate * (0.5 + Math.max(0, o.darkness)) + tension * 0.08);
   const borrowCache = new Map<string, ChordSpec>();
   out = out.map((c, i) =>
-    pick(borrowCache, c, () => {
+    o.protectFirst && sameChord(c, chords[0]) ? c : pick(borrowCache, c, () => {
       if (!rng.chance(pBorrow)) return c;
       const iv = rootInterval(c, key);
       if (!minorKey) {

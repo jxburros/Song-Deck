@@ -162,14 +162,20 @@ export function parseRegion(song: Song, raw: unknown, c: OpContext, opName: stri
     c.error('region.invalid', `${opName}: "region" must be an object with start_bar and end_bar.`);
     return null;
   }
-  let start = toNumber(raw.start_bar ?? raw.startBar ?? raw.start);
-  let end = toNumber(raw.end_bar ?? raw.endBar ?? raw.end);
-  if (start === undefined && end !== undefined) start = end;
-  if (end === undefined && start !== undefined) end = start;
-  if (start === undefined || end === undefined) {
+  const rawStart = raw.start_bar ?? raw.startBar ?? raw.start;
+  const rawEnd = raw.end_bar ?? raw.endBar ?? raw.end;
+  let start = rawStart === undefined || rawStart === null ? undefined : toNumber(rawStart);
+  let end = rawEnd === undefined || rawEnd === null ? undefined : toNumber(rawEnd);
+  const invalidStart = rawStart !== undefined && rawStart !== null && start === undefined;
+  const invalidEnd = rawEnd !== undefined && rawEnd !== null && end === undefined;
+  if (invalidStart || invalidEnd || (start === undefined && end === undefined)) {
     c.error('region.invalid', `${opName}: region needs numeric start_bar and end_bar.`);
     return null;
   }
+  // A single bar given → a one-bar region.
+  if (start === undefined) start = end;
+  if (end === undefined) end = start;
+  if (start === undefined || end === undefined) return null;
   start = Math.floor(start);
   end = Math.floor(end);
   if (start > end) {
@@ -251,8 +257,14 @@ export function parseOpNote(song: Song, raw: unknown, c: OpContext, opName: stri
   if (bar === undefined || bar < 1) return bad(`has an invalid bar (${JSON.stringify(raw.bar)}; bars are 1-based)`);
   const beat = raw.beat === undefined ? 1 : toNumber(raw.beat);
   if (beat === undefined || beat < 1) return bad(`has an invalid beat (${JSON.stringify(raw.beat)}; beats are 1-based)`);
+  const total = songLengthBars(song);
+  if (bar > (total > 0 ? total : 100000) + 1 || beat > 1024) return bad(`is past the end of the song (bar ${Math.floor(bar)})`);
   const tick = musicalToTick(song, Math.floor(bar), beat);
   if (!Number.isFinite(tick) || tick < 0) return bad('has an invalid position');
+  if (total > 0 && tick >= songLengthTicks(song)) {
+    c.warn('note.past-end', `${where} starts after the end of the song; note dropped.`, { trackId, fixed: true });
+    return null;
+  }
   let durBeats = toNumber(raw.duration_beats ?? raw.duration ?? raw.durationBeats);
   if (durBeats === undefined) {
     if (!c.autoFix) return bad('has no duration_beats');

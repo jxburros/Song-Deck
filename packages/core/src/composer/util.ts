@@ -115,6 +115,7 @@ export function finalizeNotes(raw: RawNote[], opts: FinalizeOptions): RawNote[] 
       if (pitch < opts.low || pitch > opts.high || pitch < 0 || pitch > 127) continue;
     }
     const duration = clamp(Math.round(n.duration), 1, opts.end - tick);
+    if (!opts.drum && duration < 24) continue;
     out.push({ ...n, tick, pitch, duration, velocity: toVelocity(n.velocity) });
   }
   out.sort((a, b) => a.tick - b.tick || a.pitch - b.pitch || b.velocity - a.velocity);
@@ -129,20 +130,20 @@ export function finalizeNotes(raw: RawNote[], opts: FinalizeOptions): RawNote[] 
     const mono: RawNote[] = [];
     for (const n of dedup) {
       const prev = mono[mono.length - 1];
-      if (prev && prev.tick === n.tick) continue; // keep the first (lowest pitch sorted first → prefer generator order)
+      // Attacks closer than a 64th: keep the first.
+      if (prev && n.tick - prev.tick < 24) continue;
       if (prev && prev.tick + prev.duration > n.tick) prev.duration = Math.max(1, n.tick - prev.tick);
       mono.push(n);
     }
     return mono;
   }
-  // Polyphonic: a sustained note must not overlap the next attack of the same pitch.
-  if (!opts.drum) {
-    const lastByPitch = new Map<number, RawNote>();
-    for (const n of dedup) {
-      const prev = lastByPitch.get(n.pitch);
-      if (prev && prev.tick + prev.duration > n.tick) prev.duration = Math.max(1, n.tick - prev.tick);
-      lastByPitch.set(n.pitch, n);
-    }
+  // Polyphonic (and drums): a sounding note must not overlap the next attack of the same pitch,
+  // or MIDI note-offs become ambiguous.
+  const lastByPitch = new Map<number, RawNote>();
+  for (const n of dedup) {
+    const prev = lastByPitch.get(n.pitch);
+    if (prev && prev.tick + prev.duration > n.tick) prev.duration = Math.max(1, n.tick - prev.tick);
+    lastByPitch.set(n.pitch, n);
   }
   return dedup;
 }
@@ -400,4 +401,37 @@ export function unitHash(str: string): number {
     h = Math.imul(h, 0x01000193);
   }
   return (h >>> 0) / 4294967296;
+}
+
+/**
+ * Remove same-pitch overlaps from a track's notes (sorted). Earlier notes that are free get
+ * shortened; a note overlapping a protected earlier note is either dropped (`drop`) or moved to
+ * start when the protected one ends (`shift`). Protected notes are never modified.
+ */
+export function resolveSamePitchOverlaps<T extends { id: string; pitch: number; tick: number; duration: number }>(
+  notes: T[],
+  isProtected: (n: T) => boolean,
+  mode: 'drop' | 'shift',
+  limit = Infinity,
+): T[] {
+  const sorted = [...notes].sort((a, b) => a.tick - b.tick || a.pitch - b.pitch);
+  const last = new Map<number, T>();
+  const out: T[] = [];
+  for (const n0 of sorted) {
+    let n = n0;
+    const prev = last.get(n.pitch);
+    if (prev && prev.tick + prev.duration > n.tick) {
+      if (!isProtected(prev) && n.tick > prev.tick) {
+        prev.duration = Math.max(1, n.tick - prev.tick);
+      } else if (!isProtected(n)) {
+        if (mode === 'drop') continue;
+        const delta = prev.tick + prev.duration - n.tick;
+        if (n.duration - delta < 1 || prev.tick + prev.duration >= limit) continue;
+        n = { ...n, tick: n.tick + delta, duration: n.duration - delta };
+      }
+    }
+    last.set(n.pitch, n);
+    out.push(n);
+  }
+  return out.sort((a, b) => a.tick - b.tick || a.pitch - b.pitch || a.id.localeCompare(b.id));
 }

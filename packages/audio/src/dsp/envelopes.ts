@@ -17,6 +17,8 @@ export class Adsr {
   private decayCoef = 0;
   sustain = 1;
   private releaseCoef = 0;
+  private decay16 = 0;
+  private release16 = 0;
   private sr = 44100;
 
   set(attack: number, decay: number, sustain: number, release: number, sampleRate: number): this {
@@ -25,15 +27,19 @@ export class Adsr {
     this.decayCoef = t60Coef(Math.max(0.002, decay), sampleRate);
     this.sustain = Math.min(1, Math.max(0, sustain));
     this.releaseCoef = t60Coef(Math.max(0.004, release), sampleRate);
+    this.decay16 = Math.pow(this.decayCoef, 16);
+    this.release16 = Math.pow(this.releaseCoef, 16);
     return this;
   }
 
   setRelease(release: number): void {
     this.releaseCoef = t60Coef(Math.max(0.004, release), this.sr);
+    this.release16 = Math.pow(this.releaseCoef, 16);
   }
 
   setDecay(decay: number): void {
     this.decayCoef = t60Coef(Math.max(0.002, decay), this.sr);
+    this.decay16 = Math.pow(this.decayCoef, 16);
   }
 
   /** Start (or restart from the current level, click-free). */
@@ -55,6 +61,7 @@ export class Adsr {
   kill(seconds = 0.006): void {
     if (this.stage === ENV_IDLE) return;
     this.releaseCoef = t60Coef(seconds, this.sr);
+    this.release16 = Math.pow(this.releaseCoef, 16);
     this.stage = ENV_RELEASE;
   }
 
@@ -92,7 +99,7 @@ export class Adsr {
         break;
       case ENV_RELEASE:
         v *= this.releaseCoef;
-        if (v < 2e-5) {
+        if (v < 2.5e-4) {
           v = 0;
           this.stage = ENV_IDLE;
         }
@@ -102,6 +109,50 @@ export class Adsr {
     }
     this.value = v;
     return v;
+  }
+
+  /**
+   * Advance `n` samples and return the value at the START of that span (control-rate use, e.g.
+   * filter envelopes). Exponential segments are stepped in closed form.
+   */
+  advance(n: number): number {
+    const v0 = this.value;
+    let v = v0;
+    let left = n;
+    while (left > 0) {
+      const st = this.stage;
+      if (st === ENV_ATTACK) {
+        const need = Math.ceil((1 - v) / this.attackInc);
+        if (need > left) {
+          v += this.attackInc * left;
+          left = 0;
+        } else {
+          v = 1;
+          left -= need;
+          this.stage = this.sustain >= 1 ? ENV_SUSTAIN : ENV_DECAY;
+        }
+      } else if (st === ENV_DECAY) {
+        v = this.sustain + (v - this.sustain) * (left === 16 ? this.decay16 : Math.pow(this.decayCoef, left));
+        if (Math.abs(v - this.sustain) < 1e-5) {
+          v = this.sustain;
+          this.stage = this.sustain > 0 ? ENV_SUSTAIN : ENV_IDLE;
+        }
+        left = 0;
+      } else if (st === ENV_RELEASE) {
+        v *= left === 16 ? this.release16 : Math.pow(this.releaseCoef, left);
+        if (v < 2.5e-4) {
+          v = 0;
+          this.stage = ENV_IDLE;
+        }
+        left = 0;
+      } else {
+        if (st === ENV_SUSTAIN) v = this.sustain;
+        else v = 0;
+        left = 0;
+      }
+    }
+    this.value = v;
+    return v0;
   }
 
   /** Fill out[start..end) with envelope values. Returns false if the envelope ended (idle). */
@@ -125,7 +176,7 @@ export class Adsr {
         }
       } else if (stage === ENV_RELEASE) {
         v *= rc;
-        if (v < 2e-5) {
+        if (v < 2.5e-4) {
           v = 0;
           stage = ENV_IDLE;
         }

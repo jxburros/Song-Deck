@@ -2,6 +2,7 @@
  * Small hand-built fixture songs shared by the edit / io / project tests (no composer dependency).
  */
 import { createEmptySong, defaultChannelStrip } from '../src/ir/defaults';
+import { sortNotes } from '../src/ir/song-utils';
 import { chordToRoman } from '../src/theory/roman';
 import { parseChordSymbol } from '../src/theory/chords';
 import type { ChordEvent, KeySignature, Note, Song, Track } from '../src/ir/types';
@@ -71,7 +72,10 @@ export function makeSong(): Song {
     track('trk_vocal', 'Vocal', 'vocal', 'lead-vocal', 1, vocal, 'vocals'),
     track('trk_piano', 'Piano', 'keys', 'piano', 2, piano, 'keys'),
   ];
-  for (const t of song.tracks) song.mixer.channels[t.id] = defaultChannelStrip();
+  for (const t of song.tracks) {
+    sortNotes(t.notes);
+    song.mixer.channels[t.id] = defaultChannelStrip();
+  }
   song.lyrics = [
     { id: 'ly_0', sectionId: 'sec_chorus', text: 'Hold on to the lightning', trackId: 'trk_vocal', author: 'human' },
     { id: 'ly_1', sectionId: 'sec_chorus', text: 'Hold on to the lightning', trackId: 'trk_vocal', author: 'human' },

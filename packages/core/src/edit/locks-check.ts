@@ -136,6 +136,11 @@ function lanePoints(lanes: AutomationLane[], target: string, loc: SectionLocator
     .sort();
 }
 
+/** Same sections and meter map by reference (no structure edit happened between the states). */
+function sameLayoutRef(a: Song, b: Song): boolean {
+  return a.sections === b.sections && a.meterMap === b.meterMap;
+}
+
 function trackName(song: Song, id: string): string {
   return song.tracks.find((t) => t.id === id)?.name ?? id;
 }
@@ -186,7 +191,8 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
 
   // --- chords ------------------------------------------------------------
   const lockedChordSections = new Set<string>([...p.sectionChords, ...p.sections]);
-  if (p.chords || lockedChordSections.size) {
+  const chordsUnchanged = before.chords === after.chords && sameLayoutRef(before, after);
+  if (!chordsUnchanged && (p.chords || lockedChordSections.size)) {
     const cb = chordsBySection(before, lb);
     const ca = chordsBySection(after, la);
     if (p.chords) {
@@ -205,7 +211,9 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
   // --- lyrics ------------------------------------------------------------
   const lineSig = (s: Song, sid?: string) =>
     s.lyrics.filter((l) => sid === undefined || l.sectionId === sid).map((l) => stableStringify(l));
-  if (p.lyrics) {
+  if (before.lyrics === after.lyrics) {
+    // unchanged
+  } else if (p.lyrics) {
     if (lineSig(before).join('\n') !== lineSig(after).join('\n')) err('Lyrics are locked but changed.');
   } else {
     for (const sid of new Set([...p.sectionLyrics, ...p.sections])) {
@@ -228,6 +236,13 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
   // --- notes ---------------------------------------------------------------
   const beforeTracks = new Map(before.tracks.map((t) => [t.id, t] as const));
   const afterTracks = new Map(after.tracks.map((t) => [t.id, t] as const));
+  // Identical notes arrays (structural sharing) mean identical material.
+  const layoutSame = sameLayoutRef(before, after);
+  const untouched = (tid: string) => {
+    const b = beforeTracks.get(tid);
+    const a = afterTracks.get(tid);
+    return !!b && !!a && layoutSame && b.notes === a.notes;
+  };
   const groupCache = new Map<string, [Map<string, string[]>, Map<string, string[]>]>();
   const groups = (tid: string) => {
     let g = groupCache.get(tid);
@@ -249,10 +264,11 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
     if (a.instrumentId !== b.instrumentId || a.kind !== b.kind) {
       err(`Track "${b.name}" is locked but its instrument changed.`, { trackId: tid });
     }
+    if (stableStringify(a.clips) !== stableStringify(b.clips)) err(`Track "${b.name}" is locked but its audio clips changed.`, { trackId: tid });
+    if (untouched(tid)) continue;
     const [gb, ga] = groups(tid);
     const all = (m: Map<string, string[]>) => [...m.values()].flat();
     if (!sameMultiset(all(gb), all(ga))) err(`Track "${b.name}" is locked but its notes changed.`, { trackId: tid });
-    if (stableStringify(a.clips) !== stableStringify(b.clips)) err(`Track "${b.name}" is locked but its audio clips changed.`, { trackId: tid });
   }
 
   const sectionChecks: [string, string][] = [];
@@ -260,7 +276,7 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
   for (const sid of p.sections) for (const tid of new Set([...beforeTracks.keys(), ...afterTracks.keys()])) sectionChecks.push([tid, sid]);
   const seenPairs = new Set<string>();
   for (const [tid, sid] of sectionChecks) {
-    if (p.tracks.has(tid)) continue; // already compared as a whole
+    if (p.tracks.has(tid) || untouched(tid)) continue; // already compared as a whole / unchanged
     const pairKey = `${tid}|${sid}`;
     if (seenPairs.has(pairKey)) continue;
     seenPairs.add(pairKey);
@@ -276,7 +292,7 @@ export function lockViolations(before: Song, after: Song, locks: LockMap = befor
 
   // note-level locks
   for (const t of before.tracks) {
-    if (p.tracks.has(t.id)) continue;
+    if (p.tracks.has(t.id) || untouched(t.id)) continue;
     const at = afterTracks.get(t.id);
     let afterById: Map<string, Note> | undefined;
     for (const n of t.notes) {

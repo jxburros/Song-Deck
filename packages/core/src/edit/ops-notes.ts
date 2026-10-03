@@ -60,7 +60,7 @@ export function opReplaceNotes(song: Song, op: RawOp, c: OpContext): boolean {
   }
   track.notes = keep.concat(fresh);
   for (const n of fresh) c.touch(track.id, n.id);
-  if (!fresh.length) c.info('op.no-effect', `${name}: ${label} of "${track.name}" cleared (no valid notes supplied).`, { trackId: track.id });
+  if (!fresh.length) c.info('region.cleared', `${name}: ${label} of "${track.name}" cleared (no valid notes supplied).`, { trackId: track.id });
   return true;
 }
 
@@ -87,7 +87,7 @@ export function opAddNotes(song: Song, op: RawOp, c: OpContext): boolean {
     c.info('op.no-effect', `${name}: no valid notes to add.`, { trackId: track.id });
     return true;
   }
-  track.notes.push(...fresh);
+  track.notes = [...track.notes, ...fresh];
   for (const n of fresh) c.touch(track.id, n.id);
   return true;
 }

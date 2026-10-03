@@ -2,6 +2,7 @@ import type {
   AutomationLane,
   AutomationParam,
   AutomationPoint,
+  ChannelStrip,
   ChordEvent,
   ChordSpec,
   KeyEvent,
@@ -13,7 +14,7 @@ import type {
   Song,
 } from '../ir/types';
 import { defaultChannelStrip } from '../ir/defaults';
-import { findTrack } from '../ir/song-utils';
+import { cloneSong, findTrack } from '../ir/song-utils';
 import { LockKeys, setLock } from '../locks';
 import { barToTick, findSection, keyAtBar, keyAtTick, musicalToTick, sectionLayout, songLengthBars, songLengthTicks } from '../timing';
 import { CHORD_INTERVALS, QUALITY_SUFFIX, diatonicChord, formatChordSymbol, isDiatonic, parseChordSymbol } from '../theory/chords';
@@ -125,14 +126,22 @@ export function opSetChords(song: Song, op: RawOp, c: OpContext): boolean {
     if (unique.length && unique[unique.length - 1].tick === p.tick) unique[unique.length - 1] = p;
     else unique.push(p);
   }
+  const sounding = song.chords.find((ch) => ch.tick <= region.startTick && ch.tick + ch.duration > region.startTick);
   const chords = clearChordRange(song.chords, region.startTick, region.endTick, () => c.ids.next('ch'));
   if (unique.length) {
-    if (unique[0].tick > region.startTick) {
-      // Fill the gap at the region start: the chord that was sounding continues, else the first new chord starts earlier.
-      const locator = new SectionLocator(song);
-      const prev = chords.find((ch) => ch.tick + ch.duration === region.startTick);
-      if (prev && !(c.respectLocks && chordsProtected(c.locks, locator.sectionIdAt(prev.tick)))) prev.duration = unique[0].tick - prev.tick;
-      else unique[0].tick = region.startTick;
+    const first = unique[0].tick;
+    if (first > region.startTick) {
+      // Gap before the first new chord: the harmony that was sounding at the region start continues;
+      // with nothing sounding, the first new chord starts at the region start.
+      if (sounding) {
+        const locator = new SectionLocator(song);
+        const head = sounding.tick < region.startTick ? chords.find((ch) => ch.id === sounding.id && ch.tick === sounding.tick) : undefined;
+        if (head && !(c.respectLocks && chordsProtected(c.locks, locator.sectionIdAt(head.tick)))) head.duration = first - head.tick;
+        else {
+          const id = chords.some((ch) => ch.id === sounding.id) ? c.ids.next('ch') : sounding.id;
+          chords.push({ ...sounding, id, tick: region.startTick, duration: first - region.startTick, roman: chordToRoman(sounding, keyAtTick(song, region.startTick)) });
+        }
+      } else unique[0].tick = region.startTick;
     }
     unique.forEach((p, i) => {
       const end = i + 1 < unique.length ? unique[i + 1].tick : region.endTick;
@@ -532,9 +541,8 @@ export function opSetMixer(song: Song, op: RawOp, c: OpContext): boolean {
     return false;
   }
   const isMaster = target.id === 'master';
-  const strip: Record<string, unknown> = isMaster
-    ? (song.mixer.master as unknown as Record<string, unknown>)
-    : ((song.mixer.channels[target.id] ??= defaultChannelStrip()) as unknown as Record<string, unknown>);
+  // Copy-on-write: the strip is edited on a private copy and stored back into a new mixer object.
+  const strip = (isMaster ? cloneSong(song.mixer.master) : cloneSong(song.mixer.channels[target.id] ?? defaultChannelStrip())) as unknown as Record<string, unknown>;
   let applied = 0;
   for (const [field, raw] of Object.entries(op.changes)) {
     const spec = MIXER_FIELDS[field];
@@ -566,7 +574,13 @@ export function opSetMixer(song: Song, op: RawOp, c: OpContext): boolean {
     setPath(strip, field, clamped);
     applied++;
   }
-  if (!applied) c.info('op.no-effect', `${name}: no applicable mixer changes for "${target.label}".`, { trackId });
+  if (!applied) {
+    c.info('op.no-effect', `${name}: no applicable mixer changes for "${target.label}".`, { trackId });
+    return true;
+  }
+  song.mixer = isMaster
+    ? { ...song.mixer, master: strip as unknown as Song['mixer']['master'] }
+    : { ...song.mixer, channels: { ...song.mixer.channels, [target.id]: strip as unknown as ChannelStrip } };
   return true;
 }
 
@@ -628,29 +642,28 @@ export function opSetAutomation(song: Song, op: RawOp, c: OpContext): boolean {
     const curve = oneOf(raw.curve, ['linear', 'step'] as const);
     points.push(curve ? { tick, value: v, curve } : { tick, value: v });
   });
-  let lane = song.automation.find((l) => l.target === target.id && l.param === param);
+  const existing = song.automation.find((l) => l.target === target.id && l.param === param);
   if (!points.length) {
-    if (lane && op.points.length === 0) {
-      song.automation = song.automation.filter((l) => l !== lane);
+    if (existing && op.points.length === 0) {
+      song.automation = song.automation.filter((l) => l !== existing);
       c.info('automation.cleared', `${name}: ${param} automation of "${target.label}" removed.`, { trackId });
     } else c.info('op.no-effect', `${name}: no valid automation points.`, { trackId });
     return true;
   }
   points.sort((a, b) => a.tick - b.tick);
-  if (!lane) {
-    lane = { id: c.ids.next('auto'), target: target.id, param, points: [], enabled: true } satisfies AutomationLane;
-    song.automation.push(lane);
-  }
   const minT = points[0].tick;
   const maxT = points[points.length - 1].tick;
-  const merged = lane.points.filter((p) => p.tick < minT || p.tick > maxT);
+  const merged = (existing?.points ?? []).filter((p) => p.tick < minT || p.tick > maxT);
   for (const p of points) {
     const i = merged.findIndex((x) => x.tick === p.tick);
     if (i >= 0) merged.splice(i, 1);
     merged.push(p);
   }
-  lane.points = merged.sort((a, b) => a.tick - b.tick);
-  lane.enabled = true;
+  merged.sort((a, b) => a.tick - b.tick);
+  const lane: AutomationLane = existing
+    ? { ...existing, points: merged, enabled: true }
+    : { id: c.ids.next('auto'), target: target.id, param, points: merged, enabled: true };
+  song.automation = existing ? song.automation.map((l) => (l === existing ? lane : l)) : [...song.automation, lane];
   return true;
 }
 

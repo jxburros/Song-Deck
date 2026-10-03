@@ -103,7 +103,8 @@ export function opUpdateSection(song: Song, op: RawOp, c: OpContext): boolean {
     const clash = song.sections.find((s) => s.id !== section.id && s.name.toLowerCase() === next.name!.toLowerCase());
     if (clash) c.warn('section.duplicate-name', `${name}: another section is already called "${next.name}".`, { sectionId: section.id });
   }
-  Object.assign(section, next);
+  const updated: Section = { ...section, ...next };
+  song.sections = song.sections.map((s) => (s === section ? updated : s));
   if (bars !== undefined) {
     const spans = sectionLayout(song);
     const span = spans.find((s) => s.section.id === section.id)!;
@@ -222,10 +223,12 @@ export function opInsertSection(song: Song, op: RawOp, c: OpContext): boolean {
   if (copiedLines.length) {
     const order = new Map(song.sections.map((s, i) => [s.id, i] as const));
     const pos = song.lyrics.findIndex((l) => (order.get(l.sectionId) ?? Infinity) > index);
-    song.lyrics.splice(pos < 0 ? song.lyrics.length : pos, 0, ...copiedLines);
+    const lyrics = song.lyrics.slice();
+    lyrics.splice(pos < 0 ? lyrics.length : pos, 0, ...copiedLines);
+    song.lyrics = lyrics;
   }
   if (source && song.production?.sectionPrompts?.[source.id]) {
-    song.production.sectionPrompts = { ...song.production.sectionPrompts, [section.id]: song.production.sectionPrompts[source.id] };
+    song.production = { ...song.production, sectionPrompts: { ...song.production.sectionPrompts, [section.id]: song.production.sectionPrompts[source.id] } };
   }
   return true;
 }
@@ -276,7 +279,7 @@ export function opRemoveSection(song: Song, op: RawOp, c: OpContext): boolean {
   if (song.production?.sectionPrompts?.[section.id] !== undefined) {
     const prompts = { ...song.production.sectionPrompts };
     delete prompts[section.id];
-    song.production.sectionPrompts = prompts;
+    song.production = { ...song.production, sectionPrompts: prompts };
   }
   if (stats.droppedClips) c.warn('audio.unaligned', `${name}: ${stats.droppedClips} audio clip(s) starting in "${section.name}" were removed.`, { sectionId: section.id });
   return true;

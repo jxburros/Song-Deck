@@ -24,7 +24,7 @@ function noteBody(n: Note): string {
 }
 
 /** Note diff: match by id, then (for different ids) by identical pitch + onset. */
-export function diffNotes(before: readonly Note[], after: readonly Note[]): { added: Note[]; removed: Note[]; modified: NoteChange[] } {
+export function diffTrackNotes(before: readonly Note[], after: readonly Note[]): { added: Note[]; removed: Note[]; modified: NoteChange[] } {
   const beforeById = new Map(before.map((n) => [n.id, n] as const));
   const pairs: [Note, Note][] = [];
   const unmatchedAfter: Note[] = [];
@@ -149,7 +149,7 @@ export function diffSongs(before: Song, after: Song): SongDiff {
       summary.push(`Added track "${t.name}"${t.notes.length ? ` (${plural(t.notes.length, 'note')})` : ''}`);
       continue;
     }
-    const d = diffNotes(b.notes, t.notes);
+    const d = diffTrackNotes(b.notes, t.notes);
     const renamed = b.name !== t.name;
     const instrumentChanged = b.instrumentId !== t.instrumentId;
     if (d.added.length || d.removed.length || d.modified.length) {

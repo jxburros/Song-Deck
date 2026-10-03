@@ -117,6 +117,11 @@
   border-color: var(--accent);
   outline: none;
 }
+.row > .select,
+.row > .input.sm {
+  width: auto;
+  max-width: 100%;
+}
 .input.sm,
 .select.sm {
   height: 24px;

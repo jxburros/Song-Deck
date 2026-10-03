@@ -311,22 +311,10 @@ export class SectionLocator {
 
 /** Note content without its absolute position (for comparisons). */
 export function noteContentKey(n: Note): string {
-  return JSON.stringify([
-    n.id,
-    n.pitch,
-    n.duration,
-    n.velocity,
-    n.articulation ?? null,
-    n.syllable ?? null,
-    n.phonemes ?? null,
-    n.lyricLineId ?? null,
-    n.expression ? sortedEntries(n.expression) : null,
-    n.locked ?? false,
-    n.motifId ?? null,
-    n.phraseId ?? null,
-    n.confidence ?? null,
-    n.origin ?? null,
-  ]);
+  let key = `${n.id}\u0001${n.pitch}\u0001${n.duration}\u0001${n.velocity}\u0001${n.articulation ?? ''}\u0001${n.syllable ?? ''}\u0001${n.lyricLineId ?? ''}\u0001${n.locked ? 1 : 0}\u0001${n.motifId ?? ''}\u0001${n.phraseId ?? ''}\u0001${n.confidence ?? ''}\u0001${n.origin ?? ''}`;
+  if (n.phonemes) key += `\u0001p${n.phonemes.join(' ')}`;
+  if (n.expression) key += `\u0001e${JSON.stringify(sortedEntries(n.expression))}`;
+  return key;
 }
 
 function sortedEntries(o: object): [string, unknown][] {

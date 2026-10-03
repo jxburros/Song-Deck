@@ -10,7 +10,7 @@ import {
   isMinorQuality,
   triadQuality,
 } from '../theory/chords';
-import { mod12 } from '../theory/pitch';
+import { FLAT_NAMES, SHARP_NAMES, mod12 } from '../theory/pitch';
 import { MODE_INTERVALS, isMinorMode, scalePitchClasses } from '../theory/scales';
 import { chordDegree, chordToRoman } from '../theory/roman';
 import { chordFunction } from '../theory/analysis';
@@ -167,12 +167,40 @@ export function toTriad(chord: ChordSpec, key: KeySignature): ChordSpec {
   return { root: chord.root, quality: 'maj' };
 }
 
+const FLAT_SPELLING: KeySignature = { tonic: 5, mode: 'major' };
+const SHARP_SPELLING: KeySignature = { tonic: 7, mode: 'major' };
+
+/**
+ * Chord symbol spelled for its function in the key: chromatic chords on lowered degrees
+ * (bVI, bVII, bIII, bII) use flats ("Eb" in G major, not "D#"), raised degrees use sharps.
+ */
+export function spellChord(spec: ChordSpec, key: KeySignature): string {
+  const roman = chordToRoman(spec, key);
+  if (roman.startsWith('b')) return formatChordSymbol(spec, FLAT_SPELLING);
+  if (roman.startsWith('#')) return formatChordSymbol(spec, SHARP_SPELLING);
+  return formatChordSymbol(spec, key);
+}
+
+/** Roman numeral that also names a non-chord-tone slash bass ("IV over D"). */
+export function romanOf(spec: ChordSpec, key: KeySignature): string {
+  const roman = chordToRoman(spec, key);
+  if (spec.bass !== undefined && spec.bass !== spec.root && !chordPitchClasses({ root: spec.root, quality: spec.quality }).includes(spec.bass)) {
+    const flats = roman.startsWith('b') || keyPrefersFlatsSafe(key);
+    return `${roman} over ${(flats ? FLAT_NAMES : SHARP_NAMES)[mod12(spec.bass)]}`;
+  }
+  return roman;
+}
+
+function keyPrefersFlatsSafe(key: KeySignature): boolean {
+  return formatChordSymbol({ root: mod12(key.tonic + 10), quality: 'maj' }, key).includes('b');
+}
+
 export function describeChord(spec: ChordSpec, key: KeySignature): string {
-  return `${formatChordSymbol(spec, key)} (${chordToRoman(spec, key)})`;
+  return `${spellChord(spec, key)} (${romanOf(spec, key)})`;
 }
 
 export function chordChangeText(from: ChordSpec, to: ChordSpec, key: KeySignature): string {
-  return `${formatChordSymbol(from, key)} → ${formatChordSymbol(to, key)} (${chordToRoman(from, key)} → ${chordToRoman(to, key)})`;
+  return `${spellChord(from, key)} → ${spellChord(to, key)} (${romanOf(from, key)} → ${romanOf(to, key)})`;
 }
 
 function sameChord(a: ChordSpec, b: ChordSpec): boolean {
@@ -184,7 +212,18 @@ export { sameChord };
 // Colour transformations
 // ---------------------------------------------------------------------------
 
-export function darkenChord(chord: ChordSpec, key: KeySignature): ChordSpec {
+/** A major/dominant V whose next chord is the tonic: the cadence that pulls the music home. */
+export function isCadentialDominant(chord: ChordSpec, next: ChordSpec | undefined, key: KeySignature): boolean {
+  if (!next || mod12(chord.root - key.tonic) !== 7 || mod12(next.root - key.tonic) !== 0) return false;
+  return chord.quality === 'maj' || (isDominantQuality(chord.quality) && chord.quality !== '7sus4');
+}
+
+/**
+ * Darker colour by modal interchange. A V that resolves to the tonic (`next`) keeps its major third —
+ * the harmonic-minor dominant — so the cadence still lands.
+ */
+export function darkenChord(chord: ChordSpec, key: KeySignature, next?: ChordSpec): ChordSpec {
+  if (isCadentialDominant(chord, next, key)) return chord;
   return mapChordByMode(chord, key, { tonic: key.tonic, mode: darkerMode(key.mode) });
 }
 
@@ -193,7 +232,7 @@ export function brightenChord(chord: ChordSpec, key: KeySignature): ChordSpec {
   if (target) return mapChordByMode(chord, key, { tonic: key.tonic, mode: target });
   // Major keys: minor chords on ii / iii / vi become major (secondary-dominant colour).
   const deg = chordDegree(chord, key);
-  if (isMinorQuality(chord.quality) && (deg === 1 || deg === 2 || deg === 5)) return { ...chord, quality: raiseThird(chord.quality) };
+  if (isMinorQuality(chord.quality) && (deg === 0 || deg === 1 || deg === 2 || deg === 3 || deg === 5)) return { ...chord, quality: raiseThird(chord.quality) };
   return chord;
 }
 
@@ -224,6 +263,7 @@ export function tenseChord(chord: ChordSpec, key: KeySignature, rng: Rng): Chord
   const q = chord.quality;
   const tq = triadQuality(q);
   const deg = chordDegree(chord, key);
+  if (isDominantQuality(q) && q !== '7sus4') return { ...chord, quality: isMinorMode(key.mode) || deg < 0 || deg === 1 || deg === 2 || deg === 5 ? '7b9' : '9' };
   if (tq === 'sus') return { ...chord, quality: '7sus4' };
   if (tq === 'dim') return { ...chord, quality: q === 'dim' ? (isMinorMode(key.mode) ? 'dim7' : 'm7b5') : q };
   if (tq === 'aug') return { ...chord, quality: 'aug7' };
@@ -340,6 +380,30 @@ export function refitPitch(pitch: number, oldChord: ChordSpec | undefined, newCh
   for (const p of newPcs) {
     const d = signedPcDelta(pc, p);
     if (Math.abs(d) < Math.abs(bestD)) {
+      bestD = d;
+      best = pitch + d;
+    }
+  }
+  return best;
+}
+
+/**
+ * Minimal-change refit for melodic lines: a note stays when it is a chord tone, or a scale tone
+ * that is not a semitone above a chord tone (an "avoid note"); otherwise it moves to the nearest
+ * chord tone of the new chord.
+ */
+export function refitMelodicPitch(pitch: number, newChord: ChordSpec | undefined, scalePcs: number[]): number {
+  if (!newChord) return pitch;
+  const pc = mod12(pitch);
+  const tones = chordPitchClasses(newChord);
+  if (tones.includes(pc)) return pitch;
+  const avoid = tones.some((t) => mod12(pc - t) === 1);
+  if (scalePcs.includes(pc) && !avoid) return pitch;
+  let best = pitch;
+  let bestD = 99;
+  for (const t of tones) {
+    const d = signedPcDelta(pc, t);
+    if (Math.abs(d) < Math.abs(bestD) || (Math.abs(d) === Math.abs(bestD) && d < bestD)) {
       bestD = d;
       best = pitch + d;
     }

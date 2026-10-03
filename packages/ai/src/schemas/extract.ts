@@ -99,6 +99,8 @@ const isIdentChar = (c: string) => /[A-Za-z0-9_$-]/.test(c);
 export function repairJson(input: string): RepairResult {
   let out = '';
   const stack: ('{' | '[')[] = [];
+  /** Output length right after each currently open bracket (parallel to `stack`). */
+  const openAt: number[] = [];
   /** Last emitted significant token type. */
   let last: 'start' | 'open' | 'comma' | 'colon' | 'value' = 'start';
   /** Safe cut points: output length + stack snapshot after a complete member. */
@@ -176,6 +178,7 @@ export function repairJson(input: string): RepairResult {
       emitValueStart();
       stack.push(c);
       out += c;
+      openAt.push(out.length);
       last = 'open';
       i++;
       continue;
@@ -184,10 +187,16 @@ export function repairJson(input: string): RepairResult {
       // Drop trailing comma.
       out = out.replace(/,(\s*)$/, '$1');
       const expected = c === '}' ? '{' : '[';
-      if (stack[stack.length - 1] === expected) stack.pop();
-      else if (stack.includes(expected)) {
-        while (stack.length && stack[stack.length - 1] !== expected) out += stack.pop() === '{' ? '}' : ']';
+      if (stack[stack.length - 1] === expected) {
         stack.pop();
+        openAt.pop();
+      } else if (stack.includes(expected)) {
+        while (stack.length && stack[stack.length - 1] !== expected) {
+          out += stack.pop() === '{' ? '}' : ']';
+          openAt.pop();
+        }
+        stack.pop();
+        openAt.pop();
       } else {
         i++;
         continue; // stray closer
@@ -266,7 +275,8 @@ export function repairJson(input: string): RepairResult {
         out = out.slice(0, point.len);
         closeStack = point.stack;
       } else {
-        out = trimmed.replace(/[,:]$/, '');
+        // Nothing complete yet: keep the containers but drop their incomplete content.
+        out = out.slice(0, openAt[openAt.length - 1] ?? 0);
       }
     }
     out = out.replace(/[\s,]+$/, '');

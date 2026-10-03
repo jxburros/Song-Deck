@@ -143,6 +143,14 @@ export class Biquad {
     return this;
   }
 
+  /** Flush denormal-range states (call at block end when using tick/tickR). */
+  flush(): void {
+    if (Math.abs(this.z1L) < DENORMAL) this.z1L = 0;
+    if (Math.abs(this.z2L) < DENORMAL) this.z2L = 0;
+    if (Math.abs(this.z1R) < DENORMAL) this.z1R = 0;
+    if (Math.abs(this.z2R) < DENORMAL) this.z2R = 0;
+  }
+
   /** Single sample, left state. */
   tick(x: number): number {
     const y = this.b0 * x + this.z1L;

@@ -1,0 +1,163 @@
+import { expect, test, type Download, type Page } from '@playwright/test';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { unzipSync } from 'fflate';
+
+/**
+ * Mix & Master and Export, end to end and entirely on-device:
+ * compose → mixer fader → AI mix assistant proposal → accept → loudness analysis → mastering
+ * (Master.wav asset) → A/B → exports (MIDI, WAV, MP3, stems, MusicXML, PDF, DAW, everything).
+ */
+
+const SHOTS = '/tmp/claude-0';
+mkdirSync(SHOTS, { recursive: true });
+
+test.describe.configure({ timeout: 420_000 });
+
+async function composeSong(page: Page) {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Compose a new song' }).click();
+  await page
+    .getByLabel('Song prompt')
+    .fill('Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.');
+  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
+  await page.getByRole('button', { name: 'Plan composition' }).click();
+  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
+  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
+}
+
+async function download(page: Page, action: () => Promise<void>, timeout = 180_000): Promise<{ d: Download; bytes: Uint8Array }> {
+  const pending = page.waitForEvent('download', { timeout });
+  await action();
+  const d = await pending;
+  const path = await d.path();
+  return { d, bytes: new Uint8Array(readFileSync(path!)) };
+}
+
+const ascii = (b: Uint8Array, n: number, off = 0) => String.fromCharCode(...b.slice(off, off + n));
+
+test('mix, master and export a composed song', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+
+  await composeSong(page);
+
+  // ---- Mix & Master: console ------------------------------------------------------------
+  await page.getByRole('button', { name: 'Mix & Master' }).click();
+  await expect(page.getByRole('heading', { name: 'Mix & Master' })).toBeVisible();
+  const strips = page.locator('.mx-strip');
+  expect(await strips.count()).toBeGreaterThan(4);
+
+  const fader = page.getByRole('slider', { name: /^Bass volume$/ }).first();
+  await expect(fader).toBeVisible();
+  const before = Number(await fader.getAttribute('aria-valuenow'));
+  const box = (await fader.boundingBox())!;
+  const thumb = fader.locator('.mx-fader-thumb');
+  const tb = (await thumb.boundingBox())!;
+  await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2 - box.height * 0.18, { steps: 10 });
+  await page.mouse.up();
+  await expect.poll(async () => Number(await fader.getAttribute('aria-valuenow'))).toBeGreaterThan(before);
+  // Keyboard nudge (+0.5 dB) commits after a short pause.
+  const afterDrag = Number(await fader.getAttribute('aria-valuenow'));
+  await fader.focus();
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(async () => Number(await fader.getAttribute('aria-valuenow'))).toBeCloseTo(Math.min(12, afterDrag + 0.5), 1);
+
+  // EQ insert toggle on a strip and the inspector curve.
+  await expect(page.getByRole('img', { name: /EQ frequency response/ })).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/mix-console.png` });
+
+  // ---- AI Mix Assistant ------------------------------------------------------------------
+  await page.getByLabel('Mix instruction').fill('Make the vocal clearer.');
+  await page.getByRole('button', { name: 'Propose mix change' }).click();
+  const proposal = page.getByTestId('mix-proposal').first();
+  await expect(proposal).toBeVisible({ timeout: 30_000 });
+  await expect(proposal.getByRole('table', { name: 'Proposed mixer changes' })).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/mix-assistant.png` });
+  await proposal.getByRole('button', { name: 'Accept' }).click();
+  await expect(page.getByTestId('mix-proposal')).toHaveCount(0);
+
+  // A second, compound request from the spec (automation in the last chorus + drier vocal).
+  await page.getByLabel('Mix instruction').fill('Bring the violin forward in the last chorus and make the vocal slightly drier.');
+  await page.getByRole('button', { name: 'Propose mix change' }).click();
+  await expect(page.getByTestId('mix-proposal').first()).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId('mix-proposal').first().getByRole('button', { name: 'Accept' }).click();
+
+  // ---- Automation --------------------------------------------------------------------------
+  await page.getByRole('tab', { name: 'Automation' }).click();
+  await expect(page.locator('.mx-automation')).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/mix-automation.png` });
+
+  // ---- Mastering ---------------------------------------------------------------------------
+  await page.getByRole('tab', { name: 'Mastering' }).click();
+  await page.getByRole('radio', { name: /Streaming/ }).click();
+  await page.getByRole('button', { name: 'Analyze mix' }).click();
+  await expect(page.getByTestId('mix-integrated')).toHaveText(/−\d+\.\d/, { timeout: 180_000 });
+  await page.getByRole('button', { name: 'Master', exact: true }).click();
+  await expect(page.getByTestId('master-integrated')).toHaveText(/−1[34]\.\d/, { timeout: 240_000 });
+  await expect(page.getByText('Master.wav').first()).toBeVisible();
+  // A/B: switch sides while playing.
+  await page.getByRole('button', { name: 'Play A/B' }).click();
+  await page.getByRole('radio', { name: /^A Mix/ }).click();
+  await page.getByRole('radio', { name: /^B Master/ }).click();
+  await page.getByRole('button', { name: 'Pause A/B' }).click();
+  await page.screenshot({ path: `${SHOTS}/mix-mastering.png` });
+
+  // ---- Export ------------------------------------------------------------------------------
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Export', exact: true })).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/export.png`, fullPage: true });
+
+  const mid = await download(page, () => page.getByRole('button', { name: 'Song.mid' }).click());
+  expect(mid.d.suggestedFilename()).toMatch(/\.mid$/);
+  expect(ascii(mid.bytes, 4)).toBe('MThd');
+
+  const tracks = await download(page, () => page.getByRole('button', { name: 'Tracks .zip' }).click());
+  const midiFiles = Object.keys(unzipSync(tracks.bytes));
+  expect(midiFiles.length).toBeGreaterThan(4);
+  expect(midiFiles.every((f) => f.endsWith('.mid'))).toBe(true);
+
+  const wav = await download(page, () => page.getByRole('button', { name: 'Mix.wav' }).click());
+  expect(wav.d.suggestedFilename()).toMatch(/ - Mix\.wav$/);
+  expect(ascii(wav.bytes, 4)).toBe('RIFF');
+  expect(ascii(wav.bytes, 4, 8)).toBe('WAVE');
+  expect(wav.bytes.length).toBeGreaterThan(1_000_000);
+
+  const masterWav = await download(page, () => page.getByRole('button', { name: 'Master.wav' }).first().click());
+  expect(ascii(masterWav.bytes, 4)).toBe('RIFF');
+
+  await page.getByRole('combobox', { name: 'Audio format' }).selectOption('mp3');
+  const mp3 = await download(page, () => page.getByRole('button', { name: 'Mix.mp3' }).click());
+  expect(mp3.d.suggestedFilename()).toMatch(/\.mp3$/);
+  expect(mp3.bytes[0] === 0xff && (mp3.bytes[1] & 0xe0) === 0xe0).toBe(true);
+  await page.getByRole('combobox', { name: 'Audio format' }).selectOption('wav');
+
+  const stems = await download(page, () => page.getByRole('button', { name: 'Stems.zip' }).click());
+  const stemFiles = Object.keys(unzipSync(stems.bytes));
+  expect(stemFiles).toEqual(expect.arrayContaining(['Vocals.wav', 'Drums.wav', 'Bass.wav']));
+
+  const xml = await download(page, () => page.getByRole('button', { name: '.musicxml' }).click());
+  expect(new TextDecoder().decode(xml.bytes.slice(0, 200))).toContain('<?xml');
+
+  const pdf = await download(page, () => page.getByRole('button', { name: '.pdf' }).click());
+  expect(ascii(pdf.bytes, 5)).toBe('%PDF-');
+
+  const chords = await download(page, () => page.getByRole('button', { name: 'Chords.txt' }).click());
+  expect(chords.bytes.length).toBeGreaterThan(20);
+
+  const project = await download(page, () => page.getByRole('button', { name: '.songproject' }).click());
+  expect(ascii(project.bytes, 2)).toBe('PK');
+
+  const reaper = await download(page, () => page.getByRole('button', { name: 'Reaper .zip' }).click());
+  const reaperFiles = Object.keys(unzipSync(reaper.bytes));
+  expect(reaperFiles.some((f) => f.endsWith('.rpp'))).toBe(true);
+
+  const everything = await download(page, () => page.getByRole('button', { name: 'Export everything (.zip)' }).click(), 300_000);
+  const all = Object.keys(unzipSync(everything.bytes));
+  expect(all).toEqual(expect.arrayContaining(['Master.wav', 'Instrumental.wav', 'Acapella.wav', 'Stems.zip', 'Song.mid', 'Song.musicxml']));
+  expect(all.some((f) => f.endsWith('.songproject'))).toBe(true);
+
+  await page.screenshot({ path: `${SHOTS}/export-done.png`, fullPage: true });
+  expect(errors, errors.join('\n')).toEqual([]);
+});

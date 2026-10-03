@@ -123,6 +123,8 @@ export function transcribePolyphonicSignal(x: Float32Array, sr: number, opts: Po
     harmOffset.push(12 * Math.log2(h));
     harmWeight.push(1 / Math.pow(h, 0.8));
   }
+  const candHMax = new Int32Array(P);
+  for (let pi = 0; pi < P; pi++) candHMax[pi] = Math.min(H, Math.floor(fMax / (440 * Math.pow(2, (minPitch + pi - 69) / 12))));
   const act = new Float32Array(T * P); // salience of detected pitches
   const energyAct = new Float32Array(T * P); // summed partial amplitude of detected pitches
   const sal = new Float32Array(P);
@@ -171,8 +173,7 @@ export function transcribePolyphonicSignal(x: Float32Array, sr: number, opts: Po
           continue;
         }
         const p0 = minPitch + pi;
-        const f0 = 440 * Math.pow(2, (p0 - 69) / 12);
-        const hMax = Math.min(H, Math.floor(fMax / f0));
+        const hMax = candHMax[pi];
         let s = 0;
         let strongest = 0;
         let fund = 0;
@@ -200,8 +201,7 @@ export function transcribePolyphonicSignal(x: Float32Array, sr: number, opts: Po
       else if (bestV < 0.3 * firstSal) break;
       // estimate partial amplitudes and subtract with spectral smoothness
       const p0 = minPitch + bestP;
-      const f0 = 440 * Math.pow(2, (p0 - 69) / 12);
-      const hMax = Math.min(H, Math.floor(fMax / f0));
+      const hMax = candHMax[bestP];
       for (let h = 0; h < hMax; h++) {
         const i = findPeak(p0 + harmOffset[h], h < 4 ? 4 : 5);
         partialPeak[h] = i;

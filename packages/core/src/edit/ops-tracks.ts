@@ -60,8 +60,8 @@ export function opAddTrack(song: Song, op: RawOp, c: OpContext): boolean {
     midiChannel: profile.isDrumKit ? 9 : freeMidiChannel(song),
   };
   if (role === 'vocal') track.vocal = { mode: song.vocals?.mode ?? 'melody-only' };
-  song.tracks.push(track);
-  song.mixer.channels[track.id] = defaultChannelStrip();
+  song.tracks = [...song.tracks, track];
+  song.mixer = { ...song.mixer, channels: { ...song.mixer.channels, [track.id]: defaultChannelStrip() } };
   return true;
 }
 

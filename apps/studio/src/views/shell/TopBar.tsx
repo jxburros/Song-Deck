@@ -7,7 +7,7 @@ import { formatTime, usePlayhead, usePlayerState } from '../../hooks';
 const MODES: { mode: Mode; label: string; icon: IconName; needsProject?: boolean; title: string }[] = [
   { mode: 'compose', label: 'Compose', icon: 'compose', title: 'Prompt → Blueprint → Plan → MIDI (spec §25 Compose)' },
   { mode: 'workbench', label: 'Workbench', icon: 'workbench', needsProject: true, title: 'MIDI Workbench: arrangement, piano roll, patterns, chords, structure, theory' },
-  { mode: 'generate', label: 'Generate MIDI', icon: 'midi', title: 'Create individual musical assets' },
+  { mode: 'generate', label: 'Generate', icon: 'midi', title: 'Create individual musical assets' },
   { mode: 'transcribe', label: 'Transcribe', icon: 'mic', title: 'Audio → MIDI: humming, singing, instruments, taps' },
   { mode: 'rebuild', label: 'Rebuild', icon: 'rebuild', title: 'Reconstruct a recording as an editable project' },
   { mode: 'produce', label: 'Produce', icon: 'produce', needsProject: true, title: 'Guide renders and AI production (A/B candidates)' },
@@ -70,9 +70,9 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      <div className="brand" onClick={() => setMode('home')} title="Projects">
+      <div className="brand" onClick={() => setMode('home')} title="Song Deck — projects">
         <BrandMark />
-        <span>Song Deck</span>
+        {!project && <span>Song Deck</span>}
       </div>
       {project && (
         <div className="row" style={{ minWidth: 0 }}>
@@ -100,7 +100,7 @@ export function TopBar() {
             style={m.needsProject && !project ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
           >
             <Icon name={m.icon} size={15} />
-            {m.label}
+            <span className="mode-label">{m.label}</span>
           </button>
         ))}
       </nav>

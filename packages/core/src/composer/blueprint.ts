@@ -212,6 +212,7 @@ const INSTRUMENT_PATTERNS: [RegExp, InstKey][] = [
   [/\bguitars?\b/g, 'guitar'],
   [/\b(?:synth[\s-]?bass(?:es)?|sub[\s-]?bass|808s?(?!\s*(?:drums?|kit|beats?)))\b/g, 'synth-bass'],
   [/\b(?:upright|double|acoustic|stand[\s-]?up)\s+bass\b|\bcontrabass\b/g, 'upright-bass'],
+  // "bass drum" and a "bass voice/singer" are not the instrument.
   [/\bbass(?:[\s-]?guitar)?\b(?!\s*(?:drums?|voice|vocals?|singer))/g, 'bass'],
   [/\b(?:drum\s+machines?|electronic\s+drums|808\s*(?:drums?|kit)|programmed\s+drums|drum\s+loops?)\b/g, 'electronic-kit'],
   [/\b(?:drums?|drum\s*kit|drummer)\b/g, 'drums'],
@@ -233,7 +234,7 @@ const INSTRUMENT_PATTERNS: [RegExp, InstKey][] = [
   [/\bflutes?\b/g, 'flute'],
   [/\bclarinets?\b/g, 'clarinet'],
   [/\b(?:saxophones?|sax(?:es)?)\b/g, 'saxophone'],
-  [/\b(?:synth[\s-]?leads?|lead\s+synths?)\b/g, 'synth-lead'],
+  [/\b(?:synth[\s-]?leads?|lead\s+synths?|supersaw(?:\s+leads?)?|saw\s+leads?)\b/g, 'synth-lead'],
   [/\b(?:arps?|arpeggiat(?:or|ors|ed|ion)|arpeggios?)\b/g, 'synth-arp'],
   [/\b(?:sequencers?|sequenced\s+synths?|synth\s+sequences?)\b/g, 'synth-seq'],
   [/\b(?:synth[\s-]?)?pads?\b/g, 'synth-pad'],
@@ -577,7 +578,7 @@ function parseGenres(lower: string, custom?: GenreProfile[]): { blend: GenreWeig
     } else byId.set(f.genreId, { genreId: f.genreId, weight: 1, percent: f.percent, label: f.label });
   }
   const entries = [...byId.values()];
-  // "orchestra"/"score" alone next to a band genre is instrumentation/colour, not the main genre.
+  // Explicit percentages win; unlabelled genres share what is left (or weigh equally).
   const withPercent = entries.filter((e) => e.percent !== null);
   const pctTotal = withPercent.reduce((t, e) => t + (e.percent ?? 0), 0);
   const without = entries.filter((e) => e.percent === null);
@@ -597,6 +598,8 @@ function parseGenres(lower: string, custom?: GenreProfile[]): { blend: GenreWeig
 
 interface ParsedMoods {
   global: MoodInfo[];
+  /** Every mood mention once (a "cathartic chorus" counts once, not per chorus kind). */
+  mentions: MoodInfo[];
   bySection: Map<SectionKind, MoodInfo[]>;
   energyBySection: Map<SectionKind, number>;
   globalEnergy: number;
@@ -611,6 +614,7 @@ function parseMoods(lower: string): ParsedMoods {
   const energyBySection = new Map<SectionKind, number>();
   const feelBySection = new Map<SectionKind, SectionFeel>();
   const statements: string[] = [];
+  const mentions: MoodInfo[] = [];
   const attached = new Set<number>();
   let globalEnergy = 0;
   // Pair "final chorus", "pre chorus" style two-word section names.
@@ -641,6 +645,7 @@ function parseMoods(lower: string): ParsedMoods {
       attached.add(k);
     }
     adj.reverse();
+    for (const a of adj) if (a.mood) mentions.push(a.mood);
     if (adj.length) {
       for (const kind of kinds) {
         for (const a of adj) {
@@ -659,12 +664,13 @@ function parseMoods(lower: string): ParsedMoods {
     const w = word(i);
     if (w in MOODS) {
       if (!global.some((g) => g.mood === MOODS[w].mood)) global.push(MOODS[w]);
+      mentions.push(MOODS[w]);
     } else if (w in ENERGY_WORDS && !(w === 'heavy' && /^metal/.test(word(i + 1)))) {
       globalEnergy += ENERGY_WORDS[w];
     }
   }
   for (const g of global) statements.push(g.mood.charAt(0).toUpperCase() + g.mood.slice(1));
-  return { global, bySection, energyBySection, globalEnergy, feelBySection, statements };
+  return { global, mentions, bySection, energyBySection, globalEnergy, feelBySection, statements };
 }
 
 function parseInstruments(lower: string, genreClaims: Span[]): InstMention[] {
@@ -676,7 +682,6 @@ function parseInstruments(lower: string, genreClaims: Span[]): InstMention[] {
     while ((m = r.exec(lower))) {
       const span = { start: m.index, end: m.index + m[0].length };
       if (overlaps(claimed, span)) continue;
-      // "bass" as a voice type or "bass drum" is not the instrument.
       claimed.push(span);
       const explicit = countBefore(lower, m.index);
       const count = explicit ?? (isPlural(m[0]) && key !== 'strings' && key !== 'backing-vocal' ? 2 : 1);
@@ -791,15 +796,16 @@ export function parsePromptToBlueprint(prompt: string, opts: { seed?: number; cu
   // --- Key ----------------------------------------------------------------------------------
   let key = parseKeyText(text);
   if (!key) {
-    const allMoods = [...moods.global, ...[...moods.bySection.values()].flat()];
-    const valence = allMoods.length ? allMoods.reduce((t, m) => t + m.valence, 0) / allMoods.length : 0;
+    const valence = moods.mentions.length ? moods.mentions.reduce((t, m) => t + m.valence, 0) / moods.mentions.length : 0;
     let mode: ModeName;
-    if (valence <= -0.2) mode = 'minor';
-    else if (valence >= 0.35) mode = 'major';
+    if (valence < -0.15) mode = 'minor';
+    else if (valence > 0.3) mode = 'major';
     else {
+      // Mildly coloured moods tilt the genre's own mode preferences.
       const r = rng('mode');
       const candidates = genre.modes.length ? genre.modes : [{ mode: 'major' as ModeName, weight: 1 }];
-      mode = pickOne(candidates.map((c) => c.mode), candidates.map((c) => c.weight), r);
+      const tilt = (m: ModeName) => (m === 'major' || m === 'lydian' || m === 'mixolydian' ? 1 + valence * 2 : 1 - valence * 2);
+      mode = pickOne(candidates.map((c) => c.mode), candidates.map((c) => Math.max(0.01, c.weight * tilt(c.mode))), r);
     }
     if (/\bdorian\b/.test(lower)) mode = 'dorian';
     else if (/\bmixolydian\b/.test(lower)) mode = 'mixolydian';
@@ -986,9 +992,20 @@ export function parsePromptToBlueprint(prompt: string, opts: { seed?: number; cu
   }
   if (leadGuitars > 0) add(heavy ? 'electric-guitar-lead' : 'electric-guitar-clean', 'lead-guitar', heavy ? 'hook' : 'counter-melody', Math.min(2, leadGuitars));
 
-  if (items.length === 0) {
+  // A couple of colour instruments without any rhythm section ("…with strings") add to the genre's
+  // band; a full list ("drums, bass, two guitars…") or a solo/duet/ballad request replaces it.
+  const RHYTHM_SECTION: InstKey[] = ['drums', 'electronic-kit', 'bass', 'synth-bass', 'upright-bass', 'guitar', 'rhythm-guitar', 'acoustic-guitar', 'distorted-guitar', 'clean-guitar', 'electric-guitar'];
+  const explicitOnly = /\b(?:solo|only|just|duet|trio|quartet|ballad|a\s+cappella|acapella|unaccompanied|minimal|stripped)\b/.test(lower);
+  const additive =
+    items.length > 0 &&
+    !explicitOnly &&
+    mentions.filter((m) => m.key !== 'backing-vocal' && m.key !== 'choir').length <= 2 &&
+    !mentions.some((m) => RHYTHM_SECTION.includes(m.key) || m.key === 'piano' || m.key === 'keys' || m.key === 'electric-piano');
+  if (items.length === 0 || additive) {
     const fromGenre = instrumentationFromGenre(genre, rng('instruments'), hasVocal);
-    items = fromGenre.map((t) => ({ instrumentId: t.instrumentId, role: t.role, ...(t.function ? { function: t.function } : {}) }));
+    const base = fromGenre.map((t) => ({ instrumentId: t.instrumentId, role: t.role, ...(t.function ? { function: t.function } : {}) }) as Item);
+    for (const it of items) if (!base.some((b) => b.instrumentId === it.instrumentId)) base.push(it);
+    items = base;
   } else if (hasVocal && !items.some((i) => i.instrumentId === 'lead-vocal')) {
     items.unshift({ instrumentId: 'lead-vocal', role: 'vocal', function: 'melody' });
   }
@@ -1087,7 +1104,7 @@ export function parsePromptToBlueprint(prompt: string, opts: { seed?: number; cu
 
   // --- Macros ---------------------------------------------------------------------------------
   const macros: MacroSettings = { ...defaultMacros(), ...(genre.macros ?? {}) };
-  const allMoodWords = [...moods.global, ...[...moods.bySection.values()].flat()];
+  const allMoodWords = moods.mentions;
   const arousal = allMoodWords.length ? allMoodWords.reduce((t, m) => t + m.arousal, 0) / allMoodWords.length : null;
   if (arousal !== null) macros.energy = clamp01(lerp(macros.energy, arousal, 0.5));
   if (moods.globalEnergy) macros.energy = clamp01(macros.energy + moods.globalEnergy * 0.12);

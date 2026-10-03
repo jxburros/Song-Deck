@@ -1,5 +1,6 @@
 import {
   createProposal,
+  getInstrument,
   findSection,
   findTrack,
   randomSeed,
@@ -10,13 +11,13 @@ import {
   type Song,
 } from '@songdeck/core';
 import { useStudio } from '../state/store';
-import { useSettings } from '../state/settings';
+import { allCustomInstruments } from './plugins';
 
 type RegenerateOp = Extract<MusicOperation, { op: 'regenerate' }>;
 
 /** Executes `regenerate` operations with the deterministic composer, honoring locks. */
 export function regenerateForOp(song: Song, op: RegenerateOp): Song {
-  const customInstruments = useSettings.getState().customInstruments;
+  const customInstruments = allCustomInstruments(useStudio.getState().project?.meta.customInstruments);
   const track = op.track ? findTrack(song, op.track) : undefined;
   const sectionIds = (op.sections ?? []).map((s) => findSection(song, s)?.id).filter((x): x is string => !!x);
   const range = op.region ? regionToTicks(song, op.region) : undefined;
@@ -43,11 +44,13 @@ export interface ProposalMeta {
 export function buildProposal(song: Song, ops: MusicOperation[], meta: ProposalMeta): Proposal {
   const project = useStudio.getState().project;
   const head = project?.history.branches.find((b) => b.id === project.history.currentBranchId)?.headRevisionId;
+  const customInstruments = allCustomInstruments(project?.meta.customInstruments);
   return createProposal(song, ops, {
     ...meta,
     baseRevisionId: head,
     regenerate: regenerateForOp,
-    customInstruments: useSettings.getState().customInstruments,
+    customInstruments,
+    resolveInstrument: (id: string) => getInstrument(id, customInstruments),
   });
 }
 

@@ -81,7 +81,7 @@ function buildProposal(before: Song, after: Song, operations: MusicOperation[], 
  * Repair MIDI-invalid data in a whole song (proposals from providers that return full songs):
  * non-finite notes removed, pitches folded into 0–127, velocities clamped, durations ≥ 1, notes sorted.
  */
-export function sanitizeSong(song: Song, issues: IssueList): Song {
+export function repairInvalidNotes(song: Song, issues: IssueList): Song {
   for (const t of song.tracks ?? []) {
     if (!Array.isArray(t.notes)) {
       t.notes = [];
@@ -128,7 +128,7 @@ export function proposalFromSongs(
   let candidate = cloneSong(after);
   const autoFix = meta.autoFix !== false;
   const respectLocks = meta.respectLocks !== false;
-  if (autoFix) candidate = sanitizeSong(candidate, issues);
+  if (autoFix) candidate = repairInvalidNotes(candidate, issues);
   if (respectLocks && autoFix) {
     const r = restoreLockedMaterial(before, candidate);
     if (r.restored) {
