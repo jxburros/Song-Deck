@@ -68,6 +68,7 @@ const DEFAULTS: StudioSettings = {
 interface SettingsState extends StudioSettings {
   update(patch: Partial<StudioSettings>): void;
   upsertProvider(config: ProviderConfig): void;
+  allowProviderRequests(id: string): void;
   removeProvider(id: string): void;
 }
 
@@ -89,16 +90,35 @@ export const useSettings = create<SettingsState>((set, get) => ({
     persist(get());
   },
   removeProvider(id) {
-    set({ providers: get().providers.filter((p) => p.id !== id) });
+    const { routing } = get();
+    set({
+      providers: get().providers.filter((p) => p.id !== id),
+      routing: {
+        ...routing,
+        trustedProviderIds: routing.trustedProviderIds?.filter((p) => p !== id),
+      },
+    });
+    persist(get());
+  },
+  allowProviderRequests(id) {
+    if (!get().providers.some((p) => p.id === id && p.enabled)) return;
+    const { routing } = get();
+    set({
+      routing: {
+        ...routing,
+        trustedProviderIds: [...new Set([...(routing.trustedProviderIds ?? []), id])],
+      },
+    });
     persist(get());
   },
 }));
 
 function persist(s: SettingsState) {
-  const { update: _u, upsertProvider: _a, removeProvider: _r, ...data } = s;
+  const { update: _u, upsertProvider: _a, removeProvider: _r, allowProviderRequests: _d, ...data } = s;
   void _u;
   void _a;
   void _r;
+  void _d;
   localSet('settings', data);
 }
 

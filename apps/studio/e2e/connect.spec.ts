@@ -118,6 +118,29 @@ async function fakeGemini(page: Page, seen: string[]): Promise<void> {
         headers: { ...CORS, 'content-type': 'application/json' },
         json: GEMINI_MODELS,
       });
+    if (req.url().endsWith(':generateContent'))
+      return route.fulfill({
+        status: 200,
+        headers: { ...CORS, 'content-type': 'application/json' },
+        json: {
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      explanation: 'Gemini is working with your song.',
+                      confidence: 0.9,
+                      operations: [],
+                    }),
+                  },
+                ],
+              },
+              finishReason: 'STOP',
+            },
+          ],
+        },
+      });
     return route.fulfill({ status: 404, headers: CORS, body: '{}' });
   });
 }
@@ -175,7 +198,64 @@ async function storageDump(page: Page): Promise<string> {
   });
 }
 
-test('connect Gemini with a pasted key, keep it across reloads, use it in a role picker', async ({
+test('connect text and audio models in two clicks without changing routing', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'songdeck:settings',
+      JSON.stringify({
+        serverUrl: 'http://127.0.0.1:9',
+        routing: { mode: 'manual', profileId: 'local-only' },
+      }),
+    ),
+  );
+  await fakeGemini(page, []);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Connect an AI service' }).click();
+  const dialog = page.getByTestId('connect-service');
+  await dialog.getByLabel('API key').fill(KEY);
+  await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
+  await expect(dialog.getByTestId('connect-models')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Connect and use', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('provider-gemini')).toContainText('Key in browser');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('songdeck:settings')!));
+  expect(saved.providers[0]).toMatchObject({
+    enabled: true,
+    defaultModel: 'gemini-2.5-pro',
+    enabledModels: ['gemini-2.5-pro', 'lyria-3-clip-preview'],
+  });
+  expect(saved.routing).toMatchObject({
+    mode: 'manual',
+    profileId: 'local-only',
+    trustedProviderIds: ['gemini'],
+  });
+});
+
+test('offline setup can be enabled directly in the connect dialog', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'songdeck:settings',
+      JSON.stringify({
+        serverUrl: 'http://127.0.0.1:9',
+        routing: { offline: true },
+      }),
+    ),
+  );
+  const seen: string[] = [];
+  await fakeGemini(page, seen);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Connect an AI service' }).click();
+  const dialog = page.getByTestId('connect-service');
+  await dialog.getByLabel('API key').fill(KEY);
+  await expect(dialog).toContainText('Offline mode is on.');
+  expect(seen).toEqual([]);
+  await dialog.getByRole('button', { name: 'Turn off offline mode and connect' }).click();
+  await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
+  await dialog.getByTestId('connect-add').click();
+  await expect(page.getByTestId('provider-gemini')).toContainText('Key in browser');
+});
+
+test('connect Gemini with a pasted key, keep it across reloads, and generate without extra setup', async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -206,6 +286,8 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
 
   // The real key: recognised, checked, models grouped by use with recommendations ticked.
   await dialog.getByLabel('API key').fill(`GEMINI_API_KEY="${KEY}"`);
+  await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
+  await dialog.getByRole('button', { name: 'Choose models (optional)' }).click();
   const models = dialog.getByTestId('connect-models');
   await expect(models).toContainText('Key accepted');
   const writing = dialog.getByTestId('connect-group-writing');
@@ -230,6 +312,7 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
   await page.screenshot({ path: `${SHOTS}/connect-e2e-models.png` });
 
   // "Found on this machine": Ollama answers, everything else is closed.
+  await dialog.getByText('Use a local model (optional)').click();
   await dialog.getByRole('button', { name: 'Scan this machine' }).click();
   await expect(dialog.getByTestId('local-ollama')).toContainText('qwen3:8b');
 
@@ -250,6 +333,10 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
     '"enabledModels":["gemini-2.5-pro","lyria-3-clip-preview","gemini-2.5-flash"]',
   );
   expect(settingsJson).toContain('"credentialRef":"provider:gemini"');
+  expect(JSON.parse(settingsJson).routing).toMatchObject({
+    mode: 'automatic',
+    trustedProviderIds: ['gemini'],
+  });
 
   // One click adds the local Ollama found on this machine.
   await page.getByTestId('local-services-panel').getByRole('button', { name: 'Scan this machine' }).click();
@@ -294,6 +381,14 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
   await page.locator('.right-tabs .tab', { hasText: 'AI Edit' }).click();
   const picker = page.locator('.right-body').getByLabel('Provider');
   await expect(picker.locator('option', { hasText: 'Google Gemini · cloud' })).toHaveCount(1);
+  await expect(picker).toHaveValue('auto');
+  await picker.selectOption({ label: 'Google Gemini · cloud' });
+  const generated = page.waitForRequest((r) => r.url().endsWith(':generateContent'));
+  await page.getByLabel('Edit instruction').fill('Make the melody more playful.');
+  await page.getByRole('button', { name: 'Propose change' }).click();
+  expect((await generated).url()).toContain('gemini-2.5-pro');
+  await expect(page.locator('.right-body')).toContainText('Gemini is working with your song.');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await picker.selectOption({ label: 'Google Gemini · cloud' });
   await expect(picker).toHaveValue('gemini');
 

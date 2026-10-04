@@ -85,7 +85,7 @@ export default function PrivacyTab() {
         icon="shield"
         title="Privacy"
         spec="§50 §51"
-        lede="Decide what may leave this device. Every AI request shows a data-flow indicator before it is sent; offline mode makes cloud features simply unavailable while the on-device engine keeps working."
+        lede="Connected services can run without repeated prompts. Manage permissions here, or turn on offline mode to keep requests on this device."
       />
 
       <Panel title="Offline mode" icon="shield" testId="offline-panel">
@@ -133,6 +133,31 @@ export default function PrivacyTab() {
             </div>
           </div>
         </div>
+      </Panel>
+
+      <Panel
+        title="Connected service permissions"
+        icon="plug"
+        sub="Connect and use allows routine requests to that service. Always ask overrides these permissions."
+      >
+        {cloud.length ? (
+          cloud.map((p) => (
+            <Toggle
+              key={p.id}
+              on={routing.trustedProviderIds?.includes(p.id) ?? false}
+              onChange={(allowed) =>
+                setRouting({
+                  trustedProviderIds: allowed
+                    ? [...new Set([...(routing.trustedProviderIds ?? []), p.id])]
+                    : (routing.trustedProviderIds ?? []).filter((id) => id !== p.id),
+                })
+              }
+              label={`Allow ${p.name} without routine prompts`}
+            />
+          ))
+        ) : (
+          <div className="small muted">No cloud services connected yet.</div>
+        )}
       </Panel>
 
       <Panel

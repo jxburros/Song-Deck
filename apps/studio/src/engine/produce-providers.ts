@@ -27,6 +27,7 @@ import { useRuntime } from './runtime';
 import { serverBase, useSettings } from '../state/settings';
 import { useStudio } from '../state/store';
 import { planStrategy, type PlanContext, type StrategyPlan } from './produce-model';
+import { dataFlowRightsWarning } from './rights';
 
 /**
  * Production providers (spec §30, §31, §59-§61): which provider a production uses, what it can do
@@ -255,9 +256,13 @@ function confirmationNeeded(
   const d = providerId ? describeProvider(providerId) : undefined;
   if (!d) return false;
   const mode = useSettings.getState().routing?.privacyConfirm ?? DEFAULT_ROUTING_SETTINGS.privacyConfirm;
-  return needsPrivacyConfirmation(
-    mode,
-    describeDataFlow({ dataKinds, role }, { providerId: d.id, providerName: d.name, location: d.location }),
+  const flow = describeDataFlow(
+    { dataKinds, role },
+    { providerId: d.id, providerName: d.name, location: d.location },
+  );
+  return (
+    needsPrivacyConfirmation(mode, flow, useSettings.getState().routing.trustedProviderIds) ||
+    !!dataFlowRightsWarning(useStudio.getState().project, flow)
   );
 }
 

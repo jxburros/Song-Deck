@@ -250,8 +250,8 @@ export default function ProvidersTab() {
         }
       />
 
-      <div className={`callout ${vaultActive ? 'success' : 'warning'} st-keys-callout`}>
-        <Icon name={vaultActive ? 'shield' : 'alert'} size={14} />
+      <div className="callout st-keys-callout">
+        <Icon name="key" size={14} />
         {vaultActive ? (
           <span>
             Keys are stored by the local server ({vaultBackend ?? 'vault'}) and injected server-side through
@@ -263,11 +263,7 @@ export default function ProvidersTab() {
             requests go straight from the browser.
           </span>
         ) : (
-          <span>
-            Browser-only mode: keys are stored encrypted in this browser (they survive reloads, never enter
-            settings or projects). Start the local server (<code>npx tsx apps/server/src/cli.ts</code>) to
-            keep them in the OS keychain instead.
-          </span>
+          <span>Keys are saved encrypted in this browser and are ready to use after reload.</span>
         )}
       </div>
       {browserKeys.length > 0 && (
@@ -424,6 +420,9 @@ function ProviderCard({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const routing = useSettings((s) => s.routing);
+  const allowRequests = useSettings((s) => s.allowProviderRequests);
+  const allowed = routing.trustedProviderIds?.includes(config.id) ?? false;
   const preset = getPreset(config.presetId);
   const needsKey = config.auth.type !== 'none' && keyWhere === 'none';
   const status = !config.enabled
@@ -494,6 +493,16 @@ function ProviderCard({
       {summary?.error && config.enabled && <div className="small st-provider-error">{summary.error}</div>}
       {err && <div className="small st-provider-error">{err}</div>}
       {note && !err && <div className="small muted">{note}</div>}
+      {config.location === 'cloud' && !allowed && (
+        <Button
+          size="sm"
+          onClick={() => allowRequests(config.id)}
+          disabled={!config.enabled || blocked || (config.auth.type !== 'none' && !keyWhere) || needsKey}
+          title="Allow requests to this service without routine permission prompts"
+        >
+          Allow requests
+        </Button>
+      )}
       <div className="st-provider-foot">
         <span
           className="small muted"

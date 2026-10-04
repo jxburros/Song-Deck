@@ -37,6 +37,29 @@ function orchestratorFor(
 }
 
 describe('Orchestrator', () => {
+  it('runs connected services without routine prompts but still asks for other providers and explicit checks', async () => {
+    const w = makeWorld({ privacyConfirm: 'cloud', trustedProviderIds: ['gemini'] });
+    const confirm = vi.fn(async () => true);
+    const orch = orchestratorFor(w, { confirm });
+    const ctx = buildMusicContext(makeSong(), { instruction: 'x' });
+    await orch.explain({ context: ctx }, { providerId: 'gemini' });
+    expect(confirm).not.toHaveBeenCalled();
+    await orch.explain({ context: ctx }, { providerId: 'anthropic' });
+    expect(confirm).toHaveBeenCalledTimes(1);
+    w.settings.privacyConfirm = 'always';
+    await orch.explain({ context: ctx }, { providerId: 'gemini' });
+    expect(confirm).toHaveBeenCalledTimes(2);
+    w.settings.privacyConfirm = 'cloud';
+    await orchestratorFor(w, { confirm, forceConfirm: () => true }).explain(
+      { context: ctx },
+      { providerId: 'gemini' },
+    );
+    expect(confirm).toHaveBeenCalledTimes(3);
+    w.settings.trustedProviderIds = [];
+    await orch.explain({ context: ctx }, { providerId: 'gemini' });
+    expect(confirm).toHaveBeenCalledTimes(4);
+  });
+
   it('routes, executes and returns provenance + data flow', async () => {
     const w = makeWorld({ priorities: { quality: 1, cost: 0, latency: 0 } });
     const orch = orchestratorFor(w);

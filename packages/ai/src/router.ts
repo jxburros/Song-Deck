@@ -48,6 +48,8 @@ export interface RoutingSettings {
   /** Relative weights for automatic routing. */
   priorities: { quality: number; cost: number; latency: number };
   privacyConfirm: PrivacyConfirmMode;
+  /** Connected providers allowed to run without routine cloud confirmation. Always-ask still wins. */
+  trustedProviderIds?: string[];
   /** When an assigned provider is unavailable, use the internal engine if it can do the task (default true). */
   fallbackToInternal?: boolean;
 }

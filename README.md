@@ -91,7 +91,11 @@ and `SHA256SUMS.txt`. Existing older installations need a one-time manual upgrad
   sections, and a live playhead, with click-to-seek and a keyboard-accessible seek control.
 - **Project tools** group the workbench, track generation/transcription, production, vocals, mixing,
   and export beneath the project timeline.
-- **Connect an AI service** in Settings → Providers. Keys stay in the local server's vault or,
+- **Connect an AI service** from Home or Settings → Providers: paste a service API key and click
+  **Connect and use**. Song Deck validates the key and enables recommended text and audio models for
+  compatible tasks without repeated permission prompts. Connecting preserves your routing preferences;
+  model choices are optional. Existing connections have an **Allow requests** shortcut. Permissions
+  can be changed in Settings → Privacy. Keys stay in the local server's vault or,
   without it, encrypted in the browser ([`docs/CREDENTIALS.md`](./docs/CREDENTIALS.md)).
 - Uploaded audio uses the existing rights attestation flow; see [`docs/RIGHTS.md`](./docs/RIGHTS.md).
 

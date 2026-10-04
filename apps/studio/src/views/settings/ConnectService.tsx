@@ -31,7 +31,7 @@ import { LocationBadge, errorMessage } from './ui';
  *  1. Paste a key → the provider is recognised from the key format (or picked from a short list).
  *  2. The key is checked live and every model the account can use is listed, grouped by what it
  *     can do in Song Deck; the best model per use is pre-ticked.
- *  3. "Add" creates or updates the provider (enabled, chosen models, default model) and stores the
+ *  3. "Connect and use" enables the recommended models, allows requests to the service and stores the
  *     key: in the local server's vault when it runs, otherwise encrypted in this browser.
  *
  * Local servers found on this machine are listed alongside, each with a one-click Add.
@@ -88,10 +88,10 @@ export function ConnectServiceModal({
               onAdvanced={onAdvanced}
               offline={offline}
             />
-            <section className="st-connect-local">
-              <h3>Found on this machine</h3>
+            <details className="st-connect-local">
+              <summary>Use a local model (optional)</summary>
               <LocalServicesList compact />
-            </section>
+            </details>
             <div className="small dim">
               Need something else — a custom endpoint, a remote GPU box, Vertex AI?{' '}
               <button type="button" className="linklike" onClick={() => onAdvanced('')}>
@@ -131,6 +131,7 @@ function KeyConnect({
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
+  const [customize, setCustomize] = useState(false);
   const [adding, setAdding] = useState(false);
   const abort = useRef<AbortController | null>(null);
 
@@ -177,7 +178,7 @@ function KeyConnect({
     if (!certain || detection.problem || offline) return;
     const t = setTimeout(() => void check(certain, detection.key), 350);
     return () => clearTimeout(t);
-  }, [certain, detection.key, detection.problem, offline, check]);
+  }, [certain, presetId, detection.key, detection.problem, offline, check]);
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -192,20 +193,21 @@ function KeyConnect({
         probe: phase.result,
         existing,
       });
-      upsertProvider(config);
-      await syncProvidersNow();
       const where = await saveCredential(
         config.credentialRef ?? defaultCredentialRef(id),
         detection.key,
         `${preset.name} ${preset.credentialLabel ?? 'API key'}`,
       );
+      upsertProvider(config);
+      useSettings.getState().allowProviderRequests(id);
+      await syncProvidersNow();
       // Fill model pickers right away (the registry was rebuilt with the new config).
       void getRegistry()
         .discoverModels(id, { force: true })
         .catch(() => undefined);
       toast(
         where === 'session' ? 'warning' : 'success',
-        `${existing ? 'Updated' : 'Connected'} ${preset.name} — ${selected.size} model${selected.size === 1 ? '' : 's'} ready.${where === 'session' ? ' This browser cannot store the key: it is forgotten on reload.' : ''}`,
+        `${preset.name} is ready — ${selected.size} model${selected.size === 1 ? '' : 's'} available.${where === 'session' ? ' This browser cannot store the key: it is forgotten on reload.' : ''}`,
       );
       onDone();
     } catch (err) {
@@ -217,8 +219,8 @@ function KeyConnect({
 
   const storage =
     server === 'online' && useServerProxy
-      ? `The key goes to the local Song Deck server (${vaultBackend === 'keychain' ? 'OS keychain' : (vaultBackend ?? 'vault')}); this page never keeps it.`
-      : 'The key is stored encrypted in this browser (it survives reloads; start the local server to keep keys in the OS keychain instead).';
+      ? `Key saved in your local ${vaultBackend === 'keychain' ? 'OS keychain' : 'server vault'}.`
+      : 'Key saved encrypted in this browser for next time.';
 
   return (
     <section className="st-connect-key">
@@ -235,12 +237,14 @@ function KeyConnect({
           autoFocus
           placeholder="AIza…, sk-ant-…, sk-proj-…, gsk_…, sk_…"
           value={raw}
+          disabled={adding}
           onChange={(e) => setRaw(e.target.value)}
           aria-label="API key"
         />
         {!certain && (
           <Select
             value={presetId}
+            disabled={adding}
             onChange={setPicked}
             options={[
               {
@@ -265,7 +269,7 @@ function KeyConnect({
       </div>
       <div className="small dim st-connect-hint" data-testid="connect-detected">
         {raw.trim() === '' ? (
-          'Song Deck recognises the service from the key and lists the models you can use. Nothing is saved until you click Add.'
+          'Paste your key, then click Connect and use. Song Deck picks the models and sets up AI for you.'
         ) : detection.problem ? (
           detection.problem
         ) : detection.unsupported ? (
@@ -282,8 +286,16 @@ function KeyConnect({
       </div>
       {offline && (
         <div className="callout warning">
-          <Icon name="shield" size={14} /> Offline mode is on: nothing is sent to cloud services. Turn it off
-          under Privacy to connect one.
+          <Icon name="shield" size={14} /> Offline mode is on.
+          <Button
+            size="sm"
+            onClick={() => {
+              const s = useSettings.getState();
+              s.update({ routing: { ...s.routing, offline: false } });
+            }}
+          >
+            Turn off offline mode and connect
+          </Button>
         </div>
       )}
 
@@ -306,13 +318,37 @@ function KeyConnect({
       )}
       {phase.kind === 'ok' && preset && (
         <>
-          <ModelChooser
-            result={phase.result}
-            selected={selected}
-            onChange={setSelected}
-            showAll={showAll}
-            onShowAll={setShowAll}
-          />
+          <div className="callout success" role="status" data-testid="connect-ready">
+            <strong>Key accepted — {preset.name} is ready.</strong>
+            <div className="small">
+              {selected.size} model{selected.size === 1 ? '' : 's'} selected for{' '}
+              {[
+                ...new Set(
+                  phase.result.models
+                    .filter((m) => selected.has(m.id))
+                    .flatMap((m) => groupModels([m]).groups.map((g) => g.label.toLowerCase())),
+                ),
+              ].join(', ') || 'Song Deck'}
+              .
+            </div>
+          </div>
+          <Button size="sm" variant="ghost" disabled={adding} onClick={() => setCustomize(!customize)}>
+            {customize ? 'Hide model choices' : 'Choose models (optional)'}
+          </Button>
+          {customize && (
+            <ModelChooser
+              result={phase.result}
+              selected={selected}
+              onChange={setSelected}
+              showAll={showAll}
+              onShowAll={setShowAll}
+            />
+          )}
+          <p className="small muted">
+            Connect and use enables the selected models for compatible tasks. Requests to {preset.name}
+            run without routine permission prompts; API usage is billed to your account. Permissions can be
+            changed in Settings. Existing upload restrictions, budgets and “Always ask” still apply.
+          </p>
           <div className="small dim">
             <Icon name="lock" size={12} /> {storage}
           </div>
@@ -326,9 +362,7 @@ function KeyConnect({
               disabled={!selected.size || adding}
               data-testid="connect-add"
             >
-              {adding
-                ? 'Adding…'
-                : `${existing ? 'Update' : 'Add'} ${preset.name}${selected.size ? ` (${selected.size} model${selected.size === 1 ? '' : 's'})` : ''}`}
+              {adding ? 'Connecting…' : 'Connect and use'}
             </Button>
           </div>
         </>
