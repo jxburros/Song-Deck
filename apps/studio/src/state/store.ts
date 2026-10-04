@@ -64,6 +64,7 @@ export type Mode =
   | 'compose'
   | 'workbench'
   | 'generate'
+  | 'expand'
   | 'transcribe'
   | 'rebuild'
   | 'produce'

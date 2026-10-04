@@ -242,8 +242,11 @@ export function chooseProgression(
   const cands = candidateProgressions(genre, key, kind);
   const scored: { chords: ChordSpec[]; w: number }[] = [];
   const add = (chords: ChordSpec[], w: number) => scored.push({ chords, w });
+  // Normalize catalog mass before adding section-specific alternatives (e.g. chorus rotations).
+  // Catalog size and arbitrary weight scales must not change the strength of those priors.
+  const mass = cands.reduce((sum, c) => sum + Math.max(0, c.weight), 0) || 1;
   for (const c of cands) {
-    let w = c.weight;
+    let w = (Math.max(0, c.weight) / mass) * 10;
     const first = c.chords[0];
     const last = c.chords[c.chords.length - 1];
     switch (kind) {
@@ -547,6 +550,18 @@ export function expandHarmony(
 export function slotsPerBarFor(harmonyLength: number, bars: number): number {
   if (bars <= 0 || harmonyLength <= bars) return 1;
   return Math.max(1, Math.ceil(harmonyLength / bars));
+}
+
+/** Blueprint moods also contain display statements such as "Dark bridge". Those are local. */
+export function globalMoodDarkness(moods: readonly string[]): number {
+  return moodDarkness(
+    moods.filter(
+      (m) =>
+        !/\b(?:verses?|chorus(?:es)?|hooks?|refrains?|bridges?|intros?|outros?|endings?|breakdowns?|drops?|builds?|solos?|interludes?)\b/i.test(
+          m,
+        ),
+    ),
+  );
 }
 
 /** Mood words → darkness −1 (bright) … +1 (dark). */

@@ -128,7 +128,7 @@ function chooseTexture(c: Cell): Texture {
     if (
       (kind === 'intro' || kind === 'interlude') &&
       e >= 0.3 &&
-      findSongMotif(c.song, 'riff') &&
+      findSongMotif(c.song, 'riff', c.section.id) &&
       c.rng.chance(0.75)
     )
       return 'riff';
@@ -247,7 +247,7 @@ export function generateRhythmGuitar(c: Cell): RawNote[] {
   if (texture === 'riff') {
     // The riff, re-placed on each bar's chord root: power-chord hits on the root, single-note
     // movement in between, palm-muted chugs; the R guitar doubles it an octave up.
-    const motif = findSongMotif(c.song, 'riff')!;
+    const motif = findSongMotif(c.song, 'riff', c.section.id)!;
     for (const bar of c.bars) {
       const ch = chordAtIn(c.chords, bar.tick);
       const pv = powerVoicing(ch, prevRoot, 0);

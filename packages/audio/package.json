@@ -1,6 +1,6 @@
 {
   "name": "@songdeck/audio",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -13,6 +13,6 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@songdeck/core": "0.2.0"
+    "@songdeck/core": "0.3.0"
   }
 }

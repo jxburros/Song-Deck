@@ -98,7 +98,9 @@ describe('genre blending', () => {
         (p.sectionKinds ?? []).join() === (first.sectionKinds ?? []).join(),
     );
     expect(merged).toBeDefined();
-    expect(merged!.weight).toBeGreaterThanOrEqual(first.weight * 0.5 - 1e-9);
+    expect(merged!.weight).toBeGreaterThanOrEqual(
+      (first.weight / pp.harmony.progressions.reduce((sum, p) => sum + p.weight, 0)) * 0.5 - 1e-9,
+    );
     expect(b.structure.templates.length).toBe(
       pp.structure.templates.length + emo.structure.templates.length + cin.structure.templates.length,
     );

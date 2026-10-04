@@ -1,0 +1,56 @@
+.expand-page {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.expand-controls {
+  display: grid;
+  gap: 20px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.expand-controls .stack {
+  display: grid;
+  gap: 12px;
+}
+.expand-controls h2,
+.expand-controls p {
+  margin: 0;
+}
+.expand-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 2fr) 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+.expand-row.arrangement-row {
+  grid-template-columns: minmax(130px, 1fr) minmax(160px, 1.5fr) minmax(120px, 1fr) 80px auto;
+}
+.expand-options {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
+}
+.expand-row .field,
+.expand-options .field {
+  min-width: 0;
+}
+.expand-row input,
+.expand-row select {
+  width: 100%;
+}
+.expand-error {
+  color: var(--danger);
+  padding: 12px;
+}
+@media (max-width: 850px) {
+  .expand-row,
+  .expand-row.arrangement-row,
+  .expand-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .expand-row {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+  }
+}

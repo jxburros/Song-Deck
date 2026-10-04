@@ -145,8 +145,8 @@ export function mainMelody(c: Cell, opts: { vocal: boolean }): GenOutput {
   const rap = isVocal && !!drumStyleInfo(style).rap && c.kind === 'verse';
   const chorusy =
     c.kind === 'chorus' || c.kind === 'final-chorus' || c.kind === 'post-chorus' || c.kind === 'drop';
-  const motifA = findSongMotif(c.song, 'verse');
-  const motifD = findSongMotif(c.song, 'chorusVocal');
+  const motifA = findSongMotif(c.song, 'verse', c.section.id);
+  const motifD = findSongMotif(c.song, 'chorusVocal', c.section.id);
   const movement = c.avoid.has('large-leaps')
     ? Math.min(0.3, c.macros.melodicMovement)
     : c.macros.melodicMovement;

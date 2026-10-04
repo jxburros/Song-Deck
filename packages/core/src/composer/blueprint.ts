@@ -1144,10 +1144,15 @@ export function parsePromptToBlueprint(
 
   // --- Genres -------------------------------------------------------------------------------
   // --- Tags (style, mood, era, production, vocal, region, rhythm) ------------------------------
-  const tags = findTags(text);
+  let tags = findTags(text);
   const g = parseGenres(lower, opts.customGenres, tags);
   let blend = g.blend;
   const moods = parseMoods(lower);
+  const localMoodTags = new Set(
+    [...moods.bySection.values()].flatMap((ms) => ms.flatMap((m) => findTags(m.mood).map((t) => t.id))),
+  );
+  const globalMoodTags = new Set(moods.global.flatMap((m) => findTags(m.mood).map((t) => t.id)));
+  tags = tags.filter((t) => t.kind !== 'mood' || !localMoodTags.has(t.id) || globalMoodTags.has(t.id));
   const mentions = parseInstruments(lower, g.claimed);
   // Tags apply in order, later ones winning absolute traits (tempo window, groove): the style tags
   // that stand in for the named genre ("deep house") go last.
@@ -1231,8 +1236,8 @@ export function parsePromptToBlueprint(
   // --- Key ----------------------------------------------------------------------------------
   let key = parseKeyText(text);
   if (!key) {
-    const valence = moods.mentions.length
-      ? moods.mentions.reduce((t, m) => t + m.valence, 0) / moods.mentions.length
+    const valence = moods.global.length
+      ? moods.global.reduce((t, m) => t + m.valence, 0) / moods.global.length
       : 0;
     let mode: ModeName;
     if (valence < -0.15) mode = 'minor';
@@ -1728,7 +1733,7 @@ export function parsePromptToBlueprint(
 
   // --- Macros ---------------------------------------------------------------------------------
   const macros: MacroSettings = { ...defaultMacros(), ...(baseGenre.macros ?? {}) };
-  const allMoodWords = moods.mentions;
+  const allMoodWords = moods.global;
   const arousal = allMoodWords.length
     ? allMoodWords.reduce((t, m) => t + m.arousal, 0) / allMoodWords.length
     : null;

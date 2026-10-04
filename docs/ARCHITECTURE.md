@@ -105,6 +105,10 @@ BRANCH_TEMPLATES                                                   // Heavy / Ac
 computeArrangement(song): Record<trackId, sectionId[]>             // orchestration density
 applyMacroTransforms(song, macros, trackId?): Song                 // humanization/dynamics without regeneration
 generateAsset(request: AssetRequest, seed: number): { song: Song; trackId: string }   // Generate MIDI mode
+expandSong(source: Song, request: ExpansionRequest, opts?: ComposeSongOptions): ExpansionResult
+   // Labeled source bar ranges + ordered keep/develop sections; immutable source, seeded development.
+   // Kept sections are locked; returns { song, warnings, preservedSectionIds }.
+   // See docs/MIDI-RESEARCH.md for conditioning, uncertainty, and supported source details.
 ```
 
 ### 3.3 core/musician
@@ -259,7 +263,7 @@ singing HTTP (DiffSinger bridge), transcription/separation/voice-conversion/mast
 - `engine/plugins.ts` — plugin loading and the plugin API (`docs/PLUGINS.md`).
 - `engine/collab.ts`, `collab-render.ts` — collaboration client and distributed stem renders.
 - `engine/midi-input.ts`, `midi-take.ts` — MIDI keyboard capture into the piano roll (§27).
-- `views/*` — one folder per mode (compose, workbench, generate, transcribe, rebuild, produce,
+- `views/*` — one folder per mode (compose, workbench, generate, expand, transcribe, rebuild, produce,
   vocals, mix, export, settings) plus shell and shared components.
 
 ### 3.12 apps/server
