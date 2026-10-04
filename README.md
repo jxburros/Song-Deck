@@ -43,6 +43,33 @@ npm run size           # entry-chunk and first-paint bundle budget (after a buil
 CI runs all of these on every pull request (`.github/workflows/ci.yml`), plus Ruff for the Python
 bridges, CodeQL and dependency review.
 
+## Updating Song Deck
+
+Open **Settings → General → App updates** to check for a stable release, download it, and
+restart the server when you are ready. Start source checkouts with `npm run start:server`;
+release downloads use `node server/songdeck-server.mjs` (or `npm start`). Development mode
+(`npm run dev:server`) can check for releases but cannot install them.
+
+Turn on **Automatically download and install updates on next start** to check at server startup
+and every six hours. It is off by default. Updates are verified against the release's SHA-256
+checksums, staged separately, and activated on the next server start. The app never restarts or
+reloads your studio automatically. Save your work in all tabs before using **Restart to update**;
+once it returns, use **Reload studio**. A build that fails to start rolls back to the previous
+version. Your browser projects, server data, credentials, and settings remain in their existing
+locations. Keep using the same server address and port to retain access to browser storage.
+
+Private repositories require a server-side `SONGDECK_UPDATE_TOKEN` environment variable with
+read access to repository contents. The token is used only for the fixed Song Deck GitHub API
+and is never returned to the studio. Update controls are restricted to connections from the
+server's own computer. Browser-only/static installations use the Releases download link.
+Automatic updates contact GitHub independently of the studio's AI offline setting; turn off the
+update checkbox to stop future downloads. Already staged updates still apply on next start.
+
+The launcher and staged versions live in the installation folder (`.songdeck-updates/`), so that
+folder must be writable. Keep launching the original installation; source files are not rewritten
+when a packaged update is activated. New releases must include the updater-compatible runtime
+and `SHA256SUMS.txt`. Existing older installations need a one-time manual upgrade to this launcher.
+
 ## Making a song
 
 - **Compose** starts with a builder: instruments and how many, genres and how much influence,

@@ -177,7 +177,22 @@ async function main(): Promise<void> {
     process.stdout.write(`${SERVER_VERSION}\n`);
     return;
   }
-  const app = createSongDeckServer(args.options);
+  const managed = process.env.SONGDECK_LAUNCHER === '1' && Boolean(process.send);
+  const app = createSongDeckServer({
+    ...args.options,
+    updates: {
+      installRoot: managed ? process.env.SONGDECK_INSTALL_ROOT : undefined,
+      token: process.env.SONGDECK_UPDATE_TOKEN,
+      restart: managed
+        ? () => {
+            setTimeout(() => {
+              process.send?.('songdeck:restart');
+              void stop('update');
+            }, 250);
+          }
+        : undefined,
+    },
+  });
   let info: { url: string };
   try {
     info = await app.listen();
@@ -200,6 +215,7 @@ async function main(): Promise<void> {
     `  render:    ${app.services.renderNode.available ? `${app.services.renderNode.pool.size} worker(s)` : 'unavailable'}`,
   ];
   console.log(lines.join('\n'));
+  process.send?.('songdeck:ready');
   let stopping = false;
   const stop = async (signal: string) => {
     if (stopping) return;

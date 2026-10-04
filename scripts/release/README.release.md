@@ -27,6 +27,21 @@ node server/songdeck-server.mjs --host 0.0.0.0 --token "$(openssl rand -hex 24)"
 module (macOS Keychain, Windows Credential Manager, Linux Secret Service). Without it, keys are
 kept in an encrypted file in the data directory.
 
+## Updates
+
+Use **Settings → General → App updates** to check, download, and restart to a newer stable
+release. Enable **Automatically download and install updates on next start** to check at startup
+and every six hours. Automatic updates never restart the app during a session. Save your work
+before restarting, then use **Reload studio** after the updated server returns.
+
+Downloads are checksum-verified and kept under `.songdeck-updates/` beside this README; keep
+launching this original folder. A release that fails to start rolls back to the previous version.
+Projects, settings, and server data keep their existing locations. The installation folder must
+be writable. Private repositories need `SONGDECK_UPDATE_TOKEN` set on the server with read access
+to repository contents. Update controls are available only from the server's own computer.
+The update schedule runs independently of the studio's AI offline setting. Disabling automatic
+updates stops future downloads; a downloaded update still applies on the next server start.
+
 ## What is in this folder
 
 | Path                      | What it is                                                                                                                                                                   |
