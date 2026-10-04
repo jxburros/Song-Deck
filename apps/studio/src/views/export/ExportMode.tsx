@@ -1,3 +1,5 @@
+import { SaveLibraryButton } from '../library/SaveLibraryButton';
+import { fileToLibraryDraft } from '../../state/library';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   attestationsNeedingCare,
@@ -923,6 +925,9 @@ function RecentExports({ files }: { files: ReturnType<typeof useExportFiles.getS
                 {new Date(f.createdAt).toLocaleTimeString()}
               </td>
               <td style={{ width: 170, textAlign: 'right' }}>
+                <SaveLibraryButton
+                  file={() => fileToLibraryDraft(new File([f.blob], f.name, { type: f.blob.type }))}
+                />
                 <Button size="sm" icon="download" onClick={() => downloadFile(f)}>
                   Download
                 </Button>

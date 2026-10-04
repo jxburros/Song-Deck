@@ -26,13 +26,17 @@ interface TranscribeSession {
   set(patch: Partial<Omit<TranscribeSession, 'set'>>): void;
 }
 
-export const useTranscribeSession = create<TranscribeSession>((set) => ({
-  options: null,
-  inputTab: 'record',
-  capture: null,
-  taskId: null,
-  runCtx: null,
-  tapView: null,
-  tapSound: 'clap',
-  set: (patch) => set(patch),
-}));
+const createSession = () =>
+  create<TranscribeSession>((set) => ({
+    options: null,
+    inputTab: 'record',
+    capture: null,
+    taskId: null,
+    runCtx: null,
+    tapView: null,
+    tapSound: 'clap',
+    set: (patch) => set(patch),
+  }));
+
+export const useTranscribeSession = createSession();
+export const useSingleTranscribeSession = createSession();

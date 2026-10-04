@@ -25,15 +25,16 @@ import {
   type TranscriptionView,
 } from './model';
 import { tapsToTranscription } from './taps';
-import { useTranscribeSession, type InputTab, type RunContext } from './session';
+import { useTranscribeSession, useSingleTranscribeSession, type InputTab, type RunContext } from './session';
 
-export default function TranscribeMode() {
-  const project = useStudio((s) => s.project);
+export default function TranscribeMode({ standalone = false }: { standalone?: boolean }) {
+  const project = useStudio((s) => (standalone ? null : s.project));
+  const useSession = standalone ? useSingleTranscribeSession : useTranscribeSession;
   const song = project?.song ?? null;
   const st = useStudio.getState();
   const projectBpm = song ? Math.round((song.tempoMap[0]?.bpm ?? 120) * 100) / 100 : null;
   const beatsPerBar = song?.meterMap[0]?.numerator ?? 4;
-  const session = useTranscribeSession();
+  const session = useSession();
   const options: TranscribeOptions = session.options ?? {
     provider: 'auto',
     source: 'humming',
@@ -211,7 +212,7 @@ export default function TranscribeMode() {
             <Icon name="folder" size={11} /> {project.meta.name}
           </Badge>
         ) : (
-          <Badge title="Results can start a new project">No project open</Badge>
+          <Badge>{standalone ? 'Standalone · save or export your result' : 'No project open'}</Badge>
         )}
       </div>
 
@@ -425,6 +426,7 @@ export default function TranscribeMode() {
 
         <div style={{ flex: '2 1 560px', minWidth: 0 }}>
           <ResultPanel
+            standalone={standalone}
             capture={capture}
             view={view}
             task={capture?.origin === 'taps' ? null : task}

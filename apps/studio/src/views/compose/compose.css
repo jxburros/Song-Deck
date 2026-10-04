@@ -284,3 +284,17 @@
     max-height: 260px;
   }
 }
+
+.compose-start-bar {
+  width: 96px;
+  flex: none;
+}
+.compose-input-header > strong {
+  min-width: 150px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .compose-input-header > strong {
+    flex-basis: 100%;
+  }
+}

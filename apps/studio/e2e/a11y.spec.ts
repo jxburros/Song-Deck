@@ -31,7 +31,7 @@ async function setTheme(page: Page, theme: 'dark' | 'light'): Promise<void> {
 test('main screens have no WCAG A/AA violations in either theme', async ({ page }) => {
   test.setTimeout(180_000);
   const found: string[] = [];
-  const nav = page.getByRole('navigation', { name: 'Modes' });
+  const nav = page.getByRole('navigation', { name: 'Project tools' });
   const both = async (label: string) => {
     for (const theme of ['dark', 'light'] as const) {
       await setTheme(page, theme);
@@ -41,7 +41,7 @@ test('main screens have no WCAG A/AA violations in either theme', async ({ page 
   };
 
   await page.goto('/');
-  await expect(page.getByText('AI that gives you the song back.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'AI proposes. You shape it.' })).toBeVisible();
   await both('Home');
 
   await openComposer(page);

@@ -7,7 +7,8 @@ import {
   type AssetRequest,
   type Song,
 } from '@songdeck/core';
-import type { AudioData } from '@songdeck/audio';
+import { encodeWav, type AudioData } from '@songdeck/audio';
+import { SaveLibraryButton } from '../library/SaveLibraryButton';
 import { jobs } from '../../engine/jobs';
 import { previewPlayer, usePreviewId, usePreviewPosition } from '../../engine/capture-playback';
 import { downloadBytes, slugify } from '../../engine/capture-files';
@@ -41,11 +42,15 @@ export function renderAlternative(song: Song): Promise<AudioData> {
 
 export function AlternativeCard({
   alt,
+  standalone = false,
+  output = 'midi',
   hasProject,
   onInsert,
   onOpen,
 }: {
   alt: Alternative;
+  standalone?: boolean;
+  output?: 'midi' | 'audio';
   hasProject: boolean;
   onInsert: (alt: Alternative) => void;
   onOpen: (alt: Alternative) => void;
@@ -81,6 +86,27 @@ export function AlternativeCard({
     }
   };
 
+  const audioFile = async () => ({
+    name: alt.song.title || inst.name,
+    kind: 'audio' as const,
+    assets: [],
+    file: {
+      name: `${slugify(alt.song.title || inst.name)}.wav`,
+      mime: 'audio/wav',
+      bytes: encodeWav(await renderAlternative(alt.song)),
+    },
+  });
+  const exportAudio = async () => {
+    setRendering(true);
+    try {
+      const item = await audioFile();
+      downloadBytes(item.file.bytes, item.file.name, item.file.mime);
+    } catch (e) {
+      useStudio.getState().toast('error', String(e));
+    } finally {
+      setRendering(false);
+    }
+  };
   const exportMidi = () => {
     try {
       const bytes = songToMidi(alt.song);
@@ -178,24 +204,32 @@ export function AlternativeCard({
         <Button size="sm" icon="download" onClick={exportMidi} aria-label={`Export ${alt.label} as MIDI`}>
           Export .mid
         </Button>
+        <Button size="sm" disabled={rendering} onClick={() => void exportAudio()}>
+          Export .wav
+        </Button>
+        {output === 'audio' ? <SaveLibraryButton file={audioFile} /> : <SaveLibraryButton song={alt.song} />}
         <div className="spacer" />
-        <Button
-          size="sm"
-          variant="ai"
-          icon="plus"
-          onClick={() => onInsert(alt)}
-          aria-label={`Insert ${alt.label}`}
-        >
-          {hasProject ? 'Insert into project…' : 'Insert into new project'}
-        </Button>
-        <Button
-          size="sm"
-          icon="folder"
-          onClick={() => onOpen(alt)}
-          aria-label={`Open ${alt.label} as new project`}
-        >
-          Open as new project
-        </Button>
+        {!standalone && (
+          <>
+            <Button
+              size="sm"
+              variant="ai"
+              icon="plus"
+              onClick={() => onInsert(alt)}
+              aria-label={`Insert ${alt.label}`}
+            >
+              {hasProject ? 'Insert into project…' : 'Insert into new project'}
+            </Button>
+            <Button
+              size="sm"
+              icon="folder"
+              onClick={() => onOpen(alt)}
+              aria-label={`Open ${alt.label} as new project`}
+            >
+              Open as new project
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

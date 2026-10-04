@@ -20,7 +20,7 @@ import { COMPOSER_PROVIDER, makeProvenance, type InsertRequest } from '../../eng
 import { AssetRequestForm, sectionChords } from './AssetRequestForm';
 import { AlternativeCard, type Alternative } from './AlternativeCard';
 import { InsertDialog } from './InsertDialog';
-import { useGenerateSession } from './session';
+import { useGenerateSession, useSingleGenerateSession } from './session';
 
 /** The spec's own examples (§25 "Generate MIDI"). */
 const EXAMPLES = [
@@ -31,13 +31,23 @@ const EXAMPLES = [
 
 const LABELS = 'ABCDEFGH';
 
-export default function GenerateMode() {
-  const project = useStudio((s) => s.project);
+export default function GenerateMode({
+  standalone = false,
+  output = 'midi',
+}: {
+  standalone?: boolean;
+  output?: 'midi' | 'audio';
+}) {
+  const project = useStudio((s) => (standalone ? null : s.project));
+  const useSession = standalone ? useSingleGenerateSession : useGenerateSession;
   const song = project?.song ?? null;
   const st = useStudio.getState();
+  const examples = standalone
+    ? [EXAMPLES[0], EXAMPLES[1], 'Generate four alternative bass lines in A minor.']
+    : EXAMPLES;
   const customInstruments = useCustomInstruments();
   const customGenres = useCustomGenres();
-  const session = useGenerateSession();
+  const session = useSession();
   const { prompt, parsedPrompt, request, seed, alternatives, note } = session;
   const setPrompt = (v: string) => session.set({ prompt: v });
   const setRequest = (v: AssetRequest) => session.set({ request: v });
@@ -67,8 +77,9 @@ export default function GenerateMode() {
           info = `Using the chords of “${span.section.name}” (${req.progression.join(' ')}) from the open project.`;
         }
       } else
-        info =
-          'No project is open, so the generator chooses a progression — open a project to generate over its chords.';
+        info = standalone
+          ? 'Set the progression in the asset request below.'
+          : 'No project is open, so the generator chooses a progression — open a project to generate over its chords.';
     }
     session.set({ note: info });
     return req;
@@ -93,7 +104,7 @@ export default function GenerateMode() {
             request: req,
           });
         }
-        useGenerateSession.getState().set({ alternatives: alts });
+        useSession.getState().set({ alternatives: alts });
         requestAnimationFrame(() =>
           resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
         );
@@ -194,7 +205,13 @@ export default function GenerateMode() {
     <div className="mode-page" data-testid="generate-mode">
       <div className="page-header">
         <div className="grow">
-          <h1>Generate MIDI</h1>
+          <h1>
+            {output === 'audio'
+              ? 'Create a single audio track'
+              : standalone
+                ? 'Create a MIDI file'
+                : 'Generate a project track'}
+          </h1>
           <div className="lede">
             Create individual musical assets — a melody, a drum pattern, a bass line — as editable MIDI with a{' '}
             <strong>notation preview</strong> and an <strong>audio preview</strong>. Every alternative is
@@ -223,7 +240,7 @@ export default function GenerateMode() {
             />
           </Field>
           <div className="chip-list">
-            {EXAMPLES.map((ex) => (
+            {examples.map((ex) => (
               <button key={ex} className="chip" onClick={() => setPrompt(ex)}>
                 {ex}
               </button>
@@ -297,7 +314,7 @@ export default function GenerateMode() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(520px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 520px), 1fr))',
                 gap: 12,
               }}
             >
@@ -305,6 +322,8 @@ export default function GenerateMode() {
                 <AlternativeCard
                   key={alt.id}
                   alt={alt}
+                  standalone={standalone}
+                  output={output}
                   hasProject={!!project}
                   onInsert={onInsert}
                   onOpen={(a) => void openAsProject(a)}

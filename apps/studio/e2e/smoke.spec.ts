@@ -10,7 +10,7 @@ test('compose a song, edit it with words, and keep control', async ({ page }) =>
   page.on('pageerror', (e) => errors.push(e.message));
 
   await page.goto('/');
-  await expect(page.getByText('AI that gives you the song back.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'AI proposes. You shape it.' })).toBeVisible();
 
   // Builder → fine-tune the blueprint → plan → MIDI (the long way round; composeQuickSong is the short one).
   await openComposer(page);

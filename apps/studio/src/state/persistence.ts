@@ -12,7 +12,7 @@ import type { Project } from '@songdeck/core';
  */
 
 const DB_NAME = 'songdeck';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export interface ProjectSummary {
   id: string;
@@ -48,9 +48,18 @@ function openDb(): Promise<IDBDatabase> {
           const s = db.createObjectStore('assets', { keyPath: 'id' });
           s.createIndex('projectId', 'projectId');
         }
+        if (!db.objectStoreNames.contains('library')) db.createObjectStore('library', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv', { keyPath: 'key' });
       };
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => {
+        req.result.onversionchange = () => {
+          req.result.close();
+          dbPromise = null;
+        };
+        resolve(req.result);
+      };
+      req.onblocked = () =>
+        reject(new Error('Close other Song Deck tabs and reload to upgrade library storage.'));
       req.onerror = () => reject(req.error);
     });
   }
@@ -180,4 +189,19 @@ export function localSet<T>(key: string, value: T): void {
   } catch {
     /* storage unavailable (private mode) — settings stay in memory */
   }
+}
+
+/** Library data is owned independently of projects, including its binary assets. */
+export async function libraryPut<T>(item: T): Promise<void> {
+  await tx(['library'], 'readwrite', (t) => {
+    t.objectStore('library').put(item);
+  });
+}
+export async function libraryList<T>(): Promise<T[]> {
+  return tx<T[]>(['library'], 'readonly', (t) => t.objectStore('library').getAll());
+}
+export async function libraryDelete(id: string): Promise<void> {
+  await tx(['library'], 'readwrite', (t) => {
+    t.objectStore('library').delete(id);
+  });
 }

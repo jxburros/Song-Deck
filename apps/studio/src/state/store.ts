@@ -59,6 +59,8 @@ export function proposalScope(p: Proposal): Set<string> {
 
 export type Mode =
   | 'home'
+  | 'library'
+  | 'single'
   | 'compose'
   | 'workbench'
   | 'generate'

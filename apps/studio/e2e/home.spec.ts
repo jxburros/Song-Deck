@@ -29,6 +29,6 @@ test('home creation actions remain reachable on phones', async ({ page }) => {
   await page.getByRole('button', { name: 'Start from lyrics', exact: true }).click();
   await expect(page.getByRole('tab', { name: /^Lyrics/ })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('button', { name: 'Song Deck — projects', exact: true }).click();
-  await page.getByRole('button', { name: /Hum an idea/ }).click();
-  await expect(page.getByRole('combobox', { name: 'Studio mode' })).toHaveValue('transcribe');
+  await page.getByRole('button', { name: 'Browse Library', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Studio mode' })).toHaveValue('library');
 });

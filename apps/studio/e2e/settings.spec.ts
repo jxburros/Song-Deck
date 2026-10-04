@@ -509,12 +509,26 @@ test('collaboration: two people in one room — a commit by Alice appears in Bob
   await expect(a.getByTestId('collab-peers')).toContainText('Bob');
 
   // Alice commits (locks the tempo) in the workbench …
-  await a.getByRole('button', { name: /^Workbench/ }).click();
+  await a
+    .getByRole('navigation', { name: 'Modes' })
+    .getByRole('button', { name: 'Compose', exact: true })
+    .click();
+  await a
+    .getByRole('navigation', { name: 'Project tools' })
+    .getByRole('button', { name: 'Workbench', exact: true })
+    .click();
   await a.locator('.right-tabs .tab', { hasText: 'Locks' }).click();
   await a.locator('.right-body .row', { hasText: 'Tempo' }).first().getByRole('button').click();
 
   // … and it reaches Bob's version history.
-  await b.getByRole('button', { name: /^Workbench/ }).click();
+  await b
+    .getByRole('navigation', { name: 'Modes' })
+    .getByRole('button', { name: 'Compose', exact: true })
+    .click();
+  await b
+    .getByRole('navigation', { name: 'Project tools' })
+    .getByRole('button', { name: 'Workbench', exact: true })
+    .click();
   await b.locator('.right-tabs .tab', { hasText: 'History' }).click();
   await expect(b.locator('.right-body')).toContainText('Locked tempo', { timeout: 20_000 });
   await expect(b.locator('.right-body')).toContainText('Alice');

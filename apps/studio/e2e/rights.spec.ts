@@ -98,7 +98,11 @@ function collectErrors(page: Page): string[] {
 const SHOTS = process.env.SHOTS_DIR ?? '/tmp/claude-0';
 
 const modeTab = (page: Page, label: string) =>
-  page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name: new RegExp(`^${label}`) });
+  label === 'Rebuild'
+    ? page.getByRole('button', { name: 'Rebuild a recording', exact: true })
+    : page
+        .getByRole('navigation', { name: 'Project tools' })
+        .getByRole('button', { name: new RegExp(`^${label}`) });
 
 async function openInspector(page: Page) {
   await page.locator('.right-tabs .tab', { hasText: 'Inspector' }).click();
@@ -111,6 +115,8 @@ test('Transcribe: a copyright-tagged upload warns, needs an attestation and is r
   const errors = collectErrors(page);
   const file = { name: 'tagged-melody.wav', mimeType: 'audio/wav', buffer: taggedMelody() };
   await page.goto('/');
+  await page.getByRole('button', { name: 'Empty project', exact: true }).click();
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
   await modeTab(page, 'Transcribe').click();
   await page.getByRole('radio', { name: 'Singing' }).click();
   await page.getByRole('tab', { name: 'Upload' }).click();

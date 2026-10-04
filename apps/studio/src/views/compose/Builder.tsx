@@ -1,3 +1,4 @@
+import { useComposeInputs } from './inputs';
 import { useMemo } from 'react';
 import {
   BUILTIN_GENRES,
@@ -29,7 +30,7 @@ import { ChipPicker, genreItems, instrumentItems, tagItems } from './ChipPicker'
 import { LyricsInput } from './LyricsInput';
 import {
   STARTERS,
-  choicesFromDraft,
+  choicesForStart,
   draftLyrics,
   useComposeSession,
   type ComposeDraft,
@@ -181,7 +182,11 @@ export function Builder({
   );
   const instOf = (id: string) => allInstruments.find((i) => i.id === id);
   const lyrics = useMemo(() => draftLyrics(draft), [draft]);
-  const choices = useMemo(() => choicesFromDraft(draft, lyrics), [draft, lyrics]);
+  const inputs = useComposeInputs((s) => s.inputs);
+  const choices = useMemo(
+    () => choicesForStart(draft, session.lyricsMode, inputs.find((i) => i.item.song)?.item.song),
+    [draft, session.lyricsMode, inputs],
+  );
   const genre = useMemo(() => builderGenre(choices, customGenres), [choices, customGenres]);
   const preview = useMemo(() => {
     try {
