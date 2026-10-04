@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Icon, type IconName } from './icons';
 
 type Variant = 'default' | 'primary' | 'ai' | 'danger' | 'success' | 'ghost';
@@ -320,6 +320,7 @@ export function Modal({
   icon?: IconName;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -330,10 +331,19 @@ export function Modal({
   }, [onClose]);
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" ref={ref} tabIndex={-1}>
+      <div
+        className={`modal ${wide ? 'wide' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        ref={ref}
+        tabIndex={-1}
+      >
         <div className="modal-header">
           {icon && <Icon name={icon} />}
-          <h2 className="grow">{title}</h2>
+          <h2 className="grow" id={titleId}>
+            {title}
+          </h2>
           <Button variant="ghost" icon="close" onClick={onClose} aria-label="Close" />
         </div>
         <div className="modal-body">{children}</div>

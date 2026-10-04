@@ -97,34 +97,7 @@ export function Icon({
   );
 }
 
-/**
- * The Song Deck mark: a fanned deck of cards in the brand colours, the front card carrying a
- * waveform (docs/brand/logo-a.svg; keep public/favicon.svg in step). The brand colours are fixed
- * here, not themed: the ink tile keeps them legible on light and dark surfaces alike.
- */
+/** Vixl-generated stacked music cards; shared with the favicon and app icons. */
 export function BrandMark() {
-  return (
-    <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" rx="14" fill="#121212" />
-      <rect x="20" y="11" width="28" height="38" rx="5" fill="#fdca40" transform="rotate(-20 34 61)" />
-      <rect
-        x="20"
-        y="11"
-        width="28"
-        height="38"
-        rx="5"
-        fill="#32cbff"
-        stroke="#121212"
-        strokeWidth="2"
-        transform="rotate(-5 34 61)"
-      />
-      <g transform="rotate(11 34 61) translate(2 -1)">
-        <rect x="18" y="12" width="28" height="38" rx="5" fill="#ff299c" stroke="#121212" strokeWidth="2" />
-        <rect x="20.5" y="27" width="4" height="10" rx="2" fill="#121212" />
-        <rect x="26.5" y="21" width="4" height="22" rx="2" fill="#121212" />
-        <rect x="32.5" y="24" width="4" height="16" rx="2" fill="#121212" />
-        <rect x="38.5" y="28" width="4" height="8" rx="2" fill="#121212" />
-      </g>
-    </svg>
-  );
+  return <img className="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" />;
 }

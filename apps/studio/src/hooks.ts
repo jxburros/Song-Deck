@@ -67,6 +67,15 @@ export function useHotkeys(map: Record<string, (e: KeyboardEvent) => void>, deps
         (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
       )
         return;
+      // Native controls own Enter/Space. Transport shortcuts must not swallow activation.
+      if (
+        (e.key === 'Enter' || e.key === ' ') &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        t?.closest('button, a[href], [role="button"], [role="tab"]')
+      )
+        return;
       const combo = `${e.metaKey || e.ctrlKey ? 'mod+' : ''}${e.shiftKey ? 'shift+' : ''}${e.key.toLowerCase()}`;
       const fn = map[combo];
       if (fn) {

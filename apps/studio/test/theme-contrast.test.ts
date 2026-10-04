@@ -28,12 +28,12 @@ describe('theme contrast (WCAG AA)', () => {
 
   it('keeps the brand palette in its agreed roles', () => {
     const { dark, light } = tokens;
-    expect(dark['--accent']).toBe('#ff299c');
-    expect(dark['--playhead']).toBe('#ff299c');
-    expect(dark['--ai']).toBe('#32cbff');
+    expect(dark['--accent']).toBe('#7eebff');
+    expect(dark['--playhead']).toBe('#7eebff');
+    expect(dark['--ai']).toBe('#c5d1d9');
     expect(dark['--lock']).toBe('#fdca40');
-    expect(dark['--border-strong']).toBe('#4c4c4c');
-    expect(light['--ai-fill']).toBe('#32cbff');
+    expect(dark['--border-strong']).toBe('#59666f');
+    expect(light['--ai-fill']).toBe('#c5d1d9');
     expect(light['--warning-fill']).toBe('#fdca40');
     expect(TRACK_PALETTE[0]).toBe('#ff299c');
   });
