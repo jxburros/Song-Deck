@@ -144,7 +144,8 @@ describe('Song DNA (§11)', () => {
     expect(dna.tonalCenter).toEqual(song.keyMap[0].key);
     expect(dna.tempo).toBe(song.tempoMap[0].bpm);
     expect(dna.meter).toEqual({ numerator: 4, denominator: 4 });
-    expect(dna.harmonicLanguage.mode).toBe('minor');
+    // A melancholy verse no longer forces the entire song into minor. DNA must capture its actual key.
+    expect(dna.harmonicLanguage.mode).toBe(song.keyMap[0].key.mode);
     const total = Object.values(dna.harmonicLanguage.chordVocabulary).reduce((t, v) => t + v, 0);
     expect(total).toBeCloseTo(1, 2);
     expect(

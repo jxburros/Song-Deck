@@ -18,6 +18,7 @@ const SingleTrackMode = lazy(() => import('./views/single/SingleTrackMode'));
 const Home = lazy(() => import('./views/project/Home'));
 const ComposeMode = lazy(() => import('./views/compose/ComposeMode'));
 const Workbench = lazy(() => import('./views/workbench/Workbench'));
+const ExpandMode = lazy(() => import('./views/expand/ExpandMode'));
 const GenerateMode = lazy(() => import('./views/generate/GenerateMode'));
 const TranscribeMode = lazy(() => import('./views/transcribe/TranscribeMode'));
 const RebuildMode = lazy(() => import('./views/rebuild/RebuildMode'));
@@ -34,6 +35,7 @@ const VIEWS: Record<Mode, React.LazyExoticComponent<React.ComponentType>> = {
   compose: ComposeMode,
   workbench: Workbench,
   generate: GenerateMode,
+  expand: ExpandMode,
   transcribe: TranscribeMode,
   rebuild: RebuildMode,
   produce: ProduceMode,
@@ -53,6 +55,7 @@ const PROJECTLESS: Mode[] = [
   'transcribe',
   'rebuild',
   'compose',
+  'expand',
 ];
 
 export function App() {

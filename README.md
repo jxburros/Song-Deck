@@ -6,6 +6,8 @@
 
 Song Deck creates the _composition_ first — structure, harmony, melodies, rhythms, instrumentation, MIDI, lyrics and musical metadata — and treats audio as a rendering of that composition. Everything is editable, lockable, reproducible by seed, versioned, and exportable. AI providers are interchangeable plug-ins selected by capability; with none configured, the built-in deterministic engine does the job fully offline.
 
+Use **Expand** to import a short MIDI or audio clip, label verse/chorus/hook regions, and build an arrangement from preserved source sections and newly developed material. Preview, vary by seed, export MIDI, or open the result as a new project. See [musical-generation research and expansion limits](./docs/MIDI-RESEARCH.md).
+
 The full product specification lives in [`Song Deck.md`](./Song%20Deck.md). How the code maps onto it is in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), and what each phase delivers (and its honest limits) is in [`docs/PHASES.md`](./docs/PHASES.md).
 
 ## Download

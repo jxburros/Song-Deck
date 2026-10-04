@@ -23,6 +23,7 @@ import {
   expandHarmony,
   flavorFor,
   moodDarkness,
+  globalMoodDarkness,
   snapHarmonicRhythm,
   type PlannedHarmony,
 } from './harmony';
@@ -155,7 +156,7 @@ export function planComposition(blueprint: Blueprint, opts: PlanOptions = {}): C
       ? blueprint.structure
       : defaultBlueprint({ genreBlend: blend }).structure
   ).filter((s) => s.bars > 0);
-  const globalDark = moodDarkness([...(blueprint.moods ?? []), ...sections.flatMap((s) => s.mood ?? [])]);
+  const globalDark = globalMoodDarkness(blueprint.moods ?? []);
   const flavor = flavorFor(genre);
   const hrBase = snapHarmonicRhythm(genre.harmony.harmonicRhythm);
   const powerChords = genre.harmony.powerChords === true;

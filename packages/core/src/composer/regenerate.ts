@@ -32,6 +32,7 @@ import {
   expandHarmony,
   flavorFor,
   moodDarkness,
+  globalMoodDarkness,
   snapHarmonicRhythm,
   type PlannedHarmony,
 } from './harmony';
@@ -131,10 +132,7 @@ export function regenerateChords(
   const macros = effectiveMacros(song);
   const planned: PlannedHarmony = {};
   const groupChords = new Map<HarmonyGroup, ChordSpec[]>();
-  const darkness = moodDarkness([
-    ...(song.blueprint?.moods ?? []),
-    ...song.sections.flatMap((s) => s.mood ?? []),
-  ]);
+  const globalDark = globalMoodDarkness(song.blueprint?.moods ?? []);
   let chords = song.chords.slice();
   spans.forEach((sp, i) => {
     const s = sp.section;
@@ -150,6 +148,10 @@ export function regenerateChords(
       if (grp === 'chorus') planned.chorus = prog;
       if (grp === 'pre') planned.pre = prog;
       if (grp === 'bridge') planned.bridge = prog;
+      const groupMoods = song.sections
+        .filter((section) => harmonyGroupOf(section.kind) === grp)
+        .flatMap((section) => section.mood ?? []);
+      const darkness = groupMoods.length ? moodDarkness(groupMoods) * 0.7 + globalDark * 0.3 : globalDark;
       prog = colorProgression(
         prog,
         key,

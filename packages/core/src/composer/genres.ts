@@ -4920,21 +4920,23 @@ export function blendGenres(weights: GenreWeight[], custom?: GenreProfile[]): Ge
     }
     const gmo = g.modes.reduce((t, m) => t + m.weight, 0) || 1;
     for (const m of g.modes) modes.set(m.mode, (modes.get(m.mode) ?? 0) + (m.weight / gmo) * w);
+    const progressionTotal = g.harmony.progressions.reduce((sum, p) => sum + Math.max(0, p.weight), 0) || 1;
+    const templateTotal = g.structure.templates.reduce((sum, t) => sum + Math.max(0, t.weight), 0) || 1;
     for (const pr of g.harmony.progressions) {
       const k = `${pr.roman.join(' ')}|${(pr.sectionKinds ?? []).join(',')}`;
       const e = progressions.get(k);
-      if (e) e.weight += pr.weight * w;
+      if (e) e.weight += (pr.weight / progressionTotal) * w;
       else
         progressions.set(k, {
           roman: [...pr.roman],
-          weight: pr.weight * w,
+          weight: (pr.weight / progressionTotal) * w,
           ...(pr.sectionKinds ? { sectionKinds: [...pr.sectionKinds] } : {}),
         });
     }
     for (const t of g.structure.templates)
       templates.push({
         name: `${t.name} (${g.name})`,
-        weight: t.weight * w,
+        weight: (t.weight / templateTotal) * w,
         sections: t.sections.map((x) => ({ ...x })),
       });
     const seen = new Map<string, number>();

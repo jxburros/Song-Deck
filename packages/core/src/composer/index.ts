@@ -83,3 +83,12 @@ export {
   type TagKind,
   type TagEffect,
 } from './tags';
+
+export {
+  expandSong,
+  type ExpansionKind,
+  type ExpansionRegion,
+  type ExpansionSection,
+  type ExpansionRequest,
+  type ExpansionResult,
+} from './expand';

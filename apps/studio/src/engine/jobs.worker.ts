@@ -5,7 +5,13 @@
  */
 import * as audio from '@songdeck/audio';
 import type { AudioData } from '@songdeck/audio';
-import type { MasteringSettings, Song } from '@songdeck/core';
+import {
+  expandSong,
+  type ExpansionRequest,
+  type ComposeSongOptions,
+  type MasteringSettings,
+  type Song,
+} from '@songdeck/core';
 import type { RenderInstrumentConfig } from './render-config';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -27,6 +33,7 @@ export type JobMethod =
   | 'synthesizeVocal'
   | 'transcribe'
   | 'rebuild'
+  | 'expand'
   | 'separate'
   | 'analyze'
   | 'fingerprint'
@@ -166,6 +173,10 @@ async function run(req: JobRequest, signal: AbortSignal): Promise<unknown> {
       // Chromaprint fingerprint for the opt-in content check (docs/RIGHTS.md); the audio never leaves.
       const fp = audio.chromaprintFingerprint((req.args as { audio: AudioData }).audio);
       return { fingerprint: fp.fingerprint, durationSeconds: fp.durationSeconds };
+    }
+    case 'expand': {
+      const a = req.args as { source: Song; request: ExpansionRequest; options: ComposeSongOptions };
+      return expandSong(a.source, a.request, a.options);
     }
     case 'rebuild': {
       const a = req.args as { audio: AudioData; title?: string };

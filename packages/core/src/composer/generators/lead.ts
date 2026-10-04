@@ -107,7 +107,7 @@ function placeMotifRepeated(
 }
 
 function hookLine(c: Cell, melody: Note[]): RawNote[] {
-  const motif = findSongMotif(c.song, 'hook');
+  const motif = findSongMotif(c.song, 'hook', c.section.id);
   const center = registerCenter(c, 0.62);
   if (!motif) return counterMelody(c, melody);
   const out = placeMotifRepeated(
@@ -135,7 +135,7 @@ function hookLine(c: Cell, melody: Note[]): RawNote[] {
 
 function counterMelody(c: Cell, melody: Note[]): RawNote[] {
   const out: RawNote[] = [];
-  const motif = findSongMotif(c.song, 'answer');
+  const motif = findSongMotif(c.song, 'answer', c.section.id);
   const above = c.range.comfortableHigh >= 72;
   const center = registerCenter(c, above ? 0.62 : 0.45);
   const chorusy =

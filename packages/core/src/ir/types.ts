@@ -268,6 +268,8 @@ export interface Motif {
   sourceTrackId?: Id;
   /** Section kinds where the motif is primarily used. */
   sectionKinds?: SectionKind[];
+  /** Optional section scope for source-conditioned expansion motifs. */
+  sectionIds?: Id[];
 }
 
 export interface Phrase {

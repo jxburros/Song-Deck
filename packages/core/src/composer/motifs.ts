@@ -741,9 +741,13 @@ export function buildSongMotifs(o: MotifPlanOptions): Motif[] {
 export function findSongMotif(
   song: Pick<Song, 'motifs'>,
   which: keyof typeof MOTIF_DESCRIPTIONS,
+  sectionId?: string,
 ): Motif | undefined {
   const desc = MOTIF_DESCRIPTIONS[which];
-  const byDesc = song.motifs.find((m) => m.description === desc);
+  const motifs = song.motifs.filter(
+    (m) => !m.sectionIds?.length || (sectionId !== undefined && m.sectionIds.includes(sectionId)),
+  );
+  const byDesc = motifs.find((m) => m.description === desc);
   if (byDesc) return byDesc;
   const name = {
     verse: 'Motif A',
@@ -752,5 +756,5 @@ export function findSongMotif(
     chorusVocal: 'Motif D',
     riff: 'Motif E',
   }[which];
-  return song.motifs.find((m) => m.name === name);
+  return motifs.find((m) => m.name === name);
 }

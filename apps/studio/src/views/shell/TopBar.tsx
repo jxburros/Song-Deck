@@ -77,6 +77,12 @@ const MODES: typeof PROJECT_MODES = [
     title: 'Create standalone MIDI or audio; convert audio to MIDI',
   },
   {
+    mode: 'expand',
+    label: 'Expand',
+    icon: 'midi',
+    title: 'Develop a clip into a section-aware MIDI arrangement',
+  },
+  {
     mode: 'library',
     label: 'Library',
     icon: 'book',

@@ -19,7 +19,7 @@ import { PPQ, SONG_SCHEMA_VERSION } from './types';
 import { randomId } from '../util/ids';
 
 /** Version of the deterministic generation engine (spec §23). Bump when generator output changes. */
-export const ENGINE_VERSION = '1.0.0';
+export const ENGINE_VERSION = '1.1.0';
 
 export const PROJECT_FORMAT_VERSION = 1;
 
