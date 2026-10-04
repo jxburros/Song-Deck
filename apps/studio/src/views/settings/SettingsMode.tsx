@@ -39,7 +39,7 @@ const NAV: NavItem[] = [
   { tab: 'nodes', label: 'Render nodes', icon: 'server', hint: 'Distribute stem renders' },
   { tab: 'plugins', label: 'Plugins & profiles', icon: 'layers', hint: 'Plugins, genres, instruments' },
   { tab: 'collab', label: 'Collaboration', icon: 'users', hint: 'Share projects, work together live' },
-  { tab: 'general', label: 'General', icon: 'settings', hint: 'Theme, server, storage, about' },
+  { tab: 'general', label: 'General', icon: 'settings', hint: 'Updates, theme, server, storage, about' },
 ];
 
 function NavMeta({ tab }: { tab: SettingsTab }): ReactNode {

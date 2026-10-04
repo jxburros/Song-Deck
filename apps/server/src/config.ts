@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { DEFAULT_LOCAL_SERVICE_TARGETS, type LocalServiceTarget } from '@songdeck/ai';
 import type { CredentialVault, KeychainModuleLoader, VaultPreference } from './vault/types';
 import type { CommandRunner, HardwareInfo } from './hardware';
+import type { UpdateOptions } from './updates';
 import { createLogger, type Logger, type LogLevel } from './logger';
 
 export const SERVER_NAME = 'songdeck-server';
@@ -112,6 +113,7 @@ export interface ProxyOptions {
 }
 
 export interface ServerOptions {
+  updates?: UpdateOptions;
   /** TCP port (default 7788; 0 = ephemeral). */
   port?: number;
   /** Bind address (default 127.0.0.1). A non-loopback host requires `token`. */

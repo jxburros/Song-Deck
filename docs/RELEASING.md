@@ -65,3 +65,16 @@ npm run release:package                                   # → dist/release/
 npm run release:smoke -- dist/release/song-deck-0.1.0.tar.gz
 node scripts/release/notes.mjs 0.1.0                      # the release notes
 ```
+
+## In-app updater contract
+
+The full ZIP includes a stable `server/songdeck-server.mjs` launcher and the bundled
+`server/songdeck-runtime.mjs`, render worker, studio, and matching root `package.json`.
+Do not remove these paths or `SHA256SUMS.txt`: the updater validates the archive before staging
+it. Only stable releases newer than the running server are offered; prereleases are excluded.
+The launcher activates a pending release at startup, commits it after the runtime reports ready,
+and falls back to the previous runtime if startup fails. The original launcher stays in place,
+so future runtime releases must retain the `songdeck:ready` / `songdeck:restart` IPC contract.
+
+Verify both the source launcher (`npm run start:server -- --version`) and the packaged launcher
+(`npm run release:smoke -- dist/release/song-deck-<version>.zip`) before publishing.

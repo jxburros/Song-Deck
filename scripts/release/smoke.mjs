@@ -122,6 +122,9 @@ async function main() {
     health.name === 'songdeck-server' && health.version === version,
     `/api/health reports songdeck-server ${version}`,
   );
+  const updates = await fetch(`${url}/api/updates`).then((r) => r.json());
+  check(updates.supported === true && updates.automatic === false, 'launcher enables opt-in app updates');
+
   check(
     ['static', 'plugins', 'render-node', 'collab', 'vault'].every((f) => health.features.includes(f)),
     'static studio, plugins, render node, collaboration and vault are enabled',

@@ -8,6 +8,7 @@ import { disconnectCollab } from '../../engine/collab';
 import { Badge, Button, CommitText, Field, Select, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import studioPkg from '../../../package.json';
+import UpdatesPanel from './UpdatesPanel';
 import { describeVaultBackend, vaultInfo, type VaultInfo } from './api';
 import { ConfirmModal, Panel, Segmented, TabHeader, bytesLabel, timeAgo } from './ui';
 
@@ -105,6 +106,8 @@ export default function GeneralTab() {
         title="General"
         lede="Appearance, your name, the local Song Deck server and its keychain vault, export defaults, storage on this device."
       />
+
+      <UpdatesPanel />
 
       <div className="st-two">
         <Panel title="Appearance & identity" icon="eye">

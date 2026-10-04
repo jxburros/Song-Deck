@@ -95,7 +95,7 @@ const shared = {
 const server = await esbuild.build({
   ...shared,
   entryPoints: [path.join(ROOT, 'apps/server/src/cli.ts')],
-  outfile: path.join(STAGE, 'server/songdeck-server.mjs'),
+  outfile: path.join(STAGE, 'server/songdeck-runtime.mjs'),
 });
 // The pool loads ./worker-entry.mjs next to the server; in the monorepo that file registers tsx
 // first, here the worker is already plain JavaScript.
@@ -115,8 +115,10 @@ const worker = await esbuild.build({
   outfile: path.join(STAGE, 'server/worker-entry.mjs'),
 });
 // The CLI's shebang asks for tsx; the bundle runs on plain Node.
-const serverFile = path.join(STAGE, 'server/songdeck-server.mjs');
+const serverFile = path.join(STAGE, 'server/songdeck-runtime.mjs');
 writeFileSync(serverFile, readFileSync(serverFile, 'utf8').replace(/^#![^\n]*\n/, '#!/usr/bin/env node\n'));
+
+cpSync(path.join(ROOT, 'scripts/runtime/start.mjs'), path.join(STAGE, 'server/songdeck-server.mjs'));
 
 copyTree(STUDIO_DIST, path.join(STAGE, 'studio'), (src) => src.endsWith('.map'));
 copyTree(path.join(ROOT, 'plugins'), path.join(STAGE, 'plugins'));

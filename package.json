@@ -15,7 +15,7 @@
     "dev": "npm run dev -w @songdeck/studio",
     "dev:server": "npm run dev -w @songdeck/server",
     "build": "npm run build -w @songdeck/studio",
-    "start:server": "npm run start -w @songdeck/server",
+    "start:server": "node scripts/runtime/start.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

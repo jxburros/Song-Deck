@@ -8,6 +8,11 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ### Added
 
+- **In-app updates.** Settings → General now checks stable GitHub releases, verifies and downloads
+  updates, and offers a restart when ready. Optional automatic updates check at startup and every
+  six hours, applying on next start without interrupting a session. The launcher preserves the
+  previous version and rolls back when an update cannot start. Private releases use a server-side token.
+
 - **Compose builder.** Compose starts with a builder instead of a prompt box: pick instruments and
   how many of each, genres with how much influence, moods (whole song or one section), style, era
   and production tags, and settings such as tempo feel, key, length, structure and vocal. It works

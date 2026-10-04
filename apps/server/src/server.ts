@@ -35,6 +35,7 @@ import { ProviderStore, registerProviderRoutes } from './providers';
 import { registerProxyRoutes } from './proxy';
 import { RenderNode, registerRenderRoutes } from './render/node';
 import { Router } from './router';
+import { UpdateService, registerUpdateRoutes } from './updates';
 import { createStaticHandler } from './static';
 import { createVault, registerVaultRoutes } from './vault';
 import type { CredentialVault } from './vault/types';
@@ -60,6 +61,7 @@ export interface ServerServices {
   collab: CollabHub;
   managed: ManagedGateway;
   localServices: LocalServices;
+  updates: UpdateService;
 }
 
 const ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, OPTIONS';
@@ -133,6 +135,11 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
   });
   const collab = new CollabHub({ dataDir: config.dataDir, maxMessageBytes: limits.wsMessageBytes, logger });
   const managed = new ManagedGateway({ providers, getVault, logger, jsonLimit: limits.renderBytes });
+  const updates = new UpdateService(config.dataDir, {
+    ...options.updates,
+    isBusy: () =>
+      renderNode.pool.busyJobs > 0 || renderNode.pool.queuedJobs > 0 || collab.connectionCount > 0,
+  });
   const features = new Set<string>();
 
   const router = new Router();
@@ -147,6 +154,7 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
       auth: { required: Boolean(config.token) },
     });
   });
+  registerUpdateRoutes(router, updates);
   registerVaultRoutes(router, getVault, limits.jsonBytes);
   registerProviderRoutes(router, providers, limits.jsonBytes);
   registerProxyRoutes(router, {
@@ -353,10 +361,12 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
             keychain: config.keychain,
             logger,
           });
+    await updates.init();
     await providers.load();
     await renderNode.init();
     await managed.init();
     for (const f of [
+      'updates',
       'vault',
       'proxy',
       'providers',
@@ -386,7 +396,18 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     get vault() {
       return getVault();
     },
-    services: { providers, hardware, models, plugins, projects, renderNode, collab, managed, localServices },
+    services: {
+      providers,
+      hardware,
+      models,
+      plugins,
+      projects,
+      renderNode,
+      collab,
+      managed,
+      localServices,
+      updates,
+    },
     async listen() {
       await init();
       await new Promise<void>((resolve, reject) => {
@@ -412,6 +433,7 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     async close() {
       if (closed) return;
       closed = true;
+      await updates.close();
       await collab.close();
       await renderNode.close();
       if (listening) {

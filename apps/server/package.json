@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/cli.ts",
-    "start": "tsx src/cli.ts",
+    "start": "node ../../scripts/runtime/start.mjs",
     "test": "vitest run",
     "typecheck": "tsc -p ."
   },
@@ -20,6 +20,7 @@
     "@songdeck/ai": "0.1.0",
     "@songdeck/audio": "0.1.0",
     "@songdeck/core": "0.1.0",
+    "fflate": "^0.8.3",
     "ws": "^8.22.0"
   },
   "optionalDependencies": {
