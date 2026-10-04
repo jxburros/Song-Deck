@@ -709,6 +709,19 @@ player.subscribe(() => {
     useStudio.setState({ transport: { ...s.transport, playing: player.playing } });
 });
 
+/** Warn once per session when browser storage is full and new audio is kept in memory only. */
+let storageFullWarned = false;
+assetStore.onStorageFull(() => {
+  if (storageFullWarned) return;
+  storageFullWarned = true;
+  useStudio
+    .getState()
+    .toast(
+      'warning',
+      'Browser storage is full: new audio is kept for this session only and will be gone after a reload. Export what you want to keep, delete old projects or candidates, or start the local server.',
+    );
+});
+
 /** Convenience selector: the working song (or null). */
 export const useSong = () => useStudio((s) => s.project?.song ?? null);
 

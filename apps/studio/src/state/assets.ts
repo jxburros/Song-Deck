@@ -70,23 +70,51 @@ export function guessMime(fileName: string, bytes?: Uint8Array): string {
   }
 }
 
+/** True for the errors browsers raise when an origin's storage quota is used up. */
+export function isQuotaError(err: unknown): boolean {
+  const name = (err as { name?: unknown } | null)?.name;
+  return name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED';
+}
+
 class AssetStore {
   private entries = new Map<string, AssetEntry>();
   private projectId: string | null = null;
+  private unsaved = new Set<string>();
+  private storageFull?: (meta: AudioAssetMeta) => void;
+
+  /** Called when an asset could not be saved because browser storage is full. */
+  onStorageFull(fn: (meta: AudioAssetMeta) => void) {
+    this.storageFull = fn;
+  }
+
+  /** Assets kept in memory only (storage was full when they were added). */
+  isUnsaved(id: string): boolean {
+    return this.unsaved.has(id);
+  }
 
   reset(projectId: string | null) {
     this.entries.clear();
+    this.unsaved.clear();
     this.projectId = projectId;
   }
 
   async add(meta: AudioAssetMeta, bytes: Uint8Array, decoded?: AudioData): Promise<void> {
     this.entries.set(meta.id, { meta, bytes, decoded });
-    if (this.projectId)
+    if (!this.projectId) return;
+    try {
       await putAsset({ id: meta.id, projectId: this.projectId, bytes, mimeType: meta.mimeType });
+      this.unsaved.delete(meta.id);
+    } catch (err) {
+      if (!isQuotaError(err)) throw err;
+      // Storage is full: keep the audio for this session instead of losing the work that made it.
+      this.unsaved.add(meta.id);
+      this.storageFull?.(meta);
+    }
   }
 
   async remove(id: string): Promise<void> {
     this.entries.delete(id);
+    this.unsaved.delete(id);
     await deleteAsset(id);
   }
 
