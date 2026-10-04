@@ -77,7 +77,8 @@ export interface MasterOutput {
 
 function openProject(projectId: string): { project: Project; song: Song } {
   const project = useStudio.getState().project;
-  if (!project || project.meta.id !== projectId) throw new Error('The project for this task is not open. Open it and retry the task.');
+  if (!project || project.meta.id !== projectId)
+    throw new Error('The project for this task is not open. Open it and retry the task.');
   if (!project.song.tracks.length) throw new Error('The song has no tracks to render.');
   return { project, song: project.song };
 }
@@ -87,7 +88,14 @@ function headRevisionNumber(project: Project): number | undefined {
   return project.history.revisions.find((r) => r.id === branch?.headRevisionId)?.number;
 }
 
-function recordLoudness(projectId: string, hash: string, report: LoudnessReport, sampleRate: number, scope: 'mix' | 'master', sourceAssetId?: string): void {
+function recordLoudness(
+  projectId: string,
+  hash: string,
+  report: LoudnessReport,
+  sampleRate: number,
+  scope: 'mix' | 'master',
+  sourceAssetId?: string,
+): void {
   const st = useStudio.getState();
   if (st.project?.meta.id !== projectId) return;
   const rec: AnalysisRecord = {
@@ -117,7 +125,12 @@ const analyze: TaskHandler<AnalyzeInput, AnalyzeOutput> = async (ctx) => {
   ctx.progress(0.02, 'Collecting audio clips');
   const assets = await collectAssets(song);
   throwIfAborted(signal);
-  const mix = await renderMixAudio(song, { sampleRate, assets, signal, onProgress: subProgress(prog, 0.05, 0.85, 'Rendering mix') });
+  const mix = await renderMixAudio(song, {
+    sampleRate,
+    assets,
+    signal,
+    onProgress: subProgress(prog, 0.05, 0.85, 'Rendering mix'),
+  });
   ctx.progress(0.86, 'Measuring loudness');
   const report = await measureAudioLoudness(mix, signal);
   throwIfAborted(signal);
@@ -137,15 +150,24 @@ const master: TaskHandler<MasterInput, MasterOutput> = async (ctx) => {
   const sampleRate = input.sampleRate ?? prefs.sampleRate;
   const bitDepth = input.bitDepth ?? prefs.bitDepth;
   const settings: MasteringSettings = { ...song.mastering, ...input.settings };
-  if (settings.method === 'none') throw new Error('Mastering is set to “None” — export the unmastered mix from Export instead.');
+  if (settings.method === 'none')
+    throw new Error('Mastering is set to “None” — export the unmastered mix from Export instead.');
   const target = targetInfo(settings.target);
   const hash = mixHash(song);
 
   ctx.progress(0.01, 'Collecting audio clips');
   const assets = await collectAssets(song);
   throwIfAborted(signal);
-  ctx.log('info', `Rendering the mix at ${sampleRate} Hz for ${target.label} mastering (${target.lufs} LUFS, ${target.truePeakDb} dBTP)`);
-  const mix = await renderMixAudio(song, { sampleRate, assets, signal, onProgress: subProgress(prog, 0.03, 0.4, 'Rendering mix') });
+  ctx.log(
+    'info',
+    `Rendering the mix at ${sampleRate} Hz for ${target.label} mastering (${target.lufs} LUFS, ${target.truePeakDb} dBTP)`,
+  );
+  const mix = await renderMixAudio(song, {
+    sampleRate,
+    assets,
+    signal,
+    onProgress: subProgress(prog, 0.03, 0.4, 'Rendering mix'),
+  });
   ctx.progress(0.41, 'Measuring mix loudness');
   const before = await measureAudioLoudness(mix, signal);
   cacheMix({ projectId: input.projectId, hash, audio: mix, report: before });
@@ -169,9 +191,21 @@ const master: TaskHandler<MasterInput, MasterOutput> = async (ctx) => {
       ctx.log('warn', `${ext.reason} Falling back to built-in DSP mastering.`);
     } else {
       try {
-        ctx.log('info', `Mastering with ${ext.provider.name}${ext.provider.cloud ? ' (cloud — the mix leaves this device)' : ''}`);
-        const wav = await abortable(jobs.call<Uint8Array>('encodeWav', { audio: mix, bitDepth: 24 }, { signal }), signal);
-        const res = await ext.provider.master({ wav, sampleRate, durationSeconds: audioSeconds(mix), target: settings.target, signal });
+        ctx.log(
+          'info',
+          `Mastering with ${ext.provider.name}${ext.provider.cloud ? ' (cloud — the mix leaves this device)' : ''}`,
+        );
+        const wav = await abortable(
+          jobs.call<Uint8Array>('encodeWav', { audio: mix, bitDepth: 24 }, { signal }),
+          signal,
+        );
+        const res = await ext.provider.master({
+          wav,
+          sampleRate,
+          durationSeconds: audioSeconds(mix),
+          target: settings.target,
+          signal,
+        });
         output = res.audio;
         report = res.report ?? {};
         providerId = res.provenance.providerId;
@@ -180,7 +214,8 @@ const master: TaskHandler<MasterInput, MasterOutput> = async (ctx) => {
         cloud = res.provenance.cloud;
         costUsd = res.provenance.costUsd;
         if (costUsd) ctx.addCost(costUsd);
-        if (output.sampleRate !== sampleRate) ctx.log('info', `Provider returned ${output.sampleRate} Hz audio.`);
+        if (output.sampleRate !== sampleRate)
+          ctx.log('info', `Provider returned ${output.sampleRate} Hz audio.`);
       } catch (err) {
         if (signal.aborted) throw abortError();
         if (isAbortError(err)) throw abortError('Cancelled — the mix was not sent for cloud mastering');
@@ -192,7 +227,11 @@ const master: TaskHandler<MasterInput, MasterOutput> = async (ctx) => {
 
   if (!output) {
     ctx.log('info', `Built-in DSP mastering → ${target.label}`);
-    const res = await masterAudioBuffer(mix, { ...settings, method: 'builtin' }, { signal, onProgress: subProgress(prog, 0.46, 0.8, 'Mastering') });
+    const res = await masterAudioBuffer(
+      mix,
+      { ...settings, method: 'builtin' },
+      { signal, onProgress: subProgress(prog, 0.46, 0.8, 'Mastering') },
+    );
     output = res.output;
     report = res.report ?? {};
   }
@@ -202,7 +241,10 @@ const master: TaskHandler<MasterInput, MasterOutput> = async (ctx) => {
   const after = await measureAudioLoudness(output, signal);
   ctx.log('info', `Master: ${loudnessSummary(after)}`);
   ctx.progress(0.86, 'Encoding Master.wav');
-  const bytes = await abortable(jobs.call<Uint8Array>('encodeWav', { audio: output, bitDepth }, { signal }), signal);
+  const bytes = await abortable(
+    jobs.call<Uint8Array>('encodeWav', { audio: output, bitDepth }, { signal }),
+    signal,
+  );
   throwIfAborted(signal);
 
   // Persist: asset → provenance → revision (each step reads the latest project state).
@@ -289,9 +331,15 @@ const KEEP_MASTERS = 2;
 async function pruneOldMasters(keepId: string): Promise<void> {
   const project = useStudio.getState().project;
   if (!project) return;
-  const inClips = new Set(project.history.revisions.flatMap((r) => r.snapshot.tracks.flatMap((t) => (t.clips ?? []).map((c) => c.assetId))));
+  const inClips = new Set(
+    project.history.revisions.flatMap((r) =>
+      r.snapshot.tracks.flatMap((t) => (t.clips ?? []).map((c) => c.assetId)),
+    ),
+  );
   for (const t of project.song.tracks) for (const c of t.clips ?? []) inClips.add(c.assetId);
-  const masters = project.meta.assets.filter((a) => a.kind === 'master').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const masters = project.meta.assets
+    .filter((a) => a.kind === 'master')
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const stale = masters.slice(KEEP_MASTERS).filter((a) => a.id !== keepId && !inClips.has(a.id));
   if (!stale.length) return;
   for (const a of stale) await assetStore.remove(a.id);

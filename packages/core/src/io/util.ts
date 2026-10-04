@@ -40,14 +40,16 @@ export function isMinorKey(key: KeySignature): boolean {
 }
 
 export function xmlEscape(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
-    // Strip characters that are not allowed in XML 1.0.
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '');
+  return (
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;')
+      // Strip characters that are not allowed in XML 1.0.
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '')
+  );
 }
 
 /** File-system friendly slug: "Lead Vocal #2" → "lead-vocal-2". */
@@ -151,8 +153,14 @@ export function leadTrack(song: Song, trackId?: string): Track | undefined {
   const midi = song.tracks.filter((t) => t.kind === 'midi');
   return (
     midi.find((t) => t.role === 'vocal' && t.notes.length > 0) ??
-    midi.find((t) => (t.role === 'synth-lead' || t.role === 'lead-guitar' || t.constraints?.function === 'melody') && t.notes.length > 0) ??
-    midi.find((t) => t.role !== 'drums' && t.role !== 'percussion' && t.midiChannel !== 9 && t.notes.length > 0)
+    midi.find(
+      (t) =>
+        (t.role === 'synth-lead' || t.role === 'lead-guitar' || t.constraints?.function === 'melody') &&
+        t.notes.length > 0,
+    ) ??
+    midi.find(
+      (t) => t.role !== 'drums' && t.role !== 'percussion' && t.midiChannel !== 9 && t.notes.length > 0,
+    )
   );
 }
 

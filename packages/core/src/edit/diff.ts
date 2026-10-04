@@ -24,7 +24,10 @@ function noteBody(n: Note): string {
 }
 
 /** Note diff: match by id, then (for different ids) by identical pitch + onset. */
-export function diffTrackNotes(before: readonly Note[], after: readonly Note[]): { added: Note[]; removed: Note[]; modified: NoteChange[] } {
+export function diffTrackNotes(
+  before: readonly Note[],
+  after: readonly Note[],
+): { added: Note[]; removed: Note[]; modified: NoteChange[] } {
   const beforeById = new Map(before.map((n) => [n.id, n] as const));
   const pairs: [Note, Note][] = [];
   const unmatchedAfter: Note[] = [];
@@ -63,7 +66,10 @@ function chordKey(c: ChordEvent): string {
   return `${c.tick}|${c.duration}|${c.root}|${c.quality}|${c.bass ?? ''}|${c.symbol}`;
 }
 
-function diffChords(before: readonly ChordEvent[], after: readonly ChordEvent[]): { added: ChordEvent[]; removed: ChordEvent[] } {
+function diffChords(
+  before: readonly ChordEvent[],
+  after: readonly ChordEvent[],
+): { added: ChordEvent[]; removed: ChordEvent[] } {
   const pool = new Map<string, ChordEvent[]>();
   for (const c of before) {
     const k = chordKey(c);
@@ -80,7 +86,10 @@ function diffChords(before: readonly ChordEvent[], after: readonly ChordEvent[])
       continue;
     }
     // Prefer the same id when several identical chords exist.
-    const i = Math.max(0, list.findIndex((x) => x.id === c.id));
+    const i = Math.max(
+      0,
+      list.findIndex((x) => x.id === c.id),
+    );
     kept.add(list.splice(i, 1)[0]);
   }
   return { added, removed: before.filter((c) => !kept.has(c)) };
@@ -88,7 +97,8 @@ function diffChords(before: readonly ChordEvent[], after: readonly ChordEvent[])
 
 function flatten(value: unknown, prefix = '', out: Record<string, unknown> = {}): Record<string, unknown> {
   if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) flatten(v, prefix ? `${prefix}.${k}` : k, out);
+    for (const [k, v] of Object.entries(value as Record<string, unknown>))
+      flatten(v, prefix ? `${prefix}.${k}` : k, out);
   } else if (prefix) out[prefix] = value;
   return out;
 }
@@ -102,7 +112,10 @@ function plural(n: number, word: string): string {
 }
 
 function fmt(v: unknown): string {
-  if (typeof v === 'number') return Number.isInteger(v) ? String(v).replace('-', '−') : (Math.round(v * 100) / 100).toString().replace('-', '−');
+  if (typeof v === 'number')
+    return Number.isInteger(v)
+      ? String(v).replace('-', '−')
+      : (Math.round(v * 100) / 100).toString().replace('-', '−');
   return String(v);
 }
 
@@ -157,7 +170,12 @@ export function diffSongs(before: Song, after: Song): SongDiff {
       const parts: string[] = [];
       if (d.added.length) parts.push(`+${plural(d.added.length, 'note')}`);
       if (d.removed.length) parts.push(`−${plural(d.removed.length, 'note')}`);
-      if (d.modified.length) parts.push(d.added.length || d.removed.length ? `${d.modified.length} modified` : `${plural(d.modified.length, 'note')} modified`);
+      if (d.modified.length)
+        parts.push(
+          d.added.length || d.removed.length
+            ? `${d.modified.length} modified`
+            : `${plural(d.modified.length, 'note')} modified`,
+        );
       const span = mergeSpans(
         barSpan(after, [...d.added.map((n) => n.tick), ...d.modified.map((m) => m.after.tick)]),
         barSpan(before, [...d.removed.map((n) => n.tick), ...d.modified.map((m) => m.before.tick)]),
@@ -178,7 +196,16 @@ export function diffSongs(before: Song, after: Song): SongDiff {
   // Chords
   const chords = diffChords(before.chords, after.chords);
   if (chords.added.length || chords.removed.length) {
-    const span = mergeSpans(barSpan(after, chords.added.map((c) => c.tick)), barSpan(before, chords.removed.map((c) => c.tick)));
+    const span = mergeSpans(
+      barSpan(
+        after,
+        chords.added.map((c) => c.tick),
+      ),
+      barSpan(
+        before,
+        chords.removed.map((c) => c.tick),
+      ),
+    );
     const parts: string[] = [];
     if (chords.added.length) parts.push(`+${plural(chords.added.length, 'chord')}`);
     if (chords.removed.length) parts.push(`−${plural(chords.removed.length, 'chord')}`);
@@ -193,21 +220,29 @@ export function diffSongs(before: Song, after: Song): SongDiff {
   if (tempoChanged) {
     const b0 = [...before.tempoMap].sort((x, y) => x.tick - y.tick)[0];
     const a0 = [...after.tempoMap].sort((x, y) => x.tick - y.tick)[0];
-    if (b0 && a0 && b0.bpm !== a0.bpm && before.tempoMap.length === 1 && after.tempoMap.length === 1) summary.push(`Tempo: ${fmt(b0.bpm)} → ${fmt(a0.bpm)} BPM`);
+    if (b0 && a0 && b0.bpm !== a0.bpm && before.tempoMap.length === 1 && after.tempoMap.length === 1)
+      summary.push(`Tempo: ${fmt(b0.bpm)} → ${fmt(a0.bpm)} BPM`);
     else summary.push('Tempo map changed');
   }
   const keyChanged = sortedStr(before.keyMap, (k) => k.bar) !== sortedStr(after.keyMap, (k) => k.bar);
   if (keyChanged) {
     const b0 = [...before.keyMap].sort((x, y) => x.bar - y.bar)[0];
     const a0 = [...after.keyMap].sort((x, y) => x.bar - y.bar)[0];
-    if (b0 && a0 && (b0.key.tonic !== a0.key.tonic || b0.key.mode !== a0.key.mode)) summary.push(`Key: ${keyName(b0.key)} → ${keyName(a0.key)}`);
+    if (b0 && a0 && (b0.key.tonic !== a0.key.tonic || b0.key.mode !== a0.key.mode))
+      summary.push(`Key: ${keyName(b0.key)} → ${keyName(a0.key)}`);
     else summary.push('Key changes edited');
   }
   const meterChanged = sortedStr(before.meterMap, (m) => m.bar) !== sortedStr(after.meterMap, (m) => m.bar);
   if (meterChanged) {
     const b0 = [...before.meterMap].sort((x, y) => x.bar - y.bar)[0];
     const a0 = [...after.meterMap].sort((x, y) => x.bar - y.bar)[0];
-    if (b0 && a0 && (b0.numerator !== a0.numerator || b0.denominator !== a0.denominator) && before.meterMap.length === 1 && after.meterMap.length === 1) {
+    if (
+      b0 &&
+      a0 &&
+      (b0.numerator !== a0.numerator || b0.denominator !== a0.denominator) &&
+      before.meterMap.length === 1 &&
+      after.meterMap.length === 1
+    ) {
       summary.push(`Meter: ${b0.numerator}/${b0.denominator} → ${a0.numerator}/${a0.denominator}`);
     } else summary.push('Meter changes edited');
   }
@@ -218,7 +253,12 @@ export function diffSongs(before: Song, after: Song): SongDiff {
     for (const sid of ids) {
       const a = stableStringify(before.lyrics.filter((l) => l.sectionId === sid).map((l) => l.text));
       const b = stableStringify(after.lyrics.filter((l) => l.sectionId === sid).map((l) => l.text));
-      if (a !== b) names.push(after.sections.find((s) => s.id === sid)?.name ?? before.sections.find((s) => s.id === sid)?.name ?? sid);
+      if (a !== b)
+        names.push(
+          after.sections.find((s) => s.id === sid)?.name ??
+            before.sections.find((s) => s.id === sid)?.name ??
+            sid,
+        );
     }
     summary.push(names.length ? `Lyrics changed: ${names.join(', ')}` : 'Lyrics metadata changed');
   }
@@ -230,14 +270,16 @@ export function diffSongs(before: Song, after: Song): SongDiff {
     const fb = flatten(channelFor(before, id));
     const fa = flatten(channelFor(after, id));
     for (const field of new Set([...Object.keys(fb), ...Object.keys(fa)])) {
-      if (!Object.is(fb[field], fa[field]) && stableStringify(fb[field]) !== stableStringify(fa[field])) mixerChanged.push({ target: id, field, before: fb[field], after: fa[field] });
+      if (!Object.is(fb[field], fa[field]) && stableStringify(fb[field]) !== stableStringify(fa[field]))
+        mixerChanged.push({ target: id, field, before: fb[field], after: fa[field] });
     }
   }
   {
     const fb = flatten({ ...before.mixer.master, reverb: before.mixer.reverb, delay: before.mixer.delay });
     const fa = flatten({ ...after.mixer.master, reverb: after.mixer.reverb, delay: after.mixer.delay });
     for (const field of new Set([...Object.keys(fb), ...Object.keys(fa)])) {
-      if (stableStringify(fb[field]) !== stableStringify(fa[field])) mixerChanged.push({ target: 'master', field, before: fb[field], after: fa[field] });
+      if (stableStringify(fb[field]) !== stableStringify(fa[field]))
+        mixerChanged.push({ target: 'master', field, before: fb[field], after: fa[field] });
     }
   }
   const byTarget = new Map<string, typeof mixerChanged>();
@@ -278,7 +320,9 @@ function describeStructure(before: Song, after: Song): string[] {
   const out: string[] = [];
   const b = new Map(before.sections.map((s) => [s.id, s] as const));
   const a = new Map(after.sections.map((s) => [s.id, s] as const));
-  const added = after.sections.filter((s) => !b.has(s.id)).map((s) => `"${s.name}" (${plural(s.bars, 'bar')})`);
+  const added = after.sections
+    .filter((s) => !b.has(s.id))
+    .map((s) => `"${s.name}" (${plural(s.bars, 'bar')})`);
   const removed = before.sections.filter((s) => !a.has(s.id)).map((s) => `"${s.name}"`);
   if (added.length) out.push(`Structure: added ${added.join(', ')}`);
   if (removed.length) out.push(`Structure: removed ${removed.join(', ')}`);
@@ -290,12 +334,19 @@ function describeStructure(before: Song, after: Song): string[] {
     if (!old) continue;
     if (old.bars !== s.bars) resized.push(`"${s.name}" ${old.bars} → ${s.bars} bars`);
     if (old.name !== s.name) renamed.push(`"${old.name}" → "${s.name}"`);
-    else if (stableStringify({ ...old, bars: 0 }) !== stableStringify({ ...s, bars: 0 })) edited.push(`"${s.name}"`);
+    else if (stableStringify({ ...old, bars: 0 }) !== stableStringify({ ...s, bars: 0 }))
+      edited.push(`"${s.name}"`);
   }
   if (resized.length) out.push(`Structure: ${resized.join(', ')}`);
   if (renamed.length) out.push(`Structure: renamed ${renamed.join(', ')}`);
-  const commonOrderBefore = before.sections.filter((s) => a.has(s.id)).map((s) => s.id).join('|');
-  const commonOrderAfter = after.sections.filter((s) => b.has(s.id)).map((s) => s.id).join('|');
+  const commonOrderBefore = before.sections
+    .filter((s) => a.has(s.id))
+    .map((s) => s.id)
+    .join('|');
+  const commonOrderAfter = after.sections
+    .filter((s) => b.has(s.id))
+    .map((s) => s.id)
+    .join('|');
   if (commonOrderBefore !== commonOrderAfter) out.push('Structure: sections reordered');
   if (edited.length) out.push(`Sections edited: ${edited.join(', ')}`);
   if (!out.length) out.push('Structure changed');

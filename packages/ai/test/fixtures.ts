@@ -34,7 +34,15 @@ export function defaultReply(req: LLMRequest): string {
 export function llmProvider(
   id: string,
   location: ProviderLocation,
-  opts: { caps?: Capability[]; tier?: number; pricing?: PricingInfo; presetId?: string; models?: ModelInfo[]; replies?: (string | ((req: LLMRequest) => string))[]; name?: string } = {},
+  opts: {
+    caps?: Capability[];
+    tier?: number;
+    pricing?: PricingInfo;
+    presetId?: string;
+    models?: ModelInfo[];
+    replies?: (string | ((req: LLMRequest) => string))[];
+    name?: string;
+  } = {},
 ): ProviderInstance & { fake: FakeLLM } {
   const fake = new FakeLLM(opts.replies ?? [defaultReply], opts.models ?? []);
   return {
@@ -53,7 +61,12 @@ export function llmProvider(
   };
 }
 
-export function musicProvider(id: string, location: ProviderLocation, caps: Capability[], opts: { tier?: number; pricing?: PricingInfo; presetId?: string; fail?: Error } = {}): ProviderInstance & { calls: number } {
+export function musicProvider(
+  id: string,
+  location: ProviderLocation,
+  caps: Capability[],
+  opts: { tier?: number; pricing?: PricingInfo; presetId?: string; fail?: Error } = {},
+): ProviderInstance & { calls: number } {
   const state = { calls: 0 };
   const gen: AudioGenerationProvider = {
     discoverModels: async () => [],
@@ -61,20 +74,44 @@ export function musicProvider(id: string, location: ProviderLocation, caps: Capa
     generateMusic: async (req) => {
       state.calls++;
       if (opts.fail) throw opts.fail;
-      return { audio: { mimeType: 'audio/wav', data: FAKE_WAV }, durationSeconds: req.durationSeconds, seed: req.seed, model: `${id}-model` };
+      return {
+        audio: { mimeType: 'audio/wav', data: FAKE_WAV },
+        durationSeconds: req.durationSeconds,
+        seed: req.seed,
+        model: `${id}-model`,
+      };
     },
     transformAudio: async () => ({ audio: { mimeType: 'audio/wav', data: FAKE_WAV } }),
   };
   const inst = {
-    descriptor: { id, name: id, adapter: location === 'cloud' ? 'elevenlabs-music' : 'local-music', location, capabilities: caps, qualityTier: opts.tier ?? 3, ...(opts.pricing ? { pricing: opts.pricing } : {}), ...(opts.presetId ? { presetId: opts.presetId } : {}) },
+    descriptor: {
+      id,
+      name: id,
+      adapter: location === 'cloud' ? 'elevenlabs-music' : 'local-music',
+      location,
+      capabilities: caps,
+      qualityTier: opts.tier ?? 3,
+      ...(opts.pricing ? { pricing: opts.pricing } : {}),
+      ...(opts.presetId ? { presetId: opts.presetId } : {}),
+    },
     audioGeneration: gen,
   } as ProviderInstance;
-  return Object.defineProperty(inst, 'calls', { get: () => state.calls }) as ProviderInstance & { calls: number };
+  return Object.defineProperty(inst, 'calls', { get: () => state.calls }) as ProviderInstance & {
+    calls: number;
+  };
 }
 
 export function internalProvider(composition?: Partial<CompositionProvider>): ProviderInstance {
   const comp: CompositionProvider = {
-    planSong: async () => ({ plan: { key: { tonic: 0, mode: 'major' }, tempo: 120, meter: { numerator: 4, denominator: 4 }, sections: [] }, confidence: 1 }),
+    planSong: async () => ({
+      plan: {
+        key: { tonic: 0, mode: 'major' },
+        tempo: 120,
+        meter: { numerator: 4, denominator: 4 },
+        sections: [],
+      },
+      confidence: 1,
+    }),
     designBlueprint: async () => {
       throw new Error('not implemented');
     },
@@ -87,7 +124,17 @@ export function internalProvider(composition?: Partial<CompositionProvider>): Pr
     ...composition,
   };
   return createInternalProvider({
-    capabilities: ['TEXT_REASONING', 'MUSIC_THEORY_REASONING', 'MIDI_EDITING', 'MIDI_GENERATION', 'LYRIC_GENERATION', 'MIXING', 'AUDIO_TRANSCRIPTION', 'SOURCE_SEPARATION', 'MASTERING'],
+    capabilities: [
+      'TEXT_REASONING',
+      'MUSIC_THEORY_REASONING',
+      'MIDI_EDITING',
+      'MIDI_GENERATION',
+      'LYRIC_GENERATION',
+      'MIXING',
+      'AUDIO_TRANSCRIPTION',
+      'SOURCE_SEPARATION',
+      'MASTERING',
+    ],
     composition: comp,
     transcription: { transcribeNotes: async () => ({ notes: [], confidence: 0.6 }) },
     separation: { separateStems: async () => ({ stems: {} }) },
@@ -95,7 +142,11 @@ export function internalProvider(composition?: Partial<CompositionProvider>): Pr
   });
 }
 
-export const PRICING_ANTHROPIC: PricingInfo = { models: { 'claude-opus-5-5': { inputPerMTok: 4, outputPerMTok: 20 } }, inputPerMTok: 4, outputPerMTok: 20 };
+export const PRICING_ANTHROPIC: PricingInfo = {
+  models: { 'claude-opus-5-5': { inputPerMTok: 4, outputPerMTok: 20 } },
+  inputPerMTok: 4,
+  outputPerMTok: 20,
+};
 export const PRICING_GEMINI: PricingInfo = { inputPerMTok: 1.25, outputPerMTok: 10 };
 export const PRICING_ELEVEN: PricingInfo = { perMinuteUsd: 0.5 };
 
@@ -122,10 +173,31 @@ export function makeWorld(settings: Partial<RoutingSettings> = {}): World {
     ...settings,
   };
   const ollama = llmProvider('ollama', 'local', { tier: 2, presetId: 'ollama', name: 'Ollama' });
-  const gemini = llmProvider('gemini', 'cloud', { tier: 5, presetId: 'gemini', name: 'Google Gemini', pricing: PRICING_GEMINI, caps: [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON', 'AUDIO_INPUT', 'AUDIO_UNDERSTANDING'] });
-  const anthropic = llmProvider('anthropic', 'cloud', { tier: 5, presetId: 'anthropic', name: 'Anthropic', pricing: PRICING_ANTHROPIC });
-  const eleven = musicProvider('elevenlabs-music', 'cloud', ['TEXT_TO_MUSIC', 'LYRIC_CONDITIONING', 'VOCAL_GENERATION', 'SECTION_GENERATION', 'INSTRUMENTAL_ONLY'], { tier: 5, pricing: PRICING_ELEVEN, presetId: 'elevenlabs-music' });
-  const ace = musicProvider('ace-step-local', 'local', ['TEXT_TO_MUSIC', 'LYRIC_CONDITIONING', 'VOCAL_GENERATION', 'INSTRUMENTAL_ONLY', 'AUDIO_TO_AUDIO'], { tier: 3, presetId: 'ace-step-local' });
+  const gemini = llmProvider('gemini', 'cloud', {
+    tier: 5,
+    presetId: 'gemini',
+    name: 'Google Gemini',
+    pricing: PRICING_GEMINI,
+    caps: [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON', 'AUDIO_INPUT', 'AUDIO_UNDERSTANDING'],
+  });
+  const anthropic = llmProvider('anthropic', 'cloud', {
+    tier: 5,
+    presetId: 'anthropic',
+    name: 'Anthropic',
+    pricing: PRICING_ANTHROPIC,
+  });
+  const eleven = musicProvider(
+    'elevenlabs-music',
+    'cloud',
+    ['TEXT_TO_MUSIC', 'LYRIC_CONDITIONING', 'VOCAL_GENERATION', 'SECTION_GENERATION', 'INSTRUMENTAL_ONLY'],
+    { tier: 5, pricing: PRICING_ELEVEN, presetId: 'elevenlabs-music' },
+  );
+  const ace = musicProvider(
+    'ace-step-local',
+    'local',
+    ['TEXT_TO_MUSIC', 'LYRIC_CONDITIONING', 'VOCAL_GENERATION', 'INSTRUMENTAL_ONLY', 'AUDIO_TO_AUDIO'],
+    { tier: 3, presetId: 'ace-step-local' },
+  );
   registry.register(internalProvider());
   registry.register(ollama);
   registry.register(gemini);

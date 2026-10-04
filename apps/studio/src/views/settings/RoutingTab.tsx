@@ -40,17 +40,44 @@ export function useRouting(): [RoutingSettings, (patch: Partial<RoutingSettings>
 }
 
 const MODES: { value: RoutingMode; label: string; icon: string; text: string }[] = [
-  { value: 'manual', label: 'Manual', icon: 'pointer', text: 'You pick who does every task — through a profile, or per request in each mode.' },
-  { value: 'automatic', label: 'Automatic', icon: 'sparkles', text: 'Song Deck chooses by capability, quality, cost and latency for each task.' },
-  { value: 'rules', label: 'Rules', icon: 'sliders', text: 'Automatic, governed by your rules: local first, confidence fallbacks, never-upload, cost caps…' },
+  {
+    value: 'manual',
+    label: 'Manual',
+    icon: 'pointer',
+    text: 'You pick who does every task — through a profile, or per request in each mode.',
+  },
+  {
+    value: 'automatic',
+    label: 'Automatic',
+    icon: 'sparkles',
+    text: 'Song Deck chooses by capability, quality, cost and latency for each task.',
+  },
+  {
+    value: 'rules',
+    label: 'Rules',
+    icon: 'sliders',
+    text: 'Automatic, governed by your rules: local first, confidence fallbacks, never-upload, cost caps…',
+  },
 ];
 
 /** The spec §49 example rules as one-click presets. */
 export const RULE_PRESETS: { id: string; label: string; rule: RoutingRule }[] = [
   { id: 'prefer-local', label: 'Use local models whenever possible', rule: { kind: 'prefer-local' } },
-  { id: 'confidence-gemini', label: 'If local confidence < 70%: use Gemini', rule: { kind: 'fallback-if-low-confidence', threshold: 0.7, fallbackProviderId: 'gemini' } },
-  { id: 'cloud-final', label: 'Use cloud production only for Final renders', rule: { kind: 'cloud-only-for-final', roles: ['production'] } },
-  { id: 'never-vocals', label: 'Never upload vocals', rule: { kind: 'never-upload', dataKinds: ['recorded-vocals'] } },
+  {
+    id: 'confidence-gemini',
+    label: 'If local confidence < 70%: use Gemini',
+    rule: { kind: 'fallback-if-low-confidence', threshold: 0.7, fallbackProviderId: 'gemini' },
+  },
+  {
+    id: 'cloud-final',
+    label: 'Use cloud production only for Final renders',
+    rule: { kind: 'cloud-only-for-final', roles: ['production'] },
+  },
+  {
+    id: 'never-vocals',
+    label: 'Never upload vocals',
+    rule: { kind: 'never-upload', dataKinds: ['recorded-vocals'] },
+  },
 ];
 
 const RULE_KINDS: { kind: RoutingRule['kind']; label: string }[] = [
@@ -84,8 +111,16 @@ const sameRule = (a: RoutingRule, b: RoutingRule) => {
   return strip(a) === strip(b);
 };
 
-export const ROLE_OPTIONS = TASK_ROLES.map((r) => ({ value: r, label: ROLE_INFO[r].label, title: ROLE_INFO[r].description }));
-const DATA_OPTIONS = DATA_KINDS.map((k) => ({ value: k, label: DATA_KIND_INFO[k].label, title: DATA_KIND_INFO[k].description }));
+export const ROLE_OPTIONS = TASK_ROLES.map((r) => ({
+  value: r,
+  label: ROLE_INFO[r].label,
+  title: ROLE_INFO[r].description,
+}));
+const DATA_OPTIONS = DATA_KINDS.map((k) => ({
+  value: k,
+  label: DATA_KIND_INFO[k].label,
+  title: DATA_KIND_INFO[k].description,
+}));
 
 /** Provider choices for profiles and rules: configured, on-device/plugin and not-yet-configured presets. */
 function useProviderChoices(): { value: string; label: string }[] {
@@ -104,7 +139,8 @@ function useProviderChoices(): { value: string; label: string }[] {
       out.push({ value: s.id, label: `${s.name}${s.location === 'internal' ? ' (on-device)' : ''}` });
       seen.add(s.id);
     }
-    for (const p of PROVIDER_PRESETS) if (!seen.has(p.id)) out.push({ value: p.id, label: `${p.name} (not configured)` });
+    for (const p of PROVIDER_PRESETS)
+      if (!seen.has(p.id)) out.push({ value: p.id, label: `${p.name} (not configured)` });
     return out;
   }, [providers, summaries]);
 }
@@ -161,7 +197,13 @@ export default function RoutingTab() {
 // Profiles (spec §6)
 // ---------------------------------------------------------------------------
 
-function ProfilesPanel({ routing, setRouting }: { routing: RoutingSettings; setRouting: (p: Partial<RoutingSettings>) => void }) {
+function ProfilesPanel({
+  routing,
+  setRouting,
+}: {
+  routing: RoutingSettings;
+  setRouting: (p: Partial<RoutingSettings>) => void;
+}) {
   const custom = useSettings((s) => s.customProfiles);
   const update = useSettings((s) => s.update);
   const providerNames = useProviderNames();
@@ -179,7 +221,18 @@ function ProfilesPanel({ routing, setRouting }: { routing: RoutingSettings; setR
       icon="users"
       sub="A profile assigns a provider (and model) to each role. In Manual mode it decides; in Automatic and Rules mode it is a strong hint."
       actions={
-        <Button size="sm" icon="plus" onClick={() => setEditing({ id: `custom-${Date.now().toString(36)}`, name: 'My profile', description: '', assignments: {} })}>
+        <Button
+          size="sm"
+          icon="plus"
+          onClick={() =>
+            setEditing({
+              id: `custom-${Date.now().toString(36)}`,
+              name: 'My profile',
+              description: '',
+              assignments: {},
+            })
+          }
+        >
           New profile
         </Button>
       }
@@ -189,7 +242,10 @@ function ProfilesPanel({ routing, setRouting }: { routing: RoutingSettings; setR
         <Select
           value={routing.profileId ?? ''}
           onChange={(v) => setRouting({ profileId: v || undefined })}
-          options={[{ value: '', label: 'None — capability routing only' }, ...all.map((p) => ({ value: p.id, label: `${p.name}${p.builtIn ? '' : ' (custom)'}` }))]}
+          options={[
+            { value: '', label: 'None — capability routing only' },
+            ...all.map((p) => ({ value: p.id, label: `${p.name}${p.builtIn ? '' : ' (custom)'}` })),
+          ]}
           aria-label="Active profile"
           style={{ maxWidth: 340 }}
         />
@@ -198,10 +254,20 @@ function ProfilesPanel({ routing, setRouting }: { routing: RoutingSettings; setR
         {all.map((p) => {
           const active = routing.profileId === p.id;
           return (
-            <article key={p.id} className={`st-profile ${active ? 'active' : ''}`} aria-label={`Profile ${p.name}`}>
+            <article
+              key={p.id}
+              className={`st-profile ${active ? 'active' : ''}`}
+              aria-label={`Profile ${p.name}`}
+            >
               <div className="row between">
                 <strong>{p.name}</strong>
-                {active ? <Badge tone="accent">Active</Badge> : p.builtIn ? <Badge>Built-in</Badge> : <Badge tone="ai">Custom</Badge>}
+                {active ? (
+                  <Badge tone="accent">Active</Badge>
+                ) : p.builtIn ? (
+                  <Badge>Built-in</Badge>
+                ) : (
+                  <Badge tone="ai">Custom</Badge>
+                )}
               </div>
               <div className="small muted st-profile-desc">{p.description}</div>
               <dl className="st-assign">
@@ -210,7 +276,9 @@ function ProfilesPanel({ routing, setRouting }: { routing: RoutingSettings; setR
                   .map((r) => (
                     <div key={r}>
                       <dt>{ROLE_INFO[r].label}</dt>
-                      <dd className={p.assignments[r] === 'disabled' ? 'dim' : ''}>{assignmentLabel(p.assignments[r], providerNames)}</dd>
+                      <dd className={p.assignments[r] === 'disabled' ? 'dim' : ''}>
+                        {assignmentLabel(p.assignments[r], providerNames)}
+                      </dd>
                     </div>
                   ))}
               </dl>
@@ -230,7 +298,12 @@ function ProfilesPanel({ routing, setRouting }: { routing: RoutingSettings; setR
                 </Button>
                 {!p.builtIn && (
                   <>
-                    <Button size="sm" variant="ghost" icon="pencil" onClick={() => setEditing(structuredClone(p))}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon="pencil"
+                      onClick={() => setEditing(structuredClone(p))}
+                    >
                       Edit
                     </Button>
                     <Button
@@ -267,7 +340,13 @@ function ProfilesPanel({ routing, setRouting }: { routing: RoutingSettings; setR
 
 function useProviderNames(): Map<string, string> {
   const choices = useProviderChoices();
-  return useMemo(() => new Map(choices.map((c) => [c.value, c.label.replace(/ \((not configured|on-device|disabled)\)$/, '')])), [choices]);
+  return useMemo(
+    () =>
+      new Map(
+        choices.map((c) => [c.value, c.label.replace(/ \((not configured|on-device|disabled)\)$/, '')]),
+      ),
+    [choices],
+  );
 }
 
 function assignmentLabel(a: RoleAssignment | undefined, names: Map<string, string>): string {
@@ -278,7 +357,15 @@ function assignmentLabel(a: RoleAssignment | undefined, names: Map<string, strin
   return a.modelId ? `${name} · ${a.modelId}` : name;
 }
 
-function ProfileEditor({ profile, onClose, onSave }: { profile: ProviderProfile; onClose: () => void; onSave: (p: ProviderProfile) => void }) {
+function ProfileEditor({
+  profile,
+  onClose,
+  onSave,
+}: {
+  profile: ProviderProfile;
+  onClose: () => void;
+  onSave: (p: ProviderProfile) => void;
+}) {
   const [p, setP] = useState<ProviderProfile>(profile);
   const choices = useProviderChoices();
   const setRole = (role: TaskRole, a: RoleAssignment | undefined) => {
@@ -296,7 +383,11 @@ function ProfileEditor({ profile, onClose, onSave }: { profile: ProviderProfile;
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!p.name.trim()} onClick={() => onSave({ ...p, name: p.name.trim() })}>
+          <Button
+            variant="primary"
+            disabled={!p.name.trim()}
+            onClick={() => onSave({ ...p, name: p.name.trim() })}
+          >
             Save profile
           </Button>
         </>
@@ -325,19 +416,44 @@ function ProfileEditor({ profile, onClose, onSave }: { profile: ProviderProfile;
           <tbody>
             {TASK_ROLES.map((role) => {
               const a = p.assignments[role];
-              const kind = a === undefined ? 'auto' : a === 'internal' ? 'internal' : a === 'disabled' ? 'disabled' : a.providerId;
+              const kind =
+                a === undefined
+                  ? 'auto'
+                  : a === 'internal'
+                    ? 'internal'
+                    : a === 'disabled'
+                      ? 'disabled'
+                      : a.providerId;
               return (
                 <tr key={role}>
                   <td>
                     <div style={{ fontWeight: 600 }}>{ROLE_INFO[role].label}</div>
-                    <div className="small dim">{ROLE_INFO[role].capabilities.map((c) => CAPABILITY_INFO[c].label).join(' + ')}</div>
+                    <div className="small dim">
+                      {ROLE_INFO[role].capabilities.map((c) => CAPABILITY_INFO[c].label).join(' + ')}
+                    </div>
                   </td>
                   <td>
                     <Select
                       size="sm"
                       value={kind}
                       aria-label={`${ROLE_INFO[role].label} assignment`}
-                      onChange={(v) => setRole(role, v === 'auto' ? undefined : v === 'internal' ? 'internal' : v === 'disabled' ? 'disabled' : { providerId: v, ...(typeof a === 'object' && a.providerId === v && a.modelId ? { modelId: a.modelId } : {}) })}
+                      onChange={(v) =>
+                        setRole(
+                          role,
+                          v === 'auto'
+                            ? undefined
+                            : v === 'internal'
+                              ? 'internal'
+                              : v === 'disabled'
+                                ? 'disabled'
+                                : {
+                                    providerId: v,
+                                    ...(typeof a === 'object' && a.providerId === v && a.modelId
+                                      ? { modelId: a.modelId }
+                                      : {}),
+                                  },
+                        )
+                      }
                       options={[
                         { value: 'auto', label: 'Automatic (no assignment)' },
                         { value: 'internal', label: 'On-device engine' },
@@ -348,7 +464,15 @@ function ProfileEditor({ profile, onClose, onSave }: { profile: ProviderProfile;
                   </td>
                   <td>
                     {typeof a === 'object' ? (
-                      <TextInput size="sm" mono value={a.modelId ?? ''} placeholder="provider default" onChange={(modelId) => setRole(role, { providerId: a.providerId, ...(modelId ? { modelId } : {}) })} />
+                      <TextInput
+                        size="sm"
+                        mono
+                        value={a.modelId ?? ''}
+                        placeholder="provider default"
+                        onChange={(modelId) =>
+                          setRole(role, { providerId: a.providerId, ...(modelId ? { modelId } : {}) })
+                        }
+                      />
                     ) : (
                       <span className="small dim">—</span>
                     )}
@@ -367,16 +491,50 @@ function ProfileEditor({ profile, onClose, onSave }: { profile: ProviderProfile;
 // Priorities
 // ---------------------------------------------------------------------------
 
-function PrioritiesPanel({ routing, setRouting }: { routing: RoutingSettings; setRouting: (p: Partial<RoutingSettings>) => void }) {
+function PrioritiesPanel({
+  routing,
+  setRouting,
+}: {
+  routing: RoutingSettings;
+  setRouting: (p: Partial<RoutingSettings>) => void;
+}) {
   const pr = routing.priorities;
   const total = pr.quality + pr.cost + pr.latency || 1;
   const pct = (v: number) => `${Math.round((v / total) * 100)}%`;
   return (
-    <Panel title="Automatic routing priorities" icon="sliders" sub="How automatic and rules routing weigh compatible providers. Final-quality requests double the quality weight; drafts favour cost and speed.">
+    <Panel
+      title="Automatic routing priorities"
+      icon="sliders"
+      sub="How automatic and rules routing weigh compatible providers. Final-quality requests double the quality weight; drafts favour cost and speed."
+    >
       <div className="grid-3">
-        <Slider label="Quality" value={pr.quality} onChange={(quality) => setRouting({ priorities: { ...pr, quality } })} format={() => pct(pr.quality)} left="ignore" right="matters most" accent />
-        <Slider label="Cost" value={pr.cost} onChange={(cost) => setRouting({ priorities: { ...pr, cost } })} format={() => pct(pr.cost)} left="ignore" right="cheapest" accent />
-        <Slider label="Latency" value={pr.latency} onChange={(latency) => setRouting({ priorities: { ...pr, latency } })} format={() => pct(pr.latency)} left="ignore" right="fastest" accent />
+        <Slider
+          label="Quality"
+          value={pr.quality}
+          onChange={(quality) => setRouting({ priorities: { ...pr, quality } })}
+          format={() => pct(pr.quality)}
+          left="ignore"
+          right="matters most"
+          accent
+        />
+        <Slider
+          label="Cost"
+          value={pr.cost}
+          onChange={(cost) => setRouting({ priorities: { ...pr, cost } })}
+          format={() => pct(pr.cost)}
+          left="ignore"
+          right="cheapest"
+          accent
+        />
+        <Slider
+          label="Latency"
+          value={pr.latency}
+          onChange={(latency) => setRouting({ priorities: { ...pr, latency } })}
+          format={() => pct(pr.latency)}
+          left="ignore"
+          right="fastest"
+          accent
+        />
       </div>
     </Panel>
   );
@@ -386,7 +544,13 @@ function PrioritiesPanel({ routing, setRouting }: { routing: RoutingSettings; se
 // Rules (spec §49)
 // ---------------------------------------------------------------------------
 
-function RulesPanel({ routing, setRouting }: { routing: RoutingSettings; setRouting: (p: Partial<RoutingSettings>) => void }) {
+function RulesPanel({
+  routing,
+  setRouting,
+}: {
+  routing: RoutingSettings;
+  setRouting: (p: Partial<RoutingSettings>) => void;
+}) {
   const rules = routing.rules;
   const choices = useProviderChoices();
   const setRules = (next: RoutingRule[]) => setRouting({ rules: next });
@@ -397,7 +561,11 @@ function RulesPanel({ routing, setRouting }: { routing: RoutingSettings; setRout
       title="Routing rules"
       icon="tasks"
       sub="Spec §49 Rules mode. Never-upload rules apply in every mode; the others shape routing in Rules mode."
-      actions={routing.mode !== 'rules' && rules.some((r) => r.kind !== 'never-upload' && r.enabled !== false) ? <Badge tone="warning">Inactive outside Rules mode</Badge> : undefined}
+      actions={
+        routing.mode !== 'rules' && rules.some((r) => r.kind !== 'never-upload' && r.enabled !== false) ? (
+          <Badge tone="warning">Inactive outside Rules mode</Badge>
+        ) : undefined
+      }
       testId="routing-rules"
     >
       <div className="st-rule-presets">
@@ -411,7 +579,11 @@ function RulesPanel({ routing, setRouting }: { routing: RoutingSettings; setRout
                 type="button"
                 className={`chip ${has ? 'on' : ''}`}
                 aria-pressed={has}
-                onClick={() => setRules(has ? rules.filter((r) => !sameRule(r, p.rule)) : [...rules, structuredClone(p.rule)])}
+                onClick={() =>
+                  setRules(
+                    has ? rules.filter((r) => !sameRule(r, p.rule)) : [...rules, structuredClone(p.rule)],
+                  )
+                }
               >
                 {has ? <Icon name="check" size={12} /> : <Icon name="plus" size={12} />}
                 {p.label}
@@ -422,7 +594,8 @@ function RulesPanel({ routing, setRouting }: { routing: RoutingSettings; setRout
         {routing.mode !== 'rules' && (
           <div className="row small muted">
             <span>
-              Routing is currently <strong>{routing.mode}</strong> — never-upload rules already apply; the others take effect in Rules mode.
+              Routing is currently <strong>{routing.mode}</strong> — never-upload rules already apply; the
+              others take effect in Rules mode.
             </span>
             <Button size="sm" variant="ai" onClick={() => setRouting({ mode: 'rules' })}>
               Switch to Rules mode
@@ -434,17 +607,33 @@ function RulesPanel({ routing, setRouting }: { routing: RoutingSettings; setRout
       <ol className="st-rules">
         {rules.map((r, i) => (
           <li key={i} className={`st-rule ${r.enabled === false ? 'off' : ''}`} data-testid="routing-rule">
-            <Toggle on={r.enabled !== false} onChange={(on) => setAt(i, { ...r, enabled: on })} title={r.enabled === false ? 'Enable rule' : 'Disable rule'} />
+            <Toggle
+              on={r.enabled !== false}
+              onChange={(on) => setAt(i, { ...r, enabled: on })}
+              title={r.enabled === false ? 'Enable rule' : 'Disable rule'}
+            />
             <div className="grow col" style={{ gap: 6 }}>
               <div className="st-rule-text">{describeRule(r, choices)}</div>
               <RuleFields rule={r} onChange={(nr) => setAt(i, nr)} choices={choices} />
             </div>
-            <Button size="sm" variant="ghost" icon="trash" onClick={() => setRules(rules.filter((_, j) => j !== i))} aria-label="Delete rule" />
+            <Button
+              size="sm"
+              variant="ghost"
+              icon="trash"
+              onClick={() => setRules(rules.filter((_, j) => j !== i))}
+              aria-label="Delete rule"
+            />
           </li>
         ))}
       </ol>
       <div className="row">
-        <Select value={adding} onChange={setAdding} options={RULE_KINDS.map((k) => ({ value: k.kind, label: k.label }))} aria-label="Rule kind" style={{ maxWidth: 300 }} />
+        <Select
+          value={adding}
+          onChange={setAdding}
+          options={RULE_KINDS.map((k) => ({ value: k.kind, label: k.label }))}
+          aria-label="Rule kind"
+          style={{ maxWidth: 300 }}
+        />
         <Button icon="plus" onClick={() => setRules([...rules, newRule(adding)])}>
           Add rule
         </Button>
@@ -454,7 +643,9 @@ function RulesPanel({ routing, setRouting }: { routing: RoutingSettings; setRout
 }
 
 function providerLabel(id: string, choices: { value: string; label: string }[]): string {
-  return choices.find((c) => c.value === id)?.label.replace(/ \((not configured|on-device|disabled)\)$/, '') ?? id;
+  return (
+    choices.find((c) => c.value === id)?.label.replace(/ \((not configured|on-device|disabled)\)$/, '') ?? id
+  );
 }
 
 function rolesText(roles: TaskRole[] | undefined): string {
@@ -479,40 +670,105 @@ export function describeRule(r: RoutingRule, choices: { value: string; label: st
   }
 }
 
-function RuleFields({ rule, onChange, choices }: { rule: RoutingRule; onChange: (r: RoutingRule) => void; choices: { value: string; label: string }[] }) {
+function RuleFields({
+  rule,
+  onChange,
+  choices,
+}: {
+  rule: RoutingRule;
+  onChange: (r: RoutingRule) => void;
+  choices: { value: string; label: string }[];
+}) {
   switch (rule.kind) {
     case 'prefer-local':
       return null;
     case 'fallback-if-low-confidence':
       return (
         <div className="st-rule-fields">
-          <Slider value={rule.threshold} min={0.1} max={0.99} step={0.01} onChange={(threshold) => onChange({ ...rule, threshold })} format={(v) => `${Math.round(v * 100)}%`} label="Confidence threshold" />
+          <Slider
+            value={rule.threshold}
+            min={0.1}
+            max={0.99}
+            step={0.01}
+            onChange={(threshold) => onChange({ ...rule, threshold })}
+            format={(v) => `${Math.round(v * 100)}%`}
+            label="Confidence threshold"
+          />
           <Field label="Fallback provider">
-            <Select size="sm" value={rule.fallbackProviderId} onChange={(fallbackProviderId) => onChange({ ...rule, fallbackProviderId })} options={choices} aria-label="Fallback provider" />
+            <Select
+              size="sm"
+              value={rule.fallbackProviderId}
+              onChange={(fallbackProviderId) => onChange({ ...rule, fallbackProviderId })}
+              options={choices}
+              aria-label="Fallback provider"
+            />
           </Field>
           <Field label="Model">
-            <TextInput size="sm" mono value={rule.fallbackModelId ?? ''} placeholder="default" onChange={(m) => onChange({ ...rule, fallbackModelId: m || undefined })} />
+            <TextInput
+              size="sm"
+              mono
+              value={rule.fallbackModelId ?? ''}
+              placeholder="default"
+              onChange={(m) => onChange({ ...rule, fallbackModelId: m || undefined })}
+            />
           </Field>
           <Field label="Roles (none = all)" className="st-span-all">
-            <ChipSet label="Roles" options={ROLE_OPTIONS} value={rule.roles ?? []} onChange={(roles) => onChange({ ...rule, roles: roles.length ? roles : undefined })} />
+            <ChipSet
+              label="Roles"
+              options={ROLE_OPTIONS}
+              value={rule.roles ?? []}
+              onChange={(roles) => onChange({ ...rule, roles: roles.length ? roles : undefined })}
+            />
           </Field>
         </div>
       );
     case 'cloud-only-for-final':
-      return <ChipSet label="Roles" options={ROLE_OPTIONS} value={rule.roles} onChange={(roles) => onChange({ ...rule, roles })} />;
+      return (
+        <ChipSet
+          label="Roles"
+          options={ROLE_OPTIONS}
+          value={rule.roles}
+          onChange={(roles) => onChange({ ...rule, roles })}
+        />
+      );
     case 'never-upload':
-      return <ChipSet label="Data kinds" options={DATA_OPTIONS} value={rule.dataKinds} onChange={(dataKinds) => onChange({ ...rule, dataKinds })} />;
+      return (
+        <ChipSet
+          label="Data kinds"
+          options={DATA_OPTIONS}
+          value={rule.dataKinds}
+          onChange={(dataKinds) => onChange({ ...rule, dataKinds })}
+        />
+      );
     case 'prefer-provider':
       return (
         <div className="st-rule-fields">
           <Field label="Role">
-            <Select size="sm" value={rule.role} onChange={(role) => onChange({ ...rule, role })} options={ROLE_OPTIONS} aria-label="Role" />
+            <Select
+              size="sm"
+              value={rule.role}
+              onChange={(role) => onChange({ ...rule, role })}
+              options={ROLE_OPTIONS}
+              aria-label="Role"
+            />
           </Field>
           <Field label="Provider">
-            <Select size="sm" value={rule.providerId} onChange={(providerId) => onChange({ ...rule, providerId })} options={choices} aria-label="Preferred provider" />
+            <Select
+              size="sm"
+              value={rule.providerId}
+              onChange={(providerId) => onChange({ ...rule, providerId })}
+              options={choices}
+              aria-label="Preferred provider"
+            />
           </Field>
           <Field label="Model">
-            <TextInput size="sm" mono value={rule.modelId ?? ''} placeholder="default" onChange={(m) => onChange({ ...rule, modelId: m || undefined })} />
+            <TextInput
+              size="sm"
+              mono
+              value={rule.modelId ?? ''}
+              placeholder="default"
+              onChange={(m) => onChange({ ...rule, modelId: m || undefined })}
+            />
           </Field>
         </div>
       );
@@ -520,10 +776,22 @@ function RuleFields({ rule, onChange, choices }: { rule: RoutingRule; onChange: 
       return (
         <div className="st-rule-fields">
           <Field label="Max $ per request">
-            <OptNumber size="sm" value={rule.usd} min={0} step={0.05} onChange={(usd) => onChange({ ...rule, usd: usd ?? 0 })} aria-label="Maximum cost" />
+            <OptNumber
+              size="sm"
+              value={rule.usd}
+              min={0}
+              step={0.05}
+              onChange={(usd) => onChange({ ...rule, usd: usd ?? 0 })}
+              aria-label="Maximum cost"
+            />
           </Field>
           <Field label="Roles (none = all)" className="st-span-2">
-            <ChipSet label="Roles" options={ROLE_OPTIONS} value={rule.roles ?? []} onChange={(roles) => onChange({ ...rule, roles: roles.length ? roles : undefined })} />
+            <ChipSet
+              label="Roles"
+              options={ROLE_OPTIONS}
+              value={rule.roles ?? []}
+              onChange={(roles) => onChange({ ...rule, roles: roles.length ? roles : undefined })}
+            />
           </Field>
         </div>
       );
@@ -557,7 +825,8 @@ export function RoutingPreview({ compact }: { compact?: boolean }) {
       const dataKinds = [...new Set([...ROLE_INFO[role].dataKinds, ...extra])];
       const req = { role, quality, dataKinds, neverUpload: projectNever ?? [] };
       // Providers that cannot do this kind of task at all (wrong interface) are noise here.
-      const relevant = (list: ExcludedCandidate[]) => list.filter((x) => !x.reasons.some((r) => r.startsWith('does not provide')));
+      const relevant = (list: ExcludedCandidate[]) =>
+        list.filter((x) => !x.reasons.some((r) => r.startsWith('does not provide')));
       let excluded: ExcludedCandidate[] = [];
       try {
         excluded = relevant(router.evaluate(req).excluded);
@@ -567,7 +836,8 @@ export function RoutingPreview({ compact }: { compact?: boolean }) {
       try {
         return { role, decision: router.select(req), excluded };
       } catch (err) {
-        if (err instanceof NoCompatibleProviderError) return { role, error: err.message.split(':')[0], excluded: relevant(err.excluded) };
+        if (err instanceof NoCompatibleProviderError)
+          return { role, error: err.message.split(':')[0], excluded: relevant(err.excluded) };
         return { role, error: errorMessage(err), excluded };
       }
     });
@@ -600,7 +870,11 @@ export function RoutingPreview({ compact }: { compact?: boolean }) {
               { value: 'final', label: 'Final' },
             ]}
           />
-          <Button size="sm" variant="ghost" onClick={() => setOpen(open.size ? new Set() : new Set(TASK_ROLES))}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setOpen(open.size ? new Set() : new Set(TASK_ROLES))}
+          >
             {open.size ? 'Hide details' : 'Show details'}
           </Button>
         </div>
@@ -611,7 +885,11 @@ export function RoutingPreview({ compact }: { compact?: boolean }) {
           <span className="field-label">Simulate a request that also contains</span>
           <ChipSet
             label="Simulated data"
-            options={DATA_OPTIONS.filter((o) => ['recorded-vocals', 'reference-audio', 'guide-audio', 'stems', 'lyrics', 'midi'].includes(o.value))}
+            options={DATA_OPTIONS.filter((o) =>
+              ['recorded-vocals', 'reference-audio', 'guide-audio', 'stems', 'lyrics', 'midi'].includes(
+                o.value,
+              ),
+            )}
             value={extra}
             onChange={setExtra}
           />
@@ -646,7 +924,9 @@ function PreviewTableRow({ row, open, onToggle }: { row: PreviewRow; open: boole
       <tr data-testid={`route-${row.role}`} className={d ? '' : 'st-route-none'}>
         <td>
           <div style={{ fontWeight: 600 }}>{info.label}</div>
-          <div className="small dim">{info.capabilities.map((c) => CAPABILITY_INFO[c].label).join(' + ')}</div>
+          <div className="small dim">
+            {info.capabilities.map((c) => CAPABILITY_INFO[c].label).join(' + ')}
+          </div>
         </td>
         <td>
           {d ? (
@@ -669,14 +949,17 @@ function PreviewTableRow({ row, open, onToggle }: { row: PreviewRow; open: boole
           {row.excluded.length > 0 && (
             <button type="button" className="st-linkbtn small" onClick={onToggle} aria-expanded={open}>
               {open ? 'Hide' : `${row.excluded.length} excluded`}
-              {d && d.alternatives.length ? ` · ${d.alternatives.length} alternative${d.alternatives.length > 1 ? 's' : ''}` : ''}
+              {d && d.alternatives.length
+                ? ` · ${d.alternatives.length} alternative${d.alternatives.length > 1 ? 's' : ''}`
+                : ''}
             </button>
           )}
           {open && (
             <ul className="st-excluded">
               {d?.alternatives.map((a) => (
                 <li key={`alt-${a.providerId}`}>
-                  <span className="ok">✓</span> <strong>{a.providerName}</strong> — eligible, score {a.score.toFixed(2)} ({a.reasons.join(', ')})
+                  <span className="ok">✓</span> <strong>{a.providerName}</strong> — eligible, score{' '}
+                  {a.score.toFixed(2)} ({a.reasons.join(', ')})
                 </li>
               ))}
               {row.excluded.map((x) => (
@@ -687,7 +970,9 @@ function PreviewTableRow({ row, open, onToggle }: { row: PreviewRow; open: boole
             </ul>
           )}
         </td>
-        <td className="num nowrap">{d ? (d.estimate.known && d.estimate.maxUsd === 0 ? 'free' : formatCostRange(d.estimate)) : '—'}</td>
+        <td className="num nowrap">
+          {d ? (d.estimate.known && d.estimate.maxUsd === 0 ? 'free' : formatCostRange(d.estimate)) : '—'}
+        </td>
       </tr>
     </>
   );

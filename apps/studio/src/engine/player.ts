@@ -83,7 +83,9 @@ export class Player {
 
   private async ensureContext(): Promise<AudioContext> {
     if (!this.ctx) {
-      const Ctor: typeof AudioContext = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const Ctor: typeof AudioContext =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctor({ latencyHint: 'interactive' });
       this.gain = this.ctx.createGain();
       this.gain.connect(this.ctx.destination);
@@ -118,7 +120,10 @@ export class Player {
     if (this.sentAssets.has(id)) return;
     this.ensureWorker();
     const channels = data.channels.map((c) => c.slice());
-    this.post({ type: 'asset', id, sampleRate: data.sampleRate, channels }, channels.map((c) => c.buffer));
+    this.post(
+      { type: 'asset', id, sampleRate: data.sampleRate, channels },
+      channels.map((c) => c.buffer),
+    );
     this.sentAssets.add(id);
   }
 
@@ -134,7 +139,12 @@ export class Player {
   setLoop(range: { start: number; end: number } | null) {
     this.loop = range;
     const sr = this.sampleRate;
-    if (range) this.post({ type: 'loop', startFrame: Math.floor(range.start * sr), endFrame: Math.floor(range.end * sr) });
+    if (range)
+      this.post({
+        type: 'loop',
+        startFrame: Math.floor(range.start * sr),
+        endFrame: Math.floor(range.end * sr),
+      });
     else this.post({ type: 'loop', startFrame: null });
   }
 
@@ -143,7 +153,11 @@ export class Player {
     this.stopSources();
     this.gen++;
     const start = Math.max(0, fromSeconds ?? this.pausedAtSeconds);
-    this.post({ type: 'loop', startFrame: this.loop ? Math.floor(this.loop.start * ctx.sampleRate) : null, endFrame: this.loop ? Math.floor(this.loop.end * ctx.sampleRate) : undefined });
+    this.post({
+      type: 'loop',
+      startFrame: this.loop ? Math.floor(this.loop.start * ctx.sampleRate) : null,
+      endFrame: this.loop ? Math.floor(this.loop.end * ctx.sampleRate) : undefined,
+    });
     this.post({ type: 'options', metronome: this.metronome });
     this.post({ type: 'seek', frame: start * ctx.sampleRate, gen: this.gen });
     this.nextWhen = ctx.currentTime + 0.08;
@@ -215,7 +229,8 @@ export class Player {
       this.pump();
       const ctx = this.ctx!;
       // Drop finished chunks.
-      while (this.scheduled.length > 1 && this.scheduled[1].when < ctx.currentTime - 0.5) this.scheduled.shift();
+      while (this.scheduled.length > 1 && this.scheduled[1].when < ctx.currentTime - 0.5)
+        this.scheduled.shift();
       if (this.ended && this.pending === 0 && ctx.currentTime > this.nextWhen + 0.1) {
         this.playing = false;
         this.pausedAtSeconds = 0;

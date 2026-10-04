@@ -59,7 +59,8 @@ function mergeById<T extends { id: string }>(
   for (const c of current) {
     const b = B.get(c.id);
     const p = P.get(c.id);
-    if (!b) out.push(c); // added since the proposal was made
+    if (!b)
+      out.push(c); // added since the proposal was made
     else if (!p) {
       // The proposal removes it.
       if (!same(b, c)) conflicts.add(`${label(c)}: removed by the proposal but edited since`);
@@ -79,7 +80,8 @@ function mergeById<T extends { id: string }>(
       if (C.has(id)) item.id = freshId(id, (x) => used.has(x) || P.has(x));
       used.add(item.id);
       out.push(item);
-    } else if (!C.has(id) && !same(b, p)) conflicts.add(`${label(p)}: changed by the proposal but deleted since`);
+    } else if (!C.has(id) && !same(b, p))
+      conflicts.add(`${label(p)}: changed by the proposal but deleted since`);
   }
   return out;
 }
@@ -96,13 +98,29 @@ function mergeTrack(b: Track, p: Track, c: Track, conflicts: Conflicts): Track {
   }
   const track = out as unknown as Track;
   track.notes = sortNotes(mergeById(b.notes, p.notes, c.notes, () => `Notes on "${c.name}"`, conflicts));
-  track.clips = mergeById(b.clips ?? [], p.clips ?? [], c.clips ?? [], () => `Audio clips on "${c.name}"`, conflicts);
+  track.clips = mergeById(
+    b.clips ?? [],
+    p.clips ?? [],
+    c.clips ?? [],
+    () => `Audio clips on "${c.name}"`,
+    conflicts,
+  );
   return track;
 }
 
-function mergeMixer(b: MixerState, p: MixerState, c: MixerState, trackName: (id: string) => string, conflicts: Conflicts): MixerState {
+function mergeMixer(
+  b: MixerState,
+  p: MixerState,
+  c: MixerState,
+  trackName: (id: string) => string,
+  conflicts: Conflicts,
+): MixerState {
   const channels = { ...c.channels };
-  for (const id of new Set([...Object.keys(b.channels), ...Object.keys(p.channels), ...Object.keys(c.channels)])) {
+  for (const id of new Set([
+    ...Object.keys(b.channels),
+    ...Object.keys(p.channels),
+    ...Object.keys(c.channels),
+  ])) {
     const v = mergeUnit(b.channels[id], p.channels[id], c.channels[id], `Mixer: ${trackName(id)}`, conflicts);
     if (v === undefined) delete channels[id];
     else channels[id] = v;
@@ -148,15 +166,33 @@ export function rebaseProposal(before: Song, after: Song, current: Song): Rebase
     if (v === undefined) delete out[key];
     else out[key] = v;
   }
-  const nameOf = (id: string) => now.tracks.find((t) => t.id === id)?.name ?? after.tracks.find((t) => t.id === id)?.name ?? id;
-  song.tracks = mergeById(before.tracks, after.tracks, now.tracks, (t) => `Track "${t.name}"`, conflicts, (b, p, c) => mergeTrack(b, p, c, conflicts));
+  const nameOf = (id: string) =>
+    now.tracks.find((t) => t.id === id)?.name ?? after.tracks.find((t) => t.id === id)?.name ?? id;
+  song.tracks = mergeById(
+    before.tracks,
+    after.tracks,
+    now.tracks,
+    (t) => `Track "${t.name}"`,
+    conflicts,
+    (b, p, c) => mergeTrack(b, p, c, conflicts),
+  );
   song.lyrics = mergeById(before.lyrics, after.lyrics, now.lyrics, () => 'Lyrics', conflicts);
   song.motifs = mergeById(before.motifs, after.motifs, now.motifs, (m) => `Motif "${m.name}"`, conflicts);
   song.phrases = mergeById(before.phrases, after.phrases, now.phrases, () => 'Phrases', conflicts);
-  song.automation = mergeById(before.automation, after.automation, now.automation, (l) => `Automation: ${l.target === 'master' ? 'master' : nameOf(l.target)} ${l.param}`, conflicts);
+  song.automation = mergeById(
+    before.automation,
+    after.automation,
+    now.automation,
+    (l) => `Automation: ${l.target === 'master' ? 'master' : nameOf(l.target)} ${l.param}`,
+    conflicts,
+  );
   song.mixer = mergeMixer(before.mixer, after.mixer, now.mixer, nameOf, conflicts);
   const locks = { ...now.locks };
-  for (const key of new Set([...Object.keys(before.locks), ...Object.keys(after.locks), ...Object.keys(now.locks)])) {
+  for (const key of new Set([
+    ...Object.keys(before.locks),
+    ...Object.keys(after.locks),
+    ...Object.keys(now.locks),
+  ])) {
     const v = mergeUnit(before.locks[key], after.locks[key], now.locks[key], `Lock ${key}`, conflicts);
     if (v === undefined) delete locks[key];
     else locks[key] = v;

@@ -4,7 +4,7 @@
 
 > Generate a song. Keep the song. Change the notes. Change the instruments. Change the singer. Change the production. Regenerate only what you want. Use whichever AI you want.
 
-Song Deck creates the *composition* first — structure, harmony, melodies, rhythms, instrumentation, MIDI, lyrics and musical metadata — and treats audio as a rendering of that composition. Everything is editable, lockable, reproducible by seed, versioned, and exportable. AI providers are interchangeable plug-ins selected by capability; with none configured, the built-in deterministic engine does the job fully offline.
+Song Deck creates the _composition_ first — structure, harmony, melodies, rhythms, instrumentation, MIDI, lyrics and musical metadata — and treats audio as a rendering of that composition. Everything is editable, lockable, reproducible by seed, versioned, and exportable. AI providers are interchangeable plug-ins selected by capability; with none configured, the built-in deterministic engine does the job fully offline.
 
 The full product specification lives in [`Song Deck.md`](./Song%20Deck.md). How the code maps onto it is in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), and what each phase delivers (and its honest limits) is in [`docs/PHASES.md`](./docs/PHASES.md).
 
@@ -35,8 +35,26 @@ npm run build          # production build of the studio (apps/studio/dist)
 npm run start:server   # serves the built studio + API at http://localhost:7788
 npm test               # unit/integration tests for every package
 npm run typecheck
-npm run e2e            # Playwright end-to-end tests (Chromium)
+npm run e2e            # Playwright end-to-end and accessibility tests (Chromium)
+npm run lint           # ESLint; `npm run format` / `format:check` for Prettier
+npm run size           # entry-chunk and first-paint bundle budget (after a build)
 ```
+
+CI runs all of these on every pull request (`.github/workflows/ci.yml`), plus Ruff for the Python
+bridges, CodeQL and dependency review.
+
+## Making a song
+
+- **Compose** starts with a builder: instruments and how many, genres and how much influence,
+  moods, and style, era and production tags. It needs no AI. With a model connected you can also
+  describe the song in your own words. The 57 genres and 487 tags are listed in
+  [`docs/GENRES.md`](./docs/GENRES.md).
+- **Start from lyrics** builds a song around words you already have.
+- **Connect an AI service** (Settings → Providers): paste an API key and pick from the models it can
+  use; running local servers are found automatically. Keys stay in the local server's vault or,
+  without it, encrypted in the browser ([`docs/CREDENTIALS.md`](./docs/CREDENTIALS.md)).
+- **Uploaded audio** asks for a rights attestation; what is and isn't checked is in
+  [`docs/RIGHTS.md`](./docs/RIGHTS.md).
 
 ### Local AI models (optional)
 
@@ -57,16 +75,17 @@ write your own: [`docs/PLUGINS.md`](./docs/PLUGINS.md).
 
 ## Repository layout
 
-| Path | What it is |
-| --- | --- |
-| `packages/core` | Music Engine: Music IR, theory engine, composition engine (genres, blueprint, planner, role generators, arrangement, macros, locks, regeneration, variation, Song DNA), musical intelligence (natural-language edits, theory explanations, lyrics, mix assistant), validation engine & proposals, MIDI/MusicXML/PDF/DAWproject/Reaper serialization, `.songproject` packages, version history & branches, task engine |
-| `packages/audio` | Audio Engine in pure TypeScript: synthesis & guide rendering, streaming renderer, mixer & effects & automation, mastering & EBU R128 loudness, WAV/FLAC codecs, singing synthesis, and analysis (tempo, key, chords, pitch, transcription, source separation, structure, Rebuild) |
-| `packages/ai` | AI Orchestrator: capability taxonomy, provider registry & capability router, profiles, routing rules, privacy data-flow, cost & budgets, MusicContext, structured output, adapters (OpenAI-compatible, Anthropic, Gemini, Ollama, custom HTTP, ElevenLabs Music, Stable Audio, Lyria, local model bridges) |
-| `apps/studio` | The workstation UI (React + Vite) |
-| `apps/server` | Local runtime server (Node) |
-| `plugins/` | Example plugins: a genre profile, an exporter (ABC notation) and an SFZ sampled instrument |
-| `bridges/` | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC, Matchering) and a dependency-free mock bridge |
-| `scripts/release/` | Release tooling (version checks, packaging, smoke test) used by `.github/workflows/release.yml` |
+| Path               | What it is                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core`    | Music Engine: Music IR, theory engine, composition engine (genres, blueprint, planner, role generators, arrangement, macros, locks, regeneration, variation, Song DNA), musical intelligence (natural-language edits, theory explanations, lyrics, mix assistant), validation engine & proposals, MIDI/MusicXML/PDF/DAWproject/Reaper serialization, `.songproject` packages, version history & branches, task engine |
+| `packages/audio`   | Audio Engine in pure TypeScript: synthesis & guide rendering, streaming renderer, mixer & effects & automation, mastering & EBU R128 loudness, WAV/FLAC codecs, singing synthesis, and analysis (tempo, key, chords, pitch, transcription, source separation, structure, Rebuild)                                                                                                                                     |
+| `packages/ai`      | AI Orchestrator: capability taxonomy, provider registry & capability router, profiles, routing rules, privacy data-flow, cost & budgets, MusicContext, structured output, adapters (OpenAI-compatible, Anthropic, Gemini, Ollama, custom HTTP, ElevenLabs Music, Stable Audio, Lyria, local model bridges)                                                                                                            |
+| `apps/studio`      | The workstation UI (React + Vite)                                                                                                                                                                                                                                                                                                                                                                                     |
+| `apps/server`      | Local runtime server (Node)                                                                                                                                                                                                                                                                                                                                                                                           |
+| `plugins/`         | Example plugins: a genre profile, an exporter (ABC notation) and an SFZ sampled instrument                                                                                                                                                                                                                                                                                                                            |
+| `bridges/`         | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC, Matchering) and a dependency-free mock bridge                                                                                                                                                                                                                                                                                |
+| `docs/`            | Architecture, phases, genres and tags, brand, credentials, rights, plugins and releasing                                                                                                                                                                                                                                                                                                                              |
+| `scripts/release/` | Release tooling (version checks, packaging, smoke test) used by `.github/workflows/release.yml`                                                                                                                                                                                                                                                                                                                       |
 
 ## License
 

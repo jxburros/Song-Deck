@@ -1,7 +1,14 @@
 import type { ChordSpec, KeySignature, ModeName, MusicOperation, Song } from '../ir/types';
 import { sectionLayout, keyAtTick } from '../timing';
 import { isChordSectionLocked } from '../locks';
-import { chordPitchClasses, chordTones, diatonicChord, isDiatonic, isDominantQuality, triadQuality } from '../theory/chords';
+import {
+  chordPitchClasses,
+  chordTones,
+  diatonicChord,
+  isDiatonic,
+  isDominantQuality,
+  triadQuality,
+} from '../theory/chords';
 import { chordDegree } from '../theory/roman';
 import { MODE_COLOR_NOTE, chordFunction } from '../theory/analysis';
 import { isMinorMode } from '../theory/scales';
@@ -65,10 +72,21 @@ interface ChordChange {
   note?: string;
 }
 
-export function applyTheoryControl(song: Song, sectionId: string, control: TheoryControl, opts: { seed: number }): EditInterpretation {
+export function applyTheoryControl(
+  song: Song,
+  sectionId: string,
+  control: TheoryControl,
+  opts: { seed: number },
+): EditInterpretation {
   const span = sectionLayout(song).find((s) => s.section.id === sectionId || s.section.name === sectionId);
   const label = CONTROL_LABEL[control];
-  if (!span) return { operations: [], explanation: `There is no section "${sectionId}".`, intents: [control], understood: false };
+  if (!span)
+    return {
+      operations: [],
+      explanation: `There is no section "${sectionId}".`,
+      intents: [control],
+      understood: false,
+    };
   const sec = span.section;
   if (isChordSectionLocked(song, sec.id)) {
     return {
@@ -82,7 +100,13 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
   const key = sectionAnalysisKey(song, sec.id);
   const slots = chordSlots(song);
   const inSec = slots.filter((s) => s.tick >= span.startTick && s.tick < span.endTick);
-  if (!inSec.length) return { operations: [], explanation: `${label}: ${sec.name} has no chords to change.`, intents: [control], understood: true };
+  if (!inSec.length)
+    return {
+      operations: [],
+      explanation: `${label}: ${sec.name} has no chords to change.`,
+      intents: [control],
+      understood: true,
+    };
 
   const changes: ChordChange[] = [];
   let why = '';
@@ -94,7 +118,12 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
     const each = Math.floor(s.duration / n);
     replaced.set(
       s,
-      specs.map((spec, i) => ({ tick: s.tick + i * each, duration: i === n - 1 ? s.duration - each * (n - 1) : each, spec, sourceId: s.sourceId })),
+      specs.map((spec, i) => ({
+        tick: s.tick + i * each,
+        duration: i === n - 1 ? s.duration - each * (n - 1) : each,
+        spec,
+        sourceId: s.sourceId,
+      })),
     );
     changes.push({ from: s.spec, to: specs, note });
   };
@@ -106,7 +135,13 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
       for (const s of inSec) {
         const nxt = slots[slots.indexOf(s) + 1]?.spec;
         const dark = darkenChord(s.spec, key, nxt);
-        if (nxt && sameChord(dark, s.spec) && !sameChord(darkenChord(s.spec, key), s.spec) && !kept.some((k) => sameChord(k.chord, s.spec))) kept.push({ chord: s.spec, next: nxt });
+        if (
+          nxt &&
+          sameChord(dark, s.spec) &&
+          !sameChord(darkenChord(s.spec, key), s.spec) &&
+          !kept.some((k) => sameChord(k.chord, s.spec))
+        )
+          kept.push({ chord: s.spec, next: nxt });
         put(s, [dark]);
       }
       why = isMinorMode(key.mode)
@@ -130,8 +165,21 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
         const t = tenseChord(s.spec, key, rng);
         const isV = mod12(s.spec.root - key.tonic) === 7;
         if (i === inSec.length - 1 && isV && beats >= 2) {
-          put(s, [{ root: s.spec.root, quality: '7sus4' }, { root: s.spec.root, quality: isMinorMode(key.mode) ? '7b9' : '7' }], 'dominant suspension before the next section');
-        } else if (next && beats >= 4 && !isDominantQuality(t.quality) && mod12(next.spec.root - key.tonic) !== 7 && rng.chance(0.6)) {
+          put(
+            s,
+            [
+              { root: s.spec.root, quality: '7sus4' },
+              { root: s.spec.root, quality: isMinorMode(key.mode) ? '7b9' : '7' },
+            ],
+            'dominant suspension before the next section',
+          );
+        } else if (
+          next &&
+          beats >= 4 &&
+          !isDominantQuality(t.quality) &&
+          mod12(next.spec.root - key.tonic) !== 7 &&
+          rng.chance(0.6)
+        ) {
           // Approach the next chord through its own dominant in the last half of this chord.
           const secDom: ChordSpec = { root: mod12(next.spec.root + 7), quality: '7' };
           put(s, [t, secDom], `secondary dominant leading into ${spellChord(next.spec, key)}`);
@@ -140,20 +188,24 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
       {
         const hasSus = changes.some((c) => c.to.some((t) => t.quality === '7sus4'));
         const hasSec = changes.some((c) => c.note?.startsWith('secondary dominant'));
-        why = [
-          'Sevenths and ninths add friction',
-          hasSec ? 'secondary dominants point at the chord that follows' : '',
-          hasSus ? 'and the closing dominant suspension (7sus4 → 7) delays the resolution so the next section lands harder' : '',
-        ]
-          .filter(Boolean)
-          .join(', ')
-          .replace(/, and/, ' and') + '.';
+        why =
+          [
+            'Sevenths and ninths add friction',
+            hasSec ? 'secondary dominants point at the chord that follows' : '',
+            hasSus
+              ? 'and the closing dominant suspension (7sus4 → 7) delays the resolution so the next section lands harder'
+              : '',
+          ]
+            .filter(Boolean)
+            .join(', ')
+            .replace(/, and/, ' and') + '.';
       }
       break;
     }
     case 'less-tension': {
       for (const s of inSec) put(s, [relaxChord(s.spec, key)]);
-      why = 'Sevenths, suspensions, secondary dominants and borrowed colours are replaced by plain diatonic triads, so every chord sits comfortably in the key.';
+      why =
+        'Sevenths, suspensions, secondary dominants and borrowed colours are replaced by plain diatonic triads, so every chord sits comfortably in the key.';
       break;
     }
     case 'simplify': {
@@ -167,7 +219,9 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
           const target = prevRepl && prevRepl.length ? prevRepl[prevRepl.length - 1] : undefined;
           if (target) target.duration += s.duration;
           else {
-            replaced.set(last, [{ ...last, duration: last.duration + s.duration, spec: relaxChord(last.spec, key) }]);
+            replaced.set(last, [
+              { ...last, duration: last.duration + s.duration, spec: relaxChord(last.spec, key) },
+            ]);
           }
           changes.push({ from: s.spec, to: [], note: 'passing chord removed' });
           continue;
@@ -176,21 +230,27 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
         const simple = relaxChord(s.spec, key);
         if (!sameChord(simple, s.spec)) put(s, [simple]);
       }
-      why = 'Extensions, slash basses and passing chords are removed so the progression is easier to play and the melody carries the colour.';
+      why =
+        'Extensions, slash basses and passing chords are removed so the progression is easier to play and the melody carries the colour.';
       break;
     }
     case 'less-conventional': {
       const candidates = inSec.length >= 3 ? inSec.slice(1) : inSec;
       let changed = 0;
       candidates.forEach((s, i) => {
-        if (changed >= Math.ceil(candidates.length / 2) || (!rng.chance(0.55) && !(i === candidates.length - 1 && changed === 0))) return;
+        if (
+          changed >= Math.ceil(candidates.length / 2) ||
+          (!rng.chance(0.55) && !(i === candidates.length - 1 && changed === 0))
+        )
+          return;
         const u = unconventionalChord(s.spec, key, rng);
         if (u && !sameChord(u.spec, s.spec)) {
           put(s, [u.spec], u.label);
           changed++;
         }
       });
-      why = 'Chromatic mediants, tritone substitutions and borrowed or inverted chords keep the phrase structure (and the first chord as an anchor) but steer the ear somewhere it does not expect.';
+      why =
+        'Chromatic mediants, tritone substitutions and borrowed or inverted chords keep the phrase structure (and the first chord as an anchor) but steer the ear somewhere it does not expect.';
       break;
     }
     case 'modal': {
@@ -212,7 +272,12 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
   }
 
   if (!replaced.size) {
-    return { operations: [], explanation: `${label}: the chords of ${sec.name} already fit this colour — nothing to change.`, intents: [control], understood: true };
+    return {
+      operations: [],
+      explanation: `${label}: the chords of ${sec.name} already fit this colour — nothing to change.`,
+      intents: [control],
+      understood: true,
+    };
   }
   const finalSlots: ChordSlot[] = [];
   for (const s of slots) {
@@ -225,15 +290,22 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
   const ops: MusicOperation[] = [...chordRes.ops];
 
   // Fit notes of every unlocked pitched track in the section to the new chords.
-  const scaleMap = scaleTarget && scaleTarget !== key.mode ? scaleMapFn(key, { tonic: key.tonic, mode: scaleTarget }) : undefined;
+  const scaleMap =
+    scaleTarget && scaleTarget !== key.mode
+      ? scaleMapFn(key, { tonic: key.tonic, mode: scaleTarget })
+      : undefined;
   const fitted: string[] = [];
   const skipped: string[] = [];
   for (const track of song.tracks) {
     if (track.kind !== 'midi' || !isPitchedTrack(track)) continue;
     const isL = lockChecker(song, track);
     const work: WorkNote[] = track.notes.map(toWork);
-    const editable = work.filter((n, i) => n.tick >= span.startTick && n.tick < span.endTick && !isL(track.notes[i]));
-    const lockedHere = track.notes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick && isL(n)).length;
+    const editable = work.filter(
+      (n, i) => n.tick >= span.startTick && n.tick < span.endTick && !isL(track.notes[i]),
+    );
+    const lockedHere = track.notes.filter(
+      (n) => n.tick >= span.startTick && n.tick < span.endTick && isL(n),
+    ).length;
     if (lockedHere) skipped.push(`${track.name} (${lockedHere} locked note${lockedHere === 1 ? '' : 's'})`);
     if (!editable.length) continue;
     const { low, high } = trackPitchRange(track);
@@ -276,9 +348,15 @@ export function applyTheoryControl(song: Song, sectionId: string, control: Theor
         : `${spellChord(c.from, key)} removed (${c.note})`,
     )
     .join('; ');
-  const parts = [`${label} — ${sec.name} (in ${spellPitchClass(key.tonic, key)} ${MODE_LABEL[key.mode]}): ${changeText}${changes.length > 8 ? '; …' : ''}.`, why];
+  const parts = [
+    `${label} — ${sec.name} (in ${spellPitchClass(key.tonic, key)} ${MODE_LABEL[key.mode]}): ${changeText}${changes.length > 8 ? '; …' : ''}.`,
+    why,
+  ];
   if (fitted.length) parts.push(`Adjusted ${listJoin(fitted)} so they agree with the new chords.`);
-  if (skipped.length) parts.push(`Locked material was skipped: ${listJoin(skipped)} — check those notes against the new harmony.`);
+  if (skipped.length)
+    parts.push(
+      `Locked material was skipped: ${listJoin(skipped)} — check those notes against the new harmony.`,
+    );
   return { operations: ops, explanation: parts.join(' '), intents: [control], understood: true };
 }
 
@@ -325,8 +403,13 @@ export function suggestChordSubstitutions(song: Song, chordId: string): ChordSug
         : [];
   for (const r of relatives) {
     if (!isDiatonic(r, key)) continue;
-    const shared = chordPitchClasses(r).filter((pc) => chordPitchClasses({ root: spec.root, quality: tq === 'min' ? 'min' : 'maj' }).includes(pc)).length;
-    add(r, `Shares ${shared} notes with ${name}, so the melody still fits; a ${chordFunction(r, key)}-function substitute with a ${triadQuality(r.quality) === 'min' ? 'softer, darker' : 'brighter, more open'} colour.`);
+    const shared = chordPitchClasses(r).filter((pc) =>
+      chordPitchClasses({ root: spec.root, quality: tq === 'min' ? 'min' : 'maj' }).includes(pc),
+    ).length;
+    add(
+      r,
+      `Shares ${shared} notes with ${name}, so the melody still fits; a ${chordFunction(r, key)}-function substitute with a ${triadQuality(r.quality) === 'min' ? 'softer, darker' : 'brighter, more open'} colour.`,
+    );
   }
   // 2) Same-function diatonic substitutes.
   for (let d = 0; d < 7; d++) {
@@ -351,35 +434,73 @@ export function suggestChordSubstitutions(song: Song, chordId: string): ChordSug
       if (deg === 0 && tq === 'min') borrowed.push({ root: spec.root, quality: 'maj' });
     }
     for (const b of borrowed)
-      add(b, parallelMinor ? `Borrowed from ${spellPitchClass(key.tonic, key)} minor (modal interchange): a bittersweet shade over the same bass motion.` : `Borrowed from ${spellPitchClass(key.tonic, key)} major/Dorian: lifts the minor key with a brighter chord.`);
+      add(
+        b,
+        parallelMinor
+          ? `Borrowed from ${spellPitchClass(key.tonic, key)} minor (modal interchange): a bittersweet shade over the same bass motion.`
+          : `Borrowed from ${spellPitchClass(key.tonic, key)} major/Dorian: lifts the minor key with a brighter chord.`,
+      );
   }
   // 4) Secondary dominant of the next chord.
   if (next && mod12(next.root - key.tonic) !== 0 && triadQuality(next.quality) !== 'dim') {
-    add({ root: mod12(next.root + 7), quality: '7' }, `Secondary dominant (V7 of ${nextName}): points strongly at the next chord and adds forward pull.`);
+    add(
+      { root: mod12(next.root + 7), quality: '7' },
+      `Secondary dominant (V7 of ${nextName}): points strongly at the next chord and adds forward pull.`,
+    );
   }
-  if (next && mod12(next.root - key.tonic) === 0) add({ root: mod12(key.tonic + 7), quality: '7' }, `The dominant seventh sets up a strong V7 → I arrival on ${nextName}.`);
+  if (next && mod12(next.root - key.tonic) === 0)
+    add(
+      { root: mod12(key.tonic + 7), quality: '7' },
+      `The dominant seventh sets up a strong V7 → I arrival on ${nextName}.`,
+    );
   // 5) Tritone substitution.
   if (isDominantQuality(spec.quality) || (deg === 4 && tq === 'maj')) {
-    add({ root: mod12(spec.root + 6), quality: '7' }, `Tritone substitution: keeps the same tritone (3rd and 7th) but the bass slides chromatically${nextName ? ` into ${nextName}` : ''} — a jazzy, sophisticated colour.`);
+    add(
+      { root: mod12(spec.root + 6), quality: '7' },
+      `Tritone substitution: keeps the same tritone (3rd and 7th) but the bass slides chromatically${nextName ? ` into ${nextName}` : ''} — a jazzy, sophisticated colour.`,
+    );
   } else if (next && mod12(next.root - key.tonic) === 0) {
-    add({ root: mod12(next.root + 1), quality: '7' }, `Tritone-substitute dominant (bII7) resolving down a half step into ${nextName}.`);
+    add(
+      { root: mod12(next.root + 1), quality: '7' },
+      `Tritone-substitute dominant (bII7) resolving down a half step into ${nextName}.`,
+    );
   }
   // 6) Suspensions.
   if (tq === 'maj' || tq === 'min') {
-    add({ root: spec.root, quality: 'sus4' }, 'Suspended 4th: removes the third for an open, unresolved sound that wants to fall back to the triad.');
-    add({ root: spec.root, quality: 'sus2' }, 'Suspended 2nd: a hollow, modern sound — neither major nor minor.');
-    if (fn === 'dominant') add({ root: spec.root, quality: '7sus4' }, 'Dominant 7sus4: classic gospel/pop pre-chorus tension before the V7.');
+    add(
+      { root: spec.root, quality: 'sus4' },
+      'Suspended 4th: removes the third for an open, unresolved sound that wants to fall back to the triad.',
+    );
+    add(
+      { root: spec.root, quality: 'sus2' },
+      'Suspended 2nd: a hollow, modern sound — neither major nor minor.',
+    );
+    if (fn === 'dominant')
+      add(
+        { root: spec.root, quality: '7sus4' },
+        'Dominant 7sus4: classic gospel/pop pre-chorus tension before the V7.',
+      );
   }
   // 7) Extensions.
   const ext: ChordSpec[] =
     tq === 'min'
-      ? [{ root: spec.root, quality: 'min7' }, { root: spec.root, quality: 'min9' }]
+      ? [
+          { root: spec.root, quality: 'min7' },
+          { root: spec.root, quality: 'min9' },
+        ]
       : isDominantQuality(spec.quality) || (fn === 'dominant' && tq === 'maj')
-        ? [{ root: spec.root, quality: '9' }, { root: spec.root, quality: '13' }]
+        ? [
+            { root: spec.root, quality: '9' },
+            { root: spec.root, quality: '13' },
+          ]
         : tq === 'maj'
-          ? [{ root: spec.root, quality: 'maj7' }, { root: spec.root, quality: 'add9' }]
+          ? [
+              { root: spec.root, quality: 'maj7' },
+              { root: spec.root, quality: 'add9' },
+            ]
           : [];
-  for (const e of ext) add(e, 'Extension: same function and bass, with added colour (lush rather than plain).');
+  for (const e of ext)
+    add(e, 'Extension: same function and bass, with added colour (lush rather than plain).');
   // 8) Inversion for a smoother bass line.
   if (tq === 'maj' || tq === 'min') {
     const tones = chordTones({ root: spec.root, quality: tq });
@@ -387,22 +508,44 @@ export function suggestChordSubstitutions(song: Song, chordId: string): ChordSug
     const fifth = tones.find((t) => t.role === 'fifth')!.pc;
     const prevBass = prev ? (prev.bass ?? prev.root) : undefined;
     const nextBass = next ? (next.bass ?? next.root) : undefined;
-    const stepwise = (pc: number) => [prevBass, nextBass].filter((b) => b !== undefined).some((b) => Math.min(mod12(pc - b!), mod12(b! - pc)) <= 2);
-    add({ root: spec.root, quality: tq, bass: third }, `First inversion (third in the bass)${stepwise(third) ? ': makes the bass line move by step' : ': a lighter, less grounded sound'}.`);
+    const stepwise = (pc: number) =>
+      [prevBass, nextBass]
+        .filter((b) => b !== undefined)
+        .some((b) => Math.min(mod12(pc - b!), mod12(b! - pc)) <= 2);
+    add(
+      { root: spec.root, quality: tq, bass: third },
+      `First inversion (third in the bass)${stepwise(third) ? ': makes the bass line move by step' : ': a lighter, less grounded sound'}.`,
+    );
     if (fn === 'tonic' && next && chordFunction(next, key) === 'dominant')
-      add({ root: spec.root, quality: tq, bass: fifth }, 'Second inversion (cadential 6/4): the classic set-up for the dominant that follows.');
+      add(
+        { root: spec.root, quality: tq, bass: fifth },
+        'Second inversion (cadential 6/4): the classic set-up for the dominant that follows.',
+      );
   }
   // 9) Passing diminished chord.
   if (next && mod12(next.root - spec.root) === 2) {
-    add({ root: mod12(spec.root + 1), quality: 'dim7' }, `Passing diminished 7th: use it for the last beat to walk chromatically from ${name} up to ${nextName}.`);
+    add(
+      { root: mod12(spec.root + 1), quality: 'dim7' },
+      `Passing diminished 7th: use it for the last beat to walk chromatically from ${name} up to ${nextName}.`,
+    );
   }
   // 10) Deceptive resolutions.
   if (prev && mod12(prev.root - key.tonic) === 7 && deg === 0) {
-    add({ root: mod12(key.tonic + 9), quality: 'min' }, 'Deceptive resolution: after the dominant the ear expects I, and vi side-steps it.');
-    add({ root: mod12(key.tonic + 8), quality: 'maj' }, 'Deceptive resolution to bVI: a dramatic, cinematic surprise.');
+    add(
+      { root: mod12(key.tonic + 9), quality: 'min' },
+      'Deceptive resolution: after the dominant the ear expects I, and vi side-steps it.',
+    );
+    add(
+      { root: mod12(key.tonic + 8), quality: 'maj' },
+      'Deceptive resolution to bVI: a dramatic, cinematic surprise.',
+    );
   }
   // 11) Pedal point.
-  if (deg !== 0 && spec.root !== key.tonic) add({ root: spec.root, quality: tq === 'min' ? 'min' : 'maj', bass: key.tonic }, 'Over a tonic pedal: keeps the bass on the home note for a floating, cinematic feel.');
+  if (deg !== 0 && spec.root !== key.tonic)
+    add(
+      { root: spec.root, quality: tq === 'min' ? 'min' : 'maj', bass: key.tonic },
+      'Over a tonic pedal: keeps the bass on the home note for a floating, cinematic feel.',
+    );
   return out.slice(0, 14);
 }
 

@@ -68,7 +68,8 @@ export class LaneEval {
     this.cur = c;
     const v0 = this.values[c];
     if (this.step[c]) return v0;
-    const f0 = fr[c], f1 = fr[c + 1];
+    const f0 = fr[c],
+      f1 = fr[c + 1];
     const t = f1 > f0 ? (frame - f0) / (f1 - f0) : 0;
     return v0 + (this.values[c + 1] - v0) * t;
   }

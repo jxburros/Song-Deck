@@ -3,7 +3,16 @@
  * strength, optional snap-to-key, same-pitch overlap cleanup, deterministic ids, and the
  * transcription confidence carried on `Note.confidence` (spec §25 "communicate uncertainty").
  */
-import { GM_DRUM, IdFactory, PPQ, quantizeTick, snapToScale, sortNotes, type KeySignature, type Note } from '@songdeck/core';
+import {
+  GM_DRUM,
+  IdFactory,
+  PPQ,
+  quantizeTick,
+  snapToScale,
+  sortNotes,
+  type KeySignature,
+  type Note,
+} from '@songdeck/core';
 import type { DrumHit, TranscribedNote } from './types';
 import { clamp } from './util';
 
@@ -134,7 +143,9 @@ export function resolveOverlaps(notes: Note[]): Note[] {
 
 /** Keep only one sounding note at a time (bass / lead lines): later notes cut earlier ones. */
 export function enforceMonophony(notes: Note[]): Note[] {
-  const sorted = [...notes].sort((a, b) => a.tick - b.tick || (b.confidence ?? 0) - (a.confidence ?? 0) || a.pitch - b.pitch);
+  const sorted = [...notes].sort(
+    (a, b) => a.tick - b.tick || (b.confidence ?? 0) - (a.confidence ?? 0) || a.pitch - b.pitch,
+  );
   const out: Note[] = [];
   for (const n of sorted) {
     const prev = out[out.length - 1];
@@ -218,9 +229,16 @@ export interface TapsToNotesOptions {
 /** Spec §27 "tap a rhythm": tap times → quantised percussion notes. */
 export function tapsToNotes(tapTimesSeconds: number[], opts: TapsToNotesOptions): Note[] {
   if (!tapTimesSeconds.length) return [];
-  const sorted = [...tapTimesSeconds].map((t, i) => ({ t, v: opts.velocities?.[i] ?? 100 })).sort((a, b) => a.t - b.t);
+  const sorted = [...tapTimesSeconds]
+    .map((t, i) => ({ t, v: opts.velocities?.[i] ?? 100 }))
+    .sort((a, b) => a.t - b.t);
   const offset = opts.offsetSeconds ?? sorted[0].t;
-  const hits: DrumHit[] = sorted.map(({ t, v }) => ({ time: t, drum: opts.drum ?? GM_DRUM.CLAP, velocity: v, confidence: 1 }));
+  const hits: DrumHit[] = sorted.map(({ t, v }) => ({
+    time: t,
+    drum: opts.drum ?? GM_DRUM.CLAP,
+    velocity: v,
+    confidence: 1,
+  }));
   return drumHitsToNotes(hits, {
     bpm: opts.bpm,
     ppq: opts.ppq,

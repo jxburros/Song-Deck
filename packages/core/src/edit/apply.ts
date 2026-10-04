@@ -4,9 +4,27 @@ import { findSection, sectionLayout, songLengthTicks } from '../timing';
 import { foldIntoRange } from '../theory/scales';
 import { isDrumTrack, lookupInstrument, trackRange } from './instruments';
 import { lockViolations, noteProtected, parseLocks, scopeViolations } from './locks-check';
-import { createOpContext, foldMidi, parseRegion, resolveTrack, type ApplyOptions, type OpContext, type RegenerateOperation } from './op-context';
+import {
+  createOpContext,
+  foldMidi,
+  parseRegion,
+  resolveTrack,
+  type ApplyOptions,
+  type OpContext,
+  type RegenerateOperation,
+} from './op-context';
 import { opAddNotes, opDeleteNotes, opReplaceNotes, opSetExpression, opTransformNotes } from './ops-notes';
-import { opSetAutomation, opSetChords, opSetKey, opSetLock, opSetLyrics, opSetMacros, opSetMeter, opSetMixer, opSetTempo } from './ops-song';
+import {
+  opSetAutomation,
+  opSetChords,
+  opSetKey,
+  opSetLock,
+  opSetLyrics,
+  opSetMacros,
+  opSetMeter,
+  opSetMixer,
+  opSetTempo,
+} from './ops-song';
 import { opInsertSection, opMoveSection, opRemoveSection, opUpdateSection } from './ops-structure';
 import { opAddTrack, opRemoveTrack, opSetInstrument } from './ops-tracks';
 import { IdAllocator, IssueList, SectionLocator, barsLabel, isRecord, noteContentKey, toStr } from './util';
@@ -85,10 +103,17 @@ function opRegenerate(song: Song, op: Record<string, unknown>, c: OpContext): bo
   try {
     result = regen(cloneSong(song), request);
   } catch (e) {
-    c.error('op.failed', `${name}: the composition engine failed: ${e instanceof Error ? e.message : String(e)}`);
+    c.error(
+      'op.failed',
+      `${name}: the composition engine failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
     return false;
   }
-  if (!isRecord(result) || !Array.isArray((result as Song).tracks) || !Array.isArray((result as Song).sections)) {
+  if (
+    !isRecord(result) ||
+    !Array.isArray((result as Song).tracks) ||
+    !Array.isArray((result as Song).sections)
+  ) {
     c.error('op.failed', `${name}: the composition engine returned an invalid song.`);
     return false;
   }
@@ -103,11 +128,14 @@ function opRegenerate(song: Song, op: Record<string, unknown>, c: OpContext): bo
   }
   // Notes that are new or changed count as touched (validated/auto-fixed below).
   const beforeKeys = new Set<string>();
-  for (const t of song.tracks) for (const n of t.notes) beforeKeys.add(`${t.id}|${n.tick}|${noteContentKey(n)}`);
+  for (const t of song.tracks)
+    for (const n of t.notes) beforeKeys.add(`${t.id}|${n.tick}|${noteContentKey(n)}`);
   // Replace the draft's content with the regenerated song.
   for (const key of Object.keys(song) as (keyof Song)[]) delete (song as Partial<Song>)[key];
   Object.assign(song, cloneSong(result));
-  for (const t of song.tracks) for (const n of t.notes) if (!beforeKeys.has(`${t.id}|${n.tick}|${noteContentKey(n)}`)) c.touch(t.id, n.id);
+  for (const t of song.tracks)
+    for (const n of t.notes)
+      if (!beforeKeys.has(`${t.id}|${n.tick}|${noteContentKey(n)}`)) c.touch(t.id, n.id);
   return true;
 }
 
@@ -139,7 +167,10 @@ const HANDLERS: Record<MusicOperation['op'], Handler> = {
 /** Accept `{ "operation": "replace_notes", ... }` (spec §46 example) as well as `{ "op": ... }`. */
 function opName(op: Record<string, unknown>): string | undefined {
   const n = toStr(op.op) ?? toStr(op.operation) ?? toStr(op.type);
-  return n?.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return n
+    ?.trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
 }
 
 /**
@@ -226,14 +257,21 @@ export function applyOperations(song: Song, ops: MusicOperation[], opts: ApplyOp
 }
 
 /** Sort notes and validate/auto-fix every note created or modified by the batch. */
-function finalizeNotes(song: Song, touched: Map<string, Set<string>>, opts: ApplyOptions, issues: IssueList, lockMap: LockMap): void {
+function finalizeNotes(
+  song: Song,
+  touched: Map<string, Set<string>>,
+  opts: ApplyOptions,
+  issues: IssueList,
+  lockMap: LockMap,
+): void {
   const autoFix = opts.autoFix !== false;
   const lookup = { customInstruments: opts.customInstruments, resolveInstrument: opts.resolveInstrument };
   const end = song.sections.length ? songLengthTicks(song) : Infinity;
   const respect = opts.respectLocks !== false;
   const locks = parseLocks(lockMap);
   const locator = new SectionLocator(song);
-  const protectedNote = (track: Track, n: Note) => respect && noteProtected(locks, track.id, n, locator.sectionIdAt(n.tick));
+  const protectedNote = (track: Track, n: Note) =>
+    respect && noteProtected(locks, track.id, n, locator.sectionIdAt(n.tick));
   for (const track of song.tracks) {
     sortNotes(track.notes);
     const ids = touched.get(track.id);
@@ -246,9 +284,19 @@ function finalizeNotes(song: Song, touched: Map<string, Set<string>>, opts: Appl
     for (const n of track.notes) {
       if (!ids.has(n.id)) continue;
       // MIDI validity first: bad data never enters the song.
-      if (!Number.isFinite(n.tick) || n.tick < 0 || !Number.isFinite(n.duration) || !Number.isFinite(n.pitch) || !Number.isFinite(n.velocity)) {
+      if (
+        !Number.isFinite(n.tick) ||
+        n.tick < 0 ||
+        !Number.isFinite(n.duration) ||
+        !Number.isFinite(n.pitch) ||
+        !Number.isFinite(n.velocity)
+      ) {
         removed.add(n);
-        issues.warn('note.invalid', `Invalid note data on "${track.name}" removed.`, { trackId: track.id, noteId: n.id, fixed: true });
+        issues.warn('note.invalid', `Invalid note data on "${track.name}" removed.`, {
+          trackId: track.id,
+          noteId: n.id,
+          fixed: true,
+        });
         continue;
       }
       if (!Number.isInteger(n.pitch)) n.pitch = Math.round(n.pitch);
@@ -257,32 +305,60 @@ function finalizeNotes(song: Song, touched: Map<string, Set<string>>, opts: Appl
       if (n.pitch < 0 || n.pitch > 127) {
         if (autoFix) {
           const p = foldMidi(n.pitch);
-          issues.warn('note.invalid', `Pitch ${n.pitch} on "${track.name}" is outside MIDI 0–127; moved to ${p}.`, { trackId: track.id, noteId: n.id, fixed: true });
+          issues.warn(
+            'note.invalid',
+            `Pitch ${n.pitch} on "${track.name}" is outside MIDI 0–127; moved to ${p}.`,
+            { trackId: track.id, noteId: n.id, fixed: true },
+          );
           n.pitch = p;
         } else {
           removed.add(n);
-          issues.warn('note.invalid', `Pitch ${n.pitch} on "${track.name}" is outside MIDI 0–127; note removed.`, { trackId: track.id, noteId: n.id, fixed: true });
+          issues.warn(
+            'note.invalid',
+            `Pitch ${n.pitch} on "${track.name}" is outside MIDI 0–127; note removed.`,
+            { trackId: track.id, noteId: n.id, fixed: true },
+          );
           continue;
         }
       }
       if (n.duration < 1) {
         n.duration = 1;
-        issues.warn('note.duration', `Zero-length note on "${track.name}" given a minimal duration.`, { trackId: track.id, noteId: n.id, fixed: true });
+        issues.warn('note.duration', `Zero-length note on "${track.name}" given a minimal duration.`, {
+          trackId: track.id,
+          noteId: n.id,
+          fixed: true,
+        });
       }
       const v = Math.round(Math.min(127, Math.max(1, n.velocity)));
       if (v !== n.velocity) n.velocity = v;
       if (n.tick >= end) {
         if (autoFix) {
           removed.add(n);
-          issues.warn('note.past-end', `A note on "${track.name}" starts after the end of the song and was removed.`, { trackId: track.id, noteId: n.id, fixed: true });
-        } else issues.warn('note.past-end', `A note on "${track.name}" starts after the end of the song.`, { trackId: track.id, noteId: n.id });
+          issues.warn(
+            'note.past-end',
+            `A note on "${track.name}" starts after the end of the song and was removed.`,
+            { trackId: track.id, noteId: n.id, fixed: true },
+          );
+        } else
+          issues.warn('note.past-end', `A note on "${track.name}" starts after the end of the song.`, {
+            trackId: track.id,
+            noteId: n.id,
+          });
         continue;
       }
       if (n.tick + n.duration > end) {
         if (autoFix) {
           n.duration = end - n.tick;
-          issues.info('note.past-end', `A note on "${track.name}" was shortened to end with the song.`, { trackId: track.id, noteId: n.id, fixed: true });
-        } else issues.warn('note.past-end', `A note on "${track.name}" extends past the end of the song.`, { trackId: track.id, noteId: n.id });
+          issues.info('note.past-end', `A note on "${track.name}" was shortened to end with the song.`, {
+            trackId: track.id,
+            noteId: n.id,
+            fixed: true,
+          });
+        } else
+          issues.warn('note.past-end', `A note on "${track.name}" extends past the end of the song.`, {
+            trackId: track.id,
+            noteId: n.id,
+          });
       }
       if (!drums && (n.pitch < range.low || n.pitch > range.high)) {
         if (autoFix) {
@@ -294,7 +370,11 @@ function finalizeNotes(song: Song, touched: Map<string, Set<string>>, opts: Appl
           );
           n.pitch = p;
         } else {
-          issues.warn('note.out-of-range', `Pitch ${n.pitch} is outside the range of "${track.name}" (${range.low}–${range.high}).`, { trackId: track.id, noteId: n.id });
+          issues.warn(
+            'note.out-of-range',
+            `Pitch ${n.pitch} is outside the range of "${track.name}" (${range.low}–${range.high}).`,
+            { trackId: track.id, noteId: n.id },
+          );
         }
       }
     }
@@ -304,14 +384,25 @@ function finalizeNotes(song: Song, touched: Map<string, Set<string>>, opts: Appl
     if (lookupInstrument(track.instrumentId, lookup).polyphony === 'mono' && !drums) {
       const overlaps = countPolyphonicOverlaps(track.notes);
       if (overlaps) {
-        issues.warn('polyphony.mono', `"${track.name}" is a monophonic instrument but has ${overlaps} overlapping note(s).`, { trackId: track.id });
+        issues.warn(
+          'polyphony.mono',
+          `"${track.name}" is a monophonic instrument but has ${overlaps} overlapping note(s).`,
+          { trackId: track.id },
+        );
       }
     }
   }
 }
 
 /** Same-pitch overlaps involving edited notes: duplicates removed, earlier notes trimmed. */
-function fixOverlaps(song: Song, track: Track, ids: Set<string>, autoFix: boolean, issues: IssueList, isProtected: (n: Note) => boolean): void {
+function fixOverlaps(
+  song: Song,
+  track: Track,
+  ids: Set<string>,
+  autoFix: boolean,
+  issues: IssueList,
+  isProtected: (n: Note) => boolean,
+): void {
   const byPitch = new Map<number, Note[]>();
   for (const n of track.notes) {
     const list = byPitch.get(n.pitch);
@@ -331,24 +422,41 @@ function fixOverlaps(song: Song, track: Track, ids: Set<string>, autoFix: boolea
         if (!involved) continue;
         const where = barsLabel(song, b.tick, b.tick + 1);
         if (!autoFix) {
-          issues.warn('note.overlap', `Overlapping notes of the same pitch on "${track.name}" (${where}).`, { trackId: track.id, noteId: b.id });
+          issues.warn('note.overlap', `Overlapping notes of the same pitch on "${track.name}" (${where}).`, {
+            trackId: track.id,
+            noteId: b.id,
+          });
           continue;
         }
         if (a.tick === b.tick) {
           // Exact duplicate onset: drop the edited one (or the later one), never a locked note.
           const victim = isProtected(b) ? a : isProtected(a) ? b : ids.has(b.id) ? b : a;
           if (isProtected(victim)) {
-            issues.warn('note.overlap', `Duplicate notes on "${track.name}" (${where}).`, { trackId: track.id, noteId: b.id });
+            issues.warn('note.overlap', `Duplicate notes on "${track.name}" (${where}).`, {
+              trackId: track.id,
+              noteId: b.id,
+            });
             continue;
           }
           remove.add(victim);
-          issues.warn('note.overlap', `Duplicate note on "${track.name}" (${where}) removed.`, { trackId: track.id, noteId: victim.id, fixed: true });
+          issues.warn('note.overlap', `Duplicate note on "${track.name}" (${where}) removed.`, {
+            trackId: track.id,
+            noteId: victim.id,
+            fixed: true,
+          });
           if (victim === a) break;
         } else if (!isProtected(a)) {
           a.duration = b.tick - a.tick;
-          issues.info('note.overlap', `Overlapping note on "${track.name}" (${where}) shortened.`, { trackId: track.id, noteId: a.id, fixed: true });
+          issues.info('note.overlap', `Overlapping note on "${track.name}" (${where}) shortened.`, {
+            trackId: track.id,
+            noteId: a.id,
+            fixed: true,
+          });
         } else {
-          issues.warn('note.overlap', `A note overlaps a locked note on "${track.name}" (${where}).`, { trackId: track.id, noteId: b.id });
+          issues.warn('note.overlap', `A note overlaps a locked note on "${track.name}" (${where}).`, {
+            trackId: track.id,
+            noteId: b.id,
+          });
         }
       }
     }

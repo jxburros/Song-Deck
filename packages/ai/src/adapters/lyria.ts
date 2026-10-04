@@ -12,8 +12,22 @@ import type { ProviderConfig } from '../config';
 import { audioCostUsd } from '../cost';
 import { ConfigurationError, ProviderError } from '../errors';
 import type { HttpClient } from '../transport/http';
-import type { AudioGenerationProvider, AudioGenerationResult, AudioTransformRequest, ModelInfo, MusicGenerationRequest, ProviderInstance } from '../types';
-import { audioFromBase64, buildDescriptor, createHttpClient, type CreateProviderDeps, notSupported, pricingFor } from './common';
+import type {
+  AudioGenerationProvider,
+  AudioGenerationResult,
+  AudioTransformRequest,
+  ModelInfo,
+  MusicGenerationRequest,
+  ProviderInstance,
+} from '../types';
+import {
+  audioFromBase64,
+  buildDescriptor,
+  createHttpClient,
+  type CreateProviderDeps,
+  notSupported,
+  pricingFor,
+} from './common';
 
 export const LYRIA_CAPABILITIES: Capability[] = ['TEXT_TO_MUSIC', 'INSTRUMENTAL_ONLY'];
 export const LYRIA_DEFAULT_MODEL = 'lyria-002';
@@ -22,8 +36,13 @@ export const LYRIA_CLIP_SECONDS = 30;
 export function lyriaPredictUrl(config: ProviderConfig, model: string): string {
   const project = (config.extra?.vertexProject ?? config.project ?? '').trim();
   const location = (config.extra?.vertexLocation ?? config.region ?? 'us-central1').trim();
-  if (!project) throw new ConfigurationError(`Lyria provider "${config.id}" needs a Google Cloud project id (extra.vertexProject)`);
-  const base = (config.baseUrl || 'https://{location}-aiplatform.googleapis.com/v1').replace(/\{location\}/g, location).replace(/\/+$/, '');
+  if (!project)
+    throw new ConfigurationError(
+      `Lyria provider "${config.id}" needs a Google Cloud project id (extra.vertexProject)`,
+    );
+  const base = (config.baseUrl || 'https://{location}-aiplatform.googleapis.com/v1')
+    .replace(/\{location\}/g, location)
+    .replace(/\/+$/, '');
   return `${base}/projects/${encodeURIComponent(project)}/locations/${encodeURIComponent(location)}/publishers/google/models/${encodeURIComponent(model)}:predict`;
 }
 
@@ -35,8 +54,22 @@ export class LyriaProvider implements AudioGenerationProvider {
 
   async discoverModels(): Promise<ModelInfo[]> {
     const caps = this.config.capabilities?.length ? this.config.capabilities : LYRIA_CAPABILITIES;
-    const manual = (this.config.models ?? []).map((m) => ({ id: m.id, name: m.name, capabilities: m.capabilities ?? [...caps], manual: true }));
-    return manual.length ? manual : [{ id: this.config.defaultModel ?? LYRIA_DEFAULT_MODEL, name: 'Lyria 2', capabilities: [...caps], meta: { clipSeconds: LYRIA_CLIP_SECONDS } }];
+    const manual = (this.config.models ?? []).map((m) => ({
+      id: m.id,
+      name: m.name,
+      capabilities: m.capabilities ?? [...caps],
+      manual: true,
+    }));
+    return manual.length
+      ? manual
+      : [
+          {
+            id: this.config.defaultModel ?? LYRIA_DEFAULT_MODEL,
+            name: 'Lyria 2',
+            capabilities: [...caps],
+            meta: { clipSeconds: LYRIA_CLIP_SECONDS },
+          },
+        ];
   }
 
   async getCapabilities(): Promise<Capability[]> {
@@ -44,7 +77,10 @@ export class LyriaProvider implements AudioGenerationProvider {
   }
 
   /** Predict body (exported for tests). */
-  buildBody(req: MusicGenerationRequest): { instances: Record<string, unknown>[]; parameters: Record<string, unknown> } {
+  buildBody(req: MusicGenerationRequest): {
+    instances: Record<string, unknown>[];
+    parameters: Record<string, unknown>;
+  } {
     const instance: Record<string, unknown> = { prompt: req.prompt };
     if (req.negativePrompt) instance.negative_prompt = req.negativePrompt;
     if (req.seed !== undefined) instance.seed = req.seed >>> 0;
@@ -55,9 +91,17 @@ export class LyriaProvider implements AudioGenerationProvider {
 
   async generateMusic(req: MusicGenerationRequest): Promise<AudioGenerationResult> {
     const model = req.model ?? this.config.defaultModel ?? LYRIA_DEFAULT_MODEL;
-    const json = await this.http.json<{ predictions?: { bytesBase64Encoded?: string; mimeType?: string }[] }>({ url: lyriaPredictUrl(this.config, model), json: this.buildBody(req), signal: req.signal });
-    const clips = (json?.predictions ?? []).filter((p) => typeof p.bytesBase64Encoded === 'string' && p.bytesBase64Encoded).map((p) => audioFromBase64(p.bytesBase64Encoded!, p.mimeType ?? 'audio/wav'));
-    if (!clips.length) throw new ProviderError('parse', 'Lyria returned no audio', { providerId: this.config.id, details: json });
+    const json = await this.http.json<{ predictions?: { bytesBase64Encoded?: string; mimeType?: string }[] }>(
+      { url: lyriaPredictUrl(this.config, model), json: this.buildBody(req), signal: req.signal },
+    );
+    const clips = (json?.predictions ?? [])
+      .filter((p) => typeof p.bytesBase64Encoded === 'string' && p.bytesBase64Encoded)
+      .map((p) => audioFromBase64(p.bytesBase64Encoded!, p.mimeType ?? 'audio/wav'));
+    if (!clips.length)
+      throw new ProviderError('parse', 'Lyria returned no audio', {
+        providerId: this.config.id,
+        details: json,
+      });
     const res: AudioGenerationResult = { audio: clips[0], model, durationSeconds: LYRIA_CLIP_SECONDS };
     if (clips.length > 1) res.alternatives = clips.slice(1);
     if (req.seed !== undefined) res.seed = req.seed;
@@ -73,5 +117,9 @@ export class LyriaProvider implements AudioGenerationProvider {
 
 export function createLyriaProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
   const http = createHttpClient(config, deps);
-  return { descriptor: buildDescriptor(config, LYRIA_CAPABILITIES), config, audioGeneration: new LyriaProvider(config, http) };
+  return {
+    descriptor: buildDescriptor(config, LYRIA_CAPABILITIES),
+    config,
+    audioGeneration: new LyriaProvider(config, http),
+  };
 }

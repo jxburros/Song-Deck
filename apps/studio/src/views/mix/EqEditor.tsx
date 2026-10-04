@@ -1,9 +1,27 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as RMouseEvent,
+  type PointerEvent as RPointerEvent,
+} from 'react';
 import { defaultEq, type EqSettings } from '@songdeck/core';
 import { useElementSize } from '../../hooks';
 import { Toggle } from '../../ui/kit';
+import { alpha, cssVar, useThemeName } from '../../ui/theme';
 import { Knob } from './controls';
-import { BANDS, bandActive, bandResponse, eqResponse, freqToX, logFreqs, roundFreq, xToFreq, type BandSpec } from './eqMath';
+import {
+  BANDS,
+  bandActive,
+  bandResponse,
+  eqResponse,
+  freqToX,
+  logFreqs,
+  roundFreq,
+  xToFreq,
+  type BandSpec,
+} from './eqMath';
 import { fmtDb, fmtHz, fmtHzUnit } from './mixModel';
 
 /**
@@ -13,11 +31,6 @@ import { fmtDb, fmtHz, fmtHzUnit } from './mixModel';
  */
 
 const DISPLAY_DB = 18;
-
-function cssVar(name: string, fallback: string): string {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v || fallback;
-}
 
 function setupCanvas(canvas: HTMLCanvasElement, w: number, h: number): CanvasRenderingContext2D | null {
   const dpr = window.devicePixelRatio || 1;
@@ -35,9 +48,22 @@ function setupCanvas(canvas: HTMLCanvasElement, w: number, h: number): CanvasRen
 }
 
 /** Tiny EQ curve for channel strips. */
-export function EqThumb({ eq, width = 72, height = 26, onClick, label }: { eq: EqSettings; width?: number; height?: number; onClick?: () => void; label: string }) {
+export function EqThumb({
+  eq,
+  width = 72,
+  height = 26,
+  onClick,
+  label,
+}: {
+  eq: EqSettings;
+  width?: number;
+  height?: number;
+  onClick?: () => void;
+  label: string;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   const freqs = useMemo(() => logFreqs(48), []);
+  const theme = useThemeName();
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
@@ -45,13 +71,13 @@ export function EqThumb({ eq, width = 72, height = 26, onClick, label }: { eq: E
     if (!ctx) return;
     const resp = eqResponse(eq, freqs);
     const mid = height / 2;
-    ctx.strokeStyle = cssVar('--border-strong', '#343b48');
+    ctx.strokeStyle = cssVar('--border-strong');
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, mid + 0.5);
     ctx.lineTo(width, mid + 0.5);
     ctx.stroke();
-    ctx.strokeStyle = eq.enabled ? cssVar('--accent', '#ff8a3d') : cssVar('--text-dim', '#646d7c');
+    ctx.strokeStyle = eq.enabled ? cssVar('--accent') : cssVar('--text-dim');
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let i = 0; i < freqs.length; i++) {
@@ -61,9 +87,15 @@ export function EqThumb({ eq, width = 72, height = 26, onClick, label }: { eq: E
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
-  }, [eq, width, height, freqs]);
+  }, [eq, width, height, freqs, theme]);
   return (
-    <button type="button" className={`mx-eq-thumb ${eq.enabled ? '' : 'off'}`} onClick={onClick} title={`${label} — open EQ`} aria-label={`${label} EQ (open editor)`}>
+    <button
+      type="button"
+      className={`mx-eq-thumb ${eq.enabled ? '' : 'off'}`}
+      onClick={onClick}
+      title={`${label} — open EQ`}
+      aria-label={`${label} EQ (open editor)`}
+    >
       <canvas ref={ref} width={width} height={height} aria-hidden />
     </button>
   );
@@ -97,6 +129,7 @@ export function EqEditor({
   const [hover, setHover] = useState<string | null>(null);
   const drag = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const theme = useThemeName();
   const width = Math.max(240, size.width);
   const PAD_L = 30;
   const PAD_R = 8;
@@ -104,7 +137,8 @@ export function EqEditor({
   const PAD_B = 18;
   const plotW = width - PAD_L - PAD_R;
   const plotH = height - PAD_T - PAD_B;
-  const yOf = (db: number) => PAD_T + plotH / 2 - (Math.max(-DISPLAY_DB, Math.min(DISPLAY_DB, db)) / DISPLAY_DB) * (plotH / 2);
+  const yOf = (db: number) =>
+    PAD_T + plotH / 2 - (Math.max(-DISPLAY_DB, Math.min(DISPLAY_DB, db)) / DISPLAY_DB) * (plotH / 2);
   const dbOf = (y: number) => ((PAD_T + plotH / 2 - y) / (plotH / 2)) * DISPLAY_DB;
   const freqs = useMemo(() => logFreqs(Math.max(64, Math.round(plotW / 2))), [plotW]);
 
@@ -124,13 +158,13 @@ export function EqEditor({
     if (!c || size.width === 0) return;
     const ctx = setupCanvas(c, width, height);
     if (!ctx) return;
-    const grid = cssVar('--grid-line', 'rgba(255,255,255,0.05)');
-    const gridStrong = cssVar('--grid-bar', 'rgba(255,255,255,0.16)');
-    const dim = cssVar('--text-dim', '#646d7c');
-    const accent = cssVar('--accent', '#ff8a3d');
-    ctx.fillStyle = cssVar('--bg-input', '#0f1217');
+    const grid = cssVar('--grid-line');
+    const gridStrong = cssVar('--grid-bar');
+    const dim = cssVar('--text-dim');
+    const accent = cssVar('--accent');
+    ctx.fillStyle = cssVar('--bg-input');
     ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
-    ctx.font = '10px ui-monospace, monospace';
+    ctx.font = `10px ${cssVar('--font-mono')}`;
     ctx.textBaseline = 'middle';
     // Frequency grid.
     const majors = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
@@ -196,7 +230,7 @@ export function EqEditor({
     for (let i = 0; i < freqs.length; i++) ctx.lineTo(freqToX(freqs[i], PAD_L, plotW), yOf(resp[i]));
     ctx.lineTo(PAD_L + plotW, zeroY);
     ctx.closePath();
-    ctx.fillStyle = eq.enabled ? 'rgba(255, 138, 61, 0.13)' : 'rgba(128,128,128,0.08)';
+    ctx.fillStyle = eq.enabled ? alpha(accent, 0.13) : alpha(dim, 0.08);
     ctx.fill();
     ctx.beginPath();
     for (let i = 0; i < freqs.length; i++) {
@@ -215,7 +249,7 @@ export function EqEditor({
       const focused = b.id === hover || b.id === dragging;
       ctx.beginPath();
       ctx.arc(p.x, p.y, focused ? 7 : 5.5, 0, Math.PI * 2);
-      ctx.fillStyle = p.on && eq.enabled ? b.color : cssVar('--bg-elev-3', '#222731');
+      ctx.fillStyle = p.on && eq.enabled ? b.color : cssVar('--bg-elev-3');
       ctx.fill();
       ctx.lineWidth = focused ? 2 : 1.5;
       ctx.strokeStyle = b.color;
@@ -223,20 +257,23 @@ export function EqEditor({
       if (focused) {
         const f = eq[b.freqKey] as number;
         const g = b.gainKey ? (eq[b.gainKey] as number) : 0;
-        const text = b.type === 'highpass' || b.type === 'lowpass' ? `${b.short} ${f > 10 ? fmtHzUnit(f) : 'off'}` : `${b.short} ${fmtHzUnit(f)} ${fmtDb(g)} dB`;
-        ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+        const text =
+          b.type === 'highpass' || b.type === 'lowpass'
+            ? `${b.short} ${f > 10 ? fmtHzUnit(f) : 'off'}`
+            : `${b.short} ${fmtHzUnit(f)} ${fmtDb(g)} dB`;
+        ctx.font = `11px ${cssVar('--font-ui')}`;
         const tw = ctx.measureText(text).width + 10;
         const tx = Math.min(PAD_L + plotW - tw, Math.max(PAD_L, p.x - tw / 2));
         const ty = p.y < PAD_T + 26 ? p.y + 12 : p.y - 26;
-        ctx.fillStyle = cssVar('--bg-elev-3', '#222731');
+        ctx.fillStyle = cssVar('--bg-elev-3');
         ctx.fillRect(tx, ty, tw, 17);
-        ctx.fillStyle = cssVar('--text', '#e7eaf0');
+        ctx.fillStyle = cssVar('--text');
         ctx.textAlign = 'left';
         ctx.fillText(text, tx + 5, ty + 9);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eq, width, height, size.width, hover, dragging, freqs]);
+  }, [eq, width, height, size.width, hover, dragging, freqs, theme]);
 
   const hit = (x: number, y: number): BandSpec | null => {
     let best: BandSpec | null = null;
@@ -335,7 +372,10 @@ export function EqEditor({
           ref={canvasRef}
           role="img"
           aria-label={`${title} EQ frequency response`}
-          style={{ cursor: disabled ? 'not-allowed' : hover || dragging ? 'grab' : 'default', touchAction: 'none' }}
+          style={{
+            cursor: disabled ? 'not-allowed' : hover || dragging ? 'grab' : 'default',
+            touchAction: 'none',
+          }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={end}
@@ -350,7 +390,13 @@ export function EqEditor({
           const cut = b.type === 'highpass' || b.type === 'lowpass';
           const on = cut ? f > 10 : true;
           return (
-            <div key={b.id} className={`mx-eq-band ${bandActive(eq, b) ? 'active' : ''}`} style={{ ['--band' as string]: b.color }} onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover(null)}>
+            <div
+              key={b.id}
+              className={`mx-eq-band ${bandActive(eq, b) ? 'active' : ''}`}
+              style={{ ['--band' as string]: b.color }}
+              onMouseEnter={() => setHover(b.id)}
+              onMouseLeave={() => setHover(null)}
+            >
               <div className="mx-eq-band-head">
                 <span className="dot" />
                 <span>{b.label}</span>
@@ -369,11 +415,15 @@ export function EqEditor({
               </div>
               <div className="mx-eq-band-knobs">
                 <Knob
-                  value={on ? Math.max(b.minHz, Math.min(b.maxHz, f)) : b.type === 'highpass' ? b.minHz : b.maxHz}
+                  value={
+                    on ? Math.max(b.minHz, Math.min(b.maxHz, f)) : b.type === 'highpass' ? b.minHz : b.maxHz
+                  }
                   min={b.minHz}
                   max={b.maxHz}
                   log
-                  defaultValue={cut ? (b.type === 'highpass' ? 80 : 12000) : (defaultEq()[b.freqKey] as number)}
+                  defaultValue={
+                    cut ? (b.type === 'highpass' ? 80 : 12000) : (defaultEq()[b.freqKey] as number)
+                  }
                   onPreview={(v) => setBand({ [b.freqKey]: roundFreq(v) })}
                   onCommit={onCommit}
                   onKeyCommit={onCommitSoon}

@@ -14,8 +14,20 @@ function track(song: Song, id: string) {
 
 /** "Make the bass an octave lower in bars 1–2" as a proposal against the fixture song. */
 function bassProposal(before: Song, idPrefix = 'p') {
-  const ops: MusicOperation[] = [{ op: 'transform_notes', track: 'trk_bass', region: { start_bar: 1, end_bar: 2 }, transform: { transpose: -12 }, reason: 'test' } as MusicOperation];
-  return createProposal(before, ops, { title: 'Lower bass', source: 'internal', ids: new IdFactory(1, idPrefix) });
+  const ops: MusicOperation[] = [
+    {
+      op: 'transform_notes',
+      track: 'trk_bass',
+      region: { start_bar: 1, end_bar: 2 },
+      transform: { transpose: -12 },
+      reason: 'test',
+    } as MusicOperation,
+  ];
+  return createProposal(before, ops, {
+    title: 'Lower bass',
+    source: 'internal',
+    ids: new IdFactory(1, idPrefix),
+  });
 }
 
 describe('rebasing a proposal onto the current song', () => {
@@ -85,12 +97,24 @@ describe('rebasing a proposal onto the current song', () => {
 
   it('keeps notes added on both sides, renaming a colliding id', () => {
     const before = makeSong();
-    const p = createProposal(before, [{ op: 'add_notes', track: 'trk_bass', notes: [{ pitch: 45, bar: 3, beat: 1.5, duration_beats: 0.5 }] } as MusicOperation], {
-      title: 'Add a pickup',
-      source: 'internal',
-      ids: new IdFactory(1, 'x'),
-    });
-    const added = track(p.after, 'trk_bass').notes.find((n) => !track(before, 'trk_bass').notes.some((b) => b.id === n.id))!;
+    const p = createProposal(
+      before,
+      [
+        {
+          op: 'add_notes',
+          track: 'trk_bass',
+          notes: [{ pitch: 45, bar: 3, beat: 1.5, duration_beats: 0.5 }],
+        } as MusicOperation,
+      ],
+      {
+        title: 'Add a pickup',
+        source: 'internal',
+        ids: new IdFactory(1, 'x'),
+      },
+    );
+    const added = track(p.after, 'trk_bass').notes.find(
+      (n) => !track(before, 'trk_bass').notes.some((b) => b.id === n.id),
+    )!;
     const current = cloneSong(before);
     track(current, 'trk_bass').notes.push({ ...added, pitch: 50, tick: 2 * BAR + 3 * Q }); // same id, different note
     const { song, conflicts } = acceptProposalOnto(p, current);

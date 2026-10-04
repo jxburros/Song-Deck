@@ -12,7 +12,15 @@ import { yinTrack } from './pitch-yin';
 import { medianFilterTime } from './separation';
 import { magnitudeSpectrogram } from './stft';
 import { transcribePolyphonicSignal } from './transcribe-poly';
-import { analysisDecimate, clamp01, mean, percentile, pow2ForDuration, prepareMono, slidingMedianStrided } from './util';
+import {
+  analysisDecimate,
+  clamp01,
+  mean,
+  percentile,
+  pow2ForDuration,
+  prepareMono,
+  slidingMedianStrided,
+} from './util';
 
 export type StemInstrumentId =
   | 'drum-kit'
@@ -331,7 +339,9 @@ export function classifyStem(buf: AudioData, opts: ClassifyOptions = {}): StemCl
   const { x, sr } = prepareMono(buf);
   const f = stemFeatures(x, sr, opts.maxSeconds ?? 45);
   const all = scoreAll(f);
-  const cands = (opts.candidates?.length ? opts.candidates : (Object.keys(all) as StemInstrumentId[])).filter((c) => c in all);
+  const cands = (opts.candidates?.length ? opts.candidates : (Object.keys(all) as StemInstrumentId[])).filter(
+    (c) => c in all,
+  );
   if (f.silent) {
     const id = cands.includes('synth-pad') ? 'synth-pad' : cands[0];
     return { role: STEM_INSTRUMENT_ROLE[id], instrumentId: id, confidence: 0, features: f, scores: {} };
@@ -344,7 +354,8 @@ export function classifyStem(buf: AudioData, opts: ClassifyOptions = {}): StemCl
   cands.forEach((c, i) => (scores[c] = Math.round((exps[i] / z) * 1000) / 1000));
   const best = cands[exps.indexOf(Math.max(...exps))];
   // heuristic classifier: cap confidence, scale by how much signal there was
-  const confidence = Math.round(Math.min(0.85, scores[best]) * (0.6 + 0.4 * clamp01(f.activity / 0.3)) * 1000) / 1000;
+  const confidence =
+    Math.round(Math.min(0.85, scores[best]) * (0.6 + 0.4 * clamp01(f.activity / 0.3)) * 1000) / 1000;
   const features: Record<string, number> = {};
   for (const [k, v] of Object.entries(f)) features[k] = Math.round(v * 1000) / 1000;
   return { role: STEM_INSTRUMENT_ROLE[best], instrumentId: best, confidence, features, scores };

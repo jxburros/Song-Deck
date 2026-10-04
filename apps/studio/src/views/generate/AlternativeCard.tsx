@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { getInstrument, keyName, secondsToTick, songToMidi, type AssetRequest, type Song } from '@songdeck/core';
+import {
+  getInstrument,
+  keyName,
+  secondsToTick,
+  songToMidi,
+  type AssetRequest,
+  type Song,
+} from '@songdeck/core';
 import type { AudioData } from '@songdeck/audio';
 import { jobs } from '../../engine/jobs';
 import { previewPlayer, usePreviewId, usePreviewPosition } from '../../engine/capture-playback';
@@ -66,7 +73,9 @@ export function AlternativeCard({
       const audio = await renderAlternative(alt.song);
       await previewPlayer.play(alt.id, audio);
     } catch (err) {
-      useStudio.getState().toast('error', `Audio preview failed: ${err instanceof Error ? err.message : String(err)}`);
+      useStudio
+        .getState()
+        .toast('error', `Audio preview failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setRendering(false);
     }
@@ -75,14 +84,24 @@ export function AlternativeCard({
   const exportMidi = () => {
     try {
       const bytes = songToMidi(alt.song);
-      downloadBytes(bytes, `${slugify(alt.song.title || inst.name)}-${alt.label.toLowerCase()}-seed${alt.seed}.mid`, 'audio/midi');
+      downloadBytes(
+        bytes,
+        `${slugify(alt.song.title || inst.name)}-${alt.label.toLowerCase()}-seed${alt.seed}.mid`,
+        'audio/midi',
+      );
     } catch (err) {
-      useStudio.getState().toast('error', `MIDI export failed: ${err instanceof Error ? err.message : String(err)}`);
+      useStudio
+        .getState()
+        .toast('error', `MIDI export failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
   return (
-    <div className="card" data-testid="alternative-card" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+    <div
+      className="card"
+      data-testid="alternative-card"
+      style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}
+    >
       <div className="row between wrap">
         <div className="row" style={{ minWidth: 0 }}>
           <span className="badge accent" style={{ fontSize: 13, height: 24, padding: '0 9px' }}>
@@ -93,16 +112,33 @@ export function AlternativeCard({
               {track?.name ?? inst.name}
             </div>
             <div className="small muted">
-              {bars} bars · {track?.notes.length ?? 0} notes · {keyName(alt.song.keyMap[0]?.key ?? alt.request.key)} · {Math.round(alt.song.tempoMap[0]?.bpm ?? alt.request.tempo)} BPM ·{' '}
-              {meter.numerator}/{meter.denominator}
+              {bars} bars · {track?.notes.length ?? 0} notes ·{' '}
+              {keyName(alt.song.keyMap[0]?.key ?? alt.request.key)} ·{' '}
+              {Math.round(alt.song.tempoMap[0]?.bpm ?? alt.request.tempo)} BPM · {meter.numerator}/
+              {meter.denominator}
             </div>
           </div>
         </div>
         <Badge title="Same request + seed + engine version ⇒ same MIDI (spec §23)">seed {alt.seed}</Badge>
       </div>
 
-      <div className="notation-host" style={{ background: 'var(--bg-elev-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: '8px 6px' }}>
-        {track && <SongTrackNotation song={alt.song} trackId={track.id} maxBars={expanded ? undefined : 8} customInstruments={customInstruments} />}
+      <div
+        className="notation-host"
+        style={{
+          background: 'var(--bg-elev-1)',
+          borderRadius: 'var(--radius)',
+          border: '1px solid var(--border)',
+          padding: '8px 6px',
+        }}
+      >
+        {track && (
+          <SongTrackNotation
+            song={alt.song}
+            trackId={track.id}
+            maxBars={expanded ? undefined : 8}
+            customInstruments={customInstruments}
+          />
+        )}
         {bars > 8 && (
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             <Button size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)}>
@@ -128,7 +164,14 @@ export function AlternativeCard({
       )}
 
       <div className="row wrap">
-        <Button size="sm" variant={playing ? 'primary' : 'default'} icon={playing ? 'stop' : 'play'} onClick={() => void togglePlay()} disabled={rendering} aria-label={playing ? `Stop ${alt.label}` : `Play ${alt.label}`}>
+        <Button
+          size="sm"
+          variant={playing ? 'primary' : 'default'}
+          icon={playing ? 'stop' : 'play'}
+          onClick={() => void togglePlay()}
+          disabled={rendering}
+          aria-label={playing ? `Stop ${alt.label}` : `Play ${alt.label}`}
+        >
           {rendering ? <Spinner /> : null}
           {playing ? 'Stop' : rendering ? 'Rendering…' : 'Play'}
         </Button>
@@ -136,10 +179,21 @@ export function AlternativeCard({
           Export .mid
         </Button>
         <div className="spacer" />
-        <Button size="sm" variant="ai" icon="plus" onClick={() => onInsert(alt)} aria-label={`Insert ${alt.label}`}>
+        <Button
+          size="sm"
+          variant="ai"
+          icon="plus"
+          onClick={() => onInsert(alt)}
+          aria-label={`Insert ${alt.label}`}
+        >
           {hasProject ? 'Insert into project…' : 'Insert into new project'}
         </Button>
-        <Button size="sm" icon="folder" onClick={() => onOpen(alt)} aria-label={`Open ${alt.label} as new project`}>
+        <Button
+          size="sm"
+          icon="folder"
+          onClick={() => onOpen(alt)}
+          aria-label={`Open ${alt.label} as new project`}
+        >
           Open as new project
         </Button>
       </div>

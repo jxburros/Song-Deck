@@ -35,7 +35,7 @@ const avatar = (color: string, i: number): CSSProperties => ({
   height: 22,
   borderRadius: '50%',
   background: color,
-  color: '#121418',
+  color: 'var(--on-track)',
   fontSize: 9.5,
   fontWeight: 800,
   letterSpacing: '-0.02em',
@@ -63,18 +63,33 @@ export function CollabPresence() {
         ? 'Collaboration: reconnecting…'
         : 'Collaboration: connecting…';
   return (
-    <button type="button" style={wrap} onClick={() => openSettings('collab')} title={label} aria-label={label} data-testid="collab-presence">
+    <button
+      type="button"
+      style={wrap}
+      onClick={() => openSettings('collab')}
+      title={label}
+      aria-label={label}
+      data-testid="collab-presence"
+    >
       <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flex: 'none' }} />
       <span style={{ display: 'inline-flex', alignItems: 'center' }}>
         <span style={avatar(color, 0)} title={`${userName || 'Me'} (you)`}>
           {initials(userName || 'Me')}
         </span>
         {peers.slice(0, MAX).map((p, i) => (
-          <span key={p.peerId} style={avatar(p.user.color, i + 1)} title={`${p.user.name} — ${describePresence(p.presence, project.song)}`}>
+          <span
+            key={p.peerId}
+            style={avatar(p.user.color, i + 1)}
+            title={`${p.user.name} — ${describePresence(p.presence, project.song)}`}
+          >
             {initials(p.user.name)}
           </span>
         ))}
-        {peers.length > MAX && <span style={{ ...avatar('var(--bg-elev-3)', MAX + 1), color: 'var(--text)' }}>+{peers.length - MAX}</span>}
+        {peers.length > MAX && (
+          <span style={{ ...avatar('var(--bg-elev-3)', MAX + 1), color: 'var(--text)' }}>
+            +{peers.length - MAX}
+          </span>
+        )}
       </span>
       <span>{status === 'connected' ? 'Live' : '…'}</span>
     </button>

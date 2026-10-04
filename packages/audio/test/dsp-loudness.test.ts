@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { kWeightingCoefficients, measureLoudness } from '../src/dsp';
 import type { AudioData } from '../src/types';
 
-function tone(freq: number, seconds: number, sr: number, ampDb: number, phase = 0, fadeSec = 0.05): Float32Array {
+function tone(
+  freq: number,
+  seconds: number,
+  sr: number,
+  ampDb: number,
+  phase = 0,
+  fadeSec = 0.05,
+): Float32Array {
   const n = Math.round(seconds * sr);
   const a = Math.pow(10, ampDb / 20);
   const x = new Float32Array(n);

@@ -43,7 +43,9 @@ export function buildDescriptor(config: ProviderConfig, adapterDefaults: Capabil
     name: config.name,
     adapter: config.adapter,
     location: config.location,
-    capabilities: config.capabilities?.length ? [...config.capabilities] : unionCapabilities(preset?.capabilities ?? adapterDefaults),
+    capabilities: config.capabilities?.length
+      ? [...config.capabilities]
+      : unionCapabilities(preset?.capabilities ?? adapterDefaults),
     qualityTier: config.qualityTier ?? preset?.qualityTier ?? 3,
   };
   if (config.presetId) d.presetId = config.presetId;
@@ -57,21 +59,35 @@ export function buildDescriptor(config: ProviderConfig, adapterDefaults: Capabil
 }
 
 /** HttpClient with the provider's auth, timeout and concurrency/rate gate. */
-export function createHttpClient(config: ProviderConfig, deps: CreateProviderDeps, gate?: RequestGate): HttpClient {
+export function createHttpClient(
+  config: ProviderConfig,
+  deps: CreateProviderDeps,
+  gate?: RequestGate,
+): HttpClient {
   const headers: Record<string, string> = {};
   return new HttpClient({
     providerId: config.id,
     transport: deps.transport,
     auth: authForConfig(config),
     timeoutMs: config.timeoutMs,
-    gate: gate ?? new RequestGate({ concurrency: config.concurrency, requestsPerMinute: config.requestsPerMinute, clock: deps.clock }),
+    gate:
+      gate ??
+      new RequestGate({
+        concurrency: config.concurrency,
+        requestsPerMinute: config.requestsPerMinute,
+        clock: deps.clock,
+      }),
     retry: { ...(deps.clock ? { clock: deps.clock } : {}), ...(deps.retry ?? {}) },
     headers,
   });
 }
 
 /** Merge discovered models with manual ones from the config (manual entries win). */
-export function mergeManualModels(discovered: ModelInfo[], config: ProviderConfig, fallbackCaps: Capability[]): ModelInfo[] {
+export function mergeManualModels(
+  discovered: ModelInfo[],
+  config: ProviderConfig,
+  fallbackCaps: Capability[],
+): ModelInfo[] {
   const byId = new Map(discovered.map((m) => [m.id, m]));
   for (const m of config.models ?? []) {
     const existing = byId.get(m.id);
@@ -89,13 +105,22 @@ export function mergeManualModels(discovered: ModelInfo[], config: ProviderConfi
 }
 
 /** Effective structured-output mode, honoring downgrades learned from provider errors. */
-export function structuredMode(config: ProviderConfig, fallback: StructuredOutputMode = 'json_schema'): StructuredOutputMode {
+export function structuredMode(
+  config: ProviderConfig,
+  fallback: StructuredOutputMode = 'json_schema',
+): StructuredOutputMode {
   return config.structuredOutput ?? getPreset(config.presetId)?.structuredOutput ?? fallback;
 }
 
 /** Errors that mean "this endpoint does not support that structured-output feature". */
 export function isStructuredOutputRejection(err: unknown): boolean {
-  return err instanceof ProviderError && err.kind === 'bad-request' && /response_format|json_schema|json schema|schema|structured|json_object|output_config|format|grammar|guided/i.test(err.message);
+  return (
+    err instanceof ProviderError &&
+    err.kind === 'bad-request' &&
+    /response_format|json_schema|json schema|schema|structured|json_object|output_config|format|grammar|guided/i.test(
+      err.message,
+    )
+  );
 }
 
 export const STRUCTURED_DOWNGRADE: Record<StructuredOutputMode, StructuredOutputMode | undefined> = {
@@ -124,13 +149,21 @@ export function jsonFromText(text: string, wanted: boolean): unknown {
   return ex.ok ? ex.value : undefined;
 }
 
-export function costFor(config: ProviderConfig, model: string, usage: TokenUsage | undefined): number | undefined {
+export function costFor(
+  config: ProviderConfig,
+  model: string,
+  usage: TokenUsage | undefined,
+): number | undefined {
   return llmCostUsd(pricingFor(config), model, usage);
 }
 
 /** Truncated structured output → ProviderError('truncated') carrying the partial text. */
 export function truncatedError(providerId: string, text: string): ProviderError {
-  return new ProviderError('truncated', 'The model hit its output token limit before finishing the JSON answer', { providerId, partialText: text });
+  return new ProviderError(
+    'truncated',
+    'The model hit its output token limit before finishing the JSON answer',
+    { providerId, partialText: text },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +195,11 @@ export function audioFromBase64(b64: string, mimeType = 'audio/wav'): EncodedAud
   return { mimeType, data: base64ToBytes(b64) };
 }
 
-export function audioFromResponse(data: Uint8Array, contentType: string | undefined, fallbackFormat?: string): EncodedAudio {
+export function audioFromResponse(
+  data: Uint8Array,
+  contentType: string | undefined,
+  fallbackFormat?: string,
+): EncodedAudio {
   const ct = (contentType ?? '').split(';')[0].trim().toLowerCase();
   const mimeType = ct.startsWith('audio/') ? ct : audioMimeType(fallbackFormat, 'audio/wav');
   return { mimeType, data };

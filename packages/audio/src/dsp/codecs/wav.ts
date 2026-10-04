@@ -75,7 +75,10 @@ export function encodeWav(buf: AudioData, opts: WavEncodeOptions = {}): Uint8Arr
     }
     return out;
   }
-  const q = quantizeChannels({ sampleRate: buf.sampleRate, channels: chans }, bits, { dither: opts.dither, seed: opts.seed });
+  const q = quantizeChannels({ sampleRate: buf.sampleRate, channels: chans }, bits, {
+    dither: opts.dither,
+    seed: opts.seed,
+  });
   for (let i = 0; i < frames; i++) {
     for (let c = 0; c < nch; c++) {
       const v = q[c][i];
@@ -111,7 +114,8 @@ export function decodeWav(bytes: Uint8Array): AudioData {
   if (bytes.length < 12) throw new Error('decodeWav: file too short');
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const riff = readStr(bytes, 0);
-  if ((riff !== 'RIFF' && riff !== 'RF64') || readStr(bytes, 8) !== 'WAVE') throw new Error('decodeWav: not a RIFF/WAVE file');
+  if ((riff !== 'RIFF' && riff !== 'RF64') || readStr(bytes, 8) !== 'WAVE')
+    throw new Error('decodeWav: not a RIFF/WAVE file');
   let o = 12;
   let format = 0;
   let nch = 0;
@@ -150,7 +154,8 @@ export function decodeWav(bytes: Uint8Array): AudioData {
   }
   if (!nch || !sampleRate) throw new Error('decodeWav: missing fmt chunk');
   if (dataOff < 0) throw new Error('decodeWav: missing data chunk');
-  if (format !== FORMAT_PCM && format !== FORMAT_FLOAT) throw new Error(`decodeWav: unsupported format 0x${format.toString(16)}`);
+  if (format !== FORMAT_PCM && format !== FORMAT_FLOAT)
+    throw new Error(`decodeWav: unsupported format 0x${format.toString(16)}`);
   const bps = bits / 8;
   if (!blockAlign) blockAlign = bps * nch;
   const frames = Math.floor(dataSize / blockAlign);

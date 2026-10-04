@@ -52,7 +52,9 @@ class ComparePlayer {
 
   private ensure(): AudioContext {
     if (!this.ctx) {
-      const Ctor: typeof AudioContext = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const Ctor: typeof AudioContext =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctor({ latencyHint: 'interactive' });
     }
     return this.ctx;
@@ -62,7 +64,8 @@ class ComparePlayer {
     const ctx = this.ensure();
     const len = Math.max(1, a.channels[0]?.length ?? 0);
     const buf = ctx.createBuffer(Math.max(1, Math.min(2, a.channels.length)), len, a.sampleRate);
-    for (let i = 0; i < buf.numberOfChannels; i++) buf.copyToChannel(a.channels[i] as Float32Array<ArrayBuffer>, i);
+    for (let i = 0; i < buf.numberOfChannels; i++)
+      buf.copyToChannel(a.channels[i] as Float32Array<ArrayBuffer>, i);
     return buf;
   }
 
@@ -133,7 +136,9 @@ class ComparePlayer {
   /** Gain (dB) applied to `key` when level matching: brings every source to the quietest one. */
   matchGainDb(key: string): number {
     if (!this.matching) return 0;
-    const all = [...this.entries.values()].map((e) => e.lufs).filter((v): v is number => v !== undefined && Number.isFinite(v) && v > -70);
+    const all = [...this.entries.values()]
+      .map((e) => e.lufs)
+      .filter((v): v is number => v !== undefined && Number.isFinite(v) && v > -70);
     const lufs = this.entries.get(key)?.lufs;
     if (!all.length || lufs === undefined || !Number.isFinite(lufs) || lufs <= -70) return 0;
     return Math.max(-24, Math.min(0, Math.min(...all) - lufs));
@@ -181,7 +186,10 @@ class ComparePlayer {
       if (offset < e.buffer.duration) src.start(when, offset);
       this.nodes.push(src);
     }
-    const longest = this.nodes.reduce<AudioBufferSourceNode | null>((a, n) => (!a || (n.buffer?.duration ?? 0) > (a.buffer?.duration ?? 0) ? n : a), null);
+    const longest = this.nodes.reduce<AudioBufferSourceNode | null>(
+      (a, n) => (!a || (n.buffer?.duration ?? 0) > (a.buffer?.duration ?? 0) ? n : a),
+      null,
+    );
     if (longest) {
       longest.onended = () => {
         if (this.playing && this.position() >= this.duration() - 0.1) {

@@ -81,7 +81,14 @@ export const useVocalSession = create<VocalSession>((set) => ({
   pitchShift: 0,
   conversionBlocked: null,
   conversionError: null,
-  recording: { countInBars: 1, latencyMs: 20, startSectionId: null, stopAtSectionEnd: true, guide: true, deviceId: '' },
+  recording: {
+    countInBars: 1,
+    latencyMs: 20,
+    startSectionId: null,
+    stopAtSectionEnd: true,
+    guide: true,
+    deviceId: '',
+  },
   tasks: {},
   set: (patch) => set(patch),
 }));

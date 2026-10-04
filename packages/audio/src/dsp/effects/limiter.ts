@@ -33,7 +33,10 @@ export class LookaheadLimiter {
   /** Most negative gain change (dB) applied in the last processed block. */
   gainReductionDb = 0;
 
-  constructor(private readonly sampleRate: number, lookaheadSamples: number) {
+  constructor(
+    private readonly sampleRate: number,
+    lookaheadSamples: number,
+  ) {
     this.lookahead = Math.max(1, Math.round(lookaheadSamples));
     this.win = this.lookahead + 1;
     this.dl = new Float64Array(this.win);
@@ -65,7 +68,9 @@ export class LookaheadLimiter {
 
   /** Push one required gain value through min → release → box filter; returns the gain to apply. */
   private step(req: number): number {
-    const qv = this.qv, qi = this.qi, cap = qv.length;
+    const qv = this.qv,
+      qi = this.qi,
+      cap = qv.length;
     const i = this.idx++;
     // pop back while larger
     let qt = this.qt;
@@ -100,7 +105,9 @@ export class LookaheadLimiter {
   /** In-place stereo processing using the sample peak as detector. */
   process(L: Float64Array, R: Float64Array, start: number, end: number): void {
     const ceil = this.ceiling;
-    const dl = this.dl, dr = this.dr, win = this.win;
+    const dl = this.dl,
+      dr = this.dr,
+      win = this.win;
     // fast path: no gain reduction pending and the block stays below the ceiling → pure delay
     if (this.env === 1 && this.onesRun >= win && this.qv[this.qh] >= 1) {
       let pk = 0;
@@ -114,7 +121,8 @@ export class LookaheadLimiter {
         let p = this.dpos;
         const wrap = win - 1;
         for (let i = start; i < end; i++) {
-          const ol = dl[p], or = dr[p];
+          const ol = dl[p],
+            or = dr[p];
           dl[p] = L[i];
           dr[p] = R[i];
           L[i] = ol;
@@ -137,14 +145,17 @@ export class LookaheadLimiter {
     }
     let minG = 1;
     for (let i = start; i < end; i++) {
-      const xl = L[i], xr = R[i];
-      const a = Math.abs(xl), b = Math.abs(xr);
+      const xl = L[i],
+        xr = R[i];
+      const a = Math.abs(xl),
+        b = Math.abs(xr);
       const pk = a > b ? a : b;
       const req = this.enabled && pk > ceil ? ceil / pk : 1;
       const g = this.step(req);
       // delay line
       const p = this.dpos;
-      const ol = dl[p], or = dr[p];
+      const ol = dl[p],
+        or = dr[p];
       dl[p] = xl;
       dr[p] = xr;
       this.dpos = p + 1 === win - 1 ? 0 : p + 1;

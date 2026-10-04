@@ -84,7 +84,8 @@ import type {
 } from './types';
 import { clamp, isPlainObject } from './util';
 
-export type CompositionTask = 'plan' | 'blueprint' | 'modify' | 'analyze' | 'explain' | 'lyrics' | 'chat' | 'mix';
+export type CompositionTask =
+  'plan' | 'blueprint' | 'modify' | 'analyze' | 'explain' | 'lyrics' | 'chat' | 'mix';
 
 export interface LLMCompositionOptions {
   providerId?: string;
@@ -168,7 +169,9 @@ export class LLMCompositionProvider implements CompositionProvider {
   }
 
   /** One structured call with schema validation and (once) a repair retry. */
-  private async structured<T>(call: StructuredCall<T>): Promise<{ value: T; meta: CallMeta; problems: string[] }> {
+  private async structured<T>(
+    call: StructuredCall<T>,
+  ): Promise<{ value: T; meta: CallMeta; problems: string[] }> {
     const schema = CANONICAL_SCHEMAS[call.schemaName];
     const meta: CallMeta = { providerId: this.opts.providerId };
     const messages: ChatMessage[] = [...(call.history ?? []), { role: 'user', content: call.user }];
@@ -189,20 +192,39 @@ export class LLMCompositionProvider implements CompositionProvider {
       } catch (err) {
         if (err instanceof ProviderError && err.kind === 'truncated' && err.partialText) {
           meta.calls = (meta.calls ?? 0) + 1;
-          return { text: err.partialText, parsed: this.interpret(err.partialText, undefined, schema, call.parse, call.validate !== false, ['the reply was cut off (too long) — be more concise']) };
+          return {
+            text: err.partialText,
+            parsed: this.interpret(err.partialText, undefined, schema, call.parse, call.validate !== false, [
+              'the reply was cut off (too long) — be more concise',
+            ]),
+          };
         }
         throw err;
       }
       addUsage(meta, res);
-      return { text: res.text, parsed: this.interpret(res.text, res.json, schema, call.parse, call.validate !== false) };
+      return {
+        text: res.text,
+        parsed: this.interpret(res.text, res.json, schema, call.parse, call.validate !== false),
+      };
     };
 
     const first = await attempt(messages);
-    if ((first.parsed.problems.length === 0 && first.parsed.value !== undefined) || this.opts.repair === false) {
-      if (first.parsed.value === undefined) throw new ProviderError('parse', `Could not use model output: ${first.parsed.problems.join('; ')}`, { providerId: this.opts.providerId, partialText: first.text });
+    if (
+      (first.parsed.problems.length === 0 && first.parsed.value !== undefined) ||
+      this.opts.repair === false
+    ) {
+      if (first.parsed.value === undefined)
+        throw new ProviderError('parse', `Could not use model output: ${first.parsed.problems.join('; ')}`, {
+          providerId: this.opts.providerId,
+          partialText: first.text,
+        });
       return { value: first.parsed.value, meta, problems: first.parsed.problems };
     }
-    const repairMessages: ChatMessage[] = [...messages, { role: 'assistant', content: first.text || '(empty reply)' }, { role: 'user', content: repairPrompt(first.parsed.problems) }];
+    const repairMessages: ChatMessage[] = [
+      ...messages,
+      { role: 'assistant', content: first.text || '(empty reply)' },
+      { role: 'user', content: repairPrompt(first.parsed.problems) },
+    ];
     let second: { text: string; parsed: DomainParse<T> } | undefined;
     try {
       second = await attempt(repairMessages);
@@ -210,14 +232,30 @@ export class LLMCompositionProvider implements CompositionProvider {
       if (first.parsed.value === undefined) throw err;
     }
     meta.repaired = true;
-    const pick = second && second.parsed.value !== undefined && (second.parsed.problems.length <= first.parsed.problems.length || first.parsed.value === undefined) ? second : first;
+    const pick =
+      second &&
+      second.parsed.value !== undefined &&
+      (second.parsed.problems.length <= first.parsed.problems.length || first.parsed.value === undefined)
+        ? second
+        : first;
     if (pick.parsed.value === undefined) {
-      throw new ProviderError('parse', `Could not use model output after a repair attempt: ${pick.parsed.problems.join('; ')}`, { providerId: this.opts.providerId, partialText: pick.text });
+      throw new ProviderError(
+        'parse',
+        `Could not use model output after a repair attempt: ${pick.parsed.problems.join('; ')}`,
+        { providerId: this.opts.providerId, partialText: pick.text },
+      );
     }
     return { value: pick.parsed.value, meta, problems: pick.parsed.problems };
   }
 
-  private interpret<T>(text: string, json: unknown, schema: (typeof CANONICAL_SCHEMAS)[CanonicalSchemaName], parse: (v: unknown) => DomainParse<T>, validate: boolean, extra: string[] = []): DomainParse<T> {
+  private interpret<T>(
+    text: string,
+    json: unknown,
+    schema: (typeof CANONICAL_SCHEMAS)[CanonicalSchemaName],
+    parse: (v: unknown) => DomainParse<T>,
+    validate: boolean,
+    extra: string[] = [],
+  ): DomainParse<T> {
     let value = json;
     if (value === undefined) {
       const ex = extractJson(text);
@@ -232,7 +270,9 @@ export class LLMCompositionProvider implements CompositionProvider {
     }
     const v = validateJson(value, schema, { coerce: true });
     const domain = parse(v.value);
-    const schemaProblems = v.errors.length ? [`schema: ${formatSchemaIssues(v.errors, 8).replace(/\n/g, '; ')}`] : [];
+    const schemaProblems = v.errors.length
+      ? [`schema: ${formatSchemaIssues(v.errors, 8).replace(/\n/g, '; ')}`]
+      : [];
     return { value: domain.value, problems: [...extra, ...schemaProblems, ...domain.problems] };
   }
 
@@ -262,13 +302,35 @@ export class LLMCompositionProvider implements CompositionProvider {
       hints: req.hints,
       model: req.model,
       signal: req.signal,
-      parse: (v) => parseBlueprintJson(v, { prompt: req.prompt, defaults: req.defaults, genreIds: req.genres?.map((g) => g.id), instrumentIds: req.instruments?.map((i) => i.id) }),
+      parse: (v) =>
+        parseBlueprintJson(v, {
+          prompt: req.prompt,
+          defaults: req.defaults,
+          genreIds: req.genres?.map((g) => g.id),
+          instrumentIds: req.instruments?.map((i) => i.id),
+          tagIds: req.tags?.map((t) => t.id),
+        }),
     });
     return { blueprint: value.blueprint, explanation: value.explanation, confidence: value.confidence, meta };
   }
 
-  private async operationsCall(task: CompositionTask, system: string, user: string, schemaName: CanonicalSchemaName, allowedOps: MusicOperation['op'][] | undefined, model?: string, signal?: AbortSignal, hints?: RequestHints) {
-    return this.structured<{ operations: MusicOperation[]; errors: OperationParseError[]; explanation: string; confidence?: number; raw: Record<string, unknown> }>({
+  private async operationsCall(
+    task: CompositionTask,
+    system: string,
+    user: string,
+    schemaName: CanonicalSchemaName,
+    allowedOps: MusicOperation['op'][] | undefined,
+    model?: string,
+    signal?: AbortSignal,
+    hints?: RequestHints,
+  ) {
+    return this.structured<{
+      operations: MusicOperation[];
+      errors: OperationParseError[];
+      explanation: string;
+      confidence?: number;
+      raw: Record<string, unknown>;
+    }>({
       task,
       system,
       user,
@@ -281,7 +343,13 @@ export class LLMCompositionProvider implements CompositionProvider {
         const parsed = parseOperations(v, { allowedOps });
         const raw = isPlainObject(v) ? v : {};
         return {
-          value: { operations: parsed.operations, errors: parsed.errors, explanation: parsed.explanation ?? '', confidence: parsed.confidence, raw },
+          value: {
+            operations: parsed.operations,
+            errors: parsed.errors,
+            explanation: parsed.explanation ?? '',
+            confidence: parsed.confidence,
+            raw,
+          },
           problems: describeOperationErrors(parsed.errors),
         };
       },
@@ -290,13 +358,33 @@ export class LLMCompositionProvider implements CompositionProvider {
 
   async modifyComposition(req: ModifyCompositionRequest): Promise<ModifyCompositionResult> {
     const p = modifyCompositionPrompt(req);
-    const { value, meta } = await this.operationsCall('modify', p.system, p.user, 'operations', req.allowedOps, req.model, req.signal, req.hints);
-    return { operations: value.operations, explanation: value.explanation, errors: value.errors, confidence: value.confidence, meta };
+    const { value, meta } = await this.operationsCall(
+      'modify',
+      p.system,
+      p.user,
+      'operations',
+      req.allowedOps,
+      req.model,
+      req.signal,
+      req.hints,
+    );
+    return {
+      operations: value.operations,
+      explanation: value.explanation,
+      errors: value.errors,
+      confidence: value.confidence,
+      meta,
+    };
   }
 
   async analyzeMusic(req: AnalyzeMusicRequest): Promise<AnalyzeMusicResult> {
     const p = analyzeMusicPrompt(req);
-    const user: string | ContentPart[] = req.audio ? [{ type: 'audio', audio: req.audio, label: 'recording' }, { type: 'text', text: p.user }] : p.user;
+    const user: string | ContentPart[] = req.audio
+      ? [
+          { type: 'audio', audio: req.audio, label: 'recording' },
+          { type: 'text', text: p.user },
+        ]
+      : p.user;
     const { value, meta } = await this.structured<AnalyzeMusicResult>({
       task: 'analyze',
       system: p.system,
@@ -308,7 +396,11 @@ export class LLMCompositionProvider implements CompositionProvider {
       parse: (v) => {
         if (!isPlainObject(v) || typeof v.summary !== 'string') return { problems: ['missing "summary"'] };
         const observations = Array.isArray(v.observations)
-          ? v.observations.filter(isPlainObject).map((o) => ({ topic: String(o.topic ?? ''), detail: String(o.detail ?? ''), ...(typeof o.section === 'string' ? { section: o.section } : {}) }))
+          ? v.observations.filter(isPlainObject).map((o) => ({
+              topic: String(o.topic ?? ''),
+              detail: String(o.detail ?? ''),
+              ...(typeof o.section === 'string' ? { section: o.section } : {}),
+            }))
           : [];
         const out: AnalyzeMusicResult = { summary: v.summary, observations };
         if (typeof v.key === 'string') out.key = v.key;
@@ -331,7 +423,8 @@ export class LLMCompositionProvider implements CompositionProvider {
       model: req.model,
       signal: req.signal,
       parse: (v) => {
-        if (!isPlainObject(v) || typeof v.explanation !== 'string') return { problems: ['missing "explanation"'] };
+        if (!isPlainObject(v) || typeof v.explanation !== 'string')
+          return { problems: ['missing "explanation"'] };
         const harmony = Array.isArray(v.harmony)
           ? v.harmony.filter(isPlainObject).map((h) => ({
               section: String(h.section ?? ''),
@@ -340,7 +433,11 @@ export class LLMCompositionProvider implements CompositionProvider {
               ...(typeof h.comment === 'string' ? { comment: h.comment } : {}),
             }))
           : [];
-        const out: ExplainMusicResult = { explanation: v.explanation, harmony, suggestions: Array.isArray(v.suggestions) ? v.suggestions.map(String) : [] };
+        const out: ExplainMusicResult = {
+          explanation: v.explanation,
+          harmony,
+          suggestions: Array.isArray(v.suggestions) ? v.suggestions.map(String) : [],
+        };
         if (typeof v.confidence === 'number') out.confidence = clamp(v.confidence, 0, 1);
         return { value: out, problems: [] };
       },
@@ -375,15 +472,22 @@ export class LLMCompositionProvider implements CompositionProvider {
       validate: false,
       parse: (v) => {
         if (!isPlainObject(v) || typeof v.answer !== 'string') return { problems: ['missing "answer"'] };
-        const ops = parseOperations({ operations: Array.isArray(v.operations) ? v.operations : v.operations ? [v.operations] : [] });
+        const ops = parseOperations({
+          operations: Array.isArray(v.operations) ? v.operations : v.operations ? [v.operations] : [],
+        });
         const out: ChatResult = {
           answer: v.answer,
-          suggestions: Array.isArray(v.suggestions) ? v.suggestions.map(String) : typeof v.suggestions === 'string' ? [v.suggestions] : [],
+          suggestions: Array.isArray(v.suggestions)
+            ? v.suggestions.map(String)
+            : typeof v.suggestions === 'string'
+              ? [v.suggestions]
+              : [],
           operations: ops.operations,
           errors: ops.errors,
         };
         const conf = typeof v.confidence === 'string' ? Number(v.confidence) : v.confidence;
-        if (typeof conf === 'number' && Number.isFinite(conf)) out.confidence = clamp(conf > 1 && conf <= 100 ? conf / 100 : conf, 0, 1);
+        if (typeof conf === 'number' && Number.isFinite(conf))
+          out.confidence = clamp(conf > 1 && conf <= 100 ? conf / 100 : conf, 0, 1);
         return { value: out, problems: describeOperationErrors(ops.errors) };
       },
     });
@@ -392,8 +496,23 @@ export class LLMCompositionProvider implements CompositionProvider {
 
   async mixAssist(req: MixAssistRequest): Promise<MixAssistResult> {
     const p = mixAssistPrompt(req);
-    const { value, meta } = await this.operationsCall('mix', p.system, p.user, 'mix_operations', ['set_mixer', 'set_automation'], req.model, req.signal, req.hints);
-    return { operations: value.operations, explanation: value.explanation, errors: value.errors, confidence: value.confidence, meta };
+    const { value, meta } = await this.operationsCall(
+      'mix',
+      p.system,
+      p.user,
+      'mix_operations',
+      ['set_mixer', 'set_automation'],
+      req.model,
+      req.signal,
+      req.hints,
+    );
+    return {
+      operations: value.operations,
+      explanation: value.explanation,
+      errors: value.errors,
+      confidence: value.confidence,
+      meta,
+    };
   }
 }
 
@@ -405,13 +524,24 @@ export type CompositionService = LLMCompositionProvider;
 // Domain parsers (exported for tests and for internal providers)
 // ---------------------------------------------------------------------------
 
-const normEnum = (s: unknown) => (typeof s === 'string' ? s.trim().toLowerCase().replace(/[\s_]+/g, '-') : '');
+const normEnum = (s: unknown) =>
+  typeof s === 'string'
+    ? s
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-')
+    : '';
 function pickEnum<T extends string>(v: unknown, values: readonly T[]): T | undefined {
   const n = normEnum(v);
   return values.find((x) => x === n);
 }
 
-const MODE_ALIASES: Record<string, ModeName> = { ionian: 'major', aeolian: 'minor', maj: 'major', min: 'minor' };
+const MODE_ALIASES: Record<string, ModeName> = {
+  ionian: 'major',
+  aeolian: 'minor',
+  maj: 'major',
+  min: 'minor',
+};
 
 function parseKeyObject(v: unknown): KeySignature | undefined {
   if (typeof v === 'string') return parseKey(v) ?? undefined;
@@ -438,7 +568,10 @@ export function normalizeHarmonySymbol(raw: string, key: KeySignature): string |
   return undefined;
 }
 
-export function parsePlanJson(v: unknown, opts: { fallbackKey?: KeySignature; source?: string } = {}): DomainParse<{ plan: CompositionPlan; notes?: string; confidence?: number }> {
+export function parsePlanJson(
+  v: unknown,
+  opts: { fallbackKey?: KeySignature; source?: string } = {},
+): DomainParse<{ plan: CompositionPlan; notes?: string; confidence?: number }> {
   const problems: string[] = [];
   if (!isPlainObject(v)) return { problems: ['the reply is not a JSON object'] };
   const key = parseKeyObject(v.key) ?? opts.fallbackKey;
@@ -457,13 +590,18 @@ export function parsePlanJson(v: unknown, opts: { fallbackKey?: KeySignature; so
       return;
     }
     const kind = pickEnum<SectionKind>(raw.kind, SECTION_KINDS) ?? 'custom';
-    if (raw.kind !== undefined && kind === 'custom' && normEnum(raw.kind) !== 'custom') problems.push(`section ${i + 1}: unknown kind "${String(raw.kind)}"`);
+    if (raw.kind !== undefined && kind === 'custom' && normEnum(raw.kind) !== 'custom')
+      problems.push(`section ${i + 1}: unknown kind "${String(raw.kind)}"`);
     const bars = typeof raw.bars === 'number' ? Math.round(raw.bars) : NaN;
     if (!(bars >= 1 && bars <= 128)) {
       problems.push(`section ${i + 1}: invalid bars ${JSON.stringify(raw.bars)}`);
       return;
     }
-    const harmonyRaw = Array.isArray(raw.harmony) ? raw.harmony : typeof raw.harmony === 'string' ? raw.harmony.split(/[\s,|–-]+/) : [];
+    const harmonyRaw = Array.isArray(raw.harmony)
+      ? raw.harmony
+      : typeof raw.harmony === 'string'
+        ? raw.harmony.split(/[\s,|–-]+/)
+        : [];
     const harmony: string[] = [];
     for (const h of harmonyRaw) {
       if (typeof h !== 'string') continue;
@@ -473,7 +611,10 @@ export function parsePlanJson(v: unknown, opts: { fallbackKey?: KeySignature; so
     }
     if (!harmony.length) problems.push(`section ${i + 1}: no valid harmony`);
     const section: PlanSection = {
-      name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : `${kind[0].toUpperCase()}${kind.slice(1)} ${i + 1}`,
+      name:
+        typeof raw.name === 'string' && raw.name.trim()
+          ? raw.name.trim()
+          : `${kind[0].toUpperCase()}${kind.slice(1)} ${i + 1}`,
       kind,
       bars,
       harmony,
@@ -489,7 +630,14 @@ export function parsePlanJson(v: unknown, opts: { fallbackKey?: KeySignature; so
   const plan: CompositionPlan = { key, tempo: tempo ?? 120, meter: { numerator, denominator }, sections };
   if (typeof v.notes === 'string' && v.notes) plan.notes = v.notes;
   if (opts.source) plan.source = opts.source;
-  return { value: { plan, notes: typeof v.notes === 'string' ? v.notes : undefined, confidence: typeof v.confidence === 'number' ? clamp(v.confidence, 0, 1) : undefined }, problems };
+  return {
+    value: {
+      plan,
+      notes: typeof v.notes === 'string' ? v.notes : undefined,
+      confidence: typeof v.confidence === 'number' ? clamp(v.confidence, 0, 1) : undefined,
+    },
+    problems,
+  };
 }
 
 const MACRO_KEYS: Record<string, keyof MacroSettings> = {
@@ -506,7 +654,13 @@ const MACRO_KEYS: Record<string, keyof MacroSettings> = {
 
 export function parseBlueprintJson(
   v: unknown,
-  opts: { prompt?: string; defaults?: Partial<Blueprint>; genreIds?: string[]; instrumentIds?: string[] } = {},
+  opts: {
+    prompt?: string;
+    defaults?: Partial<Blueprint>;
+    genreIds?: string[];
+    instrumentIds?: string[];
+    tagIds?: string[];
+  } = {},
 ): DomainParse<{ blueprint: Blueprint; explanation?: string; confidence?: number }> {
   const problems: string[] = [];
   if (!isPlainObject(v)) return { problems: ['the reply is not a JSON object'] };
@@ -516,11 +670,17 @@ export function parseBlueprintJson(
   const tempo = typeof v.tempo === 'number' && v.tempo > 0 ? clamp(v.tempo, 30, 300) : d.tempo;
   if (!tempo) problems.push('missing or invalid "tempo"');
   const meterRaw = isPlainObject(v.meter) ? v.meter : undefined;
-  const meter = meterRaw && typeof meterRaw.numerator === 'number' && typeof meterRaw.denominator === 'number' ? { numerator: Math.round(meterRaw.numerator), denominator: Math.round(meterRaw.denominator) } : (d.meter ?? { numerator: 4, denominator: 4 });
+  const meter =
+    meterRaw && typeof meterRaw.numerator === 'number' && typeof meterRaw.denominator === 'number'
+      ? { numerator: Math.round(meterRaw.numerator), denominator: Math.round(meterRaw.denominator) }
+      : (d.meter ?? { numerator: 4, denominator: 4 });
   const genreSet = opts.genreIds?.length ? new Set(opts.genreIds) : undefined;
   const genreBlend = (Array.isArray(v.genre_blend) ? v.genre_blend : [])
     .filter(isPlainObject)
-    .map((g) => ({ genreId: String(g.genre_id ?? g.genreId ?? ''), weight: typeof g.weight === 'number' ? Math.max(0, g.weight) : 1 }))
+    .map((g) => ({
+      genreId: String(g.genre_id ?? g.genreId ?? ''),
+      weight: typeof g.weight === 'number' ? Math.max(0, g.weight) : 1,
+    }))
     .filter((g) => {
       if (!g.genreId) return false;
       if (genreSet && !genreSet.has(g.genreId)) {
@@ -539,8 +699,13 @@ export function parseBlueprintJson(
       problems.push(`instrumentation ${i + 1}: needs instrument_id and a valid role`);
       return;
     }
-    if (instrumentSet && !instrumentSet.has(instrumentId)) problems.push(`instrumentation ${i + 1}: unknown instrument id "${instrumentId}"`);
-    const track: BlueprintTrack = { name: typeof t.name === 'string' && t.name ? t.name : instrumentId, instrumentId, role };
+    if (instrumentSet && !instrumentSet.has(instrumentId))
+      problems.push(`instrumentation ${i + 1}: unknown instrument id "${instrumentId}"`);
+    const track: BlueprintTrack = {
+      name: typeof t.name === 'string' && t.name ? t.name : instrumentId,
+      instrumentId,
+      role,
+    };
     const fn = pickEnum<MusicalFunction>(t.function, MUSICAL_FUNCTIONS);
     if (fn) track.function = fn;
     const constraints: NonNullable<BlueprintTrack['constraints']> = {};
@@ -555,7 +720,9 @@ export function parseBlueprintJson(
     const cx = pickEnum(t.complexity, ['low', 'medium', 'high'] as const);
     if (cx) constraints.complexity = cx;
     if (Array.isArray(t.avoid)) {
-      const avoid = t.avoid.map((a) => pickEnum(a, AVOID_RULES)).filter((a): a is NonNullable<typeof a> => !!a);
+      const avoid = t.avoid
+        .map((a) => pickEnum(a, AVOID_RULES))
+        .filter((a): a is NonNullable<typeof a> => !!a);
       if (avoid.length) constraints.avoid = avoid;
     }
     if (fn) constraints.function = fn;
@@ -612,12 +779,32 @@ export function parseBlueprintJson(
   if (isPlainObject(v.vocal)) {
     const voiceType = pickEnum<VoiceType>(v.vocal.voice_type, VOICE_TYPES);
     const mode = pickEnum<VocalMode>(v.vocal.mode, VOCAL_MODES);
-    if (voiceType && mode) blueprint.vocal = { voiceType, mode, ...(typeof v.vocal.description === 'string' ? { description: v.vocal.description } : {}) };
+    if (voiceType && mode)
+      blueprint.vocal = {
+        voiceType,
+        mode,
+        ...(typeof v.vocal.description === 'string' ? { description: v.vocal.description } : {}),
+      };
   } else if (d.vocal) blueprint.vocal = d.vocal;
   if (typeof v.lyrics_theme === 'string' && v.lyrics_theme) blueprint.lyricsTheme = v.lyrics_theme;
   else if (d.lyricsTheme) blueprint.lyricsTheme = d.lyricsTheme;
+  // Tags: only ids the caller offered (unknown ones are dropped, not fatal).
+  const tagSet = opts.tagIds?.length ? new Set(opts.tagIds) : undefined;
+  const tags = [
+    ...new Set(
+      (Array.isArray(v.tags) ? v.tags : [])
+        .filter((t): t is string => typeof t === 'string' && !!t.trim())
+        .map((t) => t.trim()),
+    ),
+  ].filter((t) => !tagSet || tagSet.has(t));
+  if (tags.length) blueprint.tags = tags;
+  else if (d.tags?.length) blueprint.tags = [...d.tags];
   return {
-    value: { blueprint, explanation: typeof v.explanation === 'string' ? v.explanation : undefined, confidence: typeof v.confidence === 'number' ? clamp(v.confidence, 0, 1) : undefined },
+    value: {
+      blueprint,
+      explanation: typeof v.explanation === 'string' ? v.explanation : undefined,
+      confidence: typeof v.confidence === 'number' ? clamp(v.confidence, 0, 1) : undefined,
+    },
     problems,
   };
 }
@@ -625,7 +812,15 @@ export function parseBlueprintJson(
 export function parseLyricsJson(v: unknown, req: GenerateLyricsRequest): DomainParse<GenerateLyricsResult> {
   if (!isPlainObject(v) || !Array.isArray(v.sections)) return { problems: ['missing "sections"'] };
   const problems: string[] = [];
-  const returned = v.sections.filter(isPlainObject).map((s) => ({ section: String(s.section ?? ''), lines: Array.isArray(s.lines) ? s.lines.map(String).map((l) => l.trim()).filter(Boolean) : [] }));
+  const returned = v.sections.filter(isPlainObject).map((s) => ({
+    section: String(s.section ?? ''),
+    lines: Array.isArray(s.lines)
+      ? s.lines
+          .map(String)
+          .map((l) => l.trim())
+          .filter(Boolean)
+      : [],
+  }));
   const norm = (s: string) => s.trim().toLowerCase();
   const sections = req.sections.map((want, i) => {
     const got = returned.find((r) => norm(r.section) === norm(want.name)) ?? returned[i];
@@ -634,7 +829,8 @@ export function parseLyricsJson(v: unknown, req: GenerateLyricsRequest): DomainP
       problems.push(`missing section "${want.name}"`);
       return { section: want.name, lines: want.existing ? [...want.existing] : [] };
     }
-    if (got.lines.length !== want.lines) problems.push(`section "${want.name}" needs ${want.lines} line(s), got ${got.lines.length}`);
+    if (got.lines.length !== want.lines)
+      problems.push(`section "${want.name}" needs ${want.lines} line(s), got ${got.lines.length}`);
     return { section: want.name, lines: got.lines };
   });
   const out: GenerateLyricsResult = { sections };
@@ -646,5 +842,7 @@ export function parseLyricsJson(v: unknown, req: GenerateLyricsRequest): DomainP
 
 /** Convert generated lyrics to set_lyrics operations (section names resolved by the edit engine). */
 export function lyricsToOperations(result: GenerateLyricsResult): MusicOperation[] {
-  return result.sections.filter((s) => s.lines.length).map((s) => ({ op: 'set_lyrics' as const, section: s.section, lines: s.lines }));
+  return result.sections
+    .filter((s) => s.lines.length)
+    .map((s) => ({ op: 'set_lyrics' as const, section: s.section, lines: s.lines }));
 }

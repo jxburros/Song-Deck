@@ -11,6 +11,7 @@ ITU-R BS.1770-4 / EBU R128 (K-weighting, 400 ms blocks, absolute and relative ga
 Determinism: nothing here reads the clock or global random state; pass seeded ``random.Random``
 instances (see :func:`seeded`).
 """
+
 from __future__ import annotations
 
 import math
@@ -156,7 +157,7 @@ def harmonic_count(freq: float, sample_rate: int, limit: int = 48) -> int:
 
 def saw_table(freq: float, sample_rate: int, rolloff: float = 1.0, limit: int = 48) -> List[float]:
     n = harmonic_count(freq, sample_rate, limit)
-    return wavetable([(h, 1.0 / h ** rolloff) for h in range(1, n + 1)])
+    return wavetable([(h, 1.0 / h**rolloff) for h in range(1, n + 1)])
 
 
 def osc(table: Sequence[float], freq: float, n: int, sample_rate: int, phase: float = 0.0) -> List[float]:
@@ -286,10 +287,15 @@ def _k_weighting(sample_rate: int) -> Tuple[Tuple[float, ...], Tuple[float, ...]
     f0, g, q = 1681.974450955533, 3.999843853973347, 0.7071752369554196
     k = math.tan(math.pi * f0 / fs)
     vh = 10.0 ** (g / 20.0)
-    vb = vh ** 0.4996667741545416
+    vb = vh**0.4996667741545416
     a0 = 1.0 + k / q + k * k
-    shelf = ((vh + vb * k / q + k * k) / a0, 2.0 * (k * k - vh) / a0, (vh - vb * k / q + k * k) / a0,
-             2.0 * (k * k - 1.0) / a0, (1.0 - k / q + k * k) / a0)
+    shelf = (
+        (vh + vb * k / q + k * k) / a0,
+        2.0 * (k * k - vh) / a0,
+        (vh - vb * k / q + k * k) / a0,
+        2.0 * (k * k - 1.0) / a0,
+        (1.0 - k / q + k * k) / a0,
+    )
     f0, q = 38.13547087602444, 0.5003270373238773
     k = math.tan(math.pi * f0 / fs)
     d = 1.0 + k / q + k * k
@@ -332,7 +338,13 @@ def integrated_loudness(channels: Sequence[Sequence[float]], sample_rate: int, c
     return -0.691 + 10.0 * math.log10(sum(gated) / len(gated))
 
 
-def limit(channels: Sequence[Sequence[float]], sample_rate: int, ceiling: float, release_s: float = 0.08, block_s: float = 0.003) -> List[List[float]]:
+def limit(
+    channels: Sequence[Sequence[float]],
+    sample_rate: int,
+    ceiling: float,
+    release_s: float = 0.08,
+    block_s: float = 0.003,
+) -> List[List[float]]:
     """Look-ahead peak limiter: no sample exceeds ``ceiling`` (linear); smooth release.
 
     Gains are computed per ~3 ms block (one block of look-ahead) and interpolated linearly, so the
@@ -347,7 +359,7 @@ def limit(channels: Sequence[Sequence[float]], sample_rate: int, ceiling: float,
     nb = (n + b - 1) // b
     req = []
     for k in range(nb):
-        pk = max(peak(ch[k * b:(k + 1) * b]) for ch in channels)
+        pk = max(peak(ch[k * b : (k + 1) * b]) for ch in channels)
         req.append(1.0 if pk <= ceiling else ceiling / pk)
     rc = 1.0 - math.exp(-b / max(1.0, release_s * sample_rate))
     bounds = [1.0] * (nb + 1)
@@ -384,7 +396,9 @@ MASTERING_TARGETS: Dict[str, Dict[str, float]] = {
 }
 
 
-def master(audio: Audio, target: str, reference: Optional[Audio] = None, check: Check = None) -> Tuple[Audio, Dict[str, float]]:
+def master(
+    audio: Audio, target: str, reference: Optional[Audio] = None, check: Check = None
+) -> Tuple[Audio, Dict[str, float]]:
     """Loudness-normalize to the target (or to the reference's loudness) and peak-limit.
 
     Returns the mastered audio (24-bit PCM, or 16-bit for ``cd``) and a report.
@@ -415,7 +429,9 @@ def master(audio: Audio, target: str, reference: Optional[Audio] = None, check: 
     out = Audio(audio.sample_rate, chans, int(spec["bits"]), False)
     out_lufs = integrated_loudness(out.channels, out.sample_rate, check)
     report["output_lufs"] = round(out_lufs, 2) if math.isfinite(out_lufs) else -999.0
-    report["output_peak_db"] = round(gain_to_db(peak_channels(out.channels)), 2) if peak_channels(out.channels) > 0 else -999.0
+    report["output_peak_db"] = (
+        round(gain_to_db(peak_channels(out.channels)), 2) if peak_channels(out.channels) > 0 else -999.0
+    )
     return out, report
 
 
@@ -434,7 +450,7 @@ def _nsdf_peak(frame: List[float], lag_min: int, lag_max: int, k: float = 0.9) -
     nsdf = [1.0]
     for tau in range(1, lag_max + 2):
         m = cs[w - tau] + (total - cs[tau])
-        nsdf.append(2.0 * dot(frame[:w - tau], frame[tau:]) / m if m > 1e-12 else 0.0)
+        nsdf.append(2.0 * dot(frame[: w - tau], frame[tau:]) / m if m > 1e-12 else 0.0)
     # skip the zero-lag lobe, then collect the maximum of each positive lobe
     i = 1
     n = len(nsdf)
@@ -468,8 +484,17 @@ def _nsdf_peak(frame: List[float], lag_min: int, lag_max: int, k: float = 0.9) -
     return 0.0, 0.0
 
 
-def track_pitch(x: Sequence[float], sample_rate: int, fmin: float = 60.0, fmax: float = 1000.0, hop_s: float = 0.01,
-                gate_db: float = -50.0, relative_gate_db: float = -35.0, min_clarity: float = 0.6, check: Check = None) -> Dict[str, object]:
+def track_pitch(
+    x: Sequence[float],
+    sample_rate: int,
+    fmin: float = 60.0,
+    fmax: float = 1000.0,
+    hop_s: float = 0.01,
+    gate_db: float = -50.0,
+    relative_gate_db: float = -35.0,
+    min_clarity: float = 0.6,
+    check: Check = None,
+) -> Dict[str, object]:
     """Monophonic f0 track. Returns ``times``, ``f0`` (0 = unvoiced), ``clarity``, ``rms``, ``hop``."""
     fmax = max(fmin * 2.0, fmax)
     factor = max(1, int(sample_rate // (fmax * 6.0)))  # work at ~6× fmax: keeps the lag search small
@@ -498,7 +523,7 @@ def track_pitch(x: Sequence[float], sample_rate: int, fmin: float = 60.0, fmax: 
             f0s.append(0.0)
             clar.append(0.0)
             continue
-        frame = y[s:s + w]
+        frame = y[s : s + w]
         mu = sum(frame) / w
         if abs(mu) > 1e-9:
             frame = [v - mu for v in frame]
@@ -512,7 +537,9 @@ def track_pitch(x: Sequence[float], sample_rate: int, fmin: float = 60.0, fmax: 
     return {"times": times, "f0": f0s, "clarity": clar, "rms": frame_rms, "hop": hop / work_sr}
 
 
-def notes_from_pitch(track: Dict[str, object], *, min_note_s: float = 0.06, split_semitones: float = 0.6, max_gap_frames: int = 1) -> List[Dict[str, float]]:
+def notes_from_pitch(
+    track: Dict[str, object], *, min_note_s: float = 0.06, split_semitones: float = 0.6, max_gap_frames: int = 1
+) -> List[Dict[str, float]]:
     """Segment an f0 track into notes ``{pitch, start, end, velocity, confidence}``."""
     times: List[float] = track["times"]  # type: ignore[assignment]
     f0: List[float] = track["f0"]  # type: ignore[assignment]
@@ -524,7 +551,7 @@ def notes_from_pitch(track: Dict[str, object], *, min_note_s: float = 0.06, spli
     for i, m in enumerate(midi):  # 5-frame median over voiced neighbours removes octave blips
         if m is None:
             continue
-        win = [v for v in midi[max(0, i - 2):i + 3] if v is not None]
+        win = [v for v in midi[max(0, i - 2) : i + 3] if v is not None]
         smoothed[i] = statistics.median(win)
     notes: List[Dict[str, float]] = []
     cur: Optional[Dict[str, list]] = None
@@ -545,13 +572,15 @@ def notes_from_pitch(track: Dict[str, object], *, min_note_s: float = 0.06, spli
         level = max(lvl[i] for i in note["idx"])
         db = gain_to_db(level) if level > 0 else -90.0
         velocity = int(round(max(1.0, min(127.0, 40.0 + 87.0 * (db + 40.0) / 40.0))))
-        notes.append({
-            "pitch": int(round(med)),
-            "start": round(start, 4),
-            "end": round(end, 4),
-            "velocity": velocity,
-            "confidence": round(max(0.0, min(1.0, clarity * (0.6 + 0.4 * stability))), 3),
-        })
+        notes.append(
+            {
+                "pitch": int(round(med)),
+                "start": round(start, 4),
+                "end": round(end, 4),
+                "velocity": velocity,
+                "confidence": round(max(0.0, min(1.0, clarity * (0.6 + 0.4 * stability))), 3),
+            }
+        )
 
     gap = 0
     for i, m in enumerate(smoothed):
@@ -611,7 +640,7 @@ def drum_hits(x: Sequence[float], sample_rate: int, check: Check = None) -> List
     hits: List[Dict[str, float]] = []
     last = -1.0
     for i in range(1, len(total) - 1):
-        prev = sum(total[max(0, i - 5):i]) / max(1, min(5, i))
+        prev = sum(total[max(0, i - 5) : i]) / max(1, min(5, i))
         if total[i] < loudest * 1e-3 or total[i] < 2.5 * prev or total[i] < total[i + 1]:
             continue
         t = i * hop / sample_rate
@@ -621,13 +650,15 @@ def drum_hits(x: Sequence[float], sample_rate: int, check: Check = None) -> List
         weights = (rise[0] * 1.0, rise[1] * 2.0, rise[2] * 6.0)  # high bands carry less energy
         k = max(range(3), key=lambda j: weights[j])
         db = 10.0 * math.log10(total[i] / loudest)
-        hits.append({
-            "pitch": (36, 38, 42)[k],
-            "start": round(t, 4),
-            "end": round(t + 0.1, 4),
-            "velocity": int(max(1, min(127, round(127 + 3.0 * db)))),
-            "confidence": 0.5,
-        })
+        hits.append(
+            {
+                "pitch": (36, 38, 42)[k],
+                "start": round(t, 4),
+                "end": round(t + 0.1, 4),
+                "velocity": int(max(1, min(127, round(127 + 3.0 * db)))),
+                "confidence": 0.5,
+            }
+        )
         last = t
     return hits
 
@@ -698,7 +729,9 @@ def estimate_key(notes: Sequence[Dict[str, float]]) -> Optional[Tuple[str, float
 # ---------------------------------------------------------------------------
 
 
-def time_stretch(y: Sequence[float], out_len: int, sample_rate: int, grain_s: float = 0.04, tolerance_s: float = 0.01) -> List[float]:
+def time_stretch(
+    y: Sequence[float], out_len: int, sample_rate: int, grain_s: float = 0.04, tolerance_s: float = 0.01
+) -> List[float]:
     """WSOLA time stretch of ``y`` to ``out_len`` samples (Hann grains, 50 % overlap).
 
     Each grain is taken near its nominal position, shifted by up to ``tolerance_s`` so that it
@@ -726,29 +759,29 @@ def time_stretch(y: Sequence[float], out_len: int, sample_rate: int, grain_s: fl
         nominal = int(round(ss * ratio)) + tol  # yp coordinates (the first `pad` samples are zeros)
         sa = nominal
         if prev >= 0:
-            target = yp[prev + hs:prev + n]  # what naturally followed the previous grain (overlap region)
+            target = yp[prev + hs : prev + n]  # what naturally followed the previous grain (overlap region)
             if any(target):
                 td = target[::4]
                 lo, hi = (nominal - tol) // 4, (nominal + tol) // 4
                 best_c, best_v = nominal // 4, float("-inf")
                 for c in range(max(0, lo), hi + 1):
-                    v = dot(yd[c:c + len(td)], td)
+                    v = dot(yd[c : c + len(td)], td)
                     if v > best_v:
                         best_c, best_v = c, v
                 best, best_v = best_c * 4, float("-inf")
                 for c in range(max(0, best_c * 4 - 3), best_c * 4 + 4):
-                    cand = yp[c:c + hs]
+                    cand = yp[c : c + hs]
                     v = dot(cand, target) / math.sqrt(dot(cand, cand) + 1e-12)
                     if v > best_v:
                         best, best_v = c, v
                 sa = best
-        grain = yp[sa:sa + n]
+        grain = yp[sa : sa + n]
         if len(grain) < n:
             grain = grain + [0.0] * (n - len(grain))
-        out[ss:ss + n] = map(add, out[ss:ss + n], map(mul, grain, win))
+        out[ss : ss + n] = map(add, out[ss : ss + n], map(mul, grain, win))
         prev = sa
         k += 1
-    return out[hs:hs + out_len]
+    return out[hs : hs + out_len]
 
 
 def pitch_shift(x: Sequence[float], sample_rate: int, semitones: float) -> List[float]:

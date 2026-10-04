@@ -41,6 +41,7 @@ Voice conversion → "RVC voice conversion (local)".
 
 This is REFERENCE code (not exercised in Song Deck's CI); ``run_rvc()`` is the function to adapt.
 """
+
 from __future__ import annotations
 
 import json
@@ -49,7 +50,7 @@ import re
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -111,12 +112,21 @@ def public(voice: Dict[str, Any]) -> Dict[str, str]:
     return {k: v for k, v in voice.items() if not k.startswith("_")}
 
 
-def run_rvc(input_wav: Path, output_wav: Path, voice: Dict[str, Any], semitones: int, args: Any, ctx: RequestContext) -> bytes:
+def run_rvc(
+    input_wav: Path, output_wav: Path, voice: Dict[str, Any], semitones: int, args: Any, ctx: RequestContext
+) -> bytes:
     """THE engine call: run the configured RVC command and return the converted WAV bytes."""
     device = resolve_device(args.device)
     values = {
-        "python": args.python, "input": str(input_wav), "output": str(output_wav), "model": voice["_model"], "index": voice["_index"],
-        "pitch": str(semitones), "voice": voice["id"], "f0_method": args.f0_method, "index_rate": f"{args.index_rate:g}",
+        "python": args.python,
+        "input": str(input_wav),
+        "output": str(output_wav),
+        "model": voice["_model"],
+        "index": voice["_index"],
+        "pitch": str(semitones),
+        "voice": voice["id"],
+        "f0_method": args.f0_method,
+        "index_rate": f"{args.index_rate:g}",
         "device": "cuda:0" if device == "cuda" else device,
     }
     run_command(command_from_template(args.command, values), ctx, cwd=args.rvc_root, timeout=args.timeout, name="rvc")
@@ -136,14 +146,16 @@ def build_app(args: Any) -> BridgeApp:
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
         voices = scan_voices(models_dir)
-        return json_response({
-            "name": app.name,
-            "version": __version__,
-            "models": [{"id": f"rvc:{v['id']}", "name": f"RVC voice '{v['name']}'"} for v in voices.values()],
-            "capabilities": ["VOICE_CONVERSION"],
-            "voices": [public(v) for v in voices.values()],
-            "hardware": {"min_vram_gb": 0},
-        })
+        return json_response(
+            {
+                "name": app.name,
+                "version": __version__,
+                "models": [{"id": f"rvc:{v['id']}", "name": f"RVC voice '{v['name']}'"} for v in voices.values()],
+                "capabilities": ["VOICE_CONVERSION"],
+                "voices": [public(v) for v in voices.values()],
+                "hardware": {"min_vram_gb": 0},
+            }
+        )
 
     @app.route("GET", "/voices")
     def list_voices(ctx: RequestContext):
@@ -158,11 +170,15 @@ def build_app(args: Any) -> BridgeApp:
         except WavError as e:
             raise BadRequest(f"audio_base64: {e}") from None
         if meta["duration"] > args.max_duration:
-            raise BadRequest(f"the audio is {meta['duration']:.0f} s long; this bridge accepts at most {args.max_duration:.0f} s (--max-duration)")
+            raise BadRequest(
+                f"the audio is {meta['duration']:.0f} s long; this bridge accepts at most {args.max_duration:.0f} s (--max-duration)"
+            )
         voice_id = req_str(body, "target_voice_id", allow_empty=False, max_len=128)
         voices = scan_voices(models_dir)
         if voice_id not in voices:
-            raise NotFound(f"unknown target_voice_id '{voice_id}' (installed: {', '.join(voices) or 'none'} in {models_dir})")
+            raise NotFound(
+                f"unknown target_voice_id '{voice_id}' (installed: {', '.join(voices) or 'none'} in {models_dir})"
+            )
         shift = req_number(body, "pitch_shift", required=False, default=0.0, minimum=-24, maximum=24)
         semitones = int(round(shift))  # RVC transposes in whole semitones
         voice = voices[voice_id]
@@ -177,7 +193,9 @@ def build_app(args: Any) -> BridgeApp:
             except WavError as e:
                 raise EngineError(f"the RVC output is not a readable WAV ({e})") from None
             ctx.check_cancelled()
-            return wav_response(out, model=f"rvc:{voice_id}", headers={"X-Voice-Id": voice_id, "X-Pitch-Shift": str(semitones)})
+            return wav_response(
+                out, model=f"rvc:{voice_id}", headers={"X-Voice-Id": voice_id, "X-Pitch-Shift": str(semitones)}
+            )
 
         return work
 
@@ -185,14 +203,20 @@ def build_app(args: Any) -> BridgeApp:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    p = build_parser("Song Deck voice-conversion bridge for RVC (reference implementation).", DEFAULT_PORT, prog="rvc_bridge.py")
+    p = build_parser(
+        "Song Deck voice-conversion bridge for RVC (reference implementation).", DEFAULT_PORT, prog="rvc_bridge.py"
+    )
     r = p.add_argument_group("RVC")
     r.add_argument("--models-dir", required=True, help="folder with <voice>.pth models (+ optional .index and .json)")
     r.add_argument("--rvc-root", default=None, help="working directory of the command (your RVC checkout)")
-    r.add_argument("--command", default=DEFAULT_COMMAND, help=f"conversion command template (default: {DEFAULT_COMMAND!r})")
+    r.add_argument(
+        "--command", default=DEFAULT_COMMAND, help=f"conversion command template (default: {DEFAULT_COMMAND!r})"
+    )
     r.add_argument("--python", default=sys.executable, help="interpreter of the RVC environment ({python})")
     r.add_argument("--f0-method", default="rmvpe", help="pitch extraction method passed as {f0_method} (default rmvpe)")
-    r.add_argument("--index-rate", type=float, default=0.75, help="retrieval index rate passed as {index_rate} (default 0.75)")
+    r.add_argument(
+        "--index-rate", type=float, default=0.75, help="retrieval index rate passed as {index_rate} (default 0.75)"
+    )
     r.add_argument("--max-duration", type=float, default=900.0, help="longest accepted input in seconds (default 900)")
     r.add_argument("--timeout", type=float, default=1800.0, help="seconds before a conversion is killed (default 1800)")
     args = p.parse_args(argv)

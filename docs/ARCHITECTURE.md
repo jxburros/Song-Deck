@@ -50,28 +50,29 @@ orchestrator stays provider-agnostic (§2.2, §72).
 
 ## 2. Conventions (all packages)
 
-* **TypeScript, ESM, no build step for libraries** — each package's `exports` points at `src/index.ts`.
+- **TypeScript, ESM, no build step for libraries** — each package's `exports` points at `src/index.ts`.
   Relative imports are extensionless.
-* **Music IR** lives in `packages/core/src/ir/types.ts`. Do not fork these types; extend them there.
-* **Time:** integer ticks, `PPQ = 480` ticks per quarter note. Internal bars/beats are **0-based**.
+- **Music IR** lives in `packages/core/src/ir/types.ts`. Do not fork these types; extend them there.
+- **Time:** integer ticks, `PPQ = 480` ticks per quarter note. Internal bars/beats are **0-based**.
   Structured AI operations (`MusicOperation`) and the UI use **1-based** bars/beats.
   `bpm` is always quarter-notes per minute.
-* **Determinism (§23):** generators take randomness only from `deriveRng(seed, ...keys)` and ids
+- **Determinism (§23):** generators take randomness only from `deriveRng(seed, ...keys)` and ids
   only from `IdFactory`. Same blueprint + constraints + seed + `ENGINE_VERSION` ⇒ identical song
   (`songHash` equal). Never use `Math.random()`/`Date.now()` inside generation.
-* **Locks (§22):** use `locks.ts`. Regeneration must leave locked material byte-identical and the
+- **Locks (§22):** use `locks.ts`. Regeneration must leave locked material byte-identical and the
   Validation Engine must verify it.
-* **Bad model output never corrupts a project (§48):** AI output → `MusicOperation[]` → validated and
+- **Bad model output never corrupts a project (§48):** AI output → `MusicOperation[]` → validated and
   applied to a clone → `Proposal` → user accepts → new revision.
-* **Audio:** planar `Float32Array` channels (`AudioData`). No Web Audio in `packages/audio`.
-* **No secrets in project files (§7):** credentials live only in the server vault (OS keychain) or an
-  explicit in-browser session store.
-* **Dependencies:** runtime deps are intentionally minimal: `fflate` (zip), `@anthropic-ai/sdk`
+- **Audio:** planar `Float32Array` channels (`AudioData`). No Web Audio in `packages/audio`.
+- **No secrets in project files (§7):** credentials live only in the server vault (OS keychain) or,
+  without the server, encrypted in the browser (AES-GCM, non-extractable key; `docs/CREDENTIALS.md`).
+- **Dependencies:** runtime deps are intentionally minimal: `fflate` (zip), `@anthropic-ai/sdk`
   (Anthropic adapter), `react`/`zustand` (UI), `ws` (server), `@breezystack/lamejs` (MP3).
 
 ## 3. Module contracts (public exports)
 
 ### 3.1 core foundation (done)
+
 `types`, `defaults` (`createEmptySong`, `createProject`, `defaultMixer`, `defaultChannelStrip`, `defaultMacros`, `ENGINE_VERSION`),
 `gm` (`GM_DRUM`, `GM_PROGRAM_NAMES`), `song-utils` (`cloneSong`, `findTrack`, `sortNotes`, `songHash`, `stableStringify`),
 `random` (`deriveRng`, `createRng`, `hashSeed`, `randomSeed`), `ids` (`IdFactory`, `randomId`),
@@ -84,6 +85,7 @@ orchestrator stays provider-agnostic (§2.2, §72).
 `transposeDiatonic`, `snapToScale`, `noteNameToMidi`, `midiToNoteName`, …).
 
 ### 3.2 core/composer
+
 ```ts
 BUILTIN_GENRES: GenreProfile[]                 // ≥17 genres of §14
 getGenre(id, custom?: GenreProfile[]): GenreProfile | undefined
@@ -106,6 +108,7 @@ generateAsset(request: AssetRequest, seed: number): { song: Song; trackId: strin
 ```
 
 ### 3.3 core/musician
+
 ```ts
 interpretEditInstruction(song, instruction, selection: EditSelection, opts?): EditInterpretation
    // EditInterpretation: { operations: MusicOperation[]; explanation: string; intents: string[]; understood: boolean }
@@ -123,6 +126,7 @@ parseAssetPrompt(prompt): AssetRequest                               // §25 Gen
 ```
 
 ### 3.4 core/edit
+
 ```ts
 applyOperations(song, ops: MusicOperation[], opts?: ApplyOptions): { song: Song; report: ValidationReport; applied: number }
    // ApplyOptions: { respectLocks?=true; autoFix?=true; regenerate?: (song, op) => Song; customInstruments? }
@@ -135,6 +139,7 @@ rebaseProposal(before, after, current): { song; conflicts }       // the proposa
 ```
 
 ### 3.5 core/io
+
 ```ts
 songToMidi(song, opts?): Uint8Array; trackToMidi(song, trackId): Uint8Array; midiToSong(bytes, opts?): Song
 songToMusicXML(song, opts?): string; songToChordSheet(song): string; songToLyricSheet(song): string
@@ -144,6 +149,7 @@ tempoMapCsv(song): string; markersCsv(song): string; audacityLabels(song): strin
 ```
 
 ### 3.6 core/project
+
 ```ts
 packProject(project, assets: Map<string, Uint8Array>): Uint8Array      // .songproject (ZIP)
 unpackProject(bytes): { project: Project; assets: Map<string, Uint8Array> }
@@ -155,18 +161,50 @@ undoRevision / redoRevision helpers, addAsset, addProvenance, recordProviderUse
 ```
 
 ### 3.7 core/tasks
+
 ```ts
-class TaskQueue {  // §63
-  constructor(opts?: { concurrency?: number; persistence?: TaskPersistence; now?: () => string; awaitHandlers?: boolean })
-  register<I, O>(type: string, handler: TaskHandler<I, O>): void
-  enqueue<I>(spec: { type; title; input: I; dependsOn?; priority?; maxAttempts?; providerId?; runner? }): TaskRecord
-  cancel(id); retry(id); pause(id); resume(id); remove(id); get(id); list(); subscribe(listener): () => void
-  restore(): Promise<void>   // resume persisted tasks from their checkpoints
+class TaskQueue {
+  // §63
+  constructor(opts?: {
+    concurrency?: number;
+    persistence?: TaskPersistence;
+    now?: () => string;
+    awaitHandlers?: boolean;
+  });
+  register<I, O>(type: string, handler: TaskHandler<I, O>): void;
+  enqueue<I>(spec: {
+    type;
+    title;
+    input: I;
+    dependsOn?;
+    priority?;
+    maxAttempts?;
+    providerId?;
+    runner?;
+  }): TaskRecord;
+  cancel(id);
+  retry(id);
+  pause(id);
+  resume(id);
+  remove(id);
+  get(id);
+  list();
+  subscribe(listener): () => void;
+  restore(): Promise<void>; // resume persisted tasks from their checkpoints
 }
-TaskHandler = (ctx: { input; signal: AbortSignal; progress(p, msg?); log(level, msg); checkpoint(data); previousCheckpoint?; attempt }) => Promise<O>
+TaskHandler = (ctx: {
+  input;
+  signal: AbortSignal;
+  progress(p, msg?);
+  log(level, msg);
+  checkpoint(data);
+  previousCheckpoint?;
+  attempt;
+}) => Promise<O>;
 ```
 
 ### 3.8 audio/dsp
+
 ```ts
 class SongRenderer { constructor(song, opts?: RenderOptions); sampleRate; totalFrames; seekSeconds(s); seekFrame(f);
   process(outL, outR, frames?): number; updateSong(song); updateMixer(mixer); getMeters(): Meters }
@@ -179,6 +217,7 @@ STOCK_VOICES, synthesizeVocal(song, trackId, opts): AudioData  // formant placeh
 ```
 
 ### 3.9 audio/analysis
+
 ```ts
 stft, detectOnsets, detectTempo, detectKey, chromagram, detectChords, trackPitch (YIN),
 transcribeMonophonic, transcribePolyphonic, transcribeDrums, separateSources (HPSS + spectral masks),
@@ -186,6 +225,7 @@ classifyStem, segmentStructure, transcribedToNotes, rebuildProject(buf, opts): P
 ```
 
 ### 3.10 ai
+
 Capabilities (§5, §30, §59), `ProviderRegistry`, `CapabilityRouter`, `BUILTIN_PROFILES` (§6),
 routing rules (§49), `describeDataFlow` (§50), `BudgetManager` + `estimateCost` (§60),
 `buildMusicContext` (§45), structured schemas + `parseOperations` (§46), `CompositionService`
@@ -195,30 +235,39 @@ routing rules (§49), `describeDataFlow` (§50), `BudgetManager` + `estimateCost
 Llama API, Together, Groq, LM Studio, vLLM, llama.cpp), Anthropic, Gemini, Ollama, custom HTTP,
 ElevenLabs Music, Stability Stable Audio, Google Lyria (Vertex), local music HTTP (ACE-Step bridge),
 singing HTTP (DiffSinger bridge), transcription/separation/voice-conversion/mastering HTTP,
-`LOCAL_MODEL_CATALOG` + `classifyCompatibility` (§61-§62).
+`LOCAL_MODEL_CATALOG` + `classifyCompatibility` (§61-§62). Connecting services:
+`detectKeyProvider` (key formats), `probeProvider` (validate a key, list its models),
+`groupModels` / `recommendModels` (models → Song Deck uses, best per use), `connectedConfig`,
+`detectLocalServices` (Ollama, LM Studio, llama.cpp, vLLM, bridges; loopback only) and
+`EncryptedCredentialStore` (behind a `KeyValueBackend`).
 
 ### 3.11 apps/studio (runtime wiring)
-* `state/store.ts` — the open project, proposals (accepted with `acceptProposalOnto`), revisions,
+
+- `state/store.ts` — the open project, proposals (accepted with `acceptProposalOnto`), revisions,
   branches, undo/redo (shared revisions while collaborating), confirmations, transport.
-* `engine/player.ts` + `playback.worker.ts` — live playback: the worker runs `SongRenderer` and
+- `engine/player.ts` + `playback.worker.ts` — live playback: the worker runs `SongRenderer` and
   streams chunks scheduled sample-accurately on an `AudioContext`.
-* `engine/jobs.ts` + `jobs.worker.ts` — a worker pool for offline renders, mastering, codecs,
+- `engine/jobs.ts` + `jobs.worker.ts` — a worker pool for offline renders, mastering, codecs,
   singing, transcription, separation and Rebuild. `render-instruments.ts` keeps both the player and
   the pool configured with custom instrument profiles and plugin sample sets.
-* `engine/runtime.ts` — the task queue (§63; inputs of unfinished tasks persist, so they resume
+- `engine/runtime.ts` — the task queue (§63; inputs of unfinished tasks persist, so they resume
   after a reload) and local-server status. Task handlers live in `engine/handlers/*`.
-* `engine/ai.ts` — the AI runtime: registry, router, budget and orchestrator; internal (on-device)
+- `engine/ai.ts` — the AI runtime: registry, router, budget and orchestrator; internal (on-device)
   providers from `internalProviders.ts`; plugin providers; role helpers used by every mode.
-* `engine/plugins.ts` — plugin loading and the plugin API (`docs/PLUGINS.md`).
-* `engine/collab.ts`, `collab-render.ts` — collaboration client and distributed stem renders.
-* `engine/midi-input.ts`, `midi-take.ts` — MIDI keyboard capture into the piano roll (§27).
-* `views/*` — one folder per mode (compose, workbench, generate, transcribe, rebuild, produce,
+- `engine/credentials.ts` — browser-held keys (encrypted IndexedDB store, memory fallback) used when
+  the server vault is not; `views/settings/ConnectService.tsx` — the "Connect a service" flow.
+- `engine/plugins.ts` — plugin loading and the plugin API (`docs/PLUGINS.md`).
+- `engine/collab.ts`, `collab-render.ts` — collaboration client and distributed stem renders.
+- `engine/midi-input.ts`, `midi-take.ts` — MIDI keyboard capture into the piano roll (§27).
+- `views/*` — one folder per mode (compose, workbench, generate, transcribe, rebuild, produce,
   vocals, mix, export, settings) plus shell and shared components.
 
 ### 3.12 apps/server
+
 CLI `apps/server/src/cli.ts`; modules: `vault/` (OS keychain, encrypted-file fallback), `proxy.ts`
 (provider proxy with allowlist and credential injection), `hardware.ts`, `models.ts` (model
 manager), `render/` (render node: worker-thread pool), `collab/` (WebSocket rooms, persisted
 revisions, comments, chat), `plugins.ts` (manifest validation and file serving), `managed.ts`
-(the "Automatic" gateway), `projects.ts`, `static.ts` (serves the built studio). Security model
+(the "Automatic" gateway), `local-services.ts` (local service detection, key validation for the
+connect flow), `projects.ts`, `static.ts` (serves the built studio). Security model
 and endpoints: `apps/server/README.md`.

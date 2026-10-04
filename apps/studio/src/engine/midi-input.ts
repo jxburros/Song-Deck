@@ -25,7 +25,11 @@ export function midiSupported(): boolean {
 /** Ask for MIDI access once per session (the browser may show a permission prompt). */
 export function requestMidiAccess(): Promise<MIDIAccess> {
   if (!midiSupported()) {
-    return Promise.reject(new Error('This browser has no Web MIDI support. Use Chrome, Edge or Opera, or record audio in Transcribe mode instead.'));
+    return Promise.reject(
+      new Error(
+        'This browser has no Web MIDI support. Use Chrome, Edge or Opera, or record audio in Transcribe mode instead.',
+      ),
+    );
   }
   access ??= navigator.requestMIDIAccess({ sysex: false }).catch((err: unknown) => {
     access = null;
@@ -36,7 +40,11 @@ export function requestMidiAccess(): Promise<MIDIAccess> {
 
 export async function listMidiInputs(): Promise<MidiInputInfo[]> {
   const a = await requestMidiAccess();
-  return Array.from(a.inputs.values()).map((i) => ({ id: i.id, name: i.name || 'MIDI input', manufacturer: i.manufacturer || '' }));
+  return Array.from(a.inputs.values()).map((i) => ({
+    id: i.id,
+    name: i.name || 'MIDI input',
+    manufacturer: i.manufacturer || '',
+  }));
 }
 
 export interface CaptureOptions {
@@ -110,7 +118,8 @@ export class MidiCapture {
     const status = data[0] & 0xf0;
     const at = e.timeStamp || performance.now();
     if (status === 0x90 && data.length >= 3 && data[2] > 0) this.noteOn(data[1], data[2], at);
-    else if (status === 0x80 || (status === 0x90 && data.length >= 3 && data[2] === 0)) this.noteOff(data[1], at);
+    else if (status === 0x80 || (status === 0x90 && data.length >= 3 && data[2] === 0))
+      this.noteOff(data[1], at);
     else if (status === 0xb0 && data.length >= 3 && data[1] === 64) this.setPedal(data[2] >= 64, at);
   }
 

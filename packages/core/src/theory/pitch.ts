@@ -106,7 +106,17 @@ export function intervalName(semitones: number): string {
   const s = Math.abs(Math.round(semitones));
   if (s < 12) return INTERVAL_NAMES[s];
   const base = INTERVAL_NAMES[s % 12];
-  const compound: Record<string, string> = { m2: 'm9', M2: 'M9', m3: 'm10', M3: 'M10', P4: 'P11', TT: '#11', P5: 'P12', m6: 'm13', M6: 'M13' };
+  const compound: Record<string, string> = {
+    m2: 'm9',
+    M2: 'M9',
+    m3: 'm10',
+    M3: 'M10',
+    P4: 'P11',
+    TT: '#11',
+    P5: 'P12',
+    m6: 'm13',
+    M6: 'M13',
+  };
   if (s % 12 === 0) return s === 12 ? 'P8' : `P8x${s / 12}`;
   return s < 24 ? (compound[base] ?? `${base}+8`) : `${base}+${Math.floor(s / 12)}oct`;
 }

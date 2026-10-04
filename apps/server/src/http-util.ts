@@ -13,7 +13,12 @@ export class HttpError extends Error {
   readonly headers?: Record<string, string>;
   readonly details?: unknown;
 
-  constructor(status: number, code: string, message: string, opts: { headers?: Record<string, string>; details?: unknown } = {}) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    opts: { headers?: Record<string, string>; details?: unknown } = {},
+  ) {
     super(message);
     this.name = 'HttpError';
     this.status = status;
@@ -23,10 +28,16 @@ export class HttpError extends Error {
   }
 }
 
-export const badRequest = (message: string, code = 'bad-request', details?: unknown) => new HttpError(400, code, message, { details });
+export const badRequest = (message: string, code = 'bad-request', details?: unknown) =>
+  new HttpError(400, code, message, { details });
 export const notFound = (message = 'Not found', code = 'not-found') => new HttpError(404, code, message);
 
-export function sendJson(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
+export function sendJson(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+): void {
   if (res.headersSent) {
     res.end();
     return;
@@ -55,13 +66,21 @@ export function sendBytes(
   headers: Record<string, string> = {},
   headOnly = false,
 ): void {
-  res.writeHead(status, { 'content-type': contentType, 'content-length': String(bytes.byteLength), ...headers });
+  res.writeHead(status, {
+    'content-type': contentType,
+    'content-length': String(bytes.byteLength),
+    ...headers,
+  });
   if (headOnly) res.end();
   else res.end(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength));
 }
 
 /** Map anything thrown by a handler to the uniform `{ error, code }` response. */
-export function errorPayload(err: unknown): { status: number; body: { error: string; code: string; details?: unknown }; headers: Record<string, string> } {
+export function errorPayload(err: unknown): {
+  status: number;
+  body: { error: string; code: string; details?: unknown };
+  headers: Record<string, string>;
+} {
   if (err instanceof HttpError) {
     const body: { error: string; code: string; details?: unknown } = { error: err.message, code: err.code };
     if (err.details !== undefined) body.details = err.details;
@@ -87,7 +106,9 @@ function contentLength(req: IncomingMessage): number | undefined {
 }
 
 export function payloadTooLarge(limit: number): HttpError {
-  return new HttpError(413, 'payload-too-large', `Request body exceeds the limit of ${formatBytes(limit)}`, { headers: { connection: 'close' } });
+  return new HttpError(413, 'payload-too-large', `Request body exceeds the limit of ${formatBytes(limit)}`, {
+    headers: { connection: 'close' },
+  });
 }
 
 /** Read the whole request body (bounded). */
@@ -155,7 +176,9 @@ export async function readJson<T = unknown>(req: IncomingMessage, limit: number)
 }
 
 export function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
+  return (
+    typeof v === 'object' && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype
+  );
 }
 
 export function formatBytes(n: number): string {

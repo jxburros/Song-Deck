@@ -37,7 +37,8 @@ export const MASTERING_PRESETS: Record<MasteringTarget, MasteringPreset> = {
   streaming: {
     id: 'streaming',
     name: 'Streaming',
-    description: '-14 LUFS integrated, -1 dBTP: matches Spotify / YouTube / Apple Music normalization without extra limiting.',
+    description:
+      '-14 LUFS integrated, -1 dBTP: matches Spotify / YouTube / Apple Music normalization without extra limiting.',
     targetLufs: -14,
     truePeakDb: -1,
     lowCutHz: 25,
@@ -154,14 +155,29 @@ function stereoPairs(chs: Float64Array[]): [Float64Array, Float64Array] {
 }
 
 /** Master `input` towards the preset of `settings.target`. */
-export function masterAudio(input: AudioData, settings: MasteringSettings, opts: { onProgress?(p: number): void } = {}): MasteringResult {
+export function masterAudio(
+  input: AudioData,
+  settings: MasteringSettings,
+  opts: { onProgress?(p: number): void } = {},
+): MasteringResult {
   const target: MasteringTarget = MASTERING_PRESETS[settings?.target] ? settings.target : 'streaming';
   const preset = MASTERING_PRESETS[target];
   const sr = input.sampleRate;
   if (settings?.method === 'none' || !input.channels.length || !input.channels[0].length) {
     const pre = measureLoudness(input);
     const out = { sampleRate: sr, channels: input.channels.map((c) => new Float32Array(c)) };
-    return { output: out, report: { preLufs: pre.integratedLufs, postLufs: pre.integratedLufs, truePeakDb: pre.truePeakDb, gainDb: 0, lra: pre.lra, target, iterations: 0 } };
+    return {
+      output: out,
+      report: {
+        preLufs: pre.integratedLufs,
+        postLufs: pre.integratedLufs,
+        truePeakDb: pre.truePeakDb,
+        gainDb: 0,
+        lra: pre.lra,
+        target,
+        iterations: 0,
+      },
+    };
   }
   const pre = { integratedLufs: integratedLoudness(input) };
   opts.onProgress?.(0.05);
@@ -219,7 +235,18 @@ export function masterAudio(input: AudioData, settings: MasteringSettings, opts:
   if (baseLufs <= MIN_DB + 1) {
     const out = toAudio(chs, sr);
     const m = measureLoudness(out);
-    return { output: out, report: { preLufs: pre.integratedLufs, postLufs: m.integratedLufs, truePeakDb: m.truePeakDb, gainDb: preGainDb, lra: m.lra, target, iterations: 0 } };
+    return {
+      output: out,
+      report: {
+        preLufs: pre.integratedLufs,
+        postLufs: m.integratedLufs,
+        truePeakDb: m.truePeakDb,
+        gainDb: preGainDb,
+        lra: m.lra,
+        target,
+        iterations: 0,
+      },
+    };
   }
   // 6) loudness search: gain → soft clip → true-peak limiter
   const ceilDb = preset.truePeakDb - 0.12;
@@ -234,7 +261,8 @@ export function masterAudio(input: AudioData, settings: MasteringSettings, opts:
     const t = knee * ceil * 1.12; // soft clip slightly above the limiter ceiling
     const span = ceil * 1.12 - t;
     for (let c = 0; c < chs.length; c++) {
-      const src = chs[c], dst = work[c];
+      const src = chs[c],
+        dst = work[c];
       for (let i = 0; i < n; i++) {
         let x = src[i] * g;
         if (knee < 1) {
@@ -263,7 +291,8 @@ export function masterAudio(input: AudioData, settings: MasteringSettings, opts:
   let l0 = run(g0);
   let lastG = g0;
   let iterations = 1;
-  let bestG = g0, bestErr = Math.abs(preset.targetLufs - l0);
+  let bestG = g0,
+    bestErr = Math.abs(preset.targetLufs - l0);
   let g1 = g0 + (preset.targetLufs - l0);
   for (let it = 0; it < 8 && bestErr > 0.1; it++) {
     const l1 = run(g1);

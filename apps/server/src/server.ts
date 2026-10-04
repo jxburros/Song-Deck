@@ -13,10 +13,20 @@ import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 import { registerCollabRoutes } from './collab';
+import { registerContentCheckRoutes } from './content-check';
 import { CollabHub } from './collab/hub';
-import { isLoopbackHost, normalizeOrigin, type ResolvedConfig, resolveConfig, SERVER_NAME, SERVER_VERSION, type ServerOptions } from './config';
+import {
+  isLoopbackHost,
+  normalizeOrigin,
+  type ResolvedConfig,
+  resolveConfig,
+  SERVER_NAME,
+  SERVER_VERSION,
+  type ServerOptions,
+} from './config';
 import { registerHardwareRoutes, HardwareService } from './hardware';
 import { errorPayload, HttpError, redactPath, safeEqual, sendError, sendJson } from './http-util';
+import { LocalServices, registerLocalServiceRoutes } from './local-services';
 import { ManagedGateway, registerManagedRoutes } from './managed';
 import { ModelManager, registerModelRoutes } from './models';
 import { PluginHost, registerPluginRoutes } from './plugins';
@@ -49,6 +59,7 @@ export interface ServerServices {
   renderNode: RenderNode;
   collab: CollabHub;
   managed: ManagedGateway;
+  localServices: LocalServices;
 }
 
 const ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, OPTIONS';
@@ -85,7 +96,12 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
   };
 
   const providers = new ProviderStore(config.dataDir, logger);
-  const hardware = new HardwareService({ dataDir: config.dataDir, detect: config.hardware.detect, run: config.hardware.run, cacheMs: config.hardware.cacheMs });
+  const hardware = new HardwareService({
+    dataDir: config.dataDir,
+    detect: config.hardware.detect,
+    run: config.hardware.run,
+    cacheMs: config.hardware.cacheMs,
+  });
   const models = new ModelManager({
     dataDir: config.dataDir,
     hardware,
@@ -93,8 +109,16 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     ollamaUrl: config.discovery.ollamaUrl,
     lmStudioUrl: config.discovery.lmStudioUrl,
     timeoutMs: config.discovery.timeoutMs,
+    localServices: config.discovery.localServices,
     fetch: config.discovery.fetch,
     logger,
+  });
+  const localServices = new LocalServices({
+    ollamaUrl: config.discovery.ollamaUrl,
+    lmStudioUrl: config.discovery.lmStudioUrl,
+    extra: config.discovery.localServices,
+    timeoutMs: config.discovery.timeoutMs,
+    fetch: config.discovery.fetch,
   });
   const plugins = new PluginHost(config.pluginDirs, logger);
   const projects = new ProjectStore(config.dataDir);
@@ -134,8 +158,13 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     maxResponseBytes: limits.proxyResponseBytes,
     logger,
   });
+  registerContentCheckRoutes(router, { getVault, fetch: config.proxy.fetch });
   registerHardwareRoutes(router, hardware);
   registerModelRoutes(router, models);
+  registerLocalServiceRoutes(router, localServices, {
+    fetch: config.proxy.fetch,
+    jsonLimit: limits.jsonBytes,
+  });
   registerRenderRoutes(router, renderNode, limits.renderBytes);
   registerCollabRoutes(router, collab);
   registerPluginRoutes(router, plugins);
@@ -186,7 +215,8 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     res.setHeader('access-control-allow-origin', origin);
     res.setHeader('vary', 'Origin');
     res.setHeader('access-control-expose-headers', EXPOSED_HEADERS);
-    if (req.headers['access-control-request-private-network'] === 'true') res.setHeader('access-control-allow-private-network', 'true');
+    if (req.headers['access-control-request-private-network'] === 'true')
+      res.setHeader('access-control-allow-private-network', 'true');
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -205,7 +235,8 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
       return;
     }
     try {
-      if (!hostAllowed(req)) throw new HttpError(403, 'bad-host', 'Host header not allowed (DNS rebinding protection)');
+      if (!hostAllowed(req))
+        throw new HttpError(403, 'bad-host', 'Host header not allowed (DNS rebinding protection)');
       const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
       if (!isApi) {
         if (staticHandler) await staticHandler(req, res, url);
@@ -214,14 +245,20 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
       }
       const origin = req.headers.origin;
       if (typeof origin === 'string') {
-        if (!originAllowed(origin, req)) throw new HttpError(403, 'origin-not-allowed', `Origin ${origin} is not allowed (start the server with --allow-origin ${origin})`);
+        if (!originAllowed(origin, req))
+          throw new HttpError(
+            403,
+            'origin-not-allowed',
+            `Origin ${origin} is not allowed (start the server with --allow-origin ${origin})`,
+          );
         applyCors(req, res, origin);
       }
       if (req.method === 'OPTIONS') {
         const requested = String(req.headers['access-control-request-headers'] ?? '');
         res.writeHead(204, {
           'access-control-allow-methods': ALLOWED_METHODS,
-          'access-control-allow-headers': /^[\w\s,-]*$/.test(requested) && requested.trim() ? requested : DEFAULT_ALLOWED_HEADERS,
+          'access-control-allow-headers':
+            /^[\w\s,-]*$/.test(requested) && requested.trim() ? requested : DEFAULT_ALLOWED_HEADERS,
           'access-control-max-age': '600',
           'cache-control': 'no-store',
         });
@@ -230,7 +267,9 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
       }
       if (config.token && url.pathname !== '/api/health' && !isAuthorized(req, url)) {
         req.resume();
-        throw new HttpError(401, 'unauthorized', 'Missing or invalid bearer token', { headers: { 'www-authenticate': 'Bearer realm="songdeck"' } });
+        throw new HttpError(401, 'unauthorized', 'Missing or invalid bearer token', {
+          headers: { 'www-authenticate': 'Bearer realm="songdeck"' },
+        });
       }
       const match = router.match(req.method ?? 'GET', url.pathname);
       if (match.kind === 'not-found') {
@@ -239,7 +278,9 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
       }
       if (match.kind === 'method-not-allowed') {
         req.resume();
-        throw new HttpError(405, 'method-not-allowed', `${req.method} is not allowed here`, { headers: { allow: match.allowed.join(', ') } });
+        throw new HttpError(405, 'method-not-allowed', `${req.method} is not allowed here`, {
+          headers: { allow: match.allowed.join(', ') },
+        });
       }
       const ctrl = new AbortController();
       res.on('close', () => {
@@ -247,7 +288,8 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
       });
       await match.handler({ req, res, url, params: match.params, signal: ctrl.signal });
     } catch (err) {
-      if (!(err instanceof HttpError)) logger.error(`${req.method} ${redactPath(req.url)} failed: ${(err as Error)?.stack ?? String(err)}`);
+      if (!(err instanceof HttpError))
+        logger.error(`${req.method} ${redactPath(req.url)} failed: ${(err as Error)?.stack ?? String(err)}`);
       if (res.headersSent) {
         res.destroy();
         return;
@@ -272,12 +314,15 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     } catch {
       return rejectUpgrade(socket, 400, 'bad-request', 'Bad request URL');
     }
-    if (url.pathname !== '/api/collab') return rejectUpgrade(socket, 404, 'not-found', 'No WebSocket endpoint here');
+    if (url.pathname !== '/api/collab')
+      return rejectUpgrade(socket, 404, 'not-found', 'No WebSocket endpoint here');
     if (!hostAllowed(req)) return rejectUpgrade(socket, 403, 'bad-host', 'Host header not allowed');
     const origin = req.headers.origin;
     // Browsers do not apply CORS to WebSockets, so the origin check is essential here.
-    if (typeof origin === 'string' && !originAllowed(origin, req)) return rejectUpgrade(socket, 403, 'origin-not-allowed', `Origin ${origin} is not allowed`);
-    if (!isAuthorized(req, url)) return rejectUpgrade(socket, 401, 'unauthorized', 'Missing or invalid token (use ?access_token=…)');
+    if (typeof origin === 'string' && !originAllowed(origin, req))
+      return rejectUpgrade(socket, 403, 'origin-not-allowed', `Origin ${origin} is not allowed`);
+    if (!isAuthorized(req, url))
+      return rejectUpgrade(socket, 401, 'unauthorized', 'Missing or invalid token (use ?access_token=…)');
     collab.handleUpgrade(req, socket, head);
   }
 
@@ -289,7 +334,9 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     if (socket.writable) {
       const { status, body } = errorPayload(new HttpError(400, 'bad-request', 'Malformed HTTP request'));
       const text = JSON.stringify(body);
-      socket.end(`HTTP/1.1 ${status} Bad Request\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(text)}\r\n\r\n${text}`);
+      socket.end(
+        `HTTP/1.1 ${status} Bad Request\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(text)}\r\n\r\n${text}`,
+      );
     } else socket.destroy(err);
   });
 
@@ -300,11 +347,29 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     vault =
       typeof config.vault === 'object'
         ? config.vault
-        : await createVault({ dataDir: config.dataDir, prefer: config.vault, keychain: config.keychain, logger });
+        : await createVault({
+            dataDir: config.dataDir,
+            prefer: config.vault,
+            keychain: config.keychain,
+            logger,
+          });
     await providers.load();
     await renderNode.init();
     await managed.init();
-    for (const f of ['vault', 'proxy', 'providers', 'hardware', 'models', 'collab', 'plugins', 'projects']) features.add(f);
+    for (const f of [
+      'vault',
+      'proxy',
+      'providers',
+      'hardware',
+      'models',
+      'local-services',
+      'connect',
+      'collab',
+      'plugins',
+      'projects',
+      'content-check',
+    ])
+      features.add(f);
     if (renderNode.available) features.add('render-node');
     if (managed.available) features.add('managed');
     if (staticHandler) features.add('static');
@@ -321,7 +386,7 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
     get vault() {
       return getVault();
     },
-    services: { providers, hardware, models, plugins, projects, renderNode, collab, managed },
+    services: { providers, hardware, models, plugins, projects, renderNode, collab, managed, localServices },
     async listen() {
       await init();
       await new Promise<void>((resolve, reject) => {
@@ -339,7 +404,8 @@ export function createSongDeckServer(options: ServerOptions = {}): SongDeckServe
       });
       listening = true;
       const addr = server.address() as AddressInfo;
-      const hostForUrl = addr.family === 'IPv6' || addr.address.includes(':') ? `[${addr.address}]` : addr.address;
+      const hostForUrl =
+        addr.family === 'IPv6' || addr.address.includes(':') ? `[${addr.address}]` : addr.address;
       const shownHost = config.host === '0.0.0.0' || config.host === '::' ? 'localhost' : hostForUrl;
       return { url: `http://${shownHost}:${addr.port}`, host: addr.address, port: addr.port };
     },

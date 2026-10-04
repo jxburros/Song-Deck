@@ -4,7 +4,8 @@ import { LockKeys } from '../src/locks';
 import { stableStringify } from '../src/ir/song-utils';
 import { BAR, deepFreeze, makeSong, makeSongWithGuitars, opsOfType } from './musician-fixtures';
 
-const mixerOf = (ops: { op: string }[], track: string) => opsOfType(ops, 'set_mixer').find((o) => o.track === track)?.changes;
+const mixerOf = (ops: { op: string }[], track: string) =>
+  opsOfType(ops, 'set_mixer').find((o) => o.track === track)?.changes;
 
 describe('interpretMixInstruction (§41 AI mix assistant)', () => {
   const song = makeSong();
@@ -13,9 +14,15 @@ describe('interpretMixInstruction (§41 AI mix assistant)', () => {
     const r = interpretMixInstruction(song, 'Make the vocal clearer');
     expect(r.understood).toBe(true);
     expect(r.intents).toEqual(['clarity']);
-    expect(mixerOf(r.operations, 't-vocal')).toEqual({ 'eq.highMidHz': 3000, 'eq.highMidDb': 3, 'eq.highpassHz': 100, reverbSend: 0.11 });
+    expect(mixerOf(r.operations, 't-vocal')).toEqual({
+      'eq.highMidHz': 3000,
+      'eq.highMidDb': 3,
+      'eq.highpassHz': 100,
+      reverbSend: 0.11,
+    });
     // Violin and piano share the vocal's register → 250–400 Hz cut; bass and drums are left alone.
-    for (const t of ['t-violin', 't-piano']) expect(mixerOf(r.operations, t)).toEqual({ 'eq.lowMidHz': 320, 'eq.lowMidDb': -2, 'eq.lowMidQ': 1.2 });
+    for (const t of ['t-violin', 't-piano'])
+      expect(mixerOf(r.operations, t)).toEqual({ 'eq.lowMidHz': 320, 'eq.lowMidDb': -2, 'eq.lowMidQ': 1.2 });
     expect(mixerOf(r.operations, 't-bass')).toBeUndefined();
     expect(mixerOf(r.operations, 't-drums')).toBeUndefined();
     expect(r.explanation).toMatch(/presence/);
@@ -25,7 +32,11 @@ describe('interpretMixInstruction (§41 AI mix assistant)', () => {
     const r = interpretMixInstruction(song, 'Put the violin farther back');
     expect(r.intents).toEqual(['push-back']);
     expect(r.operations).toHaveLength(1);
-    expect(mixerOf(r.operations, 't-violin')).toEqual({ volumeDb: -9, reverbSend: 0.3, 'eq.highShelfDb': -2.5 });
+    expect(mixerOf(r.operations, 't-violin')).toEqual({
+      volumeDb: -9,
+      reverbSend: 0.3,
+      'eq.highShelfDb': -2.5,
+    });
   });
 
   it('"Make the drums hit harder": slow-attack compression, kick body and stick attack', () => {
@@ -50,9 +61,21 @@ describe('interpretMixInstruction (§41 AI mix assistant)', () => {
     const r = interpretMixInstruction(song, 'Reduce muddiness');
     expect(r.intents).toEqual(['muddiness']);
     expect(mixerOf(r.operations, 't-bass')).toEqual({ 'eq.lowMidHz': 300, 'eq.lowMidDb': -2 });
-    expect(mixerOf(r.operations, 't-vocal')).toEqual({ 'eq.lowMidHz': 300, 'eq.lowMidDb': -3, 'eq.highpassHz': 100 });
-    expect(mixerOf(r.operations, 't-violin')).toEqual({ 'eq.lowMidHz': 300, 'eq.lowMidDb': -3, 'eq.highpassHz': 180 });
-    expect(mixerOf(r.operations, 't-piano')).toEqual({ 'eq.lowMidHz': 300, 'eq.lowMidDb': -3, 'eq.highpassHz': 70 });
+    expect(mixerOf(r.operations, 't-vocal')).toEqual({
+      'eq.lowMidHz': 300,
+      'eq.lowMidDb': -3,
+      'eq.highpassHz': 100,
+    });
+    expect(mixerOf(r.operations, 't-violin')).toEqual({
+      'eq.lowMidHz': 300,
+      'eq.lowMidDb': -3,
+      'eq.highpassHz': 180,
+    });
+    expect(mixerOf(r.operations, 't-piano')).toEqual({
+      'eq.lowMidHz': 300,
+      'eq.lowMidDb': -3,
+      'eq.highpassHz': 70,
+    });
     // "Reduce" is not read as a level change.
     expect(r.operations.some((o) => o.op === 'set_mixer' && 'volumeDb' in o.changes)).toBe(false);
   });
@@ -69,7 +92,9 @@ describe('interpretMixInstruction (§41 AI mix assistant)', () => {
       { bar: 29, beat: 1, value: -3.5 },
       { bar: 36, beat: 4, value: -3.5 },
     ]);
-    expect(auto.find((o) => o.param === 'reverbSend')!.points.map((p) => p.value)).toEqual([0.15, 0.09, 0.09]);
+    expect(auto.find((o) => o.param === 'reverbSend')!.points.map((p) => p.value)).toEqual([
+      0.15, 0.09, 0.09,
+    ]);
     expect(auto.find((o) => o.param === 'eq.highMidDb')!.points.map((p) => p.value)).toEqual([0, 1.5, 1.5]);
     // The presence frequency is not automatable → a static change, and the explanation says so.
     expect(mixerOf(r.operations, 't-violin')).toEqual({ 'eq.highMidHz': 3000 });
@@ -78,7 +103,18 @@ describe('interpretMixInstruction (§41 AI mix assistant)', () => {
 
   it('ramps back after a mid-song section and builds on existing automation', () => {
     const s = makeSong();
-    s.automation = [{ id: 'lane-1', target: 't-violin', param: 'volumeDb', points: [{ tick: 0, value: -8 }, { tick: 36 * BAR, value: -8 }], enabled: true }];
+    s.automation = [
+      {
+        id: 'lane-1',
+        target: 't-violin',
+        param: 'volumeDb',
+        points: [
+          { tick: 0, value: -8 },
+          { tick: 36 * BAR, value: -8 },
+        ],
+        enabled: true,
+      },
+    ];
     const r = interpretMixInstruction(s, 'bring the violin forward in the bridge');
     const vol = opsOfType(r.operations, 'set_automation').find((o) => o.param === 'volumeDb')!;
     expect(vol.points).toEqual([
@@ -90,7 +126,10 @@ describe('interpretMixInstruction (§41 AI mix assistant)', () => {
   });
 
   it('§73 example: "Bring the violin forward in the last chorus and make the vocal slightly drier"', () => {
-    const r = interpretMixInstruction(song, 'Bring the violin forward in the last chorus and make the vocal slightly drier');
+    const r = interpretMixInstruction(
+      song,
+      'Bring the violin forward in the last chorus and make the vocal slightly drier',
+    );
     expect(r.intents).toEqual(['forward', 'drier']);
     expect(opsOfType(r.operations, 'set_automation').every((o) => o.track === 't-violin')).toBe(true);
     expect(mixerOf(r.operations, 't-vocal')).toEqual({ reverbSend: 0.11 });
@@ -98,18 +137,32 @@ describe('interpretMixInstruction (§41 AI mix assistant)', () => {
   });
 
   it('handles levels, sends, mute/solo and pan', () => {
-    expect(mixerOf(interpretMixInstruction(song, 'make the vocal slightly drier').operations, 't-vocal')).toEqual({ reverbSend: 0.11 });
+    expect(
+      mixerOf(interpretMixInstruction(song, 'make the vocal slightly drier').operations, 't-vocal'),
+    ).toEqual({ reverbSend: 0.11 });
     const wet = interpretMixInstruction(song, 'more reverb overall');
     expect(wet.intents).toEqual(['wetter']);
     expect(mixerOf(wet.operations, 't-bass')).toBeUndefined();
     expect(mixerOf(wet.operations, 't-vocal')).toEqual({ reverbSend: 0.25 });
     expect(wet.explanation).toMatch(/bass was kept dry/);
-    expect(mixerOf(interpretMixInstruction(song, 'louder bass').operations, 't-bass')).toEqual({ volumeDb: -4 });
-    expect(mixerOf(interpretMixInstruction(song, 'turn the vocal down 3 dB').operations, 't-vocal')).toEqual({ volumeDb: -9 });
-    expect(mixerOf(interpretMixInstruction(song, 'vocal up 2 dB').operations, 't-vocal')).toEqual({ volumeDb: -4 });
-    expect(mixerOf(interpretMixInstruction(song, 'mute the piano').operations, 't-piano')).toEqual({ mute: true });
-    expect(mixerOf(interpretMixInstruction(song, 'solo the drums').operations, 't-drums')).toEqual({ solo: true });
-    expect(mixerOf(interpretMixInstruction(song, 'pan the violin left').operations, 't-violin')).toEqual({ pan: -0.5 });
+    expect(mixerOf(interpretMixInstruction(song, 'louder bass').operations, 't-bass')).toEqual({
+      volumeDb: -4,
+    });
+    expect(mixerOf(interpretMixInstruction(song, 'turn the vocal down 3 dB').operations, 't-vocal')).toEqual({
+      volumeDb: -9,
+    });
+    expect(mixerOf(interpretMixInstruction(song, 'vocal up 2 dB').operations, 't-vocal')).toEqual({
+      volumeDb: -4,
+    });
+    expect(mixerOf(interpretMixInstruction(song, 'mute the piano').operations, 't-piano')).toEqual({
+      mute: true,
+    });
+    expect(mixerOf(interpretMixInstruction(song, 'solo the drums').operations, 't-drums')).toEqual({
+      solo: true,
+    });
+    expect(mixerOf(interpretMixInstruction(song, 'pan the violin left').operations, 't-violin')).toEqual({
+      pan: -0.5,
+    });
     const harsh = interpretMixInstruction(song, 'the vocal is too harsh');
     expect(harsh.intents).toEqual(['harsh']);
     expect(mixerOf(harsh.operations, 't-vocal')).toEqual({ 'eq.highMidHz': 3500, 'eq.highMidDb': -2.5 });
@@ -132,7 +185,9 @@ describe('interpretMixInstruction (§41 AI mix assistant)', () => {
 
   it('applies to the selected track when none is named', () => {
     const r = interpretMixInstruction(song, 'make it louder', { selection: { trackIds: ['t-piano'] } });
-    expect(r.operations).toEqual([expect.objectContaining({ op: 'set_mixer', track: 't-piano', changes: { volumeDb: -4 } })]);
+    expect(r.operations).toEqual([
+      expect.objectContaining({ op: 'set_mixer', track: 't-piano', changes: { volumeDb: -4 } }),
+    ]);
   });
 
   it('respects mixer locks', () => {
@@ -160,11 +215,23 @@ describe('interpretVocalInstruction (§37 vocal regeneration commands)', () => {
   const vocal = song.tracks.find((t) => t.id === 't-vocal')!;
 
   it('"Make the final line more aggressive" → velocity + tension/energy/hard onsets on bars 35–36 only', () => {
-    const r = interpretVocalInstruction(song, 't-vocal', 'Make the final line more aggressive', {}, { seed: 3 });
+    const r = interpretVocalInstruction(
+      song,
+      't-vocal',
+      'Make the final line more aggressive',
+      {},
+      { seed: 3 },
+    );
     expect(r.understood).toBe(true);
     expect(r.intents).toEqual(['aggressive']);
     const tr = opsOfType(r.operations, 'transform_notes');
-    expect(tr).toEqual([expect.objectContaining({ track: 't-vocal', region: { start_bar: 35, end_bar: 36 }, transform: { velocity_add: 14 } })]);
+    expect(tr).toEqual([
+      expect.objectContaining({
+        track: 't-vocal',
+        region: { start_bar: 35, end_bar: 36 },
+        transform: { velocity_add: 14 },
+      }),
+    ]);
     const ex = opsOfType(r.operations, 'set_expression')[0];
     expect(ex.region).toEqual({ start_bar: 35, end_bar: 36 });
     expect(ex.expression).toEqual({ tension: 0.75, energy: 0.8, breathiness: 0.05, onset: 'hard' });
@@ -187,15 +254,34 @@ describe('interpretVocalInstruction (§37 vocal regeneration commands)', () => {
 
   it('"Sing this note more softly" touches only the selected note', () => {
     const note = vocal.notes[30];
-    const r = interpretVocalInstruction(song, 't-vocal', 'Sing this note more softly', { noteIds: [note.id] }, { seed: 3 });
+    const r = interpretVocalInstruction(
+      song,
+      't-vocal',
+      'Sing this note more softly',
+      { noteIds: [note.id] },
+      { seed: 3 },
+    );
     expect(r.intents).toEqual(['softer']);
-    expect(opsOfType(r.operations, 'transform_notes')).toEqual([expect.objectContaining({ note_ids: [note.id], transform: { velocity_add: -15 } })]);
-    expect(opsOfType(r.operations, 'set_expression')[0].expression).toEqual({ breathiness: 0.4, tension: 0.2, energy: 0.25, onset: 'soft' });
+    expect(opsOfType(r.operations, 'transform_notes')).toEqual([
+      expect.objectContaining({ note_ids: [note.id], transform: { velocity_add: -15 } }),
+    ]);
+    expect(opsOfType(r.operations, 'set_expression')[0].expression).toEqual({
+      breathiness: 0.4,
+      tension: 0.2,
+      energy: 0.25,
+      onset: 'soft',
+    });
     expect(r.regenerateRange).toEqual({ startTick: note.tick, endTick: note.tick + note.duration });
   });
 
   it('"Change the melody on the word \'fire\'" re-pitches just those notes onto chord tones', () => {
-    const r = interpretVocalInstruction(song, 't-vocal', "Change the melody on the word 'fire'", {}, { seed: 3 });
+    const r = interpretVocalInstruction(
+      song,
+      't-vocal',
+      "Change the melody on the word 'fire'",
+      {},
+      { seed: 3 },
+    );
     expect(r.intents).toEqual(['change-melody']);
     const fireIds = vocal.notes.filter((n) => /^fire/i.test(n.syllable ?? '')).map((n) => n.id);
     expect(fireIds).toHaveLength(2);
@@ -211,24 +297,47 @@ describe('interpretVocalInstruction (§37 vocal regeneration commands)', () => {
       }
     }
     // Seeded: same seed, same melody; the instruction is deterministic.
-    expect(stableStringify(interpretVocalInstruction(song, 't-vocal', "Change the melody on the word 'fire'", {}, { seed: 3 }))).toBe(stableStringify(r));
+    expect(
+      stableStringify(
+        interpretVocalInstruction(song, 't-vocal', "Change the melody on the word 'fire'", {}, { seed: 3 }),
+      ),
+    ).toBe(stableStringify(r));
   });
 
   it('"Regenerate only the second chorus vocal" emits a section-scoped regenerate op', () => {
-    const r = interpretVocalInstruction(song, 't-vocal', 'Regenerate only the second chorus vocal', {}, { seed: 3 });
+    const r = interpretVocalInstruction(
+      song,
+      't-vocal',
+      'Regenerate only the second chorus vocal',
+      {},
+      { seed: 3 },
+    );
     expect(r.intents).toEqual(['regenerate']);
     // A fresh pass: variation levels would keep the principal melody, i.e. this very vocal.
-    expect(r.operations).toEqual([{ op: 'regenerate', track: 't-vocal', sections: ['sec-chorus2'], seed: 4, reason: expect.any(String) }]);
+    expect(r.operations).toEqual([
+      { op: 'regenerate', track: 't-vocal', sections: ['sec-chorus2'], seed: 4, reason: expect.any(String) },
+    ]);
     expect(r.regenerateRange).toEqual({ startTick: 28 * BAR, endTick: 36 * BAR });
   });
 
   it('handles releases, breath, scoops, legato and vibrato removal within a section', () => {
-    const rel = interpretVocalInstruction(song, 't-vocal', 'make it breathier with a falling release at phrase ends', { sectionIds: ['sec-chorus1'] });
+    const rel = interpretVocalInstruction(
+      song,
+      't-vocal',
+      'make it breathier with a falling release at phrase ends',
+      { sectionIds: ['sec-chorus1'] },
+    );
     expect(rel.intents.sort()).toEqual(['breathier', 'release-falling']);
-    const falling = opsOfType(rel.operations, 'set_expression').find((o) => o.expression.release === 'falling')!;
+    const falling = opsOfType(rel.operations, 'set_expression').find(
+      (o) => o.expression.release === 'falling',
+    )!;
     expect(falling.note_ids).toHaveLength(4); // one per phrase end
-    const scoop = interpretVocalInstruction(song, 't-vocal', 'scoop into notes', { sectionIds: ['sec-chorus2'] });
-    expect(opsOfType(scoop.operations, 'set_expression')[0]).toEqual(expect.objectContaining({ region: { start_bar: 29, end_bar: 36 }, expression: { onset: 'scoop' } }));
+    const scoop = interpretVocalInstruction(song, 't-vocal', 'scoop into notes', {
+      sectionIds: ['sec-chorus2'],
+    });
+    expect(opsOfType(scoop.operations, 'set_expression')[0]).toEqual(
+      expect.objectContaining({ region: { start_bar: 29, end_bar: 36 }, expression: { onset: 'scoop' } }),
+    );
     const legato = interpretVocalInstruction(song, 't-vocal', 'more legato in the verse');
     expect(opsOfType(legato.operations, 'transform_notes')[0].transform).toEqual({ articulation: 'legato' });
     const still = interpretVocalInstruction(song, 't-vocal', 'no vibrato', { sectionIds: ['sec-chorus1'] });
@@ -237,16 +346,22 @@ describe('interpretVocalInstruction (§37 vocal regeneration commands)', () => {
   });
 
   it('moves a line by an octave and warns about the voice range', () => {
-    const r = interpretVocalInstruction(song, 't-vocal', 'sing the second line an octave higher', { sectionIds: ['sec-chorus1'] });
+    const r = interpretVocalInstruction(song, 't-vocal', 'sing the second line an octave higher', {
+      sectionIds: ['sec-chorus1'],
+    });
     expect(r.intents).toEqual(['transpose']);
-    expect(opsOfType(r.operations, 'transform_notes')[0]).toEqual(expect.objectContaining({ region: { start_bar: 15, end_bar: 16 }, transform: { transpose: 12 } }));
+    expect(opsOfType(r.operations, 'transform_notes')[0]).toEqual(
+      expect.objectContaining({ region: { start_bar: 15, end_bar: 16 }, transform: { transpose: 12 } }),
+    );
     expect(r.explanation).toMatch(/outside the tenor range/);
   });
 
   it('redirects mix requests to the mix assistant', () => {
     const r = interpretVocalInstruction(song, 't-vocal', 'make the vocal slightly drier');
     expect(r.intents).toEqual(['mix:drier']);
-    expect(r.operations).toEqual([expect.objectContaining({ op: 'set_mixer', track: 't-vocal', changes: { reverbSend: 0.11 } })]);
+    expect(r.operations).toEqual([
+      expect.objectContaining({ op: 'set_mixer', track: 't-vocal', changes: { reverbSend: 0.11 } }),
+    ]);
   });
 
   it('respects locks, rejects unknown requests and is pure', () => {
@@ -260,7 +375,11 @@ describe('interpretVocalInstruction (§37 vocal regeneration commands)', () => {
     expect(interpretVocalInstruction(song, 'nope', 'louder').understood).toBe(false);
     const frozen = deepFreeze(makeSong());
     const before = stableStringify(frozen);
-    interpretVocalInstruction(frozen, 't-vocal', "Change the melody on the word 'fire' and make it breathier");
+    interpretVocalInstruction(
+      frozen,
+      't-vocal',
+      "Change the melody on the word 'fire' and make it breathier",
+    );
     expect(stableStringify(frozen)).toBe(before);
   });
 });

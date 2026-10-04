@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  TRACK_PALETTE,
   applyOperations,
   chordFunction,
   isChordSectionLocked,
@@ -19,10 +20,10 @@ import { Badge, Button, LockButton, TextInput } from '../../ui/kit';
 import { propose } from '../../engine/proposals';
 
 const FN_COLOR: Record<string, string> = {
-  tonic: 'var(--success)',
-  predominant: 'var(--ai)',
-  dominant: 'var(--accent)',
-  chromatic: 'var(--warning)',
+  tonic: TRACK_PALETTE[5],
+  predominant: TRACK_PALETTE[10],
+  dominant: TRACK_PALETTE[1],
+  chromatic: TRACK_PALETTE[3],
 };
 
 /** Chord View (spec §18): harmony & chord manipulation with theory-aware substitutions. */
@@ -38,9 +39,11 @@ export default function ChordView() {
   const suggestions = current ? suggestChordSubstitutions(song, current.id) : [];
 
   const replaceChord = (chord: ChordEvent, symbol: string, asProposal = false) => {
-    if (!parseChordSymbol(symbol)) return st.toast('error', `“${symbol}” is not a chord symbol I understand.`);
+    if (!parseChordSymbol(symbol))
+      return st.toast('error', `“${symbol}” is not a chord symbol I understand.`);
     const sectionSpan = layout.find((s) => chord.tick >= s.startTick && chord.tick < s.endTick);
-    if (sectionSpan && isChordSectionLocked(song, sectionSpan.section.id)) return st.toast('warning', 'Chords in this section are locked.');
+    if (sectionSpan && isChordSectionLocked(song, sectionSpan.section.id))
+      return st.toast('warning', 'Chords in this section are locked.');
     const pos = tickToMusical(song, chord.tick);
     const endPos = tickToMusical(song, chord.tick + chord.duration - 1);
     const op = {
@@ -52,10 +55,19 @@ export default function ChordView() {
     for (const c of song.chords) {
       const p = tickToMusical(song, c.tick);
       if (p.bar < pos.bar || p.bar > endPos.bar) continue;
-      op.chords.push({ bar: p.bar, beat: p.beat, symbol: c.id === chord.id ? symbol : c.symbol, duration_beats: ticksToBeats(song, c.duration, c.tick) });
+      op.chords.push({
+        bar: p.bar,
+        beat: p.beat,
+        symbol: c.id === chord.id ? symbol : c.symbol,
+        duration_beats: ticksToBeats(song, c.duration, c.tick),
+      });
     }
     if (asProposal) {
-      propose(song, [op], { title: `Chord ${chord.symbol} → ${symbol}`, source: 'internal', instruction: `Substitute ${symbol}` });
+      propose(song, [op], {
+        title: `Chord ${chord.symbol} → ${symbol}`,
+        source: 'internal',
+        instruction: `Substitute ${symbol}`,
+      });
       return;
     }
     const res = applyOperations(song, [op]);
@@ -81,7 +93,12 @@ export default function ChordView() {
               <div className="spacer" />
               <LockButton
                 locked={locked}
-                onToggle={() => st.toggleLock(LockKeys.sectionChords(span.section.id), `${locked ? 'Unlocked' : 'Locked'} chords in ${span.section.name}`)}
+                onToggle={() =>
+                  st.toggleLock(
+                    LockKeys.sectionChords(span.section.id),
+                    `${locked ? 'Unlocked' : 'Locked'} chords in ${span.section.name}`,
+                  )
+                }
                 title="Lock this section's harmony"
               />
             </div>
@@ -93,7 +110,12 @@ export default function ChordView() {
                   <button
                     key={c.id}
                     className={`card selectable ${editing === c.id ? 'selected' : ''}`}
-                    style={{ minWidth: Math.max(64, beats * 18), textAlign: 'left', cursor: locked ? 'not-allowed' : 'pointer', borderTop: `3px solid ${FN_COLOR[fn]}` }}
+                    style={{
+                      minWidth: Math.max(64, beats * 18),
+                      textAlign: 'left',
+                      cursor: locked ? 'not-allowed' : 'pointer',
+                      borderTop: `3px solid ${FN_COLOR[fn]}`,
+                    }}
                     onClick={() => {
                       if (locked) return st.toast('info', 'Unlock the section harmony to edit chords.');
                       setEditing(c.id);
@@ -122,25 +144,46 @@ export default function ChordView() {
           </div>
           <div className="panel-body col">
             <div className="row">
-              <TextInput value={draft} onChange={setDraft} mono aria-label="Chord symbol" onKeyDown={(e) => e.key === 'Enter' && replaceChord(current, draft)} />
+              <TextInput
+                value={draft}
+                onChange={setDraft}
+                mono
+                aria-label="Chord symbol"
+                onKeyDown={(e) => e.key === 'Enter' && replaceChord(current, draft)}
+              />
               <Button variant="primary" onClick={() => replaceChord(current, draft)}>
                 Apply
               </Button>
-              <Button variant="ai" onClick={() => replaceChord(current, draft, true)} title="Preview as a proposal first">
+              <Button
+                variant="ai"
+                onClick={() => replaceChord(current, draft, true)}
+                title="Preview as a proposal first"
+              >
                 Propose
               </Button>
             </div>
             <div className="field-label">Theory suggestions</div>
             <div className="row wrap">
               {suggestions.map((s) => (
-                <button key={s.symbol + s.reason} className="chip" onClick={() => setDraft(s.symbol)} title={s.reason}>
+                <button
+                  key={s.symbol + s.reason}
+                  className="chip"
+                  onClick={() => setDraft(s.symbol)}
+                  title={s.reason}
+                >
                   <strong>{s.symbol}</strong> <span className="dim">{s.roman}</span>
                 </button>
               ))}
             </div>
-            {suggestions.length > 0 && <div className="small muted">{suggestions.find((s) => s.symbol === draft)?.reason ?? 'Hover a suggestion to see why it works.'}</div>}
+            {suggestions.length > 0 && (
+              <div className="small muted">
+                {suggestions.find((s) => s.symbol === draft)?.reason ??
+                  'Hover a suggestion to see why it works.'}
+              </div>
+            )}
             <div className="small dim">
-              <Badge>Tip</Badge> Changing chords does not move existing notes. Use “Regenerate unlocked” to refit bass and accompaniment to new harmony.
+              <Badge>Tip</Badge> Changing chords does not move existing notes. Use “Regenerate unlocked” to
+              refit bass and accompaniment to new harmony.
             </div>
           </div>
         </div>

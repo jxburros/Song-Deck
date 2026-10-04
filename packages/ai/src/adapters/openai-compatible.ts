@@ -51,7 +51,11 @@ interface ChatCompletion {
   choices?: {
     index?: number;
     finish_reason?: string | null;
-    message?: { role?: string; content?: string | null | { type?: string; text?: string }[]; refusal?: string | null };
+    message?: {
+      role?: string;
+      content?: string | null | { type?: string; text?: string }[];
+      refusal?: string | null;
+    };
   }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
@@ -59,6 +63,7 @@ interface ChatCompletion {
 export class OpenAICompatibleLLM implements LLMProvider {
   private mode: StructuredOutputMode;
   private modelsCache?: ModelInfo[];
+  skippedModels: ModelInfo[] = [];
 
   constructor(
     readonly config: ProviderConfig,
@@ -79,22 +84,47 @@ export class OpenAICompatibleLLM implements LLMProvider {
   }
 
   private get dialect(): SchemaDialect {
-    return this.config.extra?.schemaDialect ?? (this.config.location === 'local' ? 'json-schema' : 'openai-strict');
+    return (
+      this.config.extra?.schemaDialect ?? (this.config.location === 'local' ? 'json-schema' : 'openai-strict')
+    );
   }
 
   async listModels(signal?: AbortSignal): Promise<ModelInfo[]> {
-    const json = await this.http.json<unknown>({ url: joinUrl(this.base, 'models'), method: 'GET', headers: this.extraHeaders(), signal });
+    const json = await this.http.json<unknown>({
+      url: joinUrl(this.base, 'models'),
+      method: 'GET',
+      headers: this.extraHeaders(),
+      signal,
+    });
     const record = json as { data?: unknown; models?: unknown } | undefined;
-    const list: OpenAIModelEntry[] = Array.isArray(json) ? json : Array.isArray(record?.data) ? (record!.data as OpenAIModelEntry[]) : Array.isArray(record?.models) ? (record!.models as OpenAIModelEntry[]) : [];
+    const list: OpenAIModelEntry[] = Array.isArray(json)
+      ? json
+      : Array.isArray(record?.data)
+        ? (record!.data as OpenAIModelEntry[])
+        : Array.isArray(record?.models)
+          ? (record!.models as OpenAIModelEntry[])
+          : [];
     const structured = this.mode !== 'prompt';
     const models: ModelInfo[] = [];
+    const skipped: ModelInfo[] = [];
     for (const entry of list) {
       const id = entry.id ?? entry.name;
       if (!id) continue;
-      if (entry.type && !/^(chat|language|text|llm)$/i.test(entry.type)) continue;
-      const contextLength = entry.context_length ?? entry.context_window ?? entry.max_model_len ?? entry.meta?.n_ctx ?? entry.meta?.n_ctx_train;
+      if (entry.type && !/^(chat|language|text|llm)$/i.test(entry.type)) {
+        skipped.push({ id, capabilities: [] });
+        continue;
+      }
+      const contextLength =
+        entry.context_length ??
+        entry.context_window ??
+        entry.max_model_len ??
+        entry.meta?.n_ctx ??
+        entry.meta?.n_ctx_train;
       const inferred = inferModelCapabilities(id, { contextLength, structuredOutput: structured });
-      if (!inferred) continue;
+      if (!inferred) {
+        skipped.push({ id, capabilities: [] });
+        continue;
+      }
       const model: ModelInfo = { id, ...inferred };
       const name = entry.display_name ?? (entry.name && entry.name !== id ? entry.name : undefined);
       if (name) model.name = name;
@@ -102,6 +132,7 @@ export class OpenAICompatibleLLM implements LLMProvider {
       models.push(model);
     }
     models.sort((a, b) => a.id.localeCompare(b.id));
+    this.skippedModels = skipped;
     this.modelsCache = mergeManualModels(models, this.config, [...LLM_BASE_CAPABILITIES]);
     return this.modelsCache;
   }
@@ -112,8 +143,13 @@ export class OpenAICompatibleLLM implements LLMProvider {
     const manual = this.config.models?.[0]?.id;
     if (manual) return manual;
     const models = this.modelsCache ?? (await this.listModels(req.signal).catch(() => []));
-    const pick = [...models].sort((a, b) => (b.qualityTier ?? 0) - (a.qualityTier ?? 0) || a.id.localeCompare(b.id))[0];
-    if (!pick) throw new ProviderError('bad-request', 'No model configured or available on this endpoint', { providerId: this.config.id });
+    const pick = [...models].sort(
+      (a, b) => (b.qualityTier ?? 0) - (a.qualityTier ?? 0) || a.id.localeCompare(b.id),
+    )[0];
+    if (!pick)
+      throw new ProviderError('bad-request', 'No model configured or available on this endpoint', {
+        providerId: this.config.id,
+      });
     return pick.id;
   }
 
@@ -121,7 +157,8 @@ export class OpenAICompatibleLLM implements LLMProvider {
   buildBody(req: LLMRequest, model: string, mode: StructuredOutputMode): Record<string, unknown> {
     const schema = req.responseSchema;
     let system = req.system ?? '';
-    if (schema && mode !== 'json_schema') system = [system, schemaInstructions(schema, req.schemaName)].filter(Boolean).join('\n\n');
+    if (schema && mode !== 'json_schema')
+      system = [system, schemaInstructions(schema, req.schemaName)].filter(Boolean).join('\n\n');
     const messages: Record<string, unknown>[] = [];
     if (system) messages.push({ role: 'system', content: system });
     for (const m of req.messages) {
@@ -134,7 +171,13 @@ export class OpenAICompatibleLLM implements LLMProvider {
         content: m.content.map((p) =>
           p.type === 'text'
             ? { type: 'text', text: p.text }
-            : { type: 'input_audio', input_audio: { data: bytesToBase64(p.audio.data), format: audioExtension(p.audio.mimeType) === 'mp3' ? 'mp3' : 'wav' } },
+            : {
+                type: 'input_audio',
+                input_audio: {
+                  data: bytesToBase64(p.audio.data),
+                  format: audioExtension(p.audio.mimeType) === 'mp3' ? 'mp3' : 'wav',
+                },
+              },
         ),
       });
     }
@@ -146,7 +189,11 @@ export class OpenAICompatibleLLM implements LLMProvider {
       const dialect = this.dialect;
       body.response_format = {
         type: 'json_schema',
-        json_schema: { name: sanitizeSchemaName(req.schemaName), schema: compileSchema(schema, dialect), strict: dialect === 'openai-strict' },
+        json_schema: {
+          name: sanitizeSchemaName(req.schemaName),
+          schema: compileSchema(schema, dialect),
+          strict: dialect === 'openai-strict',
+        },
       };
     } else if (schema && mode === 'json_object') {
       body.response_format = { type: 'json_object' };
@@ -174,21 +221,42 @@ export class OpenAICompatibleLLM implements LLMProvider {
 
   private async send(req: LLMRequest, model: string, mode: StructuredOutputMode): Promise<LLMResponse> {
     const body = this.buildBody(req, model, mode);
-    const json = await this.http.json<ChatCompletion>({ url: joinUrl(this.base, 'chat/completions'), json: body, headers: this.extraHeaders(), signal: req.signal });
+    const json = await this.http.json<ChatCompletion>({
+      url: joinUrl(this.base, 'chat/completions'),
+      json: body,
+      headers: this.extraHeaders(),
+      signal: req.signal,
+    });
     const choice = json?.choices?.[0];
     const msg = choice?.message;
     if (msg?.refusal) throw new ProviderError('refusal', msg.refusal, { providerId: this.config.id });
-    if (choice?.finish_reason === 'content_filter') throw new ProviderError('refusal', 'The response was blocked by the provider\'s content filter', { providerId: this.config.id });
+    if (choice?.finish_reason === 'content_filter')
+      throw new ProviderError('refusal', "The response was blocked by the provider's content filter", {
+        providerId: this.config.id,
+      });
     const content = msg?.content;
-    const text = typeof content === 'string' ? content : Array.isArray(content) ? content.map((p) => p.text ?? '').join('') : '';
+    const text =
+      typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? content.map((p) => p.text ?? '').join('')
+          : '';
     if (choice?.finish_reason === 'length' && req.responseSchema) throw truncatedError(this.config.id, text);
-    const usage = json?.usage ? { inputTokens: json.usage.prompt_tokens ?? 0, outputTokens: json.usage.completion_tokens ?? 0 } : undefined;
+    const usage = json?.usage
+      ? { inputTokens: json.usage.prompt_tokens ?? 0, outputTokens: json.usage.completion_tokens ?? 0 }
+      : undefined;
     const usedModel = json?.model ?? model;
     const res: LLMResponse = {
       text,
       model: usedModel,
       stopReason: choice?.finish_reason === 'length' ? 'max_tokens' : (choice?.finish_reason ?? 'stop'),
-      structured: !req.responseSchema ? undefined : mode === 'json_schema' ? 'native' : mode === 'json_object' ? 'json-mode' : 'prompt',
+      structured: !req.responseSchema
+        ? undefined
+        : mode === 'json_schema'
+          ? 'native'
+          : mode === 'json_object'
+            ? 'json-mode'
+            : 'prompt',
     };
     const parsed = jsonFromText(text, !!req.responseSchema);
     if (parsed !== undefined) res.json = parsed;
@@ -199,7 +267,10 @@ export class OpenAICompatibleLLM implements LLMProvider {
   }
 }
 
-export function createOpenAICompatibleProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
+export function createOpenAICompatibleProvider(
+  config: ProviderConfig,
+  deps: CreateProviderDeps,
+): ProviderInstance {
   const http = createHttpClient(config, deps);
   const llm = new OpenAICompatibleLLM(config, http);
   return { descriptor: buildDescriptor(config, [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON']), config, llm };

@@ -3,9 +3,18 @@ import { NumberInput, Select, TextInput } from '../../ui/kit';
 import { EnergyCurve } from '../shared/EnergyCurve';
 
 /** The abstract composition plan table of spec §15 (Section | Bars | Harmony | Energy | Purpose). */
-export function PlanTable({ plan, onChange }: { plan: CompositionPlan; onChange: (p: CompositionPlan) => void }) {
-  const setRow = (i: number, patch: Partial<PlanSection>) => onChange({ ...plan, sections: plan.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
-  const energies = plan.sections.flatMap((s) => (s.energyEnd !== undefined && s.energyEnd !== s.energy ? [s.energy, s.energyEnd] : [s.energy]));
+export function PlanTable({
+  plan,
+  onChange,
+}: {
+  plan: CompositionPlan;
+  onChange: (p: CompositionPlan) => void;
+}) {
+  const setRow = (i: number, patch: Partial<PlanSection>) =>
+    onChange({ ...plan, sections: plan.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
+  const energies = plan.sections.flatMap((s) =>
+    s.energyEnd !== undefined && s.energyEnd !== s.energy ? [s.energy, s.energyEnd] : [s.energy],
+  );
   return (
     <div className="panel">
       <div className="panel-header">
@@ -31,23 +40,47 @@ export function PlanTable({ plan, onChange }: { plan: CompositionPlan; onChange:
                 <tr key={i}>
                   <td style={{ fontWeight: 600 }}>{s.name}</td>
                   <td style={{ width: 80 }}>
-                    <NumberInput size="sm" value={s.bars} min={1} max={64} onChange={(bars) => setRow(i, { bars: Math.round(bars) })} />
+                    <NumberInput
+                      size="sm"
+                      value={s.bars}
+                      min={1}
+                      max={64}
+                      onChange={(bars) => setRow(i, { bars: Math.round(bars) })}
+                    />
                   </td>
                   <td>
                     <TextInput
                       size="sm"
                       mono
                       value={s.harmony.join(' – ')}
-                      onChange={(v) => setRow(i, { harmony: v.split(/\s*[–,]\s*|\s+-\s+|\s+/).filter(Boolean) })}
+                      onChange={(v) =>
+                        setRow(i, { harmony: v.split(/\s*[–,]\s*|\s+-\s+|\s+/).filter(Boolean) })
+                      }
                       style={invalid.length ? { borderColor: 'var(--danger)' } : undefined}
-                      title={invalid.length ? `Unrecognized chord: ${invalid.join(', ')}` : 'Chord symbols separated by spaces or dashes'}
+                      title={
+                        invalid.length
+                          ? `Unrecognized chord: ${invalid.join(', ')}`
+                          : 'Chord symbols separated by spaces or dashes'
+                      }
                     />
                   </td>
                   <td style={{ width: 130 }}>
                     <div className="row">
-                      <NumberInput size="sm" value={s.energy} min={0} max={100} onChange={(energy) => setRow(i, { energy })} />
+                      <NumberInput
+                        size="sm"
+                        value={s.energy}
+                        min={0}
+                        max={100}
+                        onChange={(energy) => setRow(i, { energy })}
+                      />
                       <span className="dim">→</span>
-                      <NumberInput size="sm" value={s.energyEnd ?? s.energy} min={0} max={100} onChange={(energyEnd) => setRow(i, { energyEnd })} />
+                      <NumberInput
+                        size="sm"
+                        value={s.energyEnd ?? s.energy}
+                        min={0}
+                        max={100}
+                        onChange={(energyEnd) => setRow(i, { energyEnd })}
+                      />
                     </div>
                   </td>
                   <td>
@@ -66,7 +99,11 @@ export function PlanTable({ plan, onChange }: { plan: CompositionPlan; onChange:
             })}
           </tbody>
         </table>
-        {plan.notes && <div className="callout" style={{ marginTop: 10 }}>{plan.notes}</div>}
+        {plan.notes && (
+          <div className="callout" style={{ marginTop: 10 }}>
+            {plan.notes}
+          </div>
+        )}
       </div>
     </div>
   );

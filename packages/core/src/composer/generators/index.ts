@@ -20,7 +20,12 @@ export type { GenOutput, PhraseDraft } from './types';
 const MELODIC: MusicalFunction[] = ['melody', 'counter-melody', 'hook', 'solo', 'fills'];
 
 /** Lower runs earlier. */
-export function generationPriority(track: Track, inst: InstrumentProfile, fn: MusicalFunction, principalId?: string): number {
+export function generationPriority(
+  track: Track,
+  inst: InstrumentProfile,
+  fn: MusicalFunction,
+  principalId?: string,
+): number {
   if (inst.isDrumKit) return track.role === 'drums' ? 0 : 1;
   if (track.id === principalId) return 2;
   switch (track.role) {
@@ -54,7 +59,8 @@ export function generationPriority(track: Track, inst: InstrumentProfile, fn: Mu
 export function runGenerator(c: Cell): GenOutput {
   const fn = c.fn;
   const inst = c.inst;
-  if (inst.isDrumKit) return { notes: c.track.role === 'percussion' ? generatePercussion(c) : generateDrums(c) };
+  if (inst.isDrumKit)
+    return { notes: c.track.role === 'percussion' ? generatePercussion(c) : generateDrums(c) };
   switch (c.track.role) {
     case 'drums':
     case 'percussion':
@@ -65,7 +71,9 @@ export function runGenerator(c: Cell): GenOutput {
       if (fn === 'bass-line') return { notes: generateBass(c) };
       return MELODIC.includes(fn) ? generateMelodicLine(c) : { notes: generateRhythmGuitar(c) };
     case 'lead-guitar':
-      return fn === 'accompaniment' || fn === 'rhythm' ? { notes: generateRhythmGuitar(c) } : generateMelodicLine(c);
+      return fn === 'accompaniment' || fn === 'rhythm'
+        ? { notes: generateRhythmGuitar(c) }
+        : generateMelodicLine(c);
     case 'keys':
       if (fn === 'bass-line') return { notes: generateBass(c) };
       return MELODIC.includes(fn) ? generateMelodicLine(c) : { notes: generateChordal(c) };
@@ -73,7 +81,8 @@ export function runGenerator(c: Cell): GenOutput {
     case 'synth-pad':
     case 'custom':
       if (fn === 'bass-line') return { notes: generateBass(c) };
-      if (inst.polyphony === 'poly' && !MELODIC.includes(fn) && fn !== 'rhythm') return { notes: generateChordal(c) };
+      if (inst.polyphony === 'poly' && !MELODIC.includes(fn) && fn !== 'rhythm')
+        return { notes: generateChordal(c) };
       return generateMelodicLine(c);
     case 'synth-arp':
       return { notes: generateArp(c) };

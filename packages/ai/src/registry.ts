@@ -7,7 +7,14 @@ import type { ProviderConfig } from './config';
 import { toProviderError } from './errors';
 import { type CreateProviderDeps, createProvider, finalizeInstance } from './factory';
 import { getPreset } from './presets';
-import type { ModelInfo, ProviderInstance, ProviderInterfaceName, ProviderLocation, ProviderStatus, VoiceInfo } from './types';
+import type {
+  ModelInfo,
+  ProviderInstance,
+  ProviderInterfaceName,
+  ProviderLocation,
+  ProviderStatus,
+  VoiceInfo,
+} from './types';
 
 export interface RegistryEntry {
   instance: ProviderInstance;
@@ -62,7 +69,16 @@ export interface ProviderRegistryOptions {
   modelTtlMs?: number;
 }
 
-const INTERFACES: ProviderInterfaceName[] = ['llm', 'composition', 'audioGeneration', 'singing', 'transcription', 'separation', 'voiceConversion', 'mastering'];
+const INTERFACES: ProviderInterfaceName[] = [
+  'llm',
+  'composition',
+  'audioGeneration',
+  'singing',
+  'transcription',
+  'separation',
+  'voiceConversion',
+  'mastering',
+];
 /** Adapters whose discovered capabilities replace preset defaults (bridges report what they really do). */
 const SELF_DESCRIBING_ADAPTERS = new Set(['local-music']);
 
@@ -94,12 +110,20 @@ export class ProviderRegistry {
   }
 
   /** Register a provider instance (internal providers, test doubles, plugins). */
-  register(instance: ProviderInstance, opts: { status?: ProviderStatus; source?: 'config' | 'manual' } = {}): ProviderInstance {
+  register(
+    instance: ProviderInstance,
+    opts: { status?: ProviderStatus; source?: 'config' | 'manual' } = {},
+  ): ProviderInstance {
     const inst = finalizeInstance(instance);
     const id = inst.descriptor.id;
     const previous = this.entries.get(id);
     previous?.instance.dispose?.();
-    this.entries.set(id, { instance: inst, config: inst.config, status: opts.status ?? 'ready', source: opts.source ?? 'manual' });
+    this.entries.set(id, {
+      instance: inst,
+      config: inst.config,
+      status: opts.status ?? 'ready',
+      source: opts.source ?? 'manual',
+    });
     this.disabled.delete(id);
     this.emit();
     return inst;
@@ -117,7 +141,10 @@ export class ProviderRegistry {
    * (Re)create providers from persisted configs. Previously configured providers are replaced;
    * manually registered (internal) providers are kept. Disabled configs are listed but not routable.
    */
-  configure(configs: ProviderConfig[], deps: CreateProviderDeps | undefined = this.opts.deps): ConfigureResult {
+  configure(
+    configs: ProviderConfig[],
+    deps: CreateProviderDeps | undefined = this.opts.deps,
+  ): ConfigureResult {
     const result: ConfigureResult = { created: [], disabled: [], errors: [] };
     for (const [id, e] of [...this.entries]) {
       if (e.source === 'config') {
@@ -139,7 +166,13 @@ export class ProviderRegistry {
       }
       try {
         const inst = createProvider(config, deps);
-        this.entries.set(config.id, { instance: inst, config, status: initialStatus(config), source: 'config', ...(initialStatus(config) === 'unconfigured' ? { error: unconfiguredReason(config) } : {}) });
+        this.entries.set(config.id, {
+          instance: inst,
+          config,
+          status: initialStatus(config),
+          source: 'config',
+          ...(initialStatus(config) === 'unconfigured' ? { error: unconfiguredReason(config) } : {}),
+        });
         result.created.push(config.id);
       } catch (err) {
         result.errors.push({ id: config.id, error: (err as Error).message });
@@ -174,7 +207,8 @@ export class ProviderRegistry {
   /** Resolve a provider id or a preset id (profiles reference presets) to a registered provider id. */
   resolveId(idOrPreset: string): string | undefined {
     if (this.entries.has(idOrPreset)) return idOrPreset;
-    for (const [id, e] of this.entries) if (e.config?.presetId === idOrPreset || e.instance.descriptor.presetId === idOrPreset) return id;
+    for (const [id, e] of this.entries)
+      if (e.config?.presetId === idOrPreset || e.instance.descriptor.presetId === idOrPreset) return id;
     return undefined;
   }
 
@@ -257,21 +291,28 @@ export class ProviderRegistry {
     }
     if (override?.length) return [...override];
     const modelCaps = (e.models ?? []).flatMap((m) => m.capabilities);
-    if (SELF_DESCRIBING_ADAPTERS.has(e.instance.descriptor.adapter) && modelCaps.length) return unionCapabilities(modelCaps);
+    if (SELF_DESCRIBING_ADAPTERS.has(e.instance.descriptor.adapter) && modelCaps.length)
+      return unionCapabilities(modelCaps);
     return unionCapabilities(e.instance.descriptor.capabilities, modelCaps);
   }
 
   listByCapability(caps: Capability | Capability[]): ProviderInstance[] {
     const need = Array.isArray(caps) ? caps : [caps];
-    return [...this.entries.keys()].filter((id) => hasCapabilities(this.capabilitiesOf(id), need)).map((id) => this.entries.get(id)!.instance);
+    return [...this.entries.keys()]
+      .filter((id) => hasCapabilities(this.capabilitiesOf(id), need))
+      .map((id) => this.entries.get(id)!.instance);
   }
 
   /** Discover models (cached; `force` refreshes) and update the provider status. */
-  async discoverModels(id: string, opts: { force?: boolean; signal?: AbortSignal } = {}): Promise<ModelInfo[]> {
+  async discoverModels(
+    id: string,
+    opts: { force?: boolean; signal?: AbortSignal } = {},
+  ): Promise<ModelInfo[]> {
     const e = this.entries.get(id);
     if (!e) throw new Error(`Unknown provider "${id}"`);
     const ttl = this.opts.modelTtlMs ?? 10 * 60_000;
-    if (!opts.force && e.models && e.modelsUpdatedAt !== undefined && this.now() - e.modelsUpdatedAt < ttl) return e.models;
+    if (!opts.force && e.models && e.modelsUpdatedAt !== undefined && this.now() - e.modelsUpdatedAt < ttl)
+      return e.models;
     const inst = e.instance;
     try {
       // Models from every interface that can list them (multi-interface providers such as the
@@ -280,15 +321,20 @@ export class ProviderRegistry {
       const add = (list: ModelInfo[]) => {
         for (const m of list) {
           const prev = byId.get(m.id);
-          byId.set(m.id, prev ? { ...prev, ...m, capabilities: unionCapabilities(prev.capabilities, m.capabilities) } : m);
+          byId.set(
+            m.id,
+            prev ? { ...prev, ...m, capabilities: unionCapabilities(prev.capabilities, m.capabilities) } : m,
+          );
         }
       };
       if (inst.llm) add(await inst.llm.listModels(opts.signal));
       if (inst.audioGeneration) add(await inst.audioGeneration.discoverModels(opts.signal));
       // Voices are not models; listing them checks reachability and feeds voice pickers.
       if (inst.singing) e.voices = await inst.singing.listVoices(opts.signal);
-      else if (inst.voiceConversion?.listVoices) e.voices = await inst.voiceConversion.listVoices(opts.signal);
-      const models = [...byId.values()];
+      else if (inst.voiceConversion?.listVoices)
+        e.voices = await inst.voiceConversion.listVoices(opts.signal);
+      const chosen = e.config?.enabledModels?.length ? new Set(e.config.enabledModels) : undefined;
+      const models = [...byId.values()].filter((m) => !chosen || chosen.has(m.id));
       e.models = models;
       e.modelsUpdatedAt = this.now();
       if (e.status !== 'unconfigured') {
@@ -300,7 +346,12 @@ export class ProviderRegistry {
     } catch (err) {
       const pe = toProviderError(err, id);
       // Missing secret (no HTTP status) → unconfigured; rejected key (401/403) → error.
-      e.status = pe.kind === 'network' ? 'offline' : pe.kind === 'auth' && pe.status === undefined ? 'unconfigured' : 'error';
+      e.status =
+        pe.kind === 'network'
+          ? 'offline'
+          : pe.kind === 'auth' && pe.status === undefined
+            ? 'unconfigured'
+            : 'error';
       e.error = pe.message;
       this.emit();
       throw pe;
@@ -308,7 +359,9 @@ export class ProviderRegistry {
   }
 
   /** Discover all providers in parallel; failures only update statuses. */
-  async discoverAll(opts: { force?: boolean; signal?: AbortSignal } = {}): Promise<Record<string, ModelInfo[] | Error>> {
+  async discoverAll(
+    opts: { force?: boolean; signal?: AbortSignal } = {},
+  ): Promise<Record<string, ModelInfo[] | Error>> {
     const out: Record<string, ModelInfo[] | Error> = {};
     await Promise.all(
       [...this.entries.keys()].map(async (id) => {
@@ -326,18 +379,34 @@ export class ProviderRegistry {
    * Providers + models satisfying ALL requirements (spec §59). Unavailable providers are skipped
    * unless `includeUnavailable`.
    */
-  findCompatible(requirements: Capability[], opts: { interface?: ProviderInterfaceName; includeUnavailable?: boolean; locations?: ProviderLocation[] } = {}): CompatibleProvider[] {
+  findCompatible(
+    requirements: Capability[],
+    opts: {
+      interface?: ProviderInterfaceName;
+      includeUnavailable?: boolean;
+      locations?: ProviderLocation[];
+    } = {},
+  ): CompatibleProvider[] {
     const out: CompatibleProvider[] = [];
     for (const [id, e] of this.entries) {
       const d = e.instance.descriptor;
       if (opts.interface && !e.instance[opts.interface]) continue;
       if (!opts.includeUnavailable && e.status !== 'ready') continue;
       if (opts.locations && !opts.locations.includes(d.location)) continue;
-      const models = (e.models ?? []).filter((m) => hasCapabilities(this.capabilitiesOf(id, m.id), requirements));
+      const models = (e.models ?? []).filter((m) =>
+        hasCapabilities(this.capabilitiesOf(id, m.id), requirements),
+      );
       const providerOk = hasCapabilities(this.capabilitiesOf(id), requirements);
       if (e.models?.length && !models.length) continue;
       if (!e.models?.length && !providerOk) continue;
-      out.push({ providerId: id, providerName: d.name, location: d.location, status: e.status, models, qualityTier: d.qualityTier ?? 3 });
+      out.push({
+        providerId: id,
+        providerName: d.name,
+        location: d.location,
+        status: e.status,
+        models,
+        qualityTier: d.qualityTier ?? 3,
+      });
     }
     return out.sort((a, b) => b.qualityTier - a.qualityTier || a.providerName.localeCompare(b.providerName));
   }
@@ -354,12 +423,14 @@ function needsCredential(config: ProviderConfig): boolean {
 
 function unconfiguredReason(config: ProviderConfig): string {
   if (needsCredential(config) && !config.credentialRef) return 'No API key configured';
-  if (config.adapter === 'google-lyria' && !(config.extra?.vertexProject ?? config.project)) return 'Google Cloud project id missing';
+  if (config.adapter === 'google-lyria' && !(config.extra?.vertexProject ?? config.project))
+    return 'Google Cloud project id missing';
   return 'Not configured';
 }
 
 function initialStatus(config: ProviderConfig): ProviderStatus {
   if (needsCredential(config) && !config.credentialRef) return 'unconfigured';
-  if (config.adapter === 'google-lyria' && !(config.extra?.vertexProject ?? config.project)) return 'unconfigured';
+  if (config.adapter === 'google-lyria' && !(config.extra?.vertexProject ?? config.project))
+    return 'unconfigured';
   return 'ready';
 }

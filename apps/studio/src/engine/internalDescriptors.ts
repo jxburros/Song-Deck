@@ -11,18 +11,34 @@ export const INTERNAL_DESCRIPTORS = {
     name: 'On-device composer (deterministic theory engine)',
     adapter: 'internal',
     location: 'internal',
-    capabilities: ['TEXT_REASONING', 'MUSIC_THEORY_REASONING', 'MIDI_GENERATION', 'MIDI_EDITING', 'LYRIC_GENERATION', 'MIXING', 'STRUCTURED_JSON'],
+    capabilities: [
+      'TEXT_REASONING',
+      'MUSIC_THEORY_REASONING',
+      'MIDI_GENERATION',
+      'MIDI_EDITING',
+      'LYRIC_GENERATION',
+      'MIXING',
+      'STRUCTURED_JSON',
+    ],
     qualityTier: 2,
-    description: 'Rule-based composition, natural-language MIDI edits, theory explanations, placeholder lyrics and mix assistant. Works offline.',
+    description:
+      'Rule-based composition, natural-language MIDI edits, theory explanations, placeholder lyrics and mix assistant. Works offline.',
   },
   analysis: {
     id: 'internal-analysis',
     name: 'On-device analysis (DSP)',
     adapter: 'internal',
     location: 'internal',
-    capabilities: ['AUDIO_TRANSCRIPTION', 'PITCH_TRACKING', 'AUDIO_TO_MIDI', 'SOURCE_SEPARATION', 'VOCAL_ISOLATION'],
+    capabilities: [
+      'AUDIO_TRANSCRIPTION',
+      'PITCH_TRACKING',
+      'AUDIO_TO_MIDI',
+      'SOURCE_SEPARATION',
+      'VOCAL_ISOLATION',
+    ],
     qualityTier: 2,
-    description: 'YIN pitch tracking, onset/tempo/key/chord detection, polyphonic & drum transcription, HPSS source separation.',
+    description:
+      'YIN pitch tracking, onset/tempo/key/chord detection, polyphonic & drum transcription, HPSS source separation.',
   },
   singer: {
     id: 'internal-singer',
@@ -31,16 +47,26 @@ export const INTERNAL_DESCRIPTORS = {
     location: 'internal',
     capabilities: ['SINGING_SYNTHESIS', 'LYRIC_CONDITIONING', 'MIDI_CONDITIONING', 'REGION_GENERATION'],
     qualityTier: 1,
-    description: 'Source-filter singing synthesis from vocal MIDI, lyrics/phonemes and expression. Placeholder quality.',
+    description:
+      'Source-filter singing synthesis from vocal MIDI, lyrics/phonemes and expression. Placeholder quality.',
   },
   producer: {
     id: 'internal-producer',
     name: 'Built-in DSP producer (non-neural)',
     adapter: 'internal',
     location: 'internal',
-    capabilities: ['STEM_GENERATION', 'STEM_CONDITIONING', 'MIDI_CONDITIONING', 'AUDIO_TO_AUDIO', 'SECTION_GENERATION', 'INSTRUMENTAL_ONLY', 'STEM_OUTPUT'],
+    capabilities: [
+      'STEM_GENERATION',
+      'STEM_CONDITIONING',
+      'MIDI_CONDITIONING',
+      'AUDIO_TO_AUDIO',
+      'SECTION_GENERATION',
+      'INSTRUMENTAL_ONLY',
+      'STEM_OUTPUT',
+    ],
     qualityTier: 1,
-    description: 'Renders the composition with production presets (layered synthesis, saturation, bus processing). Deterministic.',
+    description:
+      'Renders the composition with production presets (layered synthesis, saturation, bus processing). Deterministic.',
   },
   mastering: {
     id: 'internal-mastering',

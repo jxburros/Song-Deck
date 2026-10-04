@@ -11,7 +11,13 @@ import { assertVoiceConsent } from './consent';
 import { contextDataKinds, musicContextToPrompt, type MusicContext } from './context';
 import { type CostEstimate, type CostEstimateInput, midpointUsd } from './cost';
 import type { BudgetManager } from './budget';
-import { BudgetExceededError, isAvailabilityError, PrivacyDeclinedError, ProviderError, toProviderError } from './errors';
+import {
+  BudgetExceededError,
+  isAvailabilityError,
+  PrivacyDeclinedError,
+  ProviderError,
+  toProviderError,
+} from './errors';
 import { describeDataFlow, needsPrivacyConfirmation, type DataFlowDescriptor } from './privacy';
 import type { ProviderRegistry } from './registry';
 import { ROLE_INFO } from './roles';
@@ -83,6 +89,11 @@ export interface OrchestratorOptions {
    * to cancel. Without a handler, requests that need confirmation are declined (fail closed).
    */
   confirm?: (flow: DataFlowDescriptor, estimate: CostEstimate, ctx: ConfirmContext) => Promise<boolean>;
+  /**
+   * Forces the confirmation for a flow even when the privacy setting would skip it (e.g. audio
+   * whose rights need care is about to leave the device).
+   */
+  forceConfirm?: (flow: DataFlowDescriptor) => boolean;
   clock?: { now(): number };
   /** Default execution timeout when the provider config has none (default 300 s). */
   defaultTimeoutMs?: number;
@@ -108,7 +119,12 @@ export interface OrchestratorTask<T> {
   title?: string;
   /** The caller already obtained consent for this data flow (e.g. server-side gateway). */
   skipConfirm?: boolean;
-  execute: (instance: ProviderInstance, modelId: string | undefined, signal: AbortSignal, decision: RouteDecision) => Promise<T>;
+  execute: (
+    instance: ProviderInstance,
+    modelId: string | undefined,
+    signal: AbortSignal,
+    decision: RouteDecision,
+  ) => Promise<T>;
   signal?: AbortSignal;
 }
 
@@ -267,11 +283,29 @@ export class Orchestrator {
         outcome = await this.attempt(task, req, target);
       } catch (err) {
         lastError = err;
-        attempts.push({ providerId: target.providerId, modelId: target.modelId, error: (err as Error)?.message ?? String(err) });
-        this.emit({ type: 'failed', role: task.role, providerId: target.providerId, error: (err as Error)?.message ?? String(err) });
-        const next = fallbackOnError && isAvailabilityError(err) && !task.signal?.aborted ? nextAlternative() : undefined;
+        attempts.push({
+          providerId: target.providerId,
+          modelId: target.modelId,
+          error: (err as Error)?.message ?? String(err),
+        });
+        this.emit({
+          type: 'failed',
+          role: task.role,
+          providerId: target.providerId,
+          error: (err as Error)?.message ?? String(err),
+        });
+        const next =
+          fallbackOnError && isAvailabilityError(err) && !task.signal?.aborted
+            ? nextAlternative()
+            : undefined;
         if (next) {
-          this.emit({ type: 'fallback', role: task.role, from: target.providerId, to: next.providerId, reason: (err as Error).message });
+          this.emit({
+            type: 'fallback',
+            role: task.role,
+            from: target.providerId,
+            to: next.providerId,
+            reason: (err as Error).message,
+          });
           target = next;
           continue;
         }
@@ -281,15 +315,33 @@ export class Orchestrator {
       attempts.push({ providerId: target.providerId, modelId: outcome.modelId, confidence });
       const fb = this.router.lowConfidenceFallback(req, target, confidence);
       if (fb) {
-        this.emit({ type: 'fallback', role: task.role, from: target.providerId, to: fb.decision.providerId, reason: fb.reason });
+        this.emit({
+          type: 'fallback',
+          role: task.role,
+          from: target.providerId,
+          to: fb.decision.providerId,
+          reason: fb.reason,
+        });
         try {
           const second = await this.attempt(task, req, fb.decision);
           const c2 = confidenceOf(second.result);
           attempts.push({ providerId: fb.decision.providerId, modelId: second.modelId, confidence: c2 });
-          return this.assemble(task, fb.decision, second, attempts, { fallbackFrom: target.providerId, fallbackReason: fb.reason, previousCost: outcome.costUsd });
+          return this.assemble(task, fb.decision, second, attempts, {
+            fallbackFrom: target.providerId,
+            fallbackReason: fb.reason,
+            previousCost: outcome.costUsd,
+          });
         } catch (err) {
-          attempts.push({ providerId: fb.decision.providerId, error: (err as Error)?.message ?? String(err) });
-          this.emit({ type: 'failed', role: task.role, providerId: fb.decision.providerId, error: (err as Error)?.message ?? String(err) });
+          attempts.push({
+            providerId: fb.decision.providerId,
+            error: (err as Error)?.message ?? String(err),
+          });
+          this.emit({
+            type: 'failed',
+            role: task.role,
+            providerId: fb.decision.providerId,
+            error: (err as Error)?.message ?? String(err),
+          });
           // Keep the original (low-confidence) result.
         }
       }
@@ -317,7 +369,10 @@ export class Orchestrator {
     };
     const modelId = o.modelId ?? decision.modelId;
     if (modelId) provenance.modelId = modelId;
-    const totalCost = o.costUsd === undefined && extra.previousCost === undefined ? undefined : (o.costUsd ?? 0) + (extra.previousCost ?? 0);
+    const totalCost =
+      o.costUsd === undefined && extra.previousCost === undefined
+        ? undefined
+        : (o.costUsd ?? 0) + (extra.previousCost ?? 0);
     if (totalCost !== undefined) provenance.costUsd = totalCost;
     if (o.costEstimated) provenance.costEstimated = true;
     if (extra.fallbackFrom) provenance.fallbackFrom = extra.fallbackFrom;
@@ -325,49 +380,98 @@ export class Orchestrator {
     const conf = confidenceOf(o.result);
     if (conf !== undefined) provenance.confidence = conf;
     this.emit({ type: 'succeeded', role: task.role, provenance });
-    const out: OrchestratorResult<T> = { result: o.result, provenance, dataFlow: o.flow, decision, estimate: decision.estimate, attempts: [...attempts] };
+    const out: OrchestratorResult<T> = {
+      result: o.result,
+      provenance,
+      dataFlow: o.flow,
+      decision,
+      estimate: decision.estimate,
+      attempts: [...attempts],
+    };
     if (o.budgetWarning) out.budgetWarning = o.budgetWarning;
     return out;
   }
 
-  private async attempt<T>(task: OrchestratorTask<T>, req: RouteRequest, decision: RouteDecision): Promise<AttemptOutcome<T>> {
+  private async attempt<T>(
+    task: OrchestratorTask<T>,
+    req: RouteRequest,
+    decision: RouteDecision,
+  ): Promise<AttemptOutcome<T>> {
     const instance = this.registry.get(decision.providerId);
-    if (!instance) throw new ProviderError('unavailable', `Provider ${decision.providerId} is no longer registered`, { providerId: decision.providerId });
+    if (!instance)
+      throw new ProviderError('unavailable', `Provider ${decision.providerId} is no longer registered`, {
+        providerId: decision.providerId,
+      });
     const entry = this.registry.getEntry(decision.providerId);
     const settings = { ...this.settings(), ...(task.routing ?? {}) };
     const estimate = decision.estimate;
-    const flow = describeDataFlow({ dataKinds: req.dataKinds ?? ROLE_INFO[task.role].dataKinds, role: task.role, title: task.title }, decision);
+    const flow = describeDataFlow(
+      { dataKinds: req.dataKinds ?? ROLE_INFO[task.role].dataKinds, role: task.role, title: task.title },
+      decision,
+    );
 
     let budgetWarning: string | undefined;
     if (this.budget) {
-      const check = this.budget.check(estimate, { providerId: decision.providerId, providerBudget: entry?.config?.budget });
+      const check = this.budget.check(estimate, {
+        providerId: decision.providerId,
+        providerBudget: entry?.config?.budget,
+      });
       if (!check.allowed) throw new BudgetExceededError(check.reasons);
       budgetWarning = check.warning;
       if (budgetWarning) this.emit({ type: 'budget-warning', role: task.role, warning: budgetWarning });
     }
-    if (!task.skipConfirm && needsPrivacyConfirmation(settings.privacyConfirm, flow)) {
+    if (
+      !task.skipConfirm &&
+      (needsPrivacyConfirmation(settings.privacyConfirm, flow) || this.opts.forceConfirm?.(flow))
+    ) {
       this.emit({ type: 'confirm', role: task.role, flow, estimate });
-      if (!this.opts.confirm) throw new PrivacyDeclinedError(decision.providerId, 'This request needs your confirmation before data leaves the device, but no confirmation handler is available');
-      const ok = await this.opts.confirm(flow, estimate, { role: task.role, decision, ...(budgetWarning ? { budgetWarning } : {}) });
+      if (!this.opts.confirm)
+        throw new PrivacyDeclinedError(
+          decision.providerId,
+          'This request needs your confirmation before data leaves the device, but no confirmation handler is available',
+        );
+      const ok = await this.opts.confirm(flow, estimate, {
+        role: task.role,
+        decision,
+        ...(budgetWarning ? { budgetWarning } : {}),
+      });
       if (!ok) throw new PrivacyDeclinedError(decision.providerId);
     }
 
     const timeoutMs = task.timeoutMs ?? entry?.config?.timeoutMs ?? this.opts.defaultTimeoutMs ?? 300_000;
     const t = withTimeout(task.signal, timeoutMs);
     const startedAt = this.now();
-    this.emit({ type: 'started', role: task.role, providerId: decision.providerId, modelId: decision.modelId });
+    this.emit({
+      type: 'started',
+      role: task.role,
+      providerId: decision.providerId,
+      modelId: decision.modelId,
+    });
     let result: T;
     try {
       result = await raceAbort(task.execute(instance, decision.modelId, t.signal, decision), t.signal);
     } catch (err) {
       let e: unknown = err;
       if (t.signal.aborted && !(err instanceof ProviderError && err.kind !== 'cancelled')) {
-        e = t.timedOut() ? new ProviderError('timeout', `${decision.providerName} did not finish within ${Math.round(timeoutMs / 1000)} s`, { providerId: decision.providerId }) : new ProviderError('cancelled', 'Cancelled', { providerId: decision.providerId });
-      } else if (!(err instanceof Error) || (err.name !== 'ConsentRequiredError' && err.name !== 'BudgetExceededError' && err.name !== 'PrivacyDeclinedError' && err.name !== 'ConfigurationError')) {
+        e = t.timedOut()
+          ? new ProviderError(
+              'timeout',
+              `${decision.providerName} did not finish within ${Math.round(timeoutMs / 1000)} s`,
+              { providerId: decision.providerId },
+            )
+          : new ProviderError('cancelled', 'Cancelled', { providerId: decision.providerId });
+      } else if (
+        !(err instanceof Error) ||
+        (err.name !== 'ConsentRequiredError' &&
+          err.name !== 'BudgetExceededError' &&
+          err.name !== 'PrivacyDeclinedError' &&
+          err.name !== 'ConfigurationError')
+      ) {
         e = toProviderError(err, decision.providerId);
       }
       // An unreachable LOCAL server (e.g. Ollama not running) is marked offline until rediscovered.
-      if (e instanceof ProviderError && e.kind === 'network' && decision.location === 'local') this.registry.setStatus(decision.providerId, 'offline', e.message);
+      if (e instanceof ProviderError && e.kind === 'network' && decision.location === 'local')
+        this.registry.setStatus(decision.providerId, 'offline', e.message);
       throw e;
     } finally {
       t.dispose();
@@ -378,7 +482,14 @@ export class Orchestrator {
     const costUsd = decision.location === 'cloud' ? (actual ?? midpointUsd(estimate)) : (actual ?? 0);
     const costEstimated = decision.location === 'cloud' && actual === undefined && costUsd !== undefined;
     if (this.budget && costUsd !== undefined && costUsd > 0) {
-      this.budget.record({ providerId: decision.providerId, providerName: decision.providerName, modelId: actualModelOf(result) ?? decision.modelId, role: task.role, costUsd, estimated: costEstimated });
+      this.budget.record({
+        providerId: decision.providerId,
+        providerName: decision.providerName,
+        modelId: actualModelOf(result) ?? decision.modelId,
+        role: task.role,
+        costUsd,
+        estimated: costEstimated,
+      });
     }
     const out: AttemptOutcome<T> = { result, flow, costEstimated, startedAt, finishedAt };
     if (costUsd !== undefined) out.costUsd = costUsd;
@@ -394,12 +505,27 @@ export class Orchestrator {
 
   private hints(role: TaskRole, opts: RunOptions, dataKinds: DataKind[]): RequestHints {
     const h: RequestHints = { role, quality: opts.quality ?? 'standard', dataKinds };
-    const never = [...this.router.neverUpload({ ...this.settings(), ...(opts.routing ?? {}) }), ...(opts.neverUpload ?? [])];
+    const never = [
+      ...this.router.neverUpload({ ...this.settings(), ...(opts.routing ?? {}) }),
+      ...(opts.neverUpload ?? []),
+    ];
     if (never.length) h.neverUpload = [...new Set(never)];
     return h;
   }
 
-  private llmTask<R>(role: TaskRole, opts: RunOptions, dataKinds: DataKind[], inputChars: number, capabilities: Capability[] | undefined, call: (inst: ProviderInstance, model: string | undefined, signal: AbortSignal, hints: RequestHints) => Promise<R>): Promise<OrchestratorResult<R>> {
+  private llmTask<R>(
+    role: TaskRole,
+    opts: RunOptions,
+    dataKinds: DataKind[],
+    inputChars: number,
+    capabilities: Capability[] | undefined,
+    call: (
+      inst: ProviderInstance,
+      model: string | undefined,
+      signal: AbortSignal,
+      hints: RequestHints,
+    ) => Promise<R>,
+  ): Promise<OrchestratorResult<R>> {
     const kinds = opts.dataKinds ?? dataKinds;
     const hints = this.hints(role, opts, kinds);
     return this.run<R>({
@@ -417,7 +543,10 @@ export class Orchestrator {
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
       execute: (inst, model, signal) => {
-        if (!inst.composition) throw new ProviderError('unsupported', `${inst.descriptor.name} cannot do ${role}`, { providerId: inst.descriptor.id });
+        if (!inst.composition)
+          throw new ProviderError('unsupported', `${inst.descriptor.name} cannot do ${role}`, {
+            providerId: inst.descriptor.id,
+          });
         return call(inst, model, signal, hints);
       },
     });
@@ -429,60 +558,128 @@ export class Orchestrator {
 
   planSong(req: PlanSongRequest, opts: RunOptions = {}): Promise<OrchestratorResult<PlanSongResult>> {
     const kinds: DataKind[] = req.context ? contextDataKinds(req.context) : ['song-description'];
-    return this.llmTask('composition', opts, kinds, (req.prompt?.length ?? 0) + this.ctxChars(req.context) + (req.blueprint ? 1500 : 0), undefined, (inst, model, signal, hints) =>
-      inst.composition!.planSong({ ...req, model: req.model ?? model, signal, hints }),
+    return this.llmTask(
+      'composition',
+      opts,
+      kinds,
+      (req.prompt?.length ?? 0) + this.ctxChars(req.context) + (req.blueprint ? 1500 : 0),
+      undefined,
+      (inst, model, signal, hints) =>
+        inst.composition!.planSong({ ...req, model: req.model ?? model, signal, hints }),
     );
   }
 
-  designBlueprint(req: DesignBlueprintRequest, opts: RunOptions = {}): Promise<OrchestratorResult<DesignBlueprintResult>> {
-    return this.llmTask('composition', opts, ['song-description'], req.prompt.length + 2000, undefined, (inst, model, signal, hints) =>
-      inst.composition!.designBlueprint({ ...req, model: req.model ?? model, signal, hints }),
+  designBlueprint(
+    req: DesignBlueprintRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<DesignBlueprintResult>> {
+    return this.llmTask(
+      'composition',
+      opts,
+      ['song-description'],
+      req.prompt.length + 2000,
+      undefined,
+      (inst, model, signal, hints) =>
+        inst.composition!.designBlueprint({ ...req, model: req.model ?? model, signal, hints }),
     );
   }
 
-  modifyComposition(req: ModifyCompositionRequest, opts: RunOptions = {}): Promise<OrchestratorResult<ModifyCompositionResult>> {
-    return this.llmTask('midi-editing', opts, contextDataKinds(req.context), this.ctxChars(req.context), undefined, (inst, model, signal, hints) =>
-      inst.composition!.modifyComposition({ ...req, model: req.model ?? model, signal, hints }),
+  modifyComposition(
+    req: ModifyCompositionRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<ModifyCompositionResult>> {
+    return this.llmTask(
+      'midi-editing',
+      opts,
+      contextDataKinds(req.context),
+      this.ctxChars(req.context),
+      undefined,
+      (inst, model, signal, hints) =>
+        inst.composition!.modifyComposition({ ...req, model: req.model ?? model, signal, hints }),
     );
   }
 
   chat(req: ChatRequest, opts: RunOptions = {}): Promise<OrchestratorResult<ChatResult>> {
-    const historyChars = (req.history ?? []).reduce((n, m) => n + (typeof m.content === 'string' ? m.content.length : 500), 0);
-    return this.llmTask('chat', opts, contextDataKinds(req.context), this.ctxChars(req.context) + historyChars + req.question.length, undefined, (inst, model, signal, hints) =>
-      inst.composition!.chat({ ...req, model: req.model ?? model, signal, hints }),
+    const historyChars = (req.history ?? []).reduce(
+      (n, m) => n + (typeof m.content === 'string' ? m.content.length : 500),
+      0,
+    );
+    return this.llmTask(
+      'chat',
+      opts,
+      contextDataKinds(req.context),
+      this.ctxChars(req.context) + historyChars + req.question.length,
+      undefined,
+      (inst, model, signal, hints) =>
+        inst.composition!.chat({ ...req, model: req.model ?? model, signal, hints }),
     );
   }
 
-  generateLyrics(req: GenerateLyricsRequest, opts: RunOptions = {}): Promise<OrchestratorResult<GenerateLyricsResult>> {
-    const kinds: DataKind[] = req.context ? [...new Set<DataKind>([...contextDataKinds(req.context), 'lyrics'])] : ['song-description', 'lyrics'];
-    return this.llmTask('lyrics', opts, kinds, this.ctxChars(req.context) + 1500, undefined, (inst, model, signal, hints) =>
-      inst.composition!.generateLyrics({ ...req, model: req.model ?? model, signal, hints }),
+  generateLyrics(
+    req: GenerateLyricsRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<GenerateLyricsResult>> {
+    const kinds: DataKind[] = req.context
+      ? [...new Set<DataKind>([...contextDataKinds(req.context), 'lyrics'])]
+      : ['song-description', 'lyrics'];
+    return this.llmTask(
+      'lyrics',
+      opts,
+      kinds,
+      this.ctxChars(req.context) + 1500,
+      undefined,
+      (inst, model, signal, hints) =>
+        inst.composition!.generateLyrics({ ...req, model: req.model ?? model, signal, hints }),
     );
   }
 
   mixAssist(req: MixAssistRequest, opts: RunOptions = {}): Promise<OrchestratorResult<MixAssistResult>> {
-    return this.llmTask('mixing', opts, ['song-description', 'project-metadata'], this.ctxChars(req.context), undefined, (inst, model, signal, hints) =>
-      inst.composition!.mixAssist({ ...req, model: req.model ?? model, signal, hints }),
+    return this.llmTask(
+      'mixing',
+      opts,
+      ['song-description', 'project-metadata'],
+      this.ctxChars(req.context),
+      undefined,
+      (inst, model, signal, hints) =>
+        inst.composition!.mixAssist({ ...req, model: req.model ?? model, signal, hints }),
     );
   }
 
   /** Theory View explanation (spec §43). */
   explain(req: ExplainMusicRequest, opts: RunOptions = {}): Promise<OrchestratorResult<ExplainMusicResult>> {
-    return this.llmTask('analysis', opts, contextDataKinds(req.context), this.ctxChars(req.context), undefined, (inst, model, signal, hints) =>
-      inst.composition!.explainMusic({ ...req, model: req.model ?? model, signal, hints }),
+    return this.llmTask(
+      'analysis',
+      opts,
+      contextDataKinds(req.context),
+      this.ctxChars(req.context),
+      undefined,
+      (inst, model, signal, hints) =>
+        inst.composition!.explainMusic({ ...req, model: req.model ?? model, signal, hints }),
     );
   }
 
   /** Music analysis of the project and/or audio (audio requires AUDIO_UNDERSTANDING). */
   analyze(req: AnalyzeMusicRequest, opts: RunOptions = {}): Promise<OrchestratorResult<AnalyzeMusicResult>> {
-    const kinds: DataKind[] = [...(req.context ? contextDataKinds(req.context) : ['song-description' as DataKind]), ...(req.audio ? (['reference-audio'] as DataKind[]) : [])];
+    const kinds: DataKind[] = [
+      ...(req.context ? contextDataKinds(req.context) : ['song-description' as DataKind]),
+      ...(req.audio ? (['reference-audio'] as DataKind[]) : []),
+    ];
     const caps: Capability[] | undefined = req.audio ? ['AUDIO_UNDERSTANDING', 'AUDIO_INPUT'] : undefined;
-    return this.llmTask('analysis', opts, kinds, this.ctxChars(req.context) + (req.audio ? 40_000 : 0), caps, (inst, model, signal, hints) =>
-      inst.composition!.analyzeMusic({ ...req, model: req.model ?? model, signal, hints }),
+    return this.llmTask(
+      'analysis',
+      opts,
+      kinds,
+      this.ctxChars(req.context) + (req.audio ? 40_000 : 0),
+      caps,
+      (inst, model, signal, hints) =>
+        inst.composition!.analyzeMusic({ ...req, model: req.model ?? model, signal, hints }),
     );
   }
 
-  generateMusic(req: MusicGenerationRequest, opts: RunOptions = {}): Promise<OrchestratorResult<AudioGenerationResult>> {
+  generateMusic(
+    req: MusicGenerationRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<AudioGenerationResult>> {
     const caps: Capability[] = ['TEXT_TO_MUSIC'];
     const vocalRequest = !!req.lyrics && !req.instrumental;
     if (vocalRequest) caps.push('LYRIC_CONDITIONING', 'VOCAL_GENERATION');
@@ -511,11 +708,15 @@ export class Orchestrator {
       skipConfirm: opts.skipConfirm,
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
-      execute: (inst, model, signal) => inst.audioGeneration!.generateMusic({ ...req, model: req.model ?? model, signal, hints }),
+      execute: (inst, model, signal) =>
+        inst.audioGeneration!.generateMusic({ ...req, model: req.model ?? model, signal, hints }),
     });
   }
 
-  transformAudio(req: AudioTransformRequest, opts: RunOptions = {}): Promise<OrchestratorResult<AudioGenerationResult>> {
+  transformAudio(
+    req: AudioTransformRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<AudioGenerationResult>> {
     const kinds = opts.dataKinds ?? ['guide-audio'];
     const hints = this.hints('production', opts, kinds);
     return this.run({
@@ -523,7 +724,10 @@ export class Orchestrator {
       capabilities: ['AUDIO_TO_AUDIO'],
       dataKinds: kinds,
       quality: opts.quality,
-      estimateInput: { kind: 'audio', durationSeconds: req.durationSeconds ?? req.audio.durationSeconds ?? 30 },
+      estimateInput: {
+        kind: 'audio',
+        durationSeconds: req.durationSeconds ?? req.audio.durationSeconds ?? 30,
+      },
       providerId: opts.providerId,
       modelId: opts.modelId,
       neverUpload: opts.neverUpload,
@@ -532,7 +736,8 @@ export class Orchestrator {
       skipConfirm: opts.skipConfirm,
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
-      execute: (inst, model, signal) => inst.audioGeneration!.transformAudio({ ...req, model: req.model ?? model, signal, hints }),
+      execute: (inst, model, signal) =>
+        inst.audioGeneration!.transformAudio({ ...req, model: req.model ?? model, signal, hints }),
     });
   }
 
@@ -554,12 +759,16 @@ export class Orchestrator {
       skipConfirm: opts.skipConfirm,
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
-      execute: (inst, model, signal) => inst.singing!.synthesizeSinging({ ...req, model: req.model ?? model, signal, hints }),
+      execute: (inst, model, signal) =>
+        inst.singing!.synthesizeSinging({ ...req, model: req.model ?? model, signal, hints }),
     });
   }
 
   /** Regenerate one vocal phrase only (spec §37; requires REGION_GENERATION). */
-  regeneratePhrase(req: PhraseRegenerationRequest, opts: RunOptions = {}): Promise<OrchestratorResult<SingingResult>> {
+  regeneratePhrase(
+    req: PhraseRegenerationRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<SingingResult>> {
     const kinds = opts.dataKinds ?? ['midi', 'lyrics'];
     const hints = this.hints('vocals', opts, kinds);
     return this.run({
@@ -577,13 +786,19 @@ export class Orchestrator {
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
       execute: async (inst, model, signal) => {
-        if (!inst.singing?.regeneratePhrase) throw new ProviderError('unsupported', `${inst.descriptor.name} cannot regenerate single phrases`, { providerId: inst.descriptor.id });
+        if (!inst.singing?.regeneratePhrase)
+          throw new ProviderError('unsupported', `${inst.descriptor.name} cannot regenerate single phrases`, {
+            providerId: inst.descriptor.id,
+          });
         return inst.singing.regeneratePhrase({ ...req, model: req.model ?? model, signal, hints });
       },
     });
   }
 
-  transcribe(req: TranscriptionRequest, opts: RunOptions = {}): Promise<OrchestratorResult<TranscriptionResult>> {
+  transcribe(
+    req: TranscriptionRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<TranscriptionResult>> {
     const kinds = opts.dataKinds ?? ['reference-audio'];
     const hints = this.hints('transcription', opts, kinds);
     return this.run({
@@ -600,7 +815,8 @@ export class Orchestrator {
       skipConfirm: opts.skipConfirm,
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
-      execute: (inst, model, signal) => inst.transcription!.transcribeNotes({ ...req, model: req.model ?? model, signal, hints }),
+      execute: (inst, model, signal) =>
+        inst.transcription!.transcribeNotes({ ...req, model: req.model ?? model, signal, hints }),
     });
   }
 
@@ -621,7 +837,8 @@ export class Orchestrator {
       skipConfirm: opts.skipConfirm,
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
-      execute: (inst, model, signal) => inst.separation!.separateStems({ ...req, model: req.model ?? model, signal, hints }),
+      execute: (inst, model, signal) =>
+        inst.separation!.separateStems({ ...req, model: req.model ?? model, signal, hints }),
     });
   }
 
@@ -642,12 +859,16 @@ export class Orchestrator {
       skipConfirm: opts.skipConfirm,
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
-      execute: (inst, model, signal) => inst.mastering!.master({ ...req, model: req.model ?? model, signal, hints }),
+      execute: (inst, model, signal) =>
+        inst.mastering!.master({ ...req, model: req.model ?? model, signal, hints }),
     });
   }
 
   /** Voice conversion: consent is verified BEFORE routing, so nothing leaves the app without it (spec §36). */
-  async convertVoice(req: VoiceConversionRequest, opts: RunOptions = {}): Promise<OrchestratorResult<VoiceConversionResult>> {
+  async convertVoice(
+    req: VoiceConversionRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<VoiceConversionResult>> {
     assertVoiceConsent(req.targetVoice, req.consent);
     const kinds = opts.dataKinds ?? ['recorded-vocals'];
     const hints = this.hints('voice-conversion', opts, kinds);
@@ -665,7 +886,8 @@ export class Orchestrator {
       skipConfirm: opts.skipConfirm,
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
-      execute: (inst, model, signal) => inst.voiceConversion!.convertVoice({ ...req, model: req.model ?? model, signal, hints }),
+      execute: (inst, model, signal) =>
+        inst.voiceConversion!.convertVoice({ ...req, model: req.model ?? model, signal, hints }),
     });
   }
 }

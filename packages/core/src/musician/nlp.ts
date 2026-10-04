@@ -61,19 +61,32 @@ const SMALL_NUMBERS: Record<string, number> = {
   eighteen: 18,
   nineteen: 19,
 };
-const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+const TENS: Record<string, number> = {
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  sixty: 60,
+  seventy: 70,
+  eighty: 80,
+  ninety: 90,
+};
 
 /** Replace English number words with digits ("sixteen-bar" → "16-bar", "twenty four" → "24"). */
 export function wordsToNumbers(text: string): string {
   let t = text;
-  t = t.replace(/\ba couple of\b/g, '2').replace(/\ba couple\b/g, '2').replace(/\ba few\b/g, '3');
+  t = t
+    .replace(/\ba couple of\b/g, '2')
+    .replace(/\ba couple\b/g, '2')
+    .replace(/\ba few\b/g, '3');
   t = t.replace(
     /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[\s-](one|two|three|four|five|six|seven|eight|nine)\b/g,
     (_m, tens: string, ones: string) => String(TENS[tens] + SMALL_NUMBERS[ones]),
   );
   t = t.replace(/\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/g, (m) => String(TENS[m]));
-  t = t.replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)\b/g, (m) =>
-    String(SMALL_NUMBERS[m]),
+  t = t.replace(
+    /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)\b/g,
+    (m) => String(SMALL_NUMBERS[m]),
   );
   // "no 1" (from "no one") back to words.
   t = t.replace(/\bno 1\b/g, 'no one');
@@ -83,7 +96,10 @@ export function wordsToNumbers(text: string): string {
 /** Lowercase, unify quotes/dashes, expand contractions, convert number words, collapse spaces. */
 export function normalizeText(text: string): string {
   let t = text.toLowerCase();
-  t = t.replace(/[‘’‛`´]/g, "'").replace(/[“”„]/g, '"').replace(/[–—]/g, '-');
+  t = t
+    .replace(/[‘’‛`´]/g, "'")
+    .replace(/[“”„]/g, '"')
+    .replace(/[–—]/g, '-');
   for (const [re, rep] of CONTRACTIONS) t = t.replace(re, rep);
   t = wordsToNumbers(t);
   // Sentence punctuation becomes a clause separator; keep decimals ("1.5 db").
@@ -108,8 +124,18 @@ export function extractQuoted(text: string): string[] {
 
 /** Intensity multiplier: "slightly" → 0.5, default 1, "much" → 1.6. */
 export function amountOf(text: string): number {
-  if (/\b(slight(ly)?|a (little )?bit|a little|a touch|somewhat|subtl(e|y)|gently|a tad|marginally|mildly|a hair)\b/.test(text)) return 0.5;
-  if (/\b(much|a lot|lots|way|really|very|significantly|drastically|heavily|extremely|super|massively|dramatically|hugely|considerably|totally|a ton)\b/.test(text)) return 1.6;
+  if (
+    /\b(slight(ly)?|a (little )?bit|a little|a touch|somewhat|subtl(e|y)|gently|a tad|marginally|mildly|a hair)\b/.test(
+      text,
+    )
+  )
+    return 0.5;
+  if (
+    /\b(much|a lot|lots|way|really|very|significantly|drastically|heavily|extremely|super|massively|dramatically|hugely|considerably|totally|a ton)\b/.test(
+      text,
+    )
+  )
+    return 1.6;
   return 1;
 }
 
@@ -151,7 +177,10 @@ const ORDINAL_WORDS: Record<string, number> = {
 export function ordinalBefore(text: string, index: number): number | null {
   const before = text.slice(Math.max(0, index - 28), index);
   if (/\b(second[\s-]to[\s-]last|second last|next[\s-]to[\s-]last|penultimate)\s*$/.test(before)) return -2;
-  const m = /\b(first|1st|opening|second|2nd|third|3rd|fourth|4th|fifth|5th|sixth|6th|seventh|7th|eighth|8th|ninth|9th|tenth|10th|last|final|closing)\s*$/.exec(before);
+  const m =
+    /\b(first|1st|opening|second|2nd|third|3rd|fourth|4th|fifth|5th|sixth|6th|seventh|7th|eighth|8th|ninth|9th|tenth|10th|last|final|closing)\s*$/.exec(
+      before,
+    );
   return m ? ORDINAL_WORDS[m[1]] : null;
 }
 
@@ -199,7 +228,9 @@ export function findSectionMentions(song: Pick<Song, 'sections'>, text: string):
   const t = text.toLowerCase();
   const out: SectionMention[] = [];
   // 1) Exact names (longest first).
-  const names = Array.from(new Set(song.sections.map((s) => s.name.toLowerCase()).filter((n) => n.length >= 3))).sort((a, b) => b.length - a.length);
+  const names = Array.from(
+    new Set(song.sections.map((s) => s.name.toLowerCase()).filter((n) => n.length >= 3)),
+  ).sort((a, b) => b.length - a.length);
   for (const name of names) {
     const re = new RegExp(`\\b${escapeRe(name)}\\b`, 'g');
     let m: RegExpExecArray | null;
@@ -223,8 +254,10 @@ export function findSectionMentions(song: Pick<Song, 'sections'>, text: string):
       if (kind === 'chorus' && /(pre|post)[\s-]?$/.test(t.slice(Math.max(0, m.index - 5), m.index))) continue;
       const kinds = kind === 'chorus' ? CHORUS_LIKE : [kind];
       let candidates = song.sections.filter((s) => kinds.includes(s.kind));
-      if (candidates.length === 0 && kind === 'chorus') candidates = song.sections.filter((s) => /chorus/i.test(s.name) && !/pre|post/i.test(s.name));
-      if (candidates.length === 0) candidates = song.sections.filter((s) => s.name.toLowerCase().includes(kind.replace('-', '')));
+      if (candidates.length === 0 && kind === 'chorus')
+        candidates = song.sections.filter((s) => /chorus/i.test(s.name) && !/pre|post/i.test(s.name));
+      if (candidates.length === 0)
+        candidates = song.sections.filter((s) => s.name.toLowerCase().includes(kind.replace('-', '')));
       const ord = ordinalBefore(t, m.index);
       const after = /^\s*(\d+)\b/.exec(t.slice(span.end));
       const plural = /(es|s)$/.test(m[0]) && !/chorus$/.test(m[0]);
@@ -238,7 +271,11 @@ export function findSectionMentions(song: Pick<Song, 'sections'>, text: string):
           const idx = ord > 0 ? ord - 1 : candidates.length + ord;
           chosen = idx >= 0 && idx < candidates.length ? [candidates[idx]] : [];
         }
-        const ordStart = t.slice(0, m.index).search(/(?:\b(?:second[\s-]to[\s-]last|second last|next[\s-]to[\s-]last|penultimate|first|1st|opening|second|2nd|third|3rd|fourth|4th|fifth|5th|sixth|6th|seventh|7th|eighth|8th|ninth|9th|tenth|10th|last|final|closing))\s*$/);
+        const ordStart = t
+          .slice(0, m.index)
+          .search(
+            /(?:\b(?:second[\s-]to[\s-]last|second last|next[\s-]to[\s-]last|penultimate|first|1st|opening|second|2nd|third|3rd|fourth|4th|fifth|5th|sixth|6th|seventh|7th|eighth|8th|ninth|9th|tenth|10th|last|final|closing))\s*$/,
+          );
         textSpan = { index: ordStart >= 0 ? ordStart : m.index, end: span.end };
       } else if (after) {
         const n = parseInt(after[1], 10);
@@ -276,8 +313,14 @@ export interface TrackMention {
 }
 
 const isDrumKit = (t: Track) =>
-  t.role === 'drums' || t.role === 'percussion' || ['drum-kit', 'electronic-kit', 'percussion'].includes(t.instrumentId) || t.midiChannel === 9;
-const inst = (...ids: string[]) => (t: Track) => ids.includes(t.instrumentId);
+  t.role === 'drums' ||
+  t.role === 'percussion' ||
+  ['drum-kit', 'electronic-kit', 'percussion'].includes(t.instrumentId) ||
+  t.midiChannel === 9;
+const inst =
+  (...ids: string[]) =>
+  (t: Track) =>
+    ids.includes(t.instrumentId);
 const nameHas = (re: RegExp) => (t: Track) => re.test(t.name);
 const anyOf =
   (...fs: ((t: Track) => boolean)[]) =>
@@ -290,8 +333,23 @@ export const DRUM_GROUPS: Record<string, number[]> = {
   hats: [GM_DRUM.HIHAT_CLOSED, GM_DRUM.HIHAT_PEDAL, GM_DRUM.HIHAT_OPEN],
   ride: [GM_DRUM.RIDE, GM_DRUM.RIDE_BELL, GM_DRUM.RIDE_2],
   crash: [GM_DRUM.CRASH, GM_DRUM.CRASH_2, GM_DRUM.CHINA, GM_DRUM.SPLASH],
-  cymbals: [GM_DRUM.CRASH, GM_DRUM.CRASH_2, GM_DRUM.CHINA, GM_DRUM.SPLASH, GM_DRUM.RIDE, GM_DRUM.RIDE_BELL, GM_DRUM.RIDE_2],
-  toms: [GM_DRUM.FLOOR_TOM_LOW, GM_DRUM.FLOOR_TOM_HIGH, GM_DRUM.TOM_LOW, GM_DRUM.TOM_LOW_MID, GM_DRUM.TOM_HIGH_MID, GM_DRUM.TOM_HIGH],
+  cymbals: [
+    GM_DRUM.CRASH,
+    GM_DRUM.CRASH_2,
+    GM_DRUM.CHINA,
+    GM_DRUM.SPLASH,
+    GM_DRUM.RIDE,
+    GM_DRUM.RIDE_BELL,
+    GM_DRUM.RIDE_2,
+  ],
+  toms: [
+    GM_DRUM.FLOOR_TOM_LOW,
+    GM_DRUM.FLOOR_TOM_HIGH,
+    GM_DRUM.TOM_LOW,
+    GM_DRUM.TOM_LOW_MID,
+    GM_DRUM.TOM_HIGH_MID,
+    GM_DRUM.TOM_HIGH,
+  ],
 };
 
 interface Vocab {
@@ -310,33 +368,120 @@ const VOCAB: Vocab[] = [
   { re: /\bcrash(?:es)?\b/g, label: 'crash', match: isDrumKit, drum: 'crash' },
   { re: /\bride cymbal\b/g, label: 'ride', match: isDrumKit, drum: 'ride' },
   { re: /\btoms\b|\btom[\s-]?toms?\b/g, label: 'toms', match: isDrumKit, drum: 'toms' },
-  { re: /\blead vocals?\b|\blead vox\b|\blead singer\b/g, label: 'lead vocal', match: (t) => t.role === 'vocal' && t.instrumentId !== 'backing-vocal' && !/backing|harmony|bv/i.test(t.name) },
-  { re: /\bbacking vocals?\b|\bbvs\b|\bvocal harmon(?:y|ies)\b|\bharmony vocals?\b/g, label: 'backing vocals', match: anyOf(inst('backing-vocal'), (t) => t.role === 'vocal' && /backing|harmony|bv/i.test(t.name)) },
-  { re: /\bvocals?\b|\bvox\b|\bsinger\b|\bsinging\b|\bvoice\b/g, label: 'vocal', match: (t) => t.role === 'vocal' || inst('lead-vocal', 'backing-vocal', 'choir')(t) },
+  {
+    re: /\blead vocals?\b|\blead vox\b|\blead singer\b/g,
+    label: 'lead vocal',
+    match: (t) =>
+      t.role === 'vocal' && t.instrumentId !== 'backing-vocal' && !/backing|harmony|bv/i.test(t.name),
+  },
+  {
+    re: /\bbacking vocals?\b|\bbvs\b|\bvocal harmon(?:y|ies)\b|\bharmony vocals?\b/g,
+    label: 'backing vocals',
+    match: anyOf(inst('backing-vocal'), (t) => t.role === 'vocal' && /backing|harmony|bv/i.test(t.name)),
+  },
+  {
+    re: /\bvocals?\b|\bvox\b|\bsinger\b|\bsinging\b|\bvoice\b/g,
+    label: 'vocal',
+    match: (t) => t.role === 'vocal' || inst('lead-vocal', 'backing-vocal', 'choir')(t),
+  },
   { re: /\bmelod(?:y|ies)\b|\btopline\b|\blead line\b|\btune\b/g, label: 'melody', generic: 'melody' },
   { re: /\bsynth[\s-]?bass\b/g, label: 'synth bass', match: inst('synth-bass') },
-  { re: /\b(?:upright|double|acoustic) bass\b|\bcontrabass\b/g, label: 'upright bass', match: inst('upright-bass', 'contrabass') },
-  { re: /\bbass(?:[\s-]?lines?|[\s-]?guitar)?\b|\bbassline\b/g, label: 'bass', match: anyOf((t) => t.role === 'bass', inst('electric-bass', 'synth-bass', 'upright-bass', 'contrabass')) },
-  { re: /\bdrums?\b|\bdrum ?kit\b|\bthe kit\b|\bthe beat\b|\bpercussion\b|\bgroove\b/g, label: 'drums', match: isDrumKit },
+  {
+    re: /\b(?:upright|double|acoustic) bass\b|\bcontrabass\b/g,
+    label: 'upright bass',
+    match: inst('upright-bass', 'contrabass'),
+  },
+  {
+    re: /\bbass(?:[\s-]?lines?|[\s-]?guitar)?\b|\bbassline\b/g,
+    label: 'bass',
+    match: anyOf((t) => t.role === 'bass', inst('electric-bass', 'synth-bass', 'upright-bass', 'contrabass')),
+  },
+  {
+    re: /\bdrums?\b|\bdrum ?kit\b|\bthe kit\b|\bthe beat\b|\bpercussion\b|\bgroove\b/g,
+    label: 'drums',
+    match: isDrumKit,
+  },
   { re: /\brhythm guitars?\b/g, label: 'rhythm guitar', match: anyOf((t) => t.role === 'rhythm-guitar') },
-  { re: /\blead guitars?\b|\bguitar solo\b/g, label: 'lead guitar', match: anyOf((t) => t.role === 'lead-guitar', inst('electric-guitar-lead')) },
+  {
+    re: /\blead guitars?\b|\bguitar solo\b/g,
+    label: 'lead guitar',
+    match: anyOf((t) => t.role === 'lead-guitar', inst('electric-guitar-lead')),
+  },
   { re: /\bacoustic guitars?\b/g, label: 'acoustic guitar', match: inst('acoustic-guitar') },
-  { re: /\bguitars?\b/g, label: 'guitar', match: anyOf((t) => t.role === 'rhythm-guitar' || t.role === 'lead-guitar', (t) => /guitar/.test(t.instrumentId), nameHas(/guitar|gtr/i)) },
-  { re: /\belectric piano\b|\brhodes\b|\bwurli(?:tzer)?\b|\be-?piano\b/g, label: 'electric piano', match: inst('electric-piano') },
+  {
+    re: /\bguitars?\b/g,
+    label: 'guitar',
+    match: anyOf(
+      (t) => t.role === 'rhythm-guitar' || t.role === 'lead-guitar',
+      (t) => /guitar/.test(t.instrumentId),
+      nameHas(/guitar|gtr/i),
+    ),
+  },
+  {
+    re: /\belectric piano\b|\brhodes\b|\bwurli(?:tzer)?\b|\be-?piano\b/g,
+    label: 'electric piano',
+    match: inst('electric-piano'),
+  },
   { re: /\bpianos?\b/g, label: 'piano', match: anyOf(inst('piano', 'electric-piano'), nameHas(/piano/i)) },
-  { re: /\bkeys\b|\bkeyboards?\b/g, label: 'keys', match: anyOf((t) => t.role === 'keys', inst('piano', 'electric-piano', 'organ')) },
+  {
+    re: /\bkeys\b|\bkeyboards?\b/g,
+    label: 'keys',
+    match: anyOf((t) => t.role === 'keys', inst('piano', 'electric-piano', 'organ')),
+  },
   { re: /\borgans?\b/g, label: 'organ', match: inst('organ') },
-  { re: /\bstring section\b|\bstring ensemble\b|\bstrings\b/g, label: 'strings', match: anyOf((t) => t.role === 'strings', inst('violin', 'viola', 'cello', 'contrabass', 'string-ensemble', 'pizzicato-strings')) },
-  { re: /\bviolins?\b|\bfiddles?\b/g, label: 'violin', match: anyOf(inst('violin'), nameHas(/violin|fiddle/i)) },
+  {
+    re: /\bstring section\b|\bstring ensemble\b|\bstrings\b/g,
+    label: 'strings',
+    match: anyOf(
+      (t) => t.role === 'strings',
+      inst('violin', 'viola', 'cello', 'contrabass', 'string-ensemble', 'pizzicato-strings'),
+    ),
+  },
+  {
+    re: /\bviolins?\b|\bfiddles?\b/g,
+    label: 'violin',
+    match: anyOf(inst('violin'), nameHas(/violin|fiddle/i)),
+  },
   { re: /\bviolas?\b/g, label: 'viola', match: anyOf(inst('viola'), nameHas(/viola/i)) },
   { re: /\bcellos?\b|\bvioloncello\b/g, label: 'cello', match: anyOf(inst('cello'), nameHas(/cello/i)) },
   { re: /\bpizzicato\b/g, label: 'pizzicato strings', match: inst('pizzicato-strings') },
-  { re: /\bsynth pads?\b|\bpads?\b/g, label: 'pad', match: anyOf((t) => t.role === 'synth-pad', inst('synth-pad'), (t) => t.constraints.function === 'pad') },
-  { re: /\barps?\b|\barpeggiat(?:o|e)r?s?\b|\barpeggios?\b/g, label: 'arp', match: anyOf((t) => t.role === 'synth-arp', inst('synth-arp')) },
-  { re: /\blead synths?\b|\bsynth leads?\b/g, label: 'synth lead', match: anyOf((t) => t.role === 'synth-lead', inst('synth-lead')) },
-  { re: /\bsequencer\b|\bsynth seq(?:uence)?\b/g, label: 'synth sequence', match: anyOf((t) => t.role === 'synth-seq', inst('synth-seq')) },
-  { re: /\bsynths?\b|\bsynthesi[sz]ers?\b/g, label: 'synth', match: anyOf((t) => t.role.startsWith('synth'), (t) => t.instrumentId.startsWith('synth')) },
-  { re: /\bbrass\b|\bhorns?\b(?! section)/g, label: 'brass', match: inst('trumpet', 'trombone', 'french-horn', 'brass-section') },
+  {
+    re: /\bsynth pads?\b|\bpads?\b/g,
+    label: 'pad',
+    match: anyOf(
+      (t) => t.role === 'synth-pad',
+      inst('synth-pad'),
+      (t) => t.constraints.function === 'pad',
+    ),
+  },
+  {
+    re: /\barps?\b|\barpeggiat(?:o|e)r?s?\b|\barpeggios?\b/g,
+    label: 'arp',
+    match: anyOf((t) => t.role === 'synth-arp', inst('synth-arp')),
+  },
+  {
+    re: /\blead synths?\b|\bsynth leads?\b/g,
+    label: 'synth lead',
+    match: anyOf((t) => t.role === 'synth-lead', inst('synth-lead')),
+  },
+  {
+    re: /\bsequencer\b|\bsynth seq(?:uence)?\b/g,
+    label: 'synth sequence',
+    match: anyOf((t) => t.role === 'synth-seq', inst('synth-seq')),
+  },
+  {
+    re: /\bsynths?\b|\bsynthesi[sz]ers?\b/g,
+    label: 'synth',
+    match: anyOf(
+      (t) => t.role.startsWith('synth'),
+      (t) => t.instrumentId.startsWith('synth'),
+    ),
+  },
+  {
+    re: /\bbrass\b|\bhorns?\b(?! section)/g,
+    label: 'brass',
+    match: inst('trumpet', 'trombone', 'french-horn', 'brass-section'),
+  },
   { re: /\btrumpets?\b/g, label: 'trumpet', match: inst('trumpet') },
   { re: /\btrombones?\b/g, label: 'trombone', match: inst('trombone') },
   { re: /\bfrench horns?\b/g, label: 'french horn', match: inst('french-horn') },
@@ -348,13 +493,25 @@ const VOCAB: Vocab[] = [
   { re: /\bmarimbas?\b/g, label: 'marimba', match: inst('marimba') },
   { re: /\bglock(?:enspiel)?\b/g, label: 'glockenspiel', match: inst('glockenspiel') },
   { re: /\btimpani\b/g, label: 'timpani', match: inst('timpani') },
-  { re: /\beverything\b|\ball (?:the )?(?:tracks|instruments|parts)\b|\bthe whole (?:band|song|arrangement|track)\b|\bthe (?:band|arrangement|full mix)\b|\boverall\b/g, label: 'everything', generic: 'all' },
+  {
+    re: /\beverything\b|\ball (?:the )?(?:tracks|instruments|parts)\b|\bthe whole (?:band|song|arrangement|track)\b|\bthe (?:band|arrangement|full mix)\b|\boverall\b/g,
+    label: 'everything',
+    generic: 'all',
+  },
   { re: /\bchords?\b|\bharmon(?:y|ies)\b|\bprogressions?\b/g, label: 'chords', generic: 'chords' },
-  { re: /\bthis\b|\bthese\b|\bthat\b|\bthose\b|\bit\b|\bselection\b|\bselected\b|\bhere\b/g, label: 'selection', generic: 'selection' },
+  {
+    re: /\bthis\b|\bthese\b|\bthat\b|\bthose\b|\bit\b|\bselection\b|\bselected\b|\bhere\b/g,
+    label: 'selection',
+    generic: 'selection',
+  },
 ];
 
 /** Track mentions in reading order (exact track names first, then instrument vocabulary). */
-export function findTrackMentions(song: Pick<Song, 'tracks'>, text: string, opts: { melodyTrack?: Track } = {}): TrackMention[] {
+export function findTrackMentions(
+  song: Pick<Song, 'tracks'>,
+  text: string,
+  opts: { melodyTrack?: Track } = {},
+): TrackMention[] {
   const t = text.toLowerCase();
   const out: TrackMention[] = [];
   const names = song.tracks
@@ -442,11 +599,21 @@ export interface TransposeSpec {
   label: string;
 }
 
-const INTERVAL_STEPS: Record<string, number> = { second: 1, third: 2, fourth: 3, fifth: 4, sixth: 5, seventh: 6, ninth: 8, tenth: 9 };
+const INTERVAL_STEPS: Record<string, number> = {
+  second: 1,
+  third: 2,
+  fourth: 3,
+  fifth: 4,
+  sixth: 5,
+  seventh: 6,
+  ninth: 8,
+  tenth: 9,
+};
 
 /** Parse a transposition amount and direction. Returns null when there is no amount. */
 export function parseTranspose(text: string): TransposeSpec | null {
-  const down = /\b(down|lower|below|beneath|drop|minus)\b/.test(text) && !/\b(up|higher|above|raise)\b/.test(text);
+  const down =
+    /\b(down|lower|below|beneath|drop|minus)\b/.test(text) && !/\b(up|higher|above|raise)\b/.test(text);
   const sign = down ? -1 : 1;
   const dir = down ? 'down' : 'up';
   let m = /([+-]?\d+)\s*(?:semi-?tones?|half[\s-]?steps?|semis?)\b/.exec(text);
@@ -455,13 +622,16 @@ export function parseTranspose(text: string): TransposeSpec | null {
     const s = m[1].startsWith('-') || m[1].startsWith('+') ? n : sign * n;
     return { semitones: s, label: `${s > 0 ? '+' : ''}${s} semitone${Math.abs(s) === 1 ? '' : 's'}` };
   }
-  if (/\b(?:a|one|1) (?:semi-?tone|half[\s-]?step)\b|\bhalf a step\b/.test(text)) return { semitones: sign, label: `${dir} a semitone` };
+  if (/\b(?:a|one|1) (?:semi-?tone|half[\s-]?step)\b|\bhalf a step\b/.test(text))
+    return { semitones: sign, label: `${dir} a semitone` };
   m = /(\d+)\s*(?:whole[\s-]?steps?|whole[\s-]?tones?)\b/.exec(text);
   if (m) return { semitones: sign * 2 * parseInt(m[1], 10), label: `${dir} ${m[1]} whole step(s)` };
-  if (/\b(?:a|one|1) (?:whole[\s-]?step|whole[\s-]?tone|tone)\b/.test(text)) return { semitones: sign * 2, label: `${dir} a whole step` };
+  if (/\b(?:a|one|1) (?:whole[\s-]?step|whole[\s-]?tone|tone)\b/.test(text))
+    return { semitones: sign * 2, label: `${dir} a whole step` };
   m = /(\d+)\s*octaves?\b/.exec(text);
   if (m) return { semitones: sign * 12 * parseInt(m[1], 10), label: `${dir} ${m[1]} octave(s)` };
-  if (/\b(?:an|one|1|by an|by one) octave\b|\boctave (?:up|down|higher|lower)\b|\boctave\b/.test(text)) return { semitones: sign * 12, label: `${dir} an octave` };
+  if (/\b(?:an|one|1|by an|by one) octave\b|\boctave (?:up|down|higher|lower)\b|\boctave\b/.test(text))
+    return { semitones: sign * 12, label: `${dir} an octave` };
   m = /\b(?:a|an|one|by a|by an)\s+(second|third|fourth|fifth|sixth|seventh|ninth|tenth)\b/.exec(text);
   if (m) return { steps: sign * INTERVAL_STEPS[m[1]], label: `${dir} a ${m[1]} (diatonic)` };
   m = /(\d+)\s*(?:scale[\s-]?)?steps?\b/.exec(text);
@@ -483,7 +653,9 @@ export function splitClauses(text: string): string[] {
     .replace(/\bbars?\s+(\d+)\s*(?:and|to|through|thru|-)\s*(\d+)\b/g, 'bars $1-$2')
     .replace(/\bbetween (\d+) and (\d+)\b/g, '$1-$2');
   return protectedText
-    .split(/\s*(?:,|;|\bbut\b|\band then\b|\bthen\b|\band also\b|\balso\b|\band\b|\bplus\b|\bwhile\b|\bas well as\b|\bwhereas\b)\s*/)
+    .split(
+      /\s*(?:,|;|\bbut\b|\band then\b|\bthen\b|\band also\b|\balso\b|\band\b|\bplus\b|\bwhile\b|\bas well as\b|\bwhereas\b)\s*/,
+    )
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 }

@@ -49,14 +49,24 @@ export interface ModelRequirements {
   minCpuCores?: number;
 }
 
-export type LocalModelCategory = 'composition' | 'audio' | 'vocals' | 'transcription' | 'separation' | 'voice-conversion' | 'mastering';
+export type LocalModelCategory =
+  'composition' | 'audio' | 'vocals' | 'transcription' | 'separation' | 'voice-conversion' | 'mastering';
 
 export interface LocalModelEntry {
   id: string;
   name: string;
   category: LocalModelCategory;
   /** How it is run: ollama, lm-studio, llama.cpp, or a Song Deck bridge. */
-  runtime: 'ollama' | 'lm-studio' | 'llama.cpp' | 'ace-step-bridge' | 'diffsinger-bridge' | 'demucs-bridge' | 'basic-pitch-bridge' | 'rvc-bridge' | 'mastering-bridge';
+  runtime:
+    | 'ollama'
+    | 'lm-studio'
+    | 'llama.cpp'
+    | 'ace-step-bridge'
+    | 'diffsinger-bridge'
+    | 'demucs-bridge'
+    | 'basic-pitch-bridge'
+    | 'rvc-bridge'
+    | 'mastering-bridge';
   /** Provider preset that connects to it. */
   presetId: string;
   version: string;
@@ -103,7 +113,11 @@ export function classifyCompatibility(model: LocalModelEntry, hw: HardwareInfo):
 
   if (hw.storageFreeGb !== undefined) {
     const smallest = Math.min(model.sizeGb, ...(model.quantizations ?? []).map((q) => q.sizeGb));
-    if (hw.storageFreeGb < smallest) return { rating: 'insufficient', reasons: [`needs ${smallest.toFixed(1)} GB of disk space, ${hw.storageFreeGb.toFixed(1)} GB free`] };
+    if (hw.storageFreeGb < smallest)
+      return {
+        rating: 'insufficient',
+        reasons: [`needs ${smallest.toFixed(1)} GB of disk space, ${hw.storageFreeGb.toFixed(1)} GB free`],
+      };
   }
   if (hw.ramGb < req.minRamGb) {
     return { rating: 'insufficient', reasons: [`needs ${req.minRamGb} GB RAM, ${hw.ramGb} GB available`] };
@@ -111,7 +125,8 @@ export function classifyCompatibility(model: LocalModelEntry, hw: HardwareInfo):
 
   // CPU-first models (e.g. Basic Pitch, Matchering): no GPU needed at all.
   if (req.recommendedVramGb <= 0 && req.cpuOk) {
-    if (cores >= (req.minCpuCores ?? 2)) return { rating: 'excellent', reasons: [`runs on CPU (${cores} threads)`] };
+    if (cores >= (req.minCpuCores ?? 2))
+      return { rating: 'excellent', reasons: [`runs on CPU (${cores} threads)`] };
     return { rating: 'slow', reasons: [`CPU with only ${cores} threads`] };
   }
   // GPU path.
@@ -120,7 +135,9 @@ export function classifyCompatibility(model: LocalModelEntry, hw: HardwareInfo):
     return { rating: 'excellent', reasons };
   }
   if (gpuMem >= req.minVramGb && gpuMem > 0) {
-    reasons.push(`${gpuMem.toFixed(1)} GB GPU memory ≥ minimum ${req.minVramGb} GB (recommended ${req.recommendedVramGb} GB)`);
+    reasons.push(
+      `${gpuMem.toFixed(1)} GB GPU memory ≥ minimum ${req.minVramGb} GB (recommended ${req.recommendedVramGb} GB)`,
+    );
     return { rating: 'compatible', reasons };
   }
   // A smaller quantization that fits?
@@ -128,22 +145,37 @@ export function classifyCompatibility(model: LocalModelEntry, hw: HardwareInfo):
     .filter((q) => gpuMem > 0 && q.vramGb <= gpuMem)
     .sort((a, b) => (b.quality ?? b.vramGb) - (a.quality ?? a.vramGb))[0];
   if (fitting) {
-    reasons.push(`default variant needs ${req.minVramGb} GB VRAM; ${fitting.id} fits in ${gpuMem.toFixed(1)} GB`);
+    reasons.push(
+      `default variant needs ${req.minVramGb} GB VRAM; ${fitting.id} fits in ${gpuMem.toFixed(1)} GB`,
+    );
     return { rating: 'compatible', reasons, suggestedQuantization: fitting.id };
   }
   if (req.cpuOk) {
     const smallest = [...(model.quantizations ?? [])].sort((a, b) => a.sizeGb - b.sizeGb)[0];
-    reasons.push(gpuMem > 0 ? `only ${gpuMem.toFixed(1)} GB GPU memory (needs ${req.minVramGb} GB) — CPU / partial offload` : 'no GPU acceleration — runs on CPU');
-    const result: CompatibilityResult = { rating: cores >= (req.minCpuCores ?? 4) ? 'slow' : 'insufficient', reasons };
+    reasons.push(
+      gpuMem > 0
+        ? `only ${gpuMem.toFixed(1)} GB GPU memory (needs ${req.minVramGb} GB) — CPU / partial offload`
+        : 'no GPU acceleration — runs on CPU',
+    );
+    const result: CompatibilityResult = {
+      rating: cores >= (req.minCpuCores ?? 4) ? 'slow' : 'insufficient',
+      reasons,
+    };
     if (result.rating === 'insufficient') reasons.push(`needs at least ${req.minCpuCores ?? 4} CPU threads`);
     if (smallest) result.suggestedQuantization = smallest.id;
     return result;
   }
-  reasons.push(gpuMem > 0 ? `needs ${req.minVramGb} GB GPU memory, ${gpuMem.toFixed(1)} GB available` : `needs a GPU with ${req.minVramGb} GB+ memory`);
+  reasons.push(
+    gpuMem > 0
+      ? `needs ${req.minVramGb} GB GPU memory, ${gpuMem.toFixed(1)} GB available`
+      : `needs a GPU with ${req.minVramGb} GB+ memory`,
+  );
   return { rating: 'insufficient', reasons };
 }
 
 export function summarizeHardware(hw: HardwareInfo): string {
-  const gpu = hw.gpus.length ? hw.gpus.map((g) => `${g.name} (${g.vramGb ? `${g.vramGb} GB` : 'shared memory'})`).join(', ') : 'no GPU';
+  const gpu = hw.gpus.length
+    ? hw.gpus.map((g) => `${g.name} (${g.vramGb ? `${g.vramGb} GB` : 'shared memory'})`).join(', ')
+    : 'no GPU';
   return `${gpu} · ${hw.ramGb} GB RAM · ${hw.cpu.cores} cores${hw.storageFreeGb !== undefined ? ` · ${Math.round(hw.storageFreeGb)} GB free` : ''} · ${hw.backends.join('/') || 'cpu'}`;
 }

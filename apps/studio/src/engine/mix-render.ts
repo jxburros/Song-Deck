@@ -1,4 +1,11 @@
-import { songDurationSeconds, stableStringify, type MasteringSettings, type Project, type Song, type Track } from '@songdeck/core';
+import {
+  songDurationSeconds,
+  stableStringify,
+  type MasteringSettings,
+  type Project,
+  type Song,
+  type Track,
+} from '@songdeck/core';
 import type { AudioData, LoudnessReport } from '@songdeck/audio';
 import { jobs } from './jobs';
 import { assetStore } from '../state/assets';
@@ -53,7 +60,11 @@ export function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise
  * Run `promise` while reporting an estimated progress curve (0 → 0.95, then 1 on completion)
  * for jobs that do not report progress themselves.
  */
-export async function withEstimatedProgress<T>(promise: Promise<T>, estimateSeconds: number, onProgress?: (p: number) => void): Promise<T> {
+export async function withEstimatedProgress<T>(
+  promise: Promise<T>,
+  estimateSeconds: number,
+  onProgress?: (p: number) => void,
+): Promise<T> {
   if (!onProgress) return promise;
   const t0 = performance.now();
   const tau = Math.max(0.4, estimateSeconds) * 0.6;
@@ -72,7 +83,12 @@ export async function withEstimatedProgress<T>(promise: Promise<T>, estimateSeco
 }
 
 /** Map a 0..1 sub-progress into [from, to] of an outer progress callback. */
-export function subProgress(onProgress: ((p: number, msg?: string) => void) | undefined, from: number, to: number, msg?: string) {
+export function subProgress(
+  onProgress: ((p: number, msg?: string) => void) | undefined,
+  from: number,
+  to: number,
+  msg?: string,
+) {
   return (p: number) => onProgress?.(from + (to - from) * Math.max(0, Math.min(1, p)), msg);
 }
 
@@ -102,7 +118,11 @@ export function isVocalTrack(t: Pick<Track, 'role' | 'stemGroup'>): boolean {
 
 /** Tracks that actually produce sound (MIDI notes or audio clips) and are not muted. */
 export function audibleTracks(song: Song): Track[] {
-  return song.tracks.filter((t) => !song.mixer.channels[t.id]?.mute && (t.kind === 'audio' ? t.clips.some((c) => !c.muted) : t.notes.length > 0));
+  return song.tracks.filter(
+    (t) =>
+      !song.mixer.channels[t.id]?.mute &&
+      (t.kind === 'audio' ? t.clips.some((c) => !c.muted) : t.notes.length > 0),
+  );
 }
 
 export function vocalTrackIds(song: Song): string[] {
@@ -114,7 +134,10 @@ export function instrumentalTrackIds(song: Song): string[] {
 }
 
 /** Decoded audio for every clip of every audio track (stems, recordings, produced audio). */
-export async function collectAssets(song: Song, project: Project | null = useStudio.getState().project): Promise<Record<string, AudioData>> {
+export async function collectAssets(
+  song: Song,
+  project: Project | null = useStudio.getState().project,
+): Promise<Record<string, AudioData>> {
   const out: Record<string, AudioData> = {};
   if (!project) return out;
   for (const t of song.tracks) {
@@ -159,26 +182,51 @@ export async function renderMixAudio(song: Song, opts: RenderOpts): Promise<Audi
   throwIfAborted(opts.signal);
   const job = jobs.call<AudioData>(
     'renderMix',
-    { song: s, assets, sampleRate: opts.sampleRate, applyMaster: opts.applyMaster ?? true, trackIds: opts.trackIds },
+    {
+      song: s,
+      assets,
+      sampleRate: opts.sampleRate,
+      applyMaster: opts.applyMaster ?? true,
+      trackIds: opts.trackIds,
+    },
     { signal: opts.signal },
   );
-  return withEstimatedProgress(abortable(job, opts.signal), estimateRenderSeconds(s, opts.trackIds?.length), opts.onProgress);
+  return withEstimatedProgress(
+    abortable(job, opts.signal),
+    estimateRenderSeconds(s, opts.trackIds?.length),
+    opts.onProgress,
+  );
 }
 
-export async function renderStemsAudio(song: Song, opts: Omit<RenderOpts, 'trackIds' | 'applyMaster'> & { by: 'stemGroup' | 'track' }): Promise<Record<string, AudioData>> {
+export async function renderStemsAudio(
+  song: Song,
+  opts: Omit<RenderOpts, 'trackIds' | 'applyMaster'> & { by: 'stemGroup' | 'track' },
+): Promise<Record<string, AudioData>> {
   throwIfAborted(opts.signal);
   const s = renderableSong(song);
   const assets = opts.assets ?? (await collectAssets(s));
   throwIfAborted(opts.signal);
-  const job = jobs.call<Record<string, AudioData>>('renderStems', { song: s, assets, sampleRate: opts.sampleRate, by: opts.by }, { signal: opts.signal });
+  const job = jobs.call<Record<string, AudioData>>(
+    'renderStems',
+    { song: s, assets, sampleRate: opts.sampleRate, by: opts.by },
+    { signal: opts.signal },
+  );
   return withEstimatedProgress(abortable(job, opts.signal), estimateRenderSeconds(s) * 1.3, opts.onProgress);
 }
 
-export async function renderTrackAudio(song: Song, trackId: string, opts: Omit<RenderOpts, 'trackIds' | 'applyMaster'>): Promise<AudioData> {
+export async function renderTrackAudio(
+  song: Song,
+  trackId: string,
+  opts: Omit<RenderOpts, 'trackIds' | 'applyMaster'>,
+): Promise<AudioData> {
   throwIfAborted(opts.signal);
   const s = renderableSong(song);
   const assets = opts.assets ?? (await collectAssets(s));
-  const job = jobs.call<AudioData>('renderTrack', { song: s, trackId, assets, sampleRate: opts.sampleRate }, { signal: opts.signal });
+  const job = jobs.call<AudioData>(
+    'renderTrack',
+    { song: s, trackId, assets, sampleRate: opts.sampleRate },
+    { signal: opts.signal },
+  );
   return withEstimatedProgress(abortable(job, opts.signal), estimateRenderSeconds(s, 1), opts.onProgress);
 }
 
@@ -196,7 +244,11 @@ export async function masterAudioBuffer(
   settings: MasteringSettings,
   opts: { signal?: AbortSignal; onProgress?: (p: number) => void } = {},
 ): Promise<{ output: AudioData; report: MasterReport }> {
-  const job = jobs.call<{ output: AudioData; report: MasterReport }>('master', { audio, settings }, { signal: opts.signal, onProgress: (p) => opts.onProgress?.(p) });
+  const job = jobs.call<{ output: AudioData; report: MasterReport }>(
+    'master',
+    { audio, settings },
+    { signal: opts.signal, onProgress: (p) => opts.onProgress?.(p) },
+  );
   return abortable(job, opts.signal);
 }
 
@@ -243,7 +295,15 @@ function computeMixHash(song: Song): string {
       tempoMap: s.tempoMap,
       meterMap: s.meterMap,
       sections: s.sections.map((x) => x.bars),
-      tracks: s.tracks.map((t) => ({ id: t.id, kind: t.kind, instrumentId: t.instrumentId, notes: t.notes, clips: t.clips, stemGroup: t.stemGroup, macros: t.macros })),
+      tracks: s.tracks.map((t) => ({
+        id: t.id,
+        kind: t.kind,
+        instrumentId: t.instrumentId,
+        notes: t.notes,
+        clips: t.clips,
+        stemGroup: t.stemGroup,
+        macros: t.macros,
+      })),
       mixer: s.mixer,
       automation: s.automation,
       macros: s.macros,

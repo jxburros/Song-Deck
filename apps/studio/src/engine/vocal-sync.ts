@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { randomId, sectionLayout, type MusicOperation, type Proposal, type Song, type TaskRecord } from '@songdeck/core';
+import {
+  randomId,
+  sectionLayout,
+  type MusicOperation,
+  type Proposal,
+  type Song,
+  type TaskRecord,
+} from '@songdeck/core';
 import { useStudio } from '../state/store';
 import { taskQueue } from './runtime';
 import { buildProposal, type ProposalMeta } from './proposals';
@@ -33,7 +40,16 @@ export interface VocalProposalInfo {
 export interface VocalActivity {
   id: string;
   at: string;
-  kind: 'render' | 'resing' | 'convert' | 'instruction' | 'take' | 'transcribe' | 'lyrics' | 'melody' | 'expression';
+  kind:
+    | 'render'
+    | 'resing'
+    | 'convert'
+    | 'instruction'
+    | 'take'
+    | 'transcribe'
+    | 'lyrics'
+    | 'melody'
+    | 'expression';
   text: string;
   taskId?: string;
 }
@@ -76,7 +92,10 @@ export function enqueueConvert(input: ConvertInput, title: string): TaskRecord<C
   return t;
 }
 
-export function enqueueTranscribeTake(input: TranscribeTakeInput, title: string): TaskRecord<TranscribeTakeInput> {
+export function enqueueTranscribeTake(
+  input: TranscribeTakeInput,
+  title: string,
+): TaskRecord<TranscribeTakeInput> {
   const t = enqueue('vocals.transcribe-take', title, input);
   logVocalActivity('transcribe', title, t.id);
   return t;
@@ -89,7 +108,10 @@ export function requestResing(input: ResingInput): string | null {
   const current = activeRender(project, input.trackId);
   if (!current) return null;
   if ((current.provenance?.parameters as { renderKind?: unknown } | undefined)?.renderKind === 'conversion') {
-    logVocalActivity('resing', `${input.label ?? 'A range'} changed — the vocal render is a voice conversion; run “Render & convert” again to update it`);
+    logVocalActivity(
+      'resing',
+      `${input.label ?? 'A range'} changed — the vocal render is a voice conversion; run “Render & convert” again to update it`,
+    );
     return null;
   }
   const title = `Re-sing ${input.label ?? 'vocal range'} only`;
@@ -105,11 +127,21 @@ export function resingStaleSections(projectId: string, trackId: string): string[
   const track = project.song.tracks.find((t) => t.id === trackId);
   const current = activeRender(project, trackId);
   if (!track || !current) return [];
-  const voiceKey = current.render?.voiceId ?? current.rendered?.voiceKey ?? resolveVoice(project, project.song.vocals.voiceId, track).key;
+  const voiceKey =
+    current.render?.voiceId ??
+    current.rendered?.voiceKey ??
+    resolveVoice(project, project.song.vocals.voiceId, track).key;
   const st = staleSections(project.song, track, current.rendered, voiceKey);
   const ids: string[] = [];
   for (const span of st.sections) {
-    const id = requestResing({ projectId, trackId, startTick: span.startTick, endTick: span.endTick, label: span.section.name, reason: 'changed since the last render' });
+    const id = requestResing({
+      projectId,
+      trackId,
+      startTick: span.startTick,
+      endTick: span.endTick,
+      label: span.section.name,
+      reason: 'changed since the last render',
+    });
     if (id) ids.push(id);
   }
   return ids;
@@ -122,7 +154,9 @@ export function resingStaleSections(projectId: string, trackId: string): string[
 export function trackVocalProposal(info: Omit<VocalProposalInfo, 'createdAt'>) {
   ensureWatch();
   const entry: VocalProposalInfo = { ...info, createdAt: new Date().toISOString() };
-  useVocalJobs.setState((s) => ({ proposals: [entry, ...s.proposals.filter((p) => p.proposalId !== info.proposalId)].slice(0, 30) }));
+  useVocalJobs.setState((s) => ({
+    proposals: [entry, ...s.proposals.filter((p) => p.proposalId !== info.proposalId)].slice(0, 30),
+  }));
 }
 
 export function vocalProposalInfo(id: string): VocalProposalInfo | undefined {
@@ -130,7 +164,12 @@ export function vocalProposalInfo(id: string): VocalProposalInfo | undefined {
 }
 
 /** Create, register and surface a reviewable proposal (spec §21) from Vocals mode. */
-export function proposeVocal(song: Song, ops: MusicOperation[], meta: ProposalMeta, info: Omit<VocalProposalInfo, 'proposalId' | 'createdAt'>): Proposal | { error: string } {
+export function proposeVocal(
+  song: Song,
+  ops: MusicOperation[],
+  meta: ProposalMeta,
+  info: Omit<VocalProposalInfo, 'proposalId' | 'createdAt'>,
+): Proposal | { error: string } {
   if (!ops.length) return { error: meta.explanation ?? 'No change was proposed.' };
   const p = buildProposal(song, ops, meta);
   const changed =
@@ -140,7 +179,11 @@ export function proposeVocal(song: Song, ops: MusicOperation[], meta: ProposalMe
     p.diff.tracksAdded.length > 0;
   if (!changed) {
     const reasons = p.validation.issues.filter((i) => i.severity !== 'info').map((i) => i.message);
-    return { error: reasons.length ? `The change had no effect: ${reasons.slice(0, 2).join('; ')}` : 'The change had no effect (locked or already applied).' };
+    return {
+      error: reasons.length
+        ? `The change had no effect: ${reasons.slice(0, 2).join('; ')}`
+        : 'The change had no effect (locked or already applied).',
+    };
   }
   // What to re-sing after acceptance: the notes the proposal touches, clustered so that changes
   // far apart (a word sung in two choruses) are re-sung separately instead of everything between.
@@ -152,7 +195,8 @@ export function proposeVocal(song: Song, ops: MusicOperation[], meta: ProposalMe
     if (touched.length) {
       ranges = clusterRanges(song, touched);
       range = range ?? { startTick: ranges[0].startTick, endTick: ranges[ranges.length - 1].endTick };
-      if (info.range) ranges = ranges.filter((r) => r.endTick > info.range!.startTick && r.startTick < info.range!.endTick);
+      if (info.range)
+        ranges = ranges.filter((r) => r.endTick > info.range!.startTick && r.startTick < info.range!.endTick);
       if (!ranges.length) ranges = undefined;
     }
   }
@@ -174,7 +218,8 @@ export function proposeVocal(song: Song, ops: MusicOperation[], meta: ProposalMe
 export function acceptVocalProposal(id: string): { ok: boolean; error?: string; reported?: boolean } {
   const st = useStudio.getState();
   const prop = st.proposals.find((p) => p.id === id);
-  if (!prop || prop.status !== 'pending' || !st.project) return { ok: false, error: 'This proposal is no longer pending.' };
+  if (!prop || prop.status !== 'pending' || !st.project)
+    return { ok: false, error: 'This proposal is no longer pending.' };
   st.acceptProposal(id);
   const status = useStudio.getState().proposals.find((p) => p.id === id)?.status;
   return status === 'accepted' ? { ok: true } : { ok: false, reported: true };
@@ -200,21 +245,38 @@ function ensureWatch() {
       if (!p) continue;
       if (p.status === 'accepted') {
         done.push(info.proposalId);
-        logVocalActivity(info.kind === 'transcription' ? 'transcribe' : 'instruction', `Accepted: ${info.title}`);
+        logVocalActivity(
+          info.kind === 'transcription' ? 'transcribe' : 'instruction',
+          `Accepted: ${info.title}`,
+        );
         if (info.range && useVocalJobs.getState().autoResing) {
           // Let the accept commit land first.
           setTimeout(() => {
-            requestResing({ projectId: info.projectId, trackId: info.trackId, startTick: info.range!.startTick, endTick: info.range!.endTick, ranges: info.ranges, label: info.label, reason: info.reason });
+            requestResing({
+              projectId: info.projectId,
+              trackId: info.trackId,
+              startTick: info.range!.startTick,
+              endTick: info.range!.endTick,
+              ranges: info.ranges,
+              label: info.label,
+              reason: info.reason,
+            });
           }, 0);
         }
       } else if (p.status !== 'pending') done.push(info.proposalId);
     }
-    if (done.length) useVocalJobs.setState((st) => ({ proposals: st.proposals.filter((x) => !done.includes(x.proposalId)) }));
+    if (done.length)
+      useVocalJobs.setState((st) => ({
+        proposals: st.proposals.filter((x) => !done.includes(x.proposalId)),
+      }));
   });
 }
 
 /** Group notes into ranges separated by more than two bars of silence. */
-export function clusterRanges(song: Song, notes: { tick: number; duration: number }[]): { startTick: number; endTick: number }[] {
+export function clusterRanges(
+  song: Song,
+  notes: { tick: number; duration: number }[],
+): { startTick: number; endTick: number }[] {
   const meter = song.meterMap[0] ?? { numerator: 4, denominator: 4 };
   const gap = ((song.ppq * 4) / meter.denominator) * meter.numerator * 2;
   const sorted = [...notes].sort((a, b) => a.tick - b.tick);
@@ -228,7 +290,10 @@ export function clusterRanges(song: Song, notes: { tick: number; duration: numbe
 }
 
 /** Range of a section (for "regenerate this section" + re-sing). */
-export function sectionRange(song: Song, sectionId: string): { startTick: number; endTick: number; label: string } | null {
+export function sectionRange(
+  song: Song,
+  sectionId: string,
+): { startTick: number; endTick: number; label: string } | null {
   const span = sectionLayout(song).find((s) => s.section.id === sectionId);
   return span ? { startTick: span.startTick, endTick: span.endTick, label: span.section.name } : null;
 }

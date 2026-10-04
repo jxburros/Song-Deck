@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useElementSize } from '../../hooks';
+import { useThemeName } from '../../ui/theme';
 
 /**
  * A small read-only piano roll (canvas) for previews: transcriptions, generated parts, rebuilt
@@ -52,7 +53,11 @@ export function confidenceBucket(c: number | undefined, low = 0.6): ConfidenceBu
   return 'high';
 }
 
-const BUCKET_VAR: Record<ConfidenceBucket, string> = { high: '--success', medium: '--warning', low: '--danger' };
+const BUCKET_VAR: Record<ConfidenceBucket, string> = {
+  high: '--success',
+  medium: '--warning',
+  low: '--danger',
+};
 
 const DRUM_LABELS: Record<number, string> = {
   35: 'Kick',
@@ -104,6 +109,7 @@ export function NoteStrip({
   testId = 'note-strip',
 }: NoteStripProps) {
   const [wrapRef, size] = useElementSize<HTMLDivElement>();
+  const theme = useThemeName();
   const GUTTER = drums ? DRUM_GUTTER : NOTE_GUTTER;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const beatTicks = (4 * ppq) / (meter.denominator || 4);
@@ -153,7 +159,7 @@ export function NoteStrip({
     if (!g) return;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(document.documentElement);
-    const col = (v: string) => css.getPropertyValue(v).trim() || '#888';
+    const col = (v: string) => css.getPropertyValue(v).trim();
     const bodyW = w - GUTTER;
     const bodyH = height - RULER;
     const rowH = bodyH / rows.length;
@@ -169,10 +175,14 @@ export function NoteStrip({
     rows.forEach((p, i) => {
       const y = RULER + i * rowH;
       if (!drums && [1, 3, 6, 8, 10].includes(((p % 12) + 12) % 12)) {
-        g.fillStyle = 'rgba(0,0,0,0.16)';
+        g.fillStyle = col('--row-shade');
         g.fillRect(GUTTER, y, bodyW, rowH);
       }
-      const label = drums ? (DRUM_LABELS[p] ?? String(p)) : p % 12 === 0 ? `C${Math.floor(p / 12) - 1}` : null;
+      const label = drums
+        ? (DRUM_LABELS[p] ?? String(p))
+        : p % 12 === 0
+          ? `C${Math.floor(p / 12) - 1}`
+          : null;
       // C labels are an octave apart and never collide; drum rows thin out only when tiny.
       if (label && (!drums || rowH >= 9 || i % 2 === 0)) {
         g.fillStyle = col('--text-dim');
@@ -230,12 +240,22 @@ export function NoteStrip({
         g.setLineDash([2, 2]);
         g.strokeStyle = col('--text');
         g.lineWidth = 1;
-        g.strokeRect(x + 0.5, y + 1, Math.max(1, (drums ? Math.min(nw, Math.max(3, rowH)) : nw) - 1), Math.max(1, nh - 1));
+        g.strokeRect(
+          x + 0.5,
+          y + 1,
+          Math.max(1, (drums ? Math.min(nw, Math.max(3, rowH)) : nw) - 1),
+          Math.max(1, nh - 1),
+        );
         g.setLineDash([]);
       }
     }
     // Playhead
-    if (playheadTick !== undefined && playheadTick !== null && playheadTick >= startTick && playheadTick <= startTick + span) {
+    if (
+      playheadTick !== undefined &&
+      playheadTick !== null &&
+      playheadTick >= startTick &&
+      playheadTick <= startTick + span
+    ) {
       const x = Math.round(xOf(playheadTick)) + 0.5;
       g.fillStyle = col('--playhead');
       g.fillRect(x - 0.5, 0, 2, height);
@@ -243,13 +263,42 @@ export function NoteStrip({
     // Gutter edge
     g.fillStyle = col('--border');
     g.fillRect(GUTTER - 1, 0, 1, height);
-  }, [notes, rows, size.width, height, span, startTick, beatTicks, barTicks, colorBy, color, lowConfidence, drums, highlight, playheadTick, firstBarNumber, GUTTER]);
+  }, [
+    notes,
+    rows,
+    size.width,
+    height,
+    span,
+    startTick,
+    beatTicks,
+    barTicks,
+    colorBy,
+    color,
+    lowConfidence,
+    drums,
+    highlight,
+    playheadTick,
+    firstBarNumber,
+    GUTTER,
+    theme,
+  ]);
 
-  const low = colorBy === 'confidence' ? notes.filter((n) => confidenceBucket(n.confidence, lowConfidence) === 'low').length : 0;
+  const low =
+    colorBy === 'confidence'
+      ? notes.filter((n) => confidenceBucket(n.confidence, lowConfidence) === 'low').length
+      : 0;
   return (
     <div
       ref={wrapRef}
-      style={{ position: 'relative', width: '100%', height, borderRadius: 'var(--radius)', overflow: 'hidden', border: '1px solid var(--border)', cursor: onBarClick ? 'pointer' : undefined }}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height,
+        borderRadius: 'var(--radius)',
+        overflow: 'hidden',
+        border: '1px solid var(--border)',
+        cursor: onBarClick ? 'pointer' : undefined,
+      }}
       data-testid={testId}
       onClick={(e) => {
         if (!onBarClick || size.width <= GUTTER) return;
@@ -263,7 +312,9 @@ export function NoteStrip({
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label={ariaLabel ?? `${notes.length} notes${colorBy === 'confidence' ? `, ${low} low-confidence` : ''}`}
+        aria-label={
+          ariaLabel ?? `${notes.length} notes${colorBy === 'confidence' ? `, ${low} low-confidence` : ''}`
+        }
         style={{ display: 'block' }}
       />
     </div>
@@ -271,7 +322,13 @@ export function NoteStrip({
 }
 
 /** Legend for confidence colouring, with per-bucket counts. */
-export function ConfidenceLegend({ notes, lowConfidence = 0.6 }: { notes?: readonly StripNote[]; lowConfidence?: number }) {
+export function ConfidenceLegend({
+  notes,
+  lowConfidence = 0.6,
+}: {
+  notes?: readonly StripNote[];
+  lowConfidence?: number;
+}) {
   const counts = { high: 0, medium: 0, low: 0 };
   for (const n of notes ?? []) counts[confidenceBucket(n.confidence, lowConfidence)]++;
   const item = (bucket: ConfidenceBucket, label: string) => (
@@ -293,7 +350,12 @@ export function ConfidenceLegend({ notes, lowConfidence = 0.6 }: { notes?: reado
     </span>
   );
   return (
-    <div className="row wrap" style={{ gap: 14 }} data-testid="confidence-legend" aria-label="Confidence legend">
+    <div
+      className="row wrap"
+      style={{ gap: 14 }}
+      data-testid="confidence-legend"
+      aria-label="Confidence legend"
+    >
       {item('high', 'High ≥ 80%')}
       {item('medium', `Medium ${Math.round(lowConfidence * 100)}–80%`)}
       {item('low', `Low < ${Math.round(lowConfidence * 100)}% — check these`)}

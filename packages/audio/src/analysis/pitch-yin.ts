@@ -153,7 +153,8 @@ export function correctOctaves(f0: Float32Array, conf: Float32Array, radius = 8)
   for (let i = 0; i < n; i++) {
     if (Number.isNaN(midi[i])) continue;
     win.length = 0;
-    for (let j = Math.max(0, i - radius); j <= Math.min(n - 1, i + radius); j++) if (!Number.isNaN(midi[j])) win.push(midi[j]);
+    for (let j = Math.max(0, i - radius); j <= Math.min(n - 1, i + radius); j++)
+      if (!Number.isNaN(midi[j])) win.push(midi[j]);
     if (win.length < 5) continue;
     win.sort((a, b) => a - b);
     const med = win[win.length >> 1];
@@ -169,10 +170,11 @@ export function correctOctaves(f0: Float32Array, conf: Float32Array, radius = 8)
     if (f0[i] > 0) {
       let j = i;
       while (j < n && f0[j] > 0) j++;
-      if (j - i < 3) for (let k = i; k < j; k++) {
-        f0[k] = 0;
-        conf[k] = 0;
-      }
+      if (j - i < 3)
+        for (let k = i; k < j; k++) {
+          f0[k] = 0;
+          conf[k] = 0;
+        }
       i = j;
     } else i++;
   }
@@ -183,7 +185,9 @@ export function pitchAnalysisSignal(buf: AudioData, maxHz: number): { x: Float32
   const mono = analysisMono(buf);
   const target = maxHz <= 1300 ? 11025 : 22050;
   const factor = Math.max(1, Math.round(buf.sampleRate / target));
-  return factor > 1 ? { x: analysisDecimate(mono, factor), sr: buf.sampleRate / factor } : { x: mono, sr: buf.sampleRate };
+  return factor > 1
+    ? { x: analysisDecimate(mono, factor), sr: buf.sampleRate / factor }
+    : { x: mono, sr: buf.sampleRate };
 }
 
 /** Monophonic pitch track (YIN). */

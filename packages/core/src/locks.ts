@@ -45,12 +45,20 @@ export function isTrackSectionLocked(song: Pick<Song, 'locks'>, trackId: Id, sec
 
 export function isChordSectionLocked(song: Pick<Song, 'locks'>, sectionId: Id): boolean {
   const l = song.locks;
-  return isLocked(l, LockKeys.chords) || isLocked(l, LockKeys.sectionChords(sectionId)) || isLocked(l, LockKeys.section(sectionId));
+  return (
+    isLocked(l, LockKeys.chords) ||
+    isLocked(l, LockKeys.sectionChords(sectionId)) ||
+    isLocked(l, LockKeys.section(sectionId))
+  );
 }
 
 export function isLyricsSectionLocked(song: Pick<Song, 'locks'>, sectionId: Id): boolean {
   const l = song.locks;
-  return isLocked(l, LockKeys.lyrics) || isLocked(l, LockKeys.sectionLyrics(sectionId)) || isLocked(l, LockKeys.section(sectionId));
+  return (
+    isLocked(l, LockKeys.lyrics) ||
+    isLocked(l, LockKeys.sectionLyrics(sectionId)) ||
+    isLocked(l, LockKeys.section(sectionId))
+  );
 }
 
 export interface LockedRange {
@@ -77,7 +85,9 @@ export function isNoteLocked(song: Song, track: Track, note: Note): boolean {
 export function lockedNotes(song: Song, track: Track): Note[] {
   const ranges = lockedRangesForTrack(song, track.id);
   const whole = isLocked(song.locks, LockKeys.track(track.id));
-  return track.notes.filter((n) => n.locked || whole || ranges.some((r) => n.tick >= r.startTick && n.tick < r.endTick));
+  return track.notes.filter(
+    (n) => n.locked || whole || ranges.some((r) => n.tick >= r.startTick && n.tick < r.endTick),
+  );
 }
 
 /** Count of locked components (for UI badges). */

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { PPQ } from '@songdeck/core';
-import { medianF0, trackPitch, transcribeMonophonic, transcribePolyphonic, transcribedToNotes, type TranscribedNote } from '../src/analysis';
+import {
+  medianF0,
+  trackPitch,
+  transcribeMonophonic,
+  transcribePolyphonic,
+  transcribedToNotes,
+  type TranscribedNote,
+} from '../src/analysis';
 import { addTone, hummedMelody, lcg, midiHz, mono, silence, type MelodyNote } from './analysis-signals';
 
 const SR = 22050;
@@ -38,7 +45,9 @@ describe('analysis: YIN pitch tracking', () => {
     const tr = trackPitch(mono(SR, x));
     expect(Math.abs(cents(medianF0(tr), midiHz(67)))).toBeLessThan(10);
     // the vibrato itself is tracked (±60 cents)
-    const voiced = Array.from(tr.f0).filter((f) => f > 0).map((f) => cents(f, midiHz(67)));
+    const voiced = Array.from(tr.f0)
+      .filter((f) => f > 0)
+      .map((f) => cents(f, midiHz(67)));
     expect(Math.max(...voiced)).toBeGreaterThan(35);
     expect(Math.min(...voiced)).toBeLessThan(-35);
   });
@@ -54,7 +63,11 @@ describe('analysis: YIN pitch tracking', () => {
   });
 });
 
-function makeMelody(seed: number, count: number, opts: { legato?: boolean; repeats?: boolean } = {}): MelodyNote[] {
+function makeMelody(
+  seed: number,
+  count: number,
+  opts: { legato?: boolean; repeats?: boolean } = {},
+): MelodyNote[] {
   const rnd = lcg(seed);
   const scale = [0, 2, 4, 5, 7, 9, 11, 12, 14];
   const notes: MelodyNote[] = [];
@@ -70,11 +83,17 @@ function makeMelody(seed: number, count: number, opts: { legato?: boolean; repea
   return notes;
 }
 
-function scoreNotes(truth: MelodyNote[], det: TranscribedNote[], tol = 0.05): { recall: number; precision: number } {
+function scoreNotes(
+  truth: MelodyNote[],
+  det: TranscribedNote[],
+  tol = 0.05,
+): { recall: number; precision: number } {
   const used = new Set<number>();
   let ok = 0;
   for (const n of truth) {
-    const i = det.findIndex((d, j) => !used.has(j) && d.pitch === n.pitch && Math.abs(d.startSeconds - n.start) <= tol);
+    const i = det.findIndex(
+      (d, j) => !used.has(j) && d.pitch === n.pitch && Math.abs(d.startSeconds - n.start) <= tol,
+    );
     if (i >= 0) {
       ok++;
       used.add(i);
@@ -112,9 +131,18 @@ describe('analysis: monophonic transcription (humming / singing)', () => {
   }
 
   it('bass line (E1–E3) with the bass range', () => {
-    const truth: MelodyNote[] = [28, 33, 35, 40, 43, 40, 35, 31].map((p, i) => ({ pitch: p, start: 0.2 + i * 0.5, duration: 0.45 }));
+    const truth: MelodyNote[] = [28, 33, 35, 40, 43, 40, 35, 31].map((p, i) => ({
+      pitch: p,
+      start: 0.2 + i * 0.5,
+      duration: 0.45,
+    }));
     const x = silence(SR, 4.5);
-    for (const n of truth) addTone(x, SR, n.start, n.duration, n.pitch, { amp: 0.4, partials: [1, 0.7, 0.4, 0.25], attack: 0.005 });
+    for (const n of truth)
+      addTone(x, SR, n.start, n.duration, n.pitch, {
+        amp: 0.4,
+        partials: [1, 0.7, 0.4, 0.25],
+        attack: 0.005,
+      });
     const r = transcribeMonophonic(mono(SR, x), { minHz: 30, maxHz: 400 });
     expect(scoreNotes(truth, r.notes).recall).toBeGreaterThanOrEqual(0.875);
   });
@@ -137,12 +165,19 @@ describe('analysis: polyphonic transcription', () => {
   ];
   const timbres = {
     organ: { partials: [1, 0.5, 0.33, 0.25, 0.2, 0.16], attack: 0.02 },
-    piano: { partials: [1, 0.6, 0.4, 0.3, 0.22, 0.15, 0.1, 0.07], decay: 0.8, inharmonicity: 0.0004, attack: 0.005 },
+    piano: {
+      partials: [1, 0.6, 0.4, 0.3, 0.22, 0.15, 0.1, 0.07],
+      decay: 0.8,
+      inharmonicity: 0.0004,
+      attack: 0.005,
+    },
   };
   for (const [name, timbre] of Object.entries(timbres)) {
     it(`3–4 note chords (${name}) → finds the chord tones`, () => {
       const x = silence(SR, chords.length * 1.2 + 0.5);
-      chords.forEach((c, i) => c.forEach((p) => addTone(x, SR, 0.2 + i * 1.2, 1.0, p, { ...timbre, amp: 0.15 })));
+      chords.forEach((c, i) =>
+        c.forEach((p) => addTone(x, SR, 0.2 + i * 1.2, 1.0, p, { ...timbre, amp: 0.15 })),
+      );
       const r = transcribePolyphonic(mono(SR, x));
       let tp = 0;
       let fp = 0;
@@ -182,11 +217,18 @@ describe('analysis: transcription → IR notes', () => {
     expect(out.map((n) => n.confidence)).toEqual([0.9, 0.4, 0.8]);
     expect(new Set(out.map((n) => n.id)).size).toBe(3);
     // deterministic ids
-    expect(transcribedToNotes(notes, { bpm: 120, offsetSeconds: 1 }).map((n) => n.id)).toEqual(out.map((n) => n.id));
+    expect(transcribedToNotes(notes, { bpm: 120, offsetSeconds: 1 }).map((n) => n.id)).toEqual(
+      out.map((n) => n.id),
+    );
   });
 
   it('honours quantize strength and no-quantize', () => {
-    const half = transcribedToNotes([notes[0]], { bpm: 120, offsetSeconds: 1, quantizeBeats: 0.25, quantizeStrength: 0.5 });
+    const half = transcribedToNotes([notes[0]], {
+      bpm: 120,
+      offsetSeconds: 1,
+      quantizeBeats: 0.25,
+      quantizeStrength: 0.5,
+    });
     expect(half[0].tick).toBe(10); // 0.02 s = 19.2 ticks → halfway to 0
     const raw = transcribedToNotes([notes[0]], { bpm: 120, offsetSeconds: 1, quantizeBeats: 0 });
     expect(raw[0].tick).toBe(19);
@@ -194,7 +236,12 @@ describe('analysis: transcription → IR notes', () => {
   });
 
   it('snaps out-of-key notes and lowers their confidence', () => {
-    const out = transcribedToNotes(notes, { bpm: 120, offsetSeconds: 1, key: { tonic: 0, mode: 'major' }, snapToKey: true });
+    const out = transcribedToNotes(notes, {
+      bpm: 120,
+      offsetSeconds: 1,
+      key: { tonic: 0, mode: 'major' },
+      snapToKey: true,
+    });
     expect(out.map((n) => n.pitch)).toEqual([60, 62, 64]);
     expect(out[1].confidence).toBeCloseTo(0.34, 2);
     expect(out[0].confidence).toBe(0.9);

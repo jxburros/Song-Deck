@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  CONNECTABLE_PRESET_IDS,
   LLM_BASE_CAPABILITIES,
   PROVIDER_PRESETS,
   configFromPreset,
@@ -13,12 +14,20 @@ import {
 import { useSettings } from '../../state/settings';
 import { useStudio } from '../../state/store';
 import { useRuntime } from '../../engine/runtime';
-import { getRegistry, initAi, useAiRuntime } from '../../engine/ai';
+import {
+  browserKeyRefs,
+  forgetBrowserKeys,
+  getRegistry,
+  initAi,
+  moveBrowserKeysToVault,
+  useAiRuntime,
+} from '../../engine/ai';
 import { Badge, Button, Modal, TextInput, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { ADAPTER_LABELS, GALLERY_GROUPS } from './constants';
 import { checkProvider, credentialLocations, syncProvidersNow, type CredentialWhere } from './api';
 import { ProviderEditor } from './ProviderEditor';
+import { ConnectServiceModal, LocalServicesList } from './ConnectService';
 import { useSettingsNav } from './nav';
 import { CapBadges, Empty, LocationBadge, Panel, StatusPill, TabHeader, errorMessage } from './ui';
 
@@ -33,7 +42,8 @@ const CUSTOM_OPENAI: ProviderPreset = {
   category: 'llm',
   adapter: 'openai-compatible',
   location: 'local',
-  description: 'Any server speaking the OpenAI Chat Completions API — vLLM, TGI, LocalAI, a remote GPU box, a gateway. Name, endpoint URL, authentication, model id, context length, capabilities, structured output, timeout, concurrency.',
+  description:
+    'Any server speaking the OpenAI Chat Completions API — vLLM, TGI, LocalAI, a remote GPU box, a gateway. Name, endpoint URL, authentication, model id, context length, capabilities, structured output, timeout, concurrency.',
   baseUrl: 'http://localhost:8000/v1',
   auth: { type: 'none' },
   requiresCredential: false,
@@ -88,6 +98,9 @@ export default function ProvidersTab() {
   const [gallery, setGallery] = useState(false);
   const [keys, setKeys] = useState<Record<string, CredentialWhere>>({});
   const [checking, setChecking] = useState(false);
+  const [connect, setConnect] = useState<{ presetId?: string; existing?: ProviderConfig } | null>(null);
+  const [browserKeys, setBrowserKeys] = useState<{ ref: string; label?: string }[]>([]);
+  const [keysBusy, setKeysBusy] = useState(false);
 
   useEffect(() => {
     initAi();
@@ -97,9 +110,12 @@ export default function ProvidersTab() {
   useEffect(() => {
     if (!focus) return;
     if (focus === 'add') setGallery(true);
+    else if (focus === 'connect') setConnect({});
+    else if (focus.startsWith('connect:')) setConnect({ presetId: focus.slice(8) });
     else if (focus.startsWith('add:')) {
       const preset = getPreset(focus.slice(4));
-      if (preset) setEditing({ config: newConfigFor(preset, new Set(providers.map((p) => p.id))), isNew: true });
+      if (preset)
+        setEditing({ config: newConfigFor(preset, new Set(providers.map((p) => p.id))), isNew: true });
     } else {
       const config = providers.find((p) => p.id === focus);
       if (config) setEditing({ config, isNew: false });
@@ -107,15 +123,61 @@ export default function ProvidersTab() {
     clearFocus();
   }, [focus, providers, clearFocus]);
 
-  const refs = useMemo(() => providers.filter((p) => p.auth.type !== 'none').map((p) => p.credentialRef || defaultCredentialRef(p.id)), [providers]);
+  const refs = useMemo(
+    () =>
+      providers
+        .filter((p) => p.auth.type !== 'none')
+        .map((p) => p.credentialRef || defaultCredentialRef(p.id)),
+    [providers],
+  );
   useEffect(() => {
     if (editing) return;
     let alive = true;
     void credentialLocations(refs).then((r) => alive && setKeys(r));
+    void browserKeyRefs().then((r) => alive && setBrowserKeys(r));
     return () => {
       alive = false;
     };
-  }, [refs, server, useServerProxy, editing]);
+  }, [refs, server, useServerProxy, editing, connect]);
+
+  const vaultActive = server === 'online' && useServerProxy;
+  const refreshKeys = async () => {
+    setKeys(await credentialLocations(refs));
+    setBrowserKeys(await browserKeyRefs());
+  };
+  const moveKeys = async () => {
+    setKeysBusy(true);
+    try {
+      const r = await moveBrowserKeysToVault();
+      toast(
+        r.failed.length ? 'warning' : 'success',
+        `Moved ${r.moved} key${r.moved === 1 ? '' : 's'} into the server vault${r.failed.length ? ` (${r.failed.length} could not be moved)` : ''}`,
+      );
+    } catch (err) {
+      toast('error', `Could not move the keys: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setKeysBusy(false);
+      await refreshKeys();
+    }
+  };
+  const forgetKeys = async () => {
+    setKeysBusy(true);
+    await forgetBrowserKeys();
+    setKeysBusy(false);
+    toast('success', 'Forgot every key stored in this browser');
+    await refreshKeys();
+  };
+  const closeConnect = useCallback(() => setConnect(null), []);
+  const openAdvanced = useCallback(
+    (presetId: string) => {
+      setConnect(null);
+      const preset = getPreset(presetId);
+      if (preset)
+        setEditing({ config: newConfigFor(preset, new Set(providers.map((p) => p.id))), isNew: true });
+      else setGallery(true);
+    },
+    [providers],
+  );
 
   const builtIn = summaries.filter((s) => !s.config && s.location === 'internal');
   const plugin = summaries.filter((s) => !s.config && s.location !== 'internal');
@@ -139,11 +201,21 @@ export default function ProvidersTab() {
         }),
     );
     setChecking(false);
-    toast(failed ? 'warning' : 'success', `Checked ${ok + failed} provider${ok + failed === 1 ? '' : 's'}: ${ok} reachable${failed ? `, ${failed} with problems` : ''}`);
+    toast(
+      failed ? 'warning' : 'success',
+      `Checked ${ok + failed} provider${ok + failed === 1 ? '' : 's'}: ${ok} reachable${failed ? `, ${failed} with problems` : ''}`,
+    );
   };
 
   if (editing) {
-    return <ProviderEditor key={editing.config.id} initial={editing.config} isNew={editing.isNew} onClose={() => setEditing(null)} />;
+    return (
+      <ProviderEditor
+        key={editing.config.id}
+        initial={editing.config}
+        isNew={editing.isNew}
+        onClose={() => setEditing(null)}
+      />
+    );
   }
 
   return (
@@ -154,8 +226,9 @@ export default function ProvidersTab() {
         spec="§3–§8"
         lede={
           <>
-            Connect any mix of cloud models (your own keys), local model servers and custom endpoints. Workflows ask for <em>capabilities</em>, not vendors —
-            and Song Deck’s on-device engine is always there, so a project never depends on one provider.
+            Connect any mix of cloud models (your own keys), local model servers and custom endpoints.
+            Workflows ask for <em>capabilities</em>, not vendors — and Song Deck’s on-device engine is always
+            there, so a project never depends on one provider.
           </>
         }
         actions={
@@ -163,35 +236,77 @@ export default function ProvidersTab() {
             <Button icon="rebuild" onClick={() => void checkAll()} disabled={checking || !providers.length}>
               {checking ? 'Checking…' : 'Check all'}
             </Button>
-            <Button variant="primary" icon="plus" onClick={() => setGallery(true)}>
+            <Button
+              icon="plus"
+              onClick={() => setGallery(true)}
+              title="Advanced: pick a preset and fill in every field yourself"
+            >
               Add provider
+            </Button>
+            <Button variant="primary" icon="plug" onClick={() => setConnect({})}>
+              Connect a service
             </Button>
           </>
         }
       />
 
-      <div className={`callout ${server === 'online' && useServerProxy ? 'success' : 'warning'} st-keys-callout`}>
-        <Icon name={server === 'online' && useServerProxy ? 'shield' : 'alert'} size={14} />
-        {server === 'online' && useServerProxy ? (
+      <div className={`callout ${vaultActive ? 'success' : 'warning'} st-keys-callout`}>
+        <Icon name={vaultActive ? 'shield' : 'alert'} size={14} />
+        {vaultActive ? (
           <span>
-            Keys are stored by the local server ({vaultBackend ?? 'vault'}) and injected server-side through its proxy. They are never written to settings, projects or
-            this browser.
+            Keys are stored by the local server ({vaultBackend ?? 'vault'}) and injected server-side through
+            its proxy. They are never written to settings, projects or this browser.
           </span>
         ) : server === 'online' ? (
-          <span>The server proxy is off (General): keys entered now stay in this tab’s memory and requests go straight from the browser.</span>
+          <span>
+            The server proxy is off (General): keys entered now are stored encrypted in this browser and
+            requests go straight from the browser.
+          </span>
         ) : (
           <span>
-            Browser-only mode: keys entered now stay in this tab’s memory only and are forgotten on reload. Start the local server (<code>npx tsx apps/server/src/cli.ts</code>)
-            to keep them in the OS keychain.
+            Browser-only mode: keys are stored encrypted in this browser (they survive reloads, never enter
+            settings or projects). Start the local server (<code>npx tsx apps/server/src/cli.ts</code>) to
+            keep them in the OS keychain instead.
           </span>
         )}
       </div>
+      {browserKeys.length > 0 && (
+        <div className="callout row wrap" data-testid="browser-keys">
+          <Icon name="key" size={14} />
+          <span className="grow">
+            {browserKeys.length} key{browserKeys.length === 1 ? ' is' : 's are'} stored in this browser
+            {vaultActive ? ' — the local server is running: move them into its vault (OS keychain)?' : '.'}
+          </span>
+          {vaultActive && (
+            <Button
+              size="sm"
+              variant="primary"
+              icon="shield"
+              onClick={() => void moveKeys()}
+              disabled={keysBusy}
+            >
+              Move to server vault
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="trash"
+            onClick={() => void forgetKeys()}
+            disabled={keysBusy}
+            title="Delete every key stored in this browser"
+          >
+            Forget browser keys
+          </Button>
+        </div>
+      )}
 
       {providers.length === 0 ? (
         <Panel title="Your providers" icon="plug">
           <Empty icon="sparkles">
-            No providers yet — everything runs on the deterministic on-device engine. <strong>Add provider</strong> to bring an API key, connect Ollama / LM Studio /
-            llama.cpp / vLLM, or point at any compatible endpoint.
+            No providers yet — everything runs on the deterministic on-device engine.{' '}
+            <strong>Connect a service</strong> to paste an API key (Gemini, Claude, OpenAI, ElevenLabs…) or
+            add a local server found on this machine; <strong>Add provider</strong> covers everything else.
           </Empty>
         </Panel>
       ) : (
@@ -201,9 +316,12 @@ export default function ProvidersTab() {
               key={p.id}
               config={p}
               summary={summaries.find((s) => s.id === p.id)}
-              keyWhere={p.auth.type === 'none' ? undefined : keys[p.credentialRef || defaultCredentialRef(p.id)]}
+              keyWhere={
+                p.auth.type === 'none' ? undefined : keys[p.credentialRef || defaultCredentialRef(p.id)]
+              }
               offline={offline}
               onEdit={() => setEditing({ config: p, isNew: false })}
+              onModels={() => setConnect({ existing: p })}
               onToggle={async (enabled) => {
                 upsertProvider({ ...p, enabled });
                 await syncProvidersNow();
@@ -213,7 +331,20 @@ export default function ProvidersTab() {
         </div>
       )}
 
-      <Panel title="On-device engines" icon="shield" sub="Deterministic, free, offline — registered as ordinary providers with capabilities, so routing treats them like any other (spec §2.2, §51).">
+      <Panel
+        title="Found on this machine"
+        icon="cpu"
+        sub="Local AI servers that are running now — add one with a click."
+        testId="local-services-panel"
+      >
+        <LocalServicesList />
+      </Panel>
+
+      <Panel
+        title="On-device engines"
+        icon="shield"
+        sub="Deterministic, free, offline — registered as ordinary providers with capabilities, so routing treats them like any other (spec §2.2, §51)."
+      >
         <div className="st-engine-list">
           {builtIn.map((s) => (
             <div key={s.id} className="st-engine">
@@ -228,7 +359,11 @@ export default function ProvidersTab() {
       </Panel>
 
       {plugin.length > 0 && (
-        <Panel title="Plugin providers" icon="layers" sub="Contributed by enabled plugins (Plugins & profiles).">
+        <Panel
+          title="Plugin providers"
+          icon="layers"
+          sub="Contributed by enabled plugins (Plugins & profiles)."
+        >
           <div className="st-engine-list">
             {plugin.map((s) => (
               <div key={s.id} className="st-engine">
@@ -244,6 +379,15 @@ export default function ProvidersTab() {
             ))}
           </div>
         </Panel>
+      )}
+
+      {connect && (
+        <ConnectServiceModal
+          onClose={closeConnect}
+          onAdvanced={openAdvanced}
+          initialPresetId={connect.presetId}
+          existing={connect.existing}
+        />
       )}
 
       {gallery && (
@@ -266,6 +410,7 @@ function ProviderCard({
   keyWhere,
   offline,
   onEdit,
+  onModels,
   onToggle,
 }: {
   config: ProviderConfig;
@@ -273,6 +418,7 @@ function ProviderCard({
   keyWhere?: CredentialWhere;
   offline: boolean;
   onEdit: () => void;
+  onModels: () => void;
   onToggle: (enabled: boolean) => void | Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -280,10 +426,18 @@ function ProviderCard({
   const [note, setNote] = useState<string | null>(null);
   const preset = getPreset(config.presetId);
   const needsKey = config.auth.type !== 'none' && keyWhere === 'none';
-  const status = !config.enabled ? 'disabled' : needsKey && summary?.status === 'ready' ? 'unconfigured' : (summary?.status ?? 'unconfigured');
-  const caps = summary?.capabilities?.length ? summary.capabilities : (config.capabilities ?? preset?.capabilities ?? []);
+  const status = !config.enabled
+    ? 'disabled'
+    : needsKey && summary?.status === 'ready'
+      ? 'unconfigured'
+      : (summary?.status ?? 'unconfigured');
+  const caps = summary?.capabilities?.length
+    ? summary.capabilities
+    : (config.capabilities ?? preset?.capabilities ?? []);
   const models = summary?.models ?? [];
   const blocked = offline && config.location === 'cloud';
+  const canChooseModels =
+    CONNECTABLE_PRESET_IDS.includes(config.presetId ?? '') || !!summary?.interfaces.includes('llm');
   const discover = async () => {
     setBusy(true);
     setErr(null);
@@ -299,7 +453,11 @@ function ProviderCard({
     }
   };
   return (
-    <article className={`st-provider ${!config.enabled ? 'off' : ''} ${blocked ? 'blocked' : ''}`} data-testid={`provider-${config.id}`} aria-label={config.name}>
+    <article
+      className={`st-provider ${!config.enabled ? 'off' : ''} ${blocked ? 'blocked' : ''}`}
+      data-testid={`provider-${config.id}`}
+      aria-label={config.name}
+    >
       <div className="row between" style={{ alignItems: 'flex-start' }}>
         <div style={{ minWidth: 0 }}>
           <div className="st-provider-name ellipsis">{config.name}</div>
@@ -307,17 +465,29 @@ function ProviderCard({
             {preset?.name ?? 'Custom endpoint'} · {ADAPTER_LABELS[config.adapter]}
           </div>
         </div>
-        <Toggle on={config.enabled} onChange={(v) => void onToggle(v)} title={config.enabled ? 'Disable' : 'Enable'} />
+        <Toggle
+          on={config.enabled}
+          onChange={(v) => void onToggle(v)}
+          title={config.enabled ? 'Disable' : 'Enable'}
+        />
       </div>
       <div className="row wrap" style={{ gap: 6 }}>
         <LocationBadge location={config.location} />
-        <StatusPill status={status} title={needsKey ? 'No API key stored yet — open Configure to add one' : summary?.error} label={needsKey && config.enabled ? 'Needs key' : undefined} />
+        <StatusPill
+          status={status}
+          title={needsKey ? 'No API key stored yet — open Configure to add one' : summary?.error}
+          label={needsKey && config.enabled ? 'Needs key' : undefined}
+        />
         {blocked && (
           <Badge tone="danger" title="Offline mode: cloud providers are unavailable">
             Unavailable offline
           </Badge>
         )}
-        {models.length > 0 && <Badge>{models.length} model{models.length === 1 ? '' : 's'}</Badge>}
+        {models.length > 0 && (
+          <Badge>
+            {models.length} model{models.length === 1 ? '' : 's'}
+          </Badge>
+        )}
         {config.defaultModel && <Badge title="Default model">{config.defaultModel}</Badge>}
       </div>
       <CapBadges caps={caps} max={5} />
@@ -325,22 +495,47 @@ function ProviderCard({
       {err && <div className="small st-provider-error">{err}</div>}
       {note && !err && <div className="small muted">{note}</div>}
       <div className="st-provider-foot">
-        <span className="small muted">
+        <span
+          className="small muted"
+          title={keyWhere === 'browser' ? 'Stored encrypted in this browser (IndexedDB, AES-GCM)' : undefined}
+        >
           <Icon name="key" size={12} />{' '}
           {config.auth.type === 'none'
             ? 'No key needed'
             : keyWhere === 'vault'
               ? 'Key in vault'
-              : keyWhere === 'session'
-                ? 'Key in session only'
-                : keyWhere === 'none'
-                  ? 'No key stored'
-                  : '…'}
+              : keyWhere === 'browser'
+                ? 'Key in browser'
+                : keyWhere === 'session'
+                  ? 'Key in session only'
+                  : keyWhere === 'none'
+                    ? 'No key stored'
+                    : '…'}
         </span>
         <span className="grow" />
-        <Button size="sm" variant="ghost" icon="rebuild" onClick={() => void discover()} disabled={busy || !config.enabled || blocked} title="Test the connection and discover models" aria-label={`Test ${config.name}`}>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="rebuild"
+          onClick={() => void discover()}
+          disabled={busy || !config.enabled || blocked}
+          title="Test the connection and discover models"
+          aria-label={`Test ${config.name}`}
+        >
           {busy ? '…' : ''}
         </Button>
+        {canChooseModels && (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="layers"
+            onClick={onModels}
+            disabled={!config.enabled || blocked}
+            title="Choose which models Song Deck uses"
+          >
+            Models
+          </Button>
+        )}
         <Button size="sm" icon="pencil" onClick={onEdit}>
           Configure
         </Button>
@@ -349,17 +544,35 @@ function ProviderCard({
   );
 }
 
-function ProviderGallery({ onClose, onPick, configured }: { onClose: () => void; onPick: (p: ProviderPreset) => void; configured: ProviderConfig[] }) {
+function ProviderGallery({
+  onClose,
+  onPick,
+  configured,
+}: {
+  onClose: () => void;
+  onPick: (p: ProviderPreset) => void;
+  configured: ProviderConfig[];
+}) {
   const [q, setQ] = useState('');
   const query = q.trim().toLowerCase();
-  const match = (p: ProviderPreset) => !query || `${p.name} ${p.description} ${p.capabilities.join(' ')}`.toLowerCase().includes(query);
+  const match = (p: ProviderPreset) =>
+    !query || `${p.name} ${p.description} ${p.capabilities.join(' ')}`.toLowerCase().includes(query);
   const used = new Set(configured.map((c) => c.presetId).filter(Boolean));
   return (
     <Modal title="Add a provider" icon="plug" onClose={onClose} wide>
       <div className="col st-gallery" data-testid="provider-gallery">
-        <TextInput value={q} onChange={setQ} placeholder="Search providers and capabilities…" aria-label="Search providers" autoFocus />
+        <TextInput
+          value={q}
+          onChange={setQ}
+          placeholder="Search providers and capabilities…"
+          aria-label="Search providers"
+          autoFocus
+        />
         {GALLERY_GROUPS.map((g) => {
-          const items = [...(g.id === 'custom' ? [CUSTOM_OPENAI] : []), ...PROVIDER_PRESETS.filter(g.match)].filter(match);
+          const items = [
+            ...(g.id === 'custom' ? [CUSTOM_OPENAI] : []),
+            ...PROVIDER_PRESETS.filter(g.match),
+          ].filter(match);
           if (!items.length) return null;
           return (
             <section key={g.id} className="st-gallery-group">
@@ -390,14 +603,31 @@ function ProviderGallery({ onClose, onPick, configured }: { onClose: () => void;
                       </details>
                     )}
                     <div className="row" style={{ marginTop: 'auto' }}>
-                      <span className="small dim">{p.requiresCredential ? `Needs ${p.credentialLabel ?? 'an API key'}` : p.location === 'local' ? 'No key needed' : 'No key'}</span>
+                      <span className="small dim">
+                        {p.requiresCredential
+                          ? `Needs ${p.credentialLabel ?? 'an API key'}`
+                          : p.location === 'local'
+                            ? 'No key needed'
+                            : 'No key'}
+                      </span>
                       <span className="grow" />
                       {p.docsUrl && (
-                        <a href={p.docsUrl} target="_blank" rel="noreferrer noopener" className="small nowrap">
+                        <a
+                          href={p.docsUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="small nowrap"
+                        >
                           Docs ↗
                         </a>
                       )}
-                      <Button size="sm" variant="primary" icon="plus" onClick={() => onPick(p)} aria-label={`Add ${p.name}`}>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        icon="plus"
+                        onClick={() => onPick(p)}
+                        aria-label={`Add ${p.name}`}
+                      >
                         Add
                       </Button>
                     </div>

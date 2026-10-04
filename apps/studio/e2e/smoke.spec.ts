@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { openComposer } from './compose-helpers';
 
 /**
  * End-to-end smoke test of the Phase 1 loop, entirely on-device (no AI keys):
- * prompt → blueprint → plan → MIDI → workbench → lock → regenerate → AI edit proposal → accept → export.
+ * builder → blueprint → plan → MIDI → workbench → lock → regenerate → AI edit proposal → accept → export.
  */
 test('compose a song, edit it with words, and keep control', async ({ page }) => {
   const errors: string[] = [];
@@ -11,11 +12,14 @@ test('compose a song, edit it with words, and keep control', async ({ page }) =>
   await page.goto('/');
   await expect(page.getByText('AI that gives you the song back.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page.getByLabel('Song prompt').fill(
-    'Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.',
-  );
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
+  // Builder → fine-tune the blueprint → plan → MIDI (the long way round; composeQuickSong is the short one).
+  await openComposer(page);
+  await page
+    .getByTestId('compose-builder')
+    .getByRole('button', { name: 'Alt-rock band', exact: true })
+    .click();
+  await expect(page.getByTestId('builder-instrument')).toHaveCount(5);
+  await page.getByRole('button', { name: 'Fine-tune first' }).click();
   await expect(page.getByRole('heading', { name: 'Song Blueprint' })).toBeVisible();
   await page.getByRole('button', { name: 'Plan composition' }).click();
   await expect(page.getByRole('heading', { name: 'Composition Plan' })).toBeVisible();

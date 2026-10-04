@@ -13,9 +13,12 @@ import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import {
   classifyCompatibility,
+  getPreset,
   inferModelCapabilities,
+  isLoopbackUrl,
   LOCAL_MODEL_CATALOG,
   type LocalModelEntry,
+  type LocalServiceTarget,
   type ModelQuantization,
 } from '@songdeck/ai';
 import type { HardwareInfo, HardwareService } from './hardware';
@@ -95,7 +98,10 @@ export interface SourceStatus {
 export interface ModelsReport {
   categories: { id: ModelCategory; label: string; models: ModelEntry[] }[];
   sources: SourceStatus[];
-  hardware: Pick<HardwareInfo, 'gpus' | 'ramGb' | 'storageFreeGb' | 'backends' | 'accelerationBackends' | 'unifiedMemory'>;
+  hardware: Pick<
+    HardwareInfo,
+    'gpus' | 'ramGb' | 'storageFreeGb' | 'backends' | 'accelerationBackends' | 'unifiedMemory'
+  >;
   scannedAt: string;
 }
 
@@ -131,7 +137,8 @@ export function categoryFrom(value: unknown, capabilities: readonly string[] = [
   const caps = new Set(capabilities);
   if (caps.has('SINGING_SYNTHESIS') || caps.has('VOICE_CONVERSION')) return 'vocals';
   if (caps.has('SOURCE_SEPARATION') || caps.has('VOCAL_ISOLATION')) return 'separation';
-  if (caps.has('AUDIO_TRANSCRIPTION') || caps.has('AUDIO_TO_MIDI') || caps.has('PITCH_TRACKING')) return 'transcription';
+  if (caps.has('AUDIO_TRANSCRIPTION') || caps.has('AUDIO_TO_MIDI') || caps.has('PITCH_TRACKING'))
+    return 'transcription';
   if (caps.has('MASTERING')) return 'mastering';
   if (caps.has('TEXT_TO_MUSIC') || caps.has('AUDIO_TO_AUDIO') || caps.has('STEM_GENERATION')) return 'audio';
   return 'composition';
@@ -139,7 +146,8 @@ export function categoryFrom(value: unknown, capabilities: readonly string[] = [
 
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
-const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+const strArr = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 const trimSlash = (u: string) => u.replace(/\/+$/, '');
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9.:]+/g, '');
 
@@ -161,13 +169,18 @@ interface NormalizedModel {
 
 /** Map a manifest / bridge-info object of loosely known shape onto the model manager's fields. */
 export function normalizeModelObject(raw: Record<string, unknown>): NormalizedModel {
-  const reqSrc = (raw.requirements && typeof raw.requirements === 'object' ? raw.requirements : raw.hardware && typeof raw.hardware === 'object' ? raw.hardware : {}) as Record<
-    string,
-    unknown
-  >;
+  const reqSrc = (
+    raw.requirements && typeof raw.requirements === 'object'
+      ? raw.requirements
+      : raw.hardware && typeof raw.hardware === 'object'
+        ? raw.hardware
+        : {}
+  ) as Record<string, unknown>;
   const requirements: ModelRequirements = {};
-  const minVramGb = num(reqSrc.minVramGb) ?? num(reqSrc.vramGb) ?? num(reqSrc.min_vram_gb) ?? num(raw.minVramGb);
-  const recommendedVramGb = num(reqSrc.recommendedVramGb) ?? num(reqSrc.recommended_vram_gb) ?? num(raw.recommendedVramGb);
+  const minVramGb =
+    num(reqSrc.minVramGb) ?? num(reqSrc.vramGb) ?? num(reqSrc.min_vram_gb) ?? num(raw.minVramGb);
+  const recommendedVramGb =
+    num(reqSrc.recommendedVramGb) ?? num(reqSrc.recommended_vram_gb) ?? num(raw.recommendedVramGb);
   const minRamGb = num(reqSrc.minRamGb) ?? num(reqSrc.ramGb) ?? num(reqSrc.min_ram_gb) ?? num(raw.minRamGb);
   const minCpuCores = num(reqSrc.minCpuCores) ?? num(reqSrc.min_cpu_cores);
   if (minVramGb !== undefined) requirements.minVramGb = minVramGb;
@@ -184,12 +197,16 @@ export function normalizeModelObject(raw: Record<string, unknown>): NormalizedMo
     provider: str(raw.provider) ?? str(raw.runtime) ?? str(raw.vendor) ?? 'local',
     version: str(raw.version) ?? 'unknown',
     category: categoryFrom(raw.category ?? raw.kind ?? raw.type, capabilities),
-    sizeGb: num(raw.sizeGb) ?? num(raw.size_gb) ?? (sizeBytes !== undefined ? sizeBytes / 1024 ** 3 : undefined),
+    sizeGb:
+      num(raw.sizeGb) ?? num(raw.size_gb) ?? (sizeBytes !== undefined ? sizeBytes / 1024 ** 3 : undefined),
     license: str(raw.license) ?? 'unknown',
     requirements,
     capabilities,
     location: str(raw.location) ?? str(raw.url),
-    aliases: [...strArr(raw.aliases), ...[raw.ollama, raw.ollamaTag, raw.catalogId].filter((x): x is string => typeof x === 'string')],
+    aliases: [
+      ...strArr(raw.aliases),
+      ...[raw.ollama, raw.ollamaTag, raw.catalogId].filter((x): x is string => typeof x === 'string'),
+    ],
     description: str(raw.description) ?? str(raw.notes),
     homepage: str(raw.homepage),
   };
@@ -230,12 +247,20 @@ export function catalogEntries(): LocalModelEntry[] {
  * with the AI package's classifier. Unknown requirements → "compatible" when it is installed and
  * already being served locally.
  */
-export function classifyRequirements(req: ModelRequirements, sizeGb: number | undefined, hw: HardwareInfo, installed = true): Compatibility {
+export function classifyRequirements(
+  req: ModelRequirements,
+  sizeGb: number | undefined,
+  hw: HardwareInfo,
+  installed = true,
+): Compatibility {
   const minV = req.minVramGb;
   const minRam = req.minRamGb;
   if (minV === undefined && minRam === undefined && req.recommendedVramGb === undefined) {
     return installed
-      ? { rating: 'compatible', reasons: ['Installed and served on this machine; hardware requirements are not published'] }
+      ? {
+          rating: 'compatible',
+          reasons: ['Installed and served on this machine; hardware requirements are not published'],
+        }
       : { rating: 'compatible', reasons: ['Hardware requirements are not published'] };
   }
   const minVramGb = minV ?? 0;
@@ -310,7 +335,10 @@ class HttpStatusError extends Error {
 }
 
 async function fetchJson(fetchImpl: typeof fetch, url: string, timeoutMs: number): Promise<unknown> {
-  const res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs), headers: { accept: 'application/json' } });
+  const res = await fetchImpl(url, {
+    signal: AbortSignal.timeout(timeoutMs),
+    headers: { accept: 'application/json' },
+  });
   if (!res.ok) {
     await res.body?.cancel().catch(() => undefined);
     throw new HttpStatusError(res.status);
@@ -321,7 +349,11 @@ async function fetchJson(fetchImpl: typeof fetch, url: string, timeoutMs: number
 function errorStatus(err: unknown): Pick<SourceStatus, 'status' | 'error'> {
   const e = err as { name?: string; message?: string; cause?: { code?: string } };
   const code = e?.cause?.code ?? '';
-  if (e?.name === 'TimeoutError' || /ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ECONNRESET/.test(code) || /fetch failed/.test(e?.message ?? '')) {
+  if (
+    e?.name === 'TimeoutError' ||
+    /ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ECONNRESET/.test(code) ||
+    /fetch failed/.test(e?.message ?? '')
+  ) {
     return { status: 'unreachable', error: code || e?.message };
   }
   return { status: 'error', error: e?.message ?? String(err) };
@@ -337,11 +369,22 @@ function llmRequirements(sizeGb: number | undefined): ModelRequirements {
   if (!sizeGb) return {};
   // Weights + KV cache / runtime overhead.
   const min = Math.round((sizeGb * 1.15 + 0.5) * 10) / 10;
-  return { minVramGb: min, recommendedVramGb: Math.round((sizeGb * 1.4 + 1) * 10) / 10, minRamGb: Math.ceil(sizeGb + 2), cpuOk: true };
+  return {
+    minVramGb: min,
+    recommendedVramGb: Math.round((sizeGb * 1.4 + 1) * 10) / 10,
+    minRamGb: Math.ceil(sizeGb + 2),
+    cpuOk: true,
+  };
 }
 
-async function discoverOllama(fetchImpl: typeof fetch, baseUrl: string, timeoutMs: number): Promise<Discovered[]> {
-  const data = (await fetchJson(fetchImpl, `${trimSlash(baseUrl)}/api/tags`, timeoutMs)) as { models?: Record<string, unknown>[] };
+async function discoverOllama(
+  fetchImpl: typeof fetch,
+  baseUrl: string,
+  timeoutMs: number,
+): Promise<Discovered[]> {
+  const data = (await fetchJson(fetchImpl, `${trimSlash(baseUrl)}/api/tags`, timeoutMs)) as {
+    models?: Record<string, unknown>[];
+  };
   const out: Discovered[] = [];
   for (const m of data.models ?? []) {
     const name = String(m.name ?? m.model ?? '');
@@ -364,15 +407,25 @@ async function discoverOllama(fetchImpl: typeof fetch, baseUrl: string, timeoutM
       location: `${trimSlash(baseUrl)} (${name})`,
       source: 'ollama',
       via: `ollama@${trimSlash(baseUrl)}`,
-      description: [str(details.family), str(details.parameter_size), str(details.quantization_level)].filter(Boolean).join(' · ') || undefined,
+      description:
+        [str(details.family), str(details.parameter_size), str(details.quantization_level)]
+          .filter(Boolean)
+          .join(' · ') || undefined,
       matchKeys: tag === 'latest' ? [name, base] : [name],
     });
   }
   return out;
 }
 
-async function discoverOpenAICompatible(fetchImpl: typeof fetch, baseUrl: string, timeoutMs: number, label: string): Promise<Discovered[]> {
-  const data = (await fetchJson(fetchImpl, `${trimSlash(baseUrl)}/models`, timeoutMs)) as { data?: Record<string, unknown>[] };
+async function discoverOpenAICompatible(
+  fetchImpl: typeof fetch,
+  baseUrl: string,
+  timeoutMs: number,
+  label: string,
+): Promise<Discovered[]> {
+  const data = (await fetchJson(fetchImpl, `${trimSlash(baseUrl)}/models`, timeoutMs)) as {
+    data?: Record<string, unknown>[];
+  };
   const out: Discovered[] = [];
   for (const m of data.data ?? []) {
     const id = String(m.id ?? '');
@@ -419,7 +472,11 @@ const BRIDGE_CAPABILITIES: Record<string, string[]> = {
  * `GET /info`; singing / voice-conversion bridges list voices at `GET /voices`; the others are
  * listed as one installed engine when they answer at all.
  */
-async function discoverBridge(fetchImpl: typeof fetch, config: StoredProviderConfig, timeoutMs: number): Promise<Discovered[]> {
+async function discoverBridge(
+  fetchImpl: typeof fetch,
+  config: StoredProviderConfig,
+  timeoutMs: number,
+): Promise<Discovered[]> {
   const base = trimSlash(config.baseUrl);
   const fallbackCategory = BRIDGE_CATEGORY[config.adapter] ?? 'audio';
   const presetId = typeof config.presetId === 'string' ? config.presetId : undefined;
@@ -432,7 +489,11 @@ async function discoverBridge(fetchImpl: typeof fetch, config: StoredProviderCon
       name: n.name,
       provider: config.name,
       version: n.version,
-      category: hasCategory ? n.category : BRIDGE_CATEGORY[config.adapter] ? fallbackCategory : categoryFrom(undefined, capabilities),
+      category: hasCategory
+        ? n.category
+        : BRIDGE_CATEGORY[config.adapter]
+          ? fallbackCategory
+          : categoryFrom(undefined, capabilities),
       sizeGb: n.sizeGb,
       license: n.license,
       requirements: n.requirements,
@@ -457,20 +518,33 @@ async function discoverBridge(fetchImpl: typeof fetch, config: StoredProviderCon
   }
   if (info && typeof info === 'object') {
     const shared = { version: info.version, capabilities: info.capabilities, hardware: info.hardware };
-    const models = Array.isArray(info.models) && info.models.length ? (info.models as Record<string, unknown>[]) : [{ id: info.name ?? config.id, name: info.name ?? config.name }];
+    const models =
+      Array.isArray(info.models) && info.models.length
+        ? (info.models as Record<string, unknown>[])
+        : [{ id: info.name ?? config.id, name: info.name ?? config.name }];
     return models.filter((m) => m && typeof m === 'object').map((m) => entry({ ...shared, ...m }));
   }
   if (config.adapter === 'singing-http' || config.adapter === 'voice-conversion-http') {
     try {
       const data = (await fetchJson(fetchImpl, `${base}/voices`, timeoutMs)) as unknown;
-      const voices = (Array.isArray(data) ? data : ((data as { voices?: unknown[] })?.voices ?? [])) as Record<string, unknown>[];
+      const voices = (
+        Array.isArray(data) ? data : ((data as { voices?: unknown[] })?.voices ?? [])
+      ) as Record<string, unknown>[];
       if (voices.length) {
         return voices
           .filter((v) => v && typeof v.id === 'string')
           .map((v) =>
             entry(
-              { id: v.id, name: v.name ?? v.id, license: v.kind === 'stock' ? 'stock voice' : 'see voice consent' },
-              { description: [v.voice_type, v.language, v.kind].filter((x) => typeof x === 'string').join(' · ') || undefined },
+              {
+                id: v.id,
+                name: v.name ?? v.id,
+                license: v.kind === 'stock' ? 'stock voice' : 'see voice consent',
+              },
+              {
+                description:
+                  [v.voice_type, v.language, v.kind].filter((x) => typeof x === 'string').join(' · ') ||
+                  undefined,
+              },
             ),
           );
       }
@@ -517,9 +591,13 @@ async function discoverDirectory(modelsDir: string): Promise<{ models: Discovere
     const dir = path.join(modelsDir, e.name);
     let manifest: Record<string, unknown>;
     try {
-      manifest = JSON.parse(await fsp.readFile(path.join(dir, 'model.json'), 'utf8')) as Record<string, unknown>;
+      manifest = JSON.parse(await fsp.readFile(path.join(dir, 'model.json'), 'utf8')) as Record<
+        string,
+        unknown
+      >;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') errors.push(`${e.name}/model.json: ${(err as Error).message}`);
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT')
+        errors.push(`${e.name}/model.json: ${(err as Error).message}`);
       continue;
     }
     if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
@@ -558,6 +636,8 @@ export interface ModelManagerOptions {
   providers: ProviderStore;
   ollamaUrl: string | false;
   lmStudioUrl: string | false;
+  /** Other well-known local services (llama.cpp, vLLM, bridges) probed even when not configured. */
+  localServices?: LocalServiceTarget[];
   timeoutMs: number;
   fetch: typeof fetch;
   logger: Logger;
@@ -574,7 +654,8 @@ export class ModelManager {
   constructor(private readonly opts: ModelManagerOptions) {}
 
   async get(force = false): Promise<ModelsReport> {
-    if (!force && this.cached && Date.now() - this.cached.at < (this.opts.cacheMs ?? 30_000)) return this.cached.report;
+    if (!force && this.cached && Date.now() - this.cached.at < (this.opts.cacheMs ?? 30_000))
+      return this.cached.report;
     if (this.inflight) return this.inflight;
     this.inflight = this.scan().finally(() => {
       this.inflight = undefined;
@@ -610,7 +691,8 @@ export class ModelManager {
     else sources.push({ source: 'lm-studio', status: 'disabled', count: 0 });
 
     for (const c of this.opts.providers.list()) {
-      if (c.location !== 'local' || !c.baseUrl || !/^https?:\/\//.test(c.baseUrl) || c.enabled === false) continue;
+      if (c.location !== 'local' || !c.baseUrl || !/^https?:\/\//.test(c.baseUrl) || c.enabled === false)
+        continue;
       // Local providers that need a key are skipped: discovery never touches the vault.
       if (c.auth?.type && c.auth.type !== 'none') continue;
       if (c.adapter === 'ollama') ollamaUrls.add(trimSlash(c.baseUrl).replace(/\/(api|v1)$/, ''));
@@ -620,12 +702,48 @@ export class ModelManager {
         track(`provider:${c.id}`, trimSlash(c.baseUrl), discoverBridge(fetchImpl, c, timeoutMs));
       }
     }
+    // Well-known local services that are not configured yet (default ports, loopback only).
+    const bridgeUrls = new Set(
+      this.opts.providers.list().map((c) => (c.baseUrl ? trimSlash(c.baseUrl) : '')),
+    );
+    for (const t of this.opts.localServices ?? []) {
+      const u = trimSlash(t.baseUrl);
+      if (!isLoopbackUrl(u)) continue;
+      const preset = getPreset(t.presetId);
+      if (t.kind === 'ollama') ollamaUrls.add(u.replace(/\/(api|v1)$/, ''));
+      else if (t.kind === 'openai') {
+        if (!openaiUrls.has(u)) openaiUrls.set(u, preset?.name ?? t.presetId);
+      } else if (!bridgeUrls.has(u) && preset) {
+        bridgeUrls.add(u);
+        const config: StoredProviderConfig = {
+          id: t.presetId,
+          presetId: t.presetId,
+          name: preset.name,
+          adapter: preset.adapter,
+          location: 'local',
+          baseUrl: u,
+          auth: { type: 'none' },
+        };
+        track(`local:${t.presetId}`, u, discoverBridge(fetchImpl, config, timeoutMs));
+      }
+    }
     for (const u of ollamaUrls) track('ollama', `${u}/api/tags`, discoverOllama(fetchImpl, u, timeoutMs));
-    for (const [u, label] of openaiUrls) track(label === 'LM Studio' ? 'lm-studio' : `openai-compatible:${label}`, `${u}/models`, discoverOpenAICompatible(fetchImpl, u, timeoutMs, label));
+    for (const [u, label] of openaiUrls)
+      track(
+        label === 'LM Studio' ? 'lm-studio' : `openai-compatible:${label}`,
+        `${u}/models`,
+        discoverOpenAICompatible(fetchImpl, u, timeoutMs, label),
+      );
     const modelsDir = path.join(this.opts.dataDir, 'models');
     tasks.push(
       discoverDirectory(modelsDir).then(({ models, errors }) => {
-        sources.push({ source: 'models-dir', url: modelsDir, status: errors.length ? 'error' : 'ok', count: models.length, ...(errors.length ? { error: errors.join('; ') } : {}) });
+        sources.push({
+          source: 'models-dir',
+          url: modelsDir,
+          status: errors.length ? 'error' : 'ok',
+          count: models.length,
+          ...(errors.length ? { error: errors.join('; ') } : {}),
+        });
         return models;
       }),
     );
@@ -649,13 +767,20 @@ export class ModelManager {
         (d) =>
           d.catalogId === item.id ||
           d.matchKeys.some((k) => keys.has(norm(k))) ||
-          (d.presetId !== undefined && d.presetId === item.presetId && presetCounts.get(item.presetId) === 1 && !discovered.some((o) => o !== d && o.via === d.via && o.matchKeys.some((k) => keys.has(norm(k))))),
+          (d.presetId !== undefined &&
+            d.presetId === item.presetId &&
+            presetCounts.get(item.presetId) === 1 &&
+            !discovered.some(
+              (o) => o !== d && o.via === d.via && o.matchKeys.some((k) => keys.has(norm(k))),
+            )),
       );
       for (const h of hits) claimed.add(h);
       const installed = hits.length > 0;
       const installedVersion = hits.find((h) => h.source === 'directory' && h.version !== 'unknown')?.version;
       let updateStatus: UpdateStatus = installed ? 'unknown' : 'not-installed';
-      if (installedVersion) updateStatus = compareVersions(installedVersion, item.version) < 0 ? 'update-available' : 'up-to-date';
+      if (installedVersion)
+        updateStatus =
+          compareVersions(installedVersion, item.version) < 0 ? 'update-available' : 'up-to-date';
       entries.push({
         id: item.id,
         name: item.name,
@@ -671,7 +796,12 @@ export class ModelManager {
         ...(installedVersion ? { installedVersion } : {}),
         updateStatus,
         // Installed models need no further disk space.
-        compatibility: classifyCompatibility(installed ? { ...item, sizeGb: 0, quantizations: item.quantizations?.map((q) => ({ ...q, sizeGb: 0 })) } : item, hw),
+        compatibility: classifyCompatibility(
+          installed
+            ? { ...item, sizeGb: 0, quantizations: item.quantizations?.map((q) => ({ ...q, sizeGb: 0 })) }
+            : item,
+          hw,
+        ),
         source: 'catalog',
         ...(item.notes ? { description: item.notes } : {}),
         homepage: item.homepage,
@@ -710,7 +840,12 @@ export class ModelManager {
         ...c,
         models: entries
           .filter((e) => e.category === c.id)
-          .sort((a, b) => Number(b.installed) - Number(a.installed) || RANK[a.compatibility.rating] - RANK[b.compatibility.rating] || a.name.localeCompare(b.name)),
+          .sort(
+            (a, b) =>
+              Number(b.installed) - Number(a.installed) ||
+              RANK[a.compatibility.rating] - RANK[b.compatibility.rating] ||
+              a.name.localeCompare(b.name),
+          ),
       })),
       sources: sources.sort((a, b) => a.source.localeCompare(b.source)),
       hardware: {

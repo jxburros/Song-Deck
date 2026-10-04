@@ -1,11 +1,15 @@
 import { useEffect, useRef } from 'react';
 import type { CompressorSettings } from '@songdeck/core';
 import { Toggle } from '../../ui/kit';
+import { useThemeName } from '../../ui/theme';
 import { Knob } from './controls';
 import { FIELD_META, fmtDb } from './mixModel';
 
 /** Static gain-reduction curve of the engine's soft-knee compressor (dB, ≤ 0). */
-export function gainReduction(x: number, c: Pick<CompressorSettings, 'thresholdDb' | 'ratio' | 'kneeDb'>): number {
+export function gainReduction(
+  x: number,
+  c: Pick<CompressorSettings, 'thresholdDb' | 'ratio' | 'kneeDb'>,
+): number {
   const T = c.thresholdDb;
   const R = Math.max(1, c.ratio);
   const W = Math.max(0, c.kneeDb);
@@ -20,6 +24,7 @@ export function gainReduction(x: number, c: Pick<CompressorSettings, 'thresholdD
 
 function TransferCurve({ comp, size = 118 }: { comp: CompressorSettings; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const theme = useThemeName();
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
@@ -32,14 +37,14 @@ function TransferCurve({ comp, size = 118 }: { comp: CompressorSettings; size?: 
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(document.documentElement);
-    const v = (n: string, f: string) => css.getPropertyValue(n).trim() || f;
-    ctx.fillStyle = v('--bg-input', '#0f1217');
+    const v = (n: string) => css.getPropertyValue(n).trim();
+    ctx.fillStyle = v('--bg-input');
     ctx.fillRect(0, 0, size, size);
     const MIN = -60;
     const MAXO = 12;
     const px = (db: number) => ((db - MIN) / (0 - MIN)) * size;
     const py = (db: number) => size - ((db - MIN) / (MAXO - MIN)) * size;
-    ctx.strokeStyle = v('--grid-line', 'rgba(255,255,255,0.05)');
+    ctx.strokeStyle = v('--grid-line');
     ctx.lineWidth = 1;
     for (let db = -48; db <= 0; db += 12) {
       ctx.beginPath();
@@ -50,7 +55,7 @@ function TransferCurve({ comp, size = 118 }: { comp: CompressorSettings; size?: 
       ctx.stroke();
     }
     // Unity line.
-    ctx.strokeStyle = v('--border-strong', '#343b48');
+    ctx.strokeStyle = v('--border-strong');
     ctx.setLineDash([3, 3]);
     ctx.beginPath();
     ctx.moveTo(px(MIN), py(MIN));
@@ -58,7 +63,7 @@ function TransferCurve({ comp, size = 118 }: { comp: CompressorSettings; size?: 
     ctx.stroke();
     ctx.setLineDash([]);
     // Threshold marker.
-    ctx.strokeStyle = v('--warning', '#f5c451');
+    ctx.strokeStyle = v('--warning');
     ctx.globalAlpha = 0.5;
     ctx.beginPath();
     ctx.moveTo(px(comp.thresholdDb) + 0.5, 0);
@@ -66,7 +71,7 @@ function TransferCurve({ comp, size = 118 }: { comp: CompressorSettings; size?: 
     ctx.stroke();
     ctx.globalAlpha = 1;
     // Curve.
-    ctx.strokeStyle = comp.enabled ? v('--ai', '#46c2cb') : v('--text-dim', '#646d7c');
+    ctx.strokeStyle = comp.enabled ? v('--ai') : v('--text-dim');
     ctx.lineWidth = 2;
     ctx.beginPath();
     for (let i = 0; i <= 120; i++) {
@@ -76,7 +81,7 @@ function TransferCurve({ comp, size = 118 }: { comp: CompressorSettings; size?: 
       else ctx.lineTo(px(x), py(y));
     }
     ctx.stroke();
-  }, [comp, size]);
+  }, [comp, size, theme]);
   return <canvas ref={ref} className="mx-transfer" role="img" aria-label="Compressor transfer curve" />;
 }
 
@@ -97,7 +102,12 @@ export function CompressorEditor({
   title: string;
   glue?: boolean;
 }) {
-  const knob = (key: keyof CompressorSettings, label: string, def: number, extra: { bipolar?: boolean; step?: number } = {}) => {
+  const knob = (
+    key: keyof CompressorSettings,
+    label: string,
+    def: number,
+    extra: { bipolar?: boolean; step?: number } = {},
+  ) => {
     const meta = FIELD_META[`compressor.${key}`];
     return (
       <Knob
@@ -115,7 +125,7 @@ export function CompressorEditor({
         format={meta.fmt}
         disabled={disabled}
         size={30}
-        tone="ai"
+        tone="secondary"
       />
     );
   };

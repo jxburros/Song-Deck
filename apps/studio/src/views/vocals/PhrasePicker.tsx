@@ -5,7 +5,19 @@ import { Button } from '../../ui/kit';
 import { playFrom } from './shared';
 
 /** Phrase list of the vocal track — the "here" of per-phrase expression and vocal instructions. */
-export function PhrasePicker({ song, phrases, value, onChange, height = 260 }: { song: Song; phrases: VocalPhrase[]; value: string | null; onChange: (id: string) => void; height?: number }) {
+export function PhrasePicker({
+  song,
+  phrases,
+  value,
+  onChange,
+  height = 260,
+}: {
+  song: Song;
+  phrases: VocalPhrase[];
+  value: string | null;
+  onChange: (id: string) => void;
+  height?: number;
+}) {
   if (!phrases.length) return <div className="small muted">The vocal track has no notes yet.</div>;
   const tm = createTimeMap(song);
   return (
@@ -29,11 +41,14 @@ export function PhrasePicker({ song, phrases, value, onChange, height = 260 }: {
           <div className="row between" style={{ gap: 6 }}>
             <span className="vx-phrase-label">{p.label}</span>
             <span className="small dim nowrap">
-              {formatBars(song, p.startTick, p.endTick)} · {p.noteIds.length} note{p.noteIds.length === 1 ? '' : 's'}
+              {formatBars(song, p.startTick, p.endTick)} · {p.noteIds.length} note
+              {p.noteIds.length === 1 ? '' : 's'}
             </span>
           </div>
           <div className="row between" style={{ gap: 6 }}>
-            <span className={`small ellipsis ${p.text ? '' : 'dim'}`}>{p.text ? `“${p.text}”` : 'no lyrics attached'}</span>
+            <span className={`small ellipsis ${p.text ? '' : 'dim'}`}>
+              {p.text ? `“${p.text}”` : 'no lyrics attached'}
+            </span>
             <Button
               size="sm"
               variant="ghost"

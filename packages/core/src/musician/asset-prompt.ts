@@ -1,4 +1,11 @@
-import type { AssetRequest, Complexity, KeySignature, ModeName, MusicalFunction, TrackRole } from '../ir/types';
+import type {
+  AssetRequest,
+  Complexity,
+  KeySignature,
+  ModeName,
+  MusicalFunction,
+  TrackRole,
+} from '../ir/types';
 import { isDiatonic, parseChordSymbol, triadQuality } from '../theory/chords';
 import { parseRoman } from '../theory/roman';
 import { parseKey } from '../theory/scales';
@@ -18,22 +25,72 @@ interface InstrumentRule {
 }
 
 const INSTRUMENTS: InstrumentRule[] = [
-  { re: /\belectronic (?:drums?|kit|beat)\b|\b808s\b|\btrap beat\b|\bdrum machine\b/, id: 'electronic-kit', role: 'drums', fn: 'rhythm' },
-  { re: /\bsynth[\s-]?bass\b|\b808 bass\b|\bsub[\s-]?bass\b/, id: 'synth-bass', role: 'bass', fn: 'bass-line' },
+  {
+    re: /\belectronic (?:drums?|kit|beat)\b|\b808s\b|\btrap beat\b|\bdrum machine\b/,
+    id: 'electronic-kit',
+    role: 'drums',
+    fn: 'rhythm',
+  },
+  {
+    re: /\bsynth[\s-]?bass\b|\b808 bass\b|\bsub[\s-]?bass\b/,
+    id: 'synth-bass',
+    role: 'bass',
+    fn: 'bass-line',
+  },
   { re: /\b(?:upright|double|acoustic) bass\b/, id: 'upright-bass', role: 'bass', fn: 'bass-line' },
   { re: /\bcontrabass\b/, id: 'contrabass', role: 'bass', fn: 'bass-line' },
-  { re: /\bbass[\s-]?drums?\b|\bdrums?\b|\bdrum (?:pattern|loop|groove|beat|part)\b|\bbreakbeat\b|\bbeat\b|\bgroove\b|\bkit\b/, id: 'drum-kit', role: 'drums', fn: 'rhythm' },
-  { re: /\bpercussion\b|\bshakers?\b|\bcongas?\b|\bbongos?\b|\btambourine\b/, id: 'percussion', role: 'percussion', fn: 'rhythm' },
+  {
+    re: /\bbass[\s-]?drums?\b|\bdrums?\b|\bdrum (?:pattern|loop|groove|beat|part)\b|\bbreakbeat\b|\bbeat\b|\bgroove\b|\bkit\b/,
+    id: 'drum-kit',
+    role: 'drums',
+    fn: 'rhythm',
+  },
+  {
+    re: /\bpercussion\b|\bshakers?\b|\bcongas?\b|\bbongos?\b|\btambourine\b/,
+    id: 'percussion',
+    role: 'percussion',
+    fn: 'rhythm',
+  },
   { re: /\bbass(?:[\s-]?lines?)?\b|\bbasslines?\b/, id: 'electric-bass', role: 'bass', fn: 'bass-line' },
-  { re: /\blead guitar\b|\bguitar (?:solo|lead)\b/, id: 'electric-guitar-lead', role: 'lead-guitar', fn: 'melody' },
-  { re: /\bacoustic guitar\b|\bstrumm(?:ing|ed)\b/, id: 'acoustic-guitar', role: 'rhythm-guitar', fn: 'accompaniment' },
-  { re: /\bclean (?:electric )?guitar\b/, id: 'electric-guitar-clean', role: 'rhythm-guitar', fn: 'accompaniment' },
-  { re: /\b(?:distorted|heavy|metal|power[\s-]?chord|rhythm) guitar\b|\bguitar riff\b|\bguitars?\b/, id: 'electric-guitar-distorted', role: 'rhythm-guitar', fn: 'accompaniment' },
-  { re: /\belectric piano\b|\brhodes\b|\bwurli(?:tzer)?\b|\be-?piano\b/, id: 'electric-piano', role: 'keys', fn: 'accompaniment' },
+  {
+    re: /\blead guitar\b|\bguitar (?:solo|lead)\b/,
+    id: 'electric-guitar-lead',
+    role: 'lead-guitar',
+    fn: 'melody',
+  },
+  {
+    re: /\bacoustic guitar\b|\bstrumm(?:ing|ed)\b/,
+    id: 'acoustic-guitar',
+    role: 'rhythm-guitar',
+    fn: 'accompaniment',
+  },
+  {
+    re: /\bclean (?:electric )?guitar\b/,
+    id: 'electric-guitar-clean',
+    role: 'rhythm-guitar',
+    fn: 'accompaniment',
+  },
+  {
+    re: /\b(?:distorted|heavy|metal|power[\s-]?chord|rhythm) guitar\b|\bguitar riff\b|\bguitars?\b/,
+    id: 'electric-guitar-distorted',
+    role: 'rhythm-guitar',
+    fn: 'accompaniment',
+  },
+  {
+    re: /\belectric piano\b|\brhodes\b|\bwurli(?:tzer)?\b|\be-?piano\b/,
+    id: 'electric-piano',
+    role: 'keys',
+    fn: 'accompaniment',
+  },
   { re: /\borgan\b/, id: 'organ', role: 'keys', fn: 'pad' },
   { re: /\bpiano\b|\bkeys\b|\bkeyboards?\b/, id: 'piano', role: 'keys', fn: 'accompaniment' },
   { re: /\bpizzicato\b/, id: 'pizzicato-strings', role: 'strings', fn: 'accompaniment' },
-  { re: /\bstring (?:section|ensemble|pad|quartet)\b|\bstrings\b/, id: 'string-ensemble', role: 'strings', fn: 'pad' },
+  {
+    re: /\bstring (?:section|ensemble|pad|quartet)\b|\bstrings\b/,
+    id: 'string-ensemble',
+    role: 'strings',
+    fn: 'pad',
+  },
   { re: /\bviolins?\b|\bfiddle\b/, id: 'violin', role: 'strings', fn: 'melody' },
   { re: /\bviolas?\b/, id: 'viola', role: 'strings', fn: 'melody' },
   { re: /\bcellos?\b|\bvioloncello\b/, id: 'cello', role: 'strings', fn: 'melody' },
@@ -45,12 +102,27 @@ const INSTRUMENTS: InstrumentRule[] = [
   { re: /\bclarinets?\b/, id: 'clarinet', role: 'custom', fn: 'melody' },
   { re: /\bsax(?:ophone)?s?\b/, id: 'saxophone', role: 'custom', fn: 'melody' },
   { re: /\bsynth[\s-]?pads?\b|\bpads?\b/, id: 'synth-pad', role: 'synth-pad', fn: 'pad' },
-  { re: /\bsynth[\s-]?arp(?:eggio|eggiator|eggiated)?s?\b|\barp(?:eggio|eggiator|eggiated)?s?\b/, id: 'synth-arp', role: 'synth-arp', fn: 'texture' },
+  {
+    re: /\bsynth[\s-]?arp(?:eggio|eggiator|eggiated)?s?\b|\barp(?:eggio|eggiator|eggiated)?s?\b/,
+    id: 'synth-arp',
+    role: 'synth-arp',
+    fn: 'texture',
+  },
   { re: /\bsequencer?\b|\bsynth seq(?:uence)?\b/, id: 'synth-seq', role: 'synth-seq', fn: 'rhythm' },
-  { re: /\blead synth\b|\bsynth lead\b|\bsynth melody\b|\bsynths?\b/, id: 'synth-lead', role: 'synth-lead', fn: 'melody' },
+  {
+    re: /\blead synth\b|\bsynth lead\b|\bsynth melody\b|\bsynths?\b/,
+    id: 'synth-lead',
+    role: 'synth-lead',
+    fn: 'melody',
+  },
   { re: /\bchoir\b|\bchoral\b/, id: 'choir', role: 'vocal', fn: 'pad' },
   { re: /\bbacking vocals?\b|\bharmony vocals?\b/, id: 'backing-vocal', role: 'vocal', fn: 'harmony' },
-  { re: /\bvocals?\b|\btopline\b|\bsinging\b|\bsung\b|\bvoice\b/, id: 'lead-vocal', role: 'vocal', fn: 'melody' },
+  {
+    re: /\bvocals?\b|\btopline\b|\bsinging\b|\bsung\b|\bvoice\b/,
+    id: 'lead-vocal',
+    role: 'vocal',
+    fn: 'melody',
+  },
   { re: /\bharp\b/, id: 'harp', role: 'keys', fn: 'accompaniment' },
   { re: /\btimpani\b/, id: 'timpani', role: 'percussion', fn: 'rhythm' },
   { re: /\bglock(?:enspiel)?\b/, id: 'glockenspiel', role: 'keys', fn: 'melody' },
@@ -161,14 +233,31 @@ const MOODS: [RegExp, string][] = [
   [/\bwistful\b/, 'wistful'],
 ];
 
-const MINORISH = new Set(['melancholy', 'sad', 'dark', 'eerie', 'haunting', 'brooding', 'ominous', 'somber', 'lonely', 'mysterious', 'bittersweet', 'wistful', 'tense']);
+const MINORISH = new Set([
+  'melancholy',
+  'sad',
+  'dark',
+  'eerie',
+  'haunting',
+  'brooding',
+  'ominous',
+  'somber',
+  'lonely',
+  'mysterious',
+  'bittersweet',
+  'wistful',
+  'tense',
+]);
 
-const MODE_WORDS = '(major|minor|maj|min|dorian|phrygian|lydian|mixolydian|aeolian|ionian|locrian|harmonic minor|melodic minor)';
+const MODE_WORDS =
+  '(major|minor|maj|min|dorian|phrygian|lydian|mixolydian|aeolian|ionian|locrian|harmonic minor|melodic minor)';
 
 function detectKey(raw: string): KeySignature | null {
   const withMode = new RegExp(`\\b([A-Ga-g](?:#|b|♯|♭)?)\\s*${MODE_WORDS}\\b`, 'i').exec(raw);
   if (withMode) {
-    const k = parseKey(`${withMode[1][0].toUpperCase()}${withMode[1].slice(1)} ${withMode[2].toLowerCase().replace('aeolian', 'minor').replace('ionian', 'major')}`);
+    const k = parseKey(
+      `${withMode[1][0].toUpperCase()}${withMode[1].slice(1)} ${withMode[2].toLowerCase().replace('aeolian', 'minor').replace('ionian', 'major')}`,
+    );
     if (k) return k;
   }
   const m = /\b(?:in|key of|key:?)\s+([A-G](?:#|b|♯|♭)?)(m)?(?![a-z])/.exec(raw);
@@ -180,7 +269,10 @@ function detectKey(raw: string): KeySignature | null {
 }
 
 function tokens(raw: string): string[] {
-  return raw.split(/[\s,|–—]+|\s-\s|(?<=\S)-(?=[A-G])/).map((t) => t.replace(/[.;:!?)(]+$/g, '').replace(/^[(]+/, '')).filter(Boolean);
+  return raw
+    .split(/[\s,|–—]+|\s-\s|(?<=\S)-(?=[A-G])/)
+    .map((t) => t.replace(/[.;:!?)(]+$/g, '').replace(/^[(]+/, ''))
+    .filter(Boolean);
 }
 
 function detectProgression(raw: string): { chords?: string[]; romans?: string[] } {
@@ -199,7 +291,13 @@ function detectProgression(raw: string): { chords?: string[]; romans?: string[] 
   let rbest: string[] = [];
   let rcur: string[] = [];
   for (const t of toks) {
-    if (/^(?:b|#)?(?:VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)(?:°|ø|\+|o)?(?:7|maj7|9|sus2|sus4|6|add9)?$/.test(t) && parseRoman(t)) rcur.push(t);
+    if (
+      /^(?:b|#)?(?:VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)(?:°|ø|\+|o)?(?:7|maj7|9|sus2|sus4|6|add9)?$/.test(
+        t,
+      ) &&
+      parseRoman(t)
+    )
+      rcur.push(t);
     else {
       if (rcur.length > rbest.length) rbest = rcur;
       rcur = [];
@@ -224,7 +322,8 @@ export function keyFromChords(symbols: string[]): KeySignature | null {
       for (const c of specs) if (isDiatonic({ root: c.root, quality: c.quality }, key)) score += 1;
       const first = specs[0];
       const tq = triadQuality(first.quality);
-      if (first.root === tonic && ((mode === 'minor' && tq === 'min') || (mode === 'major' && tq !== 'min'))) score += 1.5;
+      if (first.root === tonic && ((mode === 'minor' && tq === 'min') || (mode === 'major' && tq !== 'min')))
+        score += 1.5;
       const last = specs[specs.length - 1];
       if (last.root === tonic) score += 0.5;
       if (mod12(last.root - tonic) === 7) score += 0.25;
@@ -242,7 +341,8 @@ function earliest<T>(text: string, rules: [RegExp, T][]): { value: T; index: num
   for (const [re, value] of rules) {
     const m = re.exec(text);
     if (!m) continue;
-    if (!out || m.index < out.index || (m.index === out.index && m[0].length > out.length)) out = { value, index: m.index, length: m[0].length };
+    if (!out || m.index < out.index || (m.index === out.index && m[0].length > out.length))
+      out = { value, index: m.index, length: m[0].length };
   }
   return out;
 }
@@ -262,7 +362,10 @@ export function parseAssetPrompt(prompt: string, opts: { defaultTempo?: number }
   }
 
   // Instrument: the earliest-mentioned instrument wins (ties → the longer, more specific match).
-  const inst = earliest(text, INSTRUMENTS.map((r) => [r.re, r] as [RegExp, InstrumentRule]));
+  const inst = earliest(
+    text,
+    INSTRUMENTS.map((r) => [r.re, r] as [RegExp, InstrumentRule]),
+  );
   const instrument: InstrumentRule = inst?.value ?? { re: /$/, id: 'piano', role: 'keys', fn: 'melody' };
 
   // Musical function: the function word closest to the instrument mention.
@@ -280,7 +383,8 @@ export function parseAssetPrompt(prompt: string, opts: { defaultTempo?: number }
       fn = f;
     }
   }
-  if (instrument.role === 'drums' || instrument.role === 'percussion') fn = /\bfills?\b/.test(text) ? 'fills' : 'rhythm';
+  if (instrument.role === 'drums' || instrument.role === 'percussion')
+    fn = /\bfills?\b/.test(text) ? 'fills' : 'rhythm';
   if (instrument.role === 'bass' && fn !== 'melody' && fn !== 'solo') fn = 'bass-line';
 
   const progression = detectProgression(raw);
@@ -289,21 +393,32 @@ export function parseAssetPrompt(prompt: string, opts: { defaultTempo?: number }
   // Bars.
   const barsM = /\b(\d+)[\s-]?(?:bars?|measures?)\b/.exec(text);
   const drums = instrument.role === 'drums' || instrument.role === 'percussion';
-  const bars = barsM ? Math.min(256, Math.max(1, parseInt(barsM[1], 10))) : progressionList ? Math.max(4, progressionList.length) : drums ? 4 : 8;
+  const bars = barsM
+    ? Math.min(256, Math.max(1, parseInt(barsM[1], 10)))
+    : progressionList
+      ? Math.max(4, progressionList.length)
+      : drums
+        ? 4
+        : 8;
 
   // Moods.
   const moods: string[] = [];
-  const moodHits = MOODS.map(([re, m]) => ({ m, i: text.search(re) })).filter((x) => x.i >= 0).sort((a, b) => a.i - b.i);
+  const moodHits = MOODS.map(([re, m]) => ({ m, i: text.search(re) }))
+    .filter((x) => x.i >= 0)
+    .sort((a, b) => a.i - b.i);
   for (const h of moodHits) if (!moods.includes(h.m)) moods.push(h.m);
 
   // Key.
   let key = detectKey(raw);
   if (!key && progression.chords) key = keyFromChords(progression.chords);
-  if (!key) key = moods.some((m) => MINORISH.has(m)) ? { tonic: 9, mode: 'minor' } : { tonic: 0, mode: 'major' };
+  if (!key)
+    key = moods.some((m) => MINORISH.has(m)) ? { tonic: 9, mode: 'minor' } : { tonic: 0, mode: 'major' };
 
   // Tempo.
   let tempo: number | undefined;
-  const bpm = /\b(\d{2,3})\s*(?:bpm|beats per minute)\b/.exec(text) ?? /\btempo (?:of |at |=\s*)?(\d{2,3})\b/.exec(text);
+  const bpm =
+    /\b(\d{2,3})\s*(?:bpm|beats per minute)\b/.exec(text) ??
+    /\btempo (?:of |at |=\s*)?(\d{2,3})\b/.exec(text);
   if (bpm) tempo = parseInt(bpm[1], 10);
   else if (/\bvery fast\b|\bbreakneck\b/.test(text)) tempo = 175;
   else if (/\bfast\b|\buptempo\b|\bup-tempo\b|\bdriving\b/.test(text)) tempo = 150;
@@ -323,8 +438,14 @@ export function parseAssetPrompt(prompt: string, opts: { defaultTempo?: number }
 
   // Number of alternatives.
   let count = 1;
-  const c1 = /\b(\d+)\s+(?:alternative|alternatives|different|variations?|versions?|options?|takes?|ideas?|variants?)\b/.exec(text);
-  const c2 = /\b(\d+)\s+(?!(?:bars?|measures?|bpm|beats? per)\b)(?:[a-z-]+\s+){0,3}?(?:lines|melodies|counter-melodies|countermelodies|patterns|riffs|licks|grooves|beats|rhythms|progressions|loops|phrases|parts|basslines|hooks|fills|motifs|arpeggios|arps|sequences|pads|textures|drones|solos|harmonies|voicings|stabs|toplines|ideas|options|versions|variations|takes|alternatives)\b/.exec(text);
+  const c1 =
+    /\b(\d+)\s+(?:alternative|alternatives|different|variations?|versions?|options?|takes?|ideas?|variants?)\b/.exec(
+      text,
+    );
+  const c2 =
+    /\b(\d+)\s+(?!(?:bars?|measures?|bpm|beats? per)\b)(?:[a-z-]+\s+){0,3}?(?:lines|melodies|counter-melodies|countermelodies|patterns|riffs|licks|grooves|beats|rhythms|progressions|loops|phrases|parts|basslines|hooks|fills|motifs|arpeggios|arps|sequences|pads|textures|drones|solos|harmonies|voicings|stabs|toplines|ideas|options|versions|variations|takes|alternatives)\b/.exec(
+      text,
+    );
   if (c1) count = parseInt(c1[1], 10);
   else if (c2) count = parseInt(c2[1], 10);
   else if (/\bseveral\b/.test(text)) count = 4;
@@ -332,7 +453,8 @@ export function parseAssetPrompt(prompt: string, opts: { defaultTempo?: number }
 
   let complexity: Complexity | undefined;
   if (/\b(?:simple|easy|basic|minimal|sparse|beginner)\b/.test(text)) complexity = 'low';
-  else if (/\b(?:complex|intricate|busy|virtuosic|technical|elaborate|advanced)\b/.test(text)) complexity = 'high';
+  else if (/\b(?:complex|intricate|busy|virtuosic|technical|elaborate|advanced)\b/.test(text))
+    complexity = 'high';
   else if (/\b(?:moderate|medium|intermediate)\b/.test(text)) complexity = 'medium';
 
   const seedM = /\bseed\s*[:=#]?\s*(\d+)\b/.exec(text);

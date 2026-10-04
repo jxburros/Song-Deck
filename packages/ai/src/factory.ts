@@ -43,9 +43,15 @@ const GUARDED = Symbol.for('songdeck.consentGuarded');
 /** Derive composition from llm and wrap voice conversion with the consent guard (idempotent). */
 export function finalizeInstance(instance: ProviderInstance): ProviderInstance {
   if (instance.llm && !instance.composition) {
-    instance.composition = new LLMCompositionProvider(instance.llm, { providerId: instance.descriptor.id, model: instance.config?.defaultModel ?? instance.descriptor.defaultModel });
+    instance.composition = new LLMCompositionProvider(instance.llm, {
+      providerId: instance.descriptor.id,
+      model: instance.config?.defaultModel ?? instance.descriptor.defaultModel,
+    });
   }
-  if (instance.voiceConversion && !(instance.voiceConversion as unknown as Record<symbol, boolean>)[GUARDED]) {
+  if (
+    instance.voiceConversion &&
+    !(instance.voiceConversion as unknown as Record<symbol, boolean>)[GUARDED]
+  ) {
     const guarded = withConsentGuard(instance.voiceConversion);
     (guarded as unknown as Record<symbol, boolean>)[GUARDED] = true;
     instance.voiceConversion = guarded;
@@ -105,7 +111,9 @@ export function createProvider(config: ProviderConfig, deps: CreateProviderDeps)
       instance = createManagedProvider(config, deps);
       break;
     case 'internal':
-      throw new ConfigurationError('Internal providers are registered by the app (createInternalProvider), not configured');
+      throw new ConfigurationError(
+        'Internal providers are registered by the app (createInternalProvider), not configured',
+      );
     default:
       throw new ConfigurationError(`Unknown adapter "${String((config as { adapter?: unknown }).adapter)}"`);
   }
@@ -131,7 +139,13 @@ export interface InternalProviderSpec {
   mastering?: MasteringProvider;
 }
 
-const FREE: PricingInfo = { currency: 'USD', inputPerMTok: 0, outputPerMTok: 0, perGenerationUsd: 0, note: 'Runs on this device' };
+const FREE: PricingInfo = {
+  currency: 'USD',
+  inputPerMTok: 0,
+  outputPerMTok: 0,
+  perGenerationUsd: 0,
+  note: 'Runs on this device',
+};
 
 /**
  * An INTERNAL provider (location 'internal', zero cost, works offline) — apps implement the
@@ -139,7 +153,14 @@ const FREE: PricingInfo = { currency: 'USD', inputPerMTok: 0, outputPerMTok: 0, 
  * register them so the orchestrator stays provider-agnostic (ARCHITECTURE §1).
  */
 export function createInternalProvider(spec: InternalProviderSpec): ProviderInstance {
-  const { id = 'internal', name = 'Song Deck engine', capabilities, qualityTier = 2, description, ...interfaces } = spec;
+  const {
+    id = 'internal',
+    name = 'Song Deck engine',
+    capabilities,
+    qualityTier = 2,
+    description,
+    ...interfaces
+  } = spec;
   return finalizeInstance({
     descriptor: {
       id,

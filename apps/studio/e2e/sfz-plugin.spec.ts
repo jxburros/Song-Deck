@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,9 +18,23 @@ let server: { url: string; proc: ChildProcess; dataDir: string };
 test.beforeAll(async ({}, info) => {
   const base = new URL(info.project.use.baseURL ?? 'http://localhost:5199');
   const dataDir = mkdtempSync(path.join(tmpdir(), 'songdeck-sfz-'));
-  const args = ['--import', 'tsx', 'apps/server/src/cli.ts', '--port', '0', '--data-dir', dataDir, '--log-level', 'warn'];
+  const args = [
+    '--import',
+    'tsx',
+    'apps/server/src/cli.ts',
+    '--port',
+    '0',
+    '--data-dir',
+    dataDir,
+    '--log-level',
+    'warn',
+  ];
   for (const o of [base.origin, `${base.protocol}//127.0.0.1:${base.port}`]) args.push('--allow-origin', o);
-  const proc = spawn(process.execPath, args, { cwd: ROOT, env: { ...process.env, SONGDECK_DATA_DIR: dataDir }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc = spawn(process.execPath, args, {
+    cwd: ROOT,
+    env: { ...process.env, SONGDECK_DATA_DIR: dataDir },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   let log = '';
   const url = await new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`server did not start:\n${log}`)), 60_000);
@@ -44,26 +59,30 @@ test.afterAll(() => {
 });
 
 async function pluginStatus(page: Page): Promise<string | undefined> {
-  return page.evaluate(`import('/src/engine/plugins.ts').then(({ useExtensions }) => useExtensions.getState().loaded['felt-keys-sfz']?.status)`);
+  return page.evaluate(
+    `import('/src/engine/plugins.ts').then(({ useExtensions }) => useExtensions.getState().loaded['felt-keys-sfz']?.status)`,
+  );
 }
 
 test('an enabled SFZ instrument plugin renders tracks with its samples', async ({ page }) => {
   test.setTimeout(180_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.addInitScript(({ serverUrl }) => {
-    if (!localStorage.getItem('songdeck:settings')) localStorage.setItem('songdeck:settings', JSON.stringify({ serverUrl, enabledPlugins: ['felt-keys-sfz'] }));
-  }, { serverUrl: server.url });
+  await page.addInitScript(
+    ({ serverUrl }) => {
+      if (!localStorage.getItem('songdeck:settings'))
+        localStorage.setItem(
+          'songdeck:settings',
+          JSON.stringify({ serverUrl, enabledPlugins: ['felt-keys-sfz'] }),
+        );
+    },
+    { serverUrl: server.url },
+  );
 
   await page.goto('/');
   await expect.poll(() => pluginStatus(page), { timeout: 30_000 }).toBe('loaded');
 
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page.getByLabel('Song prompt').fill('Dreamy synth-pop in D major, 108 BPM, warm pads and a punchy electronic kit.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible();
+  await composeQuickSong(page, 'Dreamy synth-pop');
 
   // The sampled instrument is offered like a built-in one; add a generated track with it.
   await page.locator('.wb-left').getByRole('button', { name: 'Add', exact: true }).click();

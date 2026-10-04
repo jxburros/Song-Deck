@@ -1,6 +1,8 @@
 import { expect, test, type Download, type Page } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
+import { attestUpload } from './rights';
 
 /**
  * Mix & Master and Export, end to end and entirely on-device:
@@ -15,17 +17,14 @@ test.describe.configure({ timeout: 420_000 });
 
 async function composeSong(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page
-    .getByLabel('Song prompt')
-    .fill('Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin. Male tenor vocal.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 90_000 });
+  await composeQuickSong(page, 'Alt-rock band', 90_000);
 }
 
-async function download(page: Page, action: () => Promise<void>, timeout = 180_000): Promise<{ d: Download; bytes: Uint8Array }> {
+async function download(
+  page: Page,
+  action: () => Promise<void>,
+  timeout = 180_000,
+): Promise<{ d: Download; bytes: Uint8Array }> {
   const pending = page.waitForEvent('download', { timeout });
   await action();
   const d = await pending;
@@ -63,7 +62,9 @@ test('mix, master and export a composed song', async ({ page }) => {
   const afterDrag = Number(await fader.getAttribute('aria-valuenow'));
   await fader.focus();
   await page.keyboard.press('ArrowUp');
-  await expect.poll(async () => Number(await fader.getAttribute('aria-valuenow'))).toBeCloseTo(Math.min(12, afterDrag + 0.5), 1);
+  await expect
+    .poll(async () => Number(await fader.getAttribute('aria-valuenow')))
+    .toBeCloseTo(Math.min(12, afterDrag + 0.5), 1);
 
   // EQ insert toggle on a strip and the inspector curve.
   await expect(page.getByRole('img', { name: /EQ frequency response/ })).toBeVisible();
@@ -80,7 +81,9 @@ test('mix, master and export a composed song', async ({ page }) => {
   await expect(page.getByTestId('mix-proposal')).toHaveCount(0);
 
   // A second, compound request from the spec (automation in the last chorus + drier vocal).
-  await page.getByLabel('Mix instruction').fill('Bring the violin forward in the last chorus and make the vocal slightly drier.');
+  await page
+    .getByLabel('Mix instruction')
+    .fill('Bring the violin forward in the last chorus and make the vocal slightly drier.');
   await page.getByRole('button', { name: 'Propose mix change' }).click();
   await expect(page.getByTestId('mix-proposal').first()).toBeVisible({ timeout: 30_000 });
   await page.getByTestId('mix-proposal').first().getByRole('button', { name: 'Accept' }).click();
@@ -125,7 +128,9 @@ test('mix, master and export a composed song', async ({ page }) => {
   expect(ascii(wav.bytes, 4, 8)).toBe('WAVE');
   expect(wav.bytes.length).toBeGreaterThan(1_000_000);
 
-  const masterWav = await download(page, () => page.getByRole('button', { name: 'Master.wav' }).first().click());
+  const masterWav = await download(page, () =>
+    page.getByRole('button', { name: 'Master.wav' }).first().click(),
+  );
   expect(ascii(masterWav.bytes, 4)).toBe('RIFF');
 
   await page.getByRole('combobox', { name: 'Audio format' }).selectOption('mp3');
@@ -137,7 +142,14 @@ test('mix, master and export a composed song', async ({ page }) => {
   const aacOk = await page.evaluate(async () => {
     const Enc = (globalThis as { AudioEncoder?: typeof AudioEncoder }).AudioEncoder;
     if (!Enc) return false;
-    return !!(await Enc.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: 44100, numberOfChannels: 2, bitrate: 256000 })).supported;
+    return !!(
+      await Enc.isConfigSupported({
+        codec: 'mp4a.40.2',
+        sampleRate: 44100,
+        numberOfChannels: 2,
+        bitrate: 256000,
+      })
+    ).supported;
   });
   if (aacOk) {
     const aac = await download(page, () => page.getByRole('button', { name: 'Mix.aac' }).click());
@@ -168,9 +180,22 @@ test('mix, master and export a composed song', async ({ page }) => {
   const reaperFiles = Object.keys(unzipSync(reaper.bytes));
   expect(reaperFiles.some((f) => f.endsWith('.rpp'))).toBe(true);
 
-  const everything = await download(page, () => page.getByRole('button', { name: 'Export everything (.zip)' }).click(), 300_000);
+  const everything = await download(
+    page,
+    () => page.getByRole('button', { name: 'Export everything (.zip)' }).click(),
+    300_000,
+  );
   const all = Object.keys(unzipSync(everything.bytes));
-  expect(all).toEqual(expect.arrayContaining(['Master.wav', 'Instrumental.wav', 'Acapella.wav', 'Stems.zip', 'Song.mid', 'Song.musicxml']));
+  expect(all).toEqual(
+    expect.arrayContaining([
+      'Master.wav',
+      'Instrumental.wav',
+      'Acapella.wav',
+      'Stems.zip',
+      'Song.mid',
+      'Song.musicxml',
+    ]),
+  );
   expect(all.some((f) => f.endsWith('.songproject'))).toBe(true);
 
   await page.screenshot({ path: `${SHOTS}/export-done.png`, fullPage: true });
@@ -183,7 +208,9 @@ function stemWav(seconds = 3, sampleRate = 44100): Buffer {
   const data = Buffer.alloc(frames * 4);
   for (let i = 0; i < frames; i++) {
     const t = i / sampleRate;
-    const v = Math.round(0.3 * Math.sin(2 * Math.PI * 220 * t) * (0.6 + 0.4 * Math.sin(2 * Math.PI * 0.5 * t)) * 32767);
+    const v = Math.round(
+      0.3 * Math.sin(2 * Math.PI * 220 * t) * (0.6 + 0.4 * Math.sin(2 * Math.PI * 0.5 * t)) * 32767,
+    );
     data.writeInt16LE(v, i * 4);
     data.writeInt16LE(v, i * 4 + 2);
   }
@@ -214,8 +241,12 @@ test('stem import, strip locks, automation drawing and EQ editing', async ({ pag
   const before = await page.locator('.mx-strip').count();
 
   // ---- Stem mixing: import an audio file as a new audio track ---------------------------------
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Import stem/audio' }).click()]);
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: 'Import stem/audio' }).click(),
+  ]);
   await chooser.setFiles({ name: 'backing_vocals_stem.wav', mimeType: 'audio/wav', buffer: stemWav() });
+  await attestUpload(page);
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText(/0:03 · 44\.1 kHz · stereo/)).toBeVisible();
   await expect(dialog.getByRole('combobox', { name: 'Stem group' })).toHaveValue('vocals');
@@ -223,11 +254,17 @@ test('stem import, strip locks, automation drawing and EQ editing', async ({ pag
   const stem = page.getByRole('group', { name: 'backing vocals stem channel strip' });
   await expect(stem).toBeVisible();
   expect(await page.locator('.mx-strip').count()).toBe(before + 1);
-  await expect(stem.getByRole('slider', { name: 'backing vocals stem volume' })).toHaveAttribute('aria-valuenow', '0');
+  await expect(stem.getByRole('slider', { name: 'backing vocals stem volume' })).toHaveAttribute(
+    'aria-valuenow',
+    '0',
+  );
 
   // ---- Locks: a locked strip is read-only and the AI never touches it -------------------------
   await stem.locator('.lock-btn').click();
-  await expect(stem.getByRole('slider', { name: 'backing vocals stem volume' })).toHaveAttribute('aria-disabled', 'true');
+  await expect(stem.getByRole('slider', { name: 'backing vocals stem volume' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
   await page.getByLabel('Mix instruction').fill('Make the vocal clearer.');
   await page.getByRole('button', { name: 'Propose mix change' }).click();
   const proposal = page.getByTestId('mix-proposal').first();

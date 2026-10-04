@@ -57,7 +57,14 @@ export interface ToneOptions {
 }
 
 /** Add a harmonic tone (pitch in fractional MIDI) into `out` starting at `start` seconds. */
-export function addTone(out: Float32Array, sampleRate: number, start: number, duration: number, pitch: number, o: ToneOptions = {}): void {
+export function addTone(
+  out: Float32Array,
+  sampleRate: number,
+  start: number,
+  duration: number,
+  pitch: number,
+  o: ToneOptions = {},
+): void {
   const partials = o.partials ?? [1, 0.5, 0.33, 0.25, 0.2];
   const amp = o.amp ?? 0.3;
   const attack = o.attack ?? 0.01;
@@ -77,7 +84,8 @@ export function addTone(out: Float32Array, sampleRate: number, start: number, du
       cents += ramp * o.vibratoCents * Math.sin(2 * Math.PI * o.vibratoHz * vt);
     }
     if (o.driftCents) cents += (o.driftCents * t) / duration;
-    if (o.scoopCents && o.scoopSeconds && t < o.scoopSeconds) cents += o.scoopCents * (1 - t / o.scoopSeconds);
+    if (o.scoopCents && o.scoopSeconds && t < o.scoopSeconds)
+      cents += o.scoopCents * (1 - t / o.scoopSeconds);
     const f = f0 * Math.pow(2, cents / 1200);
     let env = 1;
     if (t < attack) env = t / attack;
@@ -125,13 +133,25 @@ export function addNoiseBurst(
   out: Float32Array,
   sampleRate: number,
   start: number,
-  opts: { amp: number; decay: number; duration?: number; highpassHz?: number; lowpassHz?: number; seed: number },
+  opts: {
+    amp: number;
+    decay: number;
+    duration?: number;
+    highpassHz?: number;
+    lowpassHz?: number;
+    seed: number;
+  },
 ): void {
   const rnd = lcg(opts.seed);
   const s0 = Math.round(start * sampleRate);
   const n = Math.round((opts.duration ?? opts.decay * 6) * sampleRate);
-  const hp = opts.highpassHz ? [biquad('hp', opts.highpassHz, sampleRate), biquad('hp', opts.highpassHz, sampleRate)] : [];
-  const lp = opts.lowpassHz && opts.lowpassHz < sampleRate * 0.45 ? [biquad('lp', opts.lowpassHz, sampleRate), biquad('lp', opts.lowpassHz, sampleRate)] : [];
+  const hp = opts.highpassHz
+    ? [biquad('hp', opts.highpassHz, sampleRate), biquad('hp', opts.highpassHz, sampleRate)]
+    : [];
+  const lp =
+    opts.lowpassHz && opts.lowpassHz < sampleRate * 0.45
+      ? [biquad('lp', opts.lowpassHz, sampleRate), biquad('lp', opts.lowpassHz, sampleRate)]
+      : [];
   for (let i = 0; i < n; i++) {
     const idx = s0 + i;
     if (idx >= out.length) break;
@@ -171,10 +191,23 @@ export function addSnare(out: Float32Array, sampleRate: number, start: number, a
     const env = Math.exp(-t / 0.06) * Math.min(1, (n - i) / (0.03 * sampleRate));
     if (idx >= 0) out[idx] += amp * 0.5 * env * Math.sin(2 * Math.PI * 185 * t);
   }
-  addNoiseBurst(out, sampleRate, start, { amp: amp * 0.8, decay: 0.09, highpassHz: 900, lowpassHz: 9000, seed });
+  addNoiseBurst(out, sampleRate, start, {
+    amp: amp * 0.8,
+    decay: 0.09,
+    highpassHz: 900,
+    lowpassHz: 9000,
+    seed,
+  });
 }
 
-export function addHat(out: Float32Array, sampleRate: number, start: number, amp = 0.25, open = false, seed = 3): void {
+export function addHat(
+  out: Float32Array,
+  sampleRate: number,
+  start: number,
+  amp = 0.25,
+  open = false,
+  seed = 3,
+): void {
   addNoiseBurst(out, sampleRate, start, { amp, decay: open ? 0.22 : 0.025, highpassHz: 7000, seed });
 }
 
@@ -210,7 +243,12 @@ export function addClick(out: Float32Array, sampleRate: number, start: number, a
 }
 
 /** Click track; the first beat of each bar is accented (higher and louder) when `accent`. */
-export function clickTrack(sampleRate: number, bpm: number, seconds: number, opts: { beatsPerBar?: number; accent?: boolean; offset?: number } = {}): Float32Array {
+export function clickTrack(
+  sampleRate: number,
+  bpm: number,
+  seconds: number,
+  opts: { beatsPerBar?: number; accent?: boolean; offset?: number } = {},
+): Float32Array {
   const x = silence(sampleRate, seconds);
   const period = 60 / bpm;
   const bpb = opts.beatsPerBar ?? 4;
@@ -222,10 +260,18 @@ export function clickTrack(sampleRate: number, bpm: number, seconds: number, opt
   return x;
 }
 
-export type DrumEvent = { time: number; drum: 'kick' | 'snare' | 'hat' | 'open-hat' | 'crash' | 'tom'; hz?: number };
+export type DrumEvent = {
+  time: number;
+  drum: 'kick' | 'snare' | 'hat' | 'open-hat' | 'crash' | 'tom';
+  hz?: number;
+};
 
 /** Rock beat: kick 1 & 3, snare 2 & 4, closed hats on eighths. */
-export function rockBeat(bpm: number, bars: number, opts: { offset?: number; beatsPerBar?: number; hats?: boolean } = {}): DrumEvent[] {
+export function rockBeat(
+  bpm: number,
+  bars: number,
+  opts: { offset?: number; beatsPerBar?: number; hats?: boolean } = {},
+): DrumEvent[] {
   const ev: DrumEvent[] = [];
   const beat = 60 / bpm;
   const bpb = opts.beatsPerBar ?? 4;
@@ -247,7 +293,12 @@ export function rockBeat(bpm: number, bars: number, opts: { offset?: number; bea
   return ev;
 }
 
-export function renderDrums(sampleRate: number, seconds: number, events: DrumEvent[], gain = 1): Float32Array {
+export function renderDrums(
+  sampleRate: number,
+  seconds: number,
+  events: DrumEvent[],
+  gain = 1,
+): Float32Array {
   const x = silence(sampleRate, seconds);
   let seed = 11;
   for (const e of events) {
@@ -269,23 +320,34 @@ export interface MelodyNote {
 }
 
 /** A sung/hummed melody: scoops, vibrato, drift, breath noise, global detune. */
-export function hummedMelody(sampleRate: number, notes: MelodyNote[], opts: { detuneCents?: number; seed?: number; seconds?: number; breath?: number; partials?: number[] } = {}): Float32Array {
+export function hummedMelody(
+  sampleRate: number,
+  notes: MelodyNote[],
+  opts: { detuneCents?: number; seed?: number; seconds?: number; breath?: number; partials?: number[] } = {},
+): Float32Array {
   const end = Math.max(...notes.map((n) => n.start + n.duration)) + 0.5;
   const x = silence(sampleRate, opts.seconds ?? end);
   const rnd = lcg(opts.seed ?? 5);
   for (const n of notes) {
-    addTone(x, sampleRate, n.start, n.duration, n.pitch + (opts.detuneCents ?? 0) / 100 + (rnd() - 0.5) * 0.2, {
-      partials: opts.partials ?? [1, 0.35, 0.12, 0.05],
-      amp: 0.25 + rnd() * 0.1,
-      attack: 0.04,
-      release: 0.06,
-      vibratoHz: 5 + rnd() * 1.5,
-      vibratoCents: 20 + rnd() * 25,
-      vibratoDelay: 0.12,
-      driftCents: (rnd() - 0.5) * 30,
-      scoopCents: -(20 + rnd() * 40),
-      scoopSeconds: 0.06,
-    });
+    addTone(
+      x,
+      sampleRate,
+      n.start,
+      n.duration,
+      n.pitch + (opts.detuneCents ?? 0) / 100 + (rnd() - 0.5) * 0.2,
+      {
+        partials: opts.partials ?? [1, 0.35, 0.12, 0.05],
+        amp: 0.25 + rnd() * 0.1,
+        attack: 0.04,
+        release: 0.06,
+        vibratoHz: 5 + rnd() * 1.5,
+        vibratoCents: 20 + rnd() * 25,
+        vibratoDelay: 0.12,
+        driftCents: (rnd() - 0.5) * 30,
+        scoopCents: -(20 + rnd() * 40),
+        scoopSeconds: 0.06,
+      },
+    );
   }
   if (opts.breath) {
     const r2 = lcg((opts.seed ?? 5) + 99);
@@ -306,18 +368,42 @@ export const CHORD_TONES: Record<string, number[]> = {
   F: [53, 57, 60],
 };
 
-export const CHORD_ROOT: Record<string, number> = { Em: 40, C: 36, G: 43, D: 38, Am: 45, B7: 35, B: 35, F: 41 };
+export const CHORD_ROOT: Record<string, number> = {
+  Em: 40,
+  C: 36,
+  G: 43,
+  D: 38,
+  Am: 45,
+  B7: 35,
+  B: 35,
+  F: 41,
+};
 
 /** Block chords of harmonic tones, with an optional bass note an octave+ below. */
-export function chordBlocks(sampleRate: number, chords: { symbol: string; duration: number }[], opts: { bass?: boolean; amp?: number; partials?: number[] } = {}): Float32Array {
+export function chordBlocks(
+  sampleRate: number,
+  chords: { symbol: string; duration: number }[],
+  opts: { bass?: boolean; amp?: number; partials?: number[] } = {},
+): Float32Array {
   const total = chords.reduce((a, c) => a + c.duration, 0) + 0.3;
   const x = silence(sampleRate, total);
   let t = 0;
   for (const c of chords) {
     for (const p of CHORD_TONES[c.symbol]) {
-      addTone(x, sampleRate, t, c.duration, p + 12, { amp: opts.amp ?? 0.12, partials: opts.partials ?? [1, 0.5, 0.33, 0.25, 0.2, 0.16], attack: 0.02, release: 0.05 });
+      addTone(x, sampleRate, t, c.duration, p + 12, {
+        amp: opts.amp ?? 0.12,
+        partials: opts.partials ?? [1, 0.5, 0.33, 0.25, 0.2, 0.16],
+        attack: 0.02,
+        release: 0.05,
+      });
     }
-    if (opts.bass !== false) addTone(x, sampleRate, t, c.duration, CHORD_ROOT[c.symbol], { amp: 0.16, partials: [1, 0.6, 0.3, 0.2], attack: 0.01, release: 0.05 });
+    if (opts.bass !== false)
+      addTone(x, sampleRate, t, c.duration, CHORD_ROOT[c.symbol], {
+        amp: 0.16,
+        partials: [1, 0.6, 0.3, 0.2],
+        attack: 0.01,
+        release: 0.05,
+      });
     t += c.duration;
   }
   return x;
@@ -367,14 +453,24 @@ export interface SynthSong {
   melody: MelodyNote[];
   bassNotes: MelodyNote[];
   drums: DrumEvent[];
-  stems: { drums: Float32Array; bass: Float32Array; vocals: Float32Array; padL: Float32Array; padR: Float32Array };
+  stems: {
+    drums: Float32Array;
+    bass: Float32Array;
+    vocals: Float32Array;
+    padL: Float32Array;
+    padR: Float32Array;
+  };
 }
 
 /**
  * A small arrangement: drums (energy-dependent pattern), bass on chord roots, a centred sung
  * melody (vibrato) and a wide pad (left/right voicings differ). One chord per bar.
  */
-export function synthSong(sampleRate: number, sections: SynthSongSection[], opts: { bpm?: number; lead?: number; tail?: number; vocalGain?: number } = {}): SynthSong {
+export function synthSong(
+  sampleRate: number,
+  sections: SynthSongSection[],
+  opts: { bpm?: number; lead?: number; tail?: number; vocalGain?: number } = {},
+): SynthSong {
   const bpm = opts.bpm ?? 120;
   const beat = 60 / bpm;
   const bar = 4 * beat;
@@ -410,13 +506,28 @@ export function synthSong(sampleRate: number, sections: SynthSongSection[], opts
       const step = s.energy > 0.5 ? beat / 2 : beat;
       for (let bt = 0; bt < bar - 1e-6; bt += step) {
         const p = root + 12;
-        addTone(bass, sampleRate, t + bt, step * 0.9, p, { amp: 0.22 + 0.08 * s.energy, partials: [1, 0.5, 0.25, 0.12], attack: 0.005, release: 0.02 });
+        addTone(bass, sampleRate, t + bt, step * 0.9, p, {
+          amp: 0.22 + 0.08 * s.energy,
+          partials: [1, 0.5, 0.25, 0.12],
+          attack: 0.005,
+          release: 0.02,
+        });
         bassNotes.push({ pitch: p, start: t + bt, duration: step * 0.9 });
       }
       // pad: different voicing per side
       for (const p of tones) {
-        addTone(padL, sampleRate, t, bar, p + 12, { amp: 0.05, partials: [1, 0.4, 0.2, 0.1], attack: 0.15, release: 0.15 });
-        addTone(padR, sampleRate, t, bar, p + 24, { amp: 0.035, partials: [1, 0.4, 0.2, 0.1], attack: 0.15, release: 0.15 });
+        addTone(padL, sampleRate, t, bar, p + 12, {
+          amp: 0.05,
+          partials: [1, 0.4, 0.2, 0.1],
+          attack: 0.15,
+          release: 0.15,
+        });
+        addTone(padR, sampleRate, t, bar, p + 24, {
+          amp: 0.035,
+          partials: [1, 0.4, 0.2, 0.1],
+          attack: 0.15,
+          release: 0.15,
+        });
       }
       // melody: two half-note-ish notes per bar from the chord, register by section energy
       const reg = s.energy > 0.5 ? 72 : 64;
@@ -431,7 +542,11 @@ export function synthSong(sampleRate: number, sections: SynthSongSection[], opts
     }
   }
   const drums = renderDrums(sampleRate, seconds, drumsEv, 0.8);
-  const vocals = hummedMelody(sampleRate, melody, { seconds, seed: 21, partials: [1, 0.55, 0.35, 0.2, 0.12, 0.08] });
+  const vocals = hummedMelody(sampleRate, melody, {
+    seconds,
+    seed: 21,
+    partials: [1, 0.55, 0.35, 0.2, 0.12, 0.08],
+  });
   const vg = opts.vocalGain ?? 1;
   const left = new Float32Array(drums.length);
   const right = new Float32Array(drums.length);
@@ -457,5 +572,16 @@ export function synthSong(sampleRate: number, sections: SynthSongSection[], opts
     }
     pos += s.bars * bar;
   }
-  return { sampleRate, left, right, bpm, sectionStarts, chords, melody, bassNotes, drums: drumsEv, stems: { drums, bass, vocals, padL, padR } };
+  return {
+    sampleRate,
+    left,
+    right,
+    bpm,
+    sectionStarts,
+    chords,
+    melody,
+    bassNotes,
+    drums: drumsEv,
+    stems: { drums, bass, vocals, padL, padR },
+  };
 }

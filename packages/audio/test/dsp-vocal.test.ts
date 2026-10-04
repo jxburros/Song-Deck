@@ -9,14 +9,21 @@ const SR = 44100;
 
 function vocalSong(notes: Note[], voiceType?: 'tenor' | 'soprano' | 'alto' | 'baritone') {
   const song = mkSong(4);
-  song.tracks = [mkTrack('v', 'lead-vocal', notes, { role: 'vocal', stemGroup: 'vocals', vocal: voiceType ? { voiceType } : undefined })];
+  song.tracks = [
+    mkTrack('v', 'lead-vocal', notes, {
+      role: 'vocal',
+      stemGroup: 'vocals',
+      vocal: voiceType ? { voiceType } : undefined,
+    }),
+  ];
   return song;
 }
 
 describe('singing synthesis', () => {
   it('ships at least four stock voices with voice types', () => {
     expect(STOCK_VOICES.length).toBeGreaterThanOrEqual(4);
-    for (const id of ['tenor-warm', 'soprano-bright', 'alto-soft', 'baritone-deep']) expect(STOCK_VOICES.find((v) => v.id === id)?.voiceType).toBeDefined();
+    for (const id of ['tenor-warm', 'soprano-bright', 'alto-soft', 'baritone-deep'])
+      expect(STOCK_VOICES.find((v) => v.id === id)?.voiceType).toBeDefined();
   });
 
   it('sings sustained vowels at the right pitch (±30 cents) for each voice', () => {
@@ -28,14 +35,17 @@ describe('singing synthesis', () => {
     ];
     for (const [voiceId, pitch] of cases) {
       for (const syl of ['ah', 'ee', 'oo']) {
-        const song = vocalSong([mkNote(pitch, 0, 1920, 100, { syllable: syl, expression: { vibrato: 0.3 } })]);
+        const song = vocalSong([
+          mkNote(pitch, 0, 1920, 100, { syllable: syl, expression: { vibrato: 0.3 } }),
+        ]);
         const out = synthesizeVocal(song, 'v', { voiceId, sampleRate: SR });
         expect(out.channels.length).toBe(1);
         expect(hasNonFinite(out)).toBe(false);
         const x = out.channels[0];
         const f = 440 * Math.pow(2, (pitch - 69) / 12);
         // average over several windows across the sustained part (vibrato averages out)
-        let sum = 0, cnt = 0;
+        let sum = 0,
+          cnt = 0;
         for (let t = 0.6; t < 1.7; t += 0.1) {
           sum += cents(yinF0(x, SR, Math.round(t * SR), 2048, 60, 1200), f);
           cnt++;
@@ -47,34 +57,59 @@ describe('singing synthesis', () => {
   });
 
   it('produces clearly different spectra for /a/ and /i/', () => {
-    const render = (syl: string) => synthesizeVocal(vocalSong([mkNote(55, 0, 1920, 100, { syllable: syl, expression: { vibrato: 0 } })]), 'v', { voiceId: 'tenor-warm', sampleRate: SR }).channels[0];
+    const render = (syl: string) =>
+      synthesizeVocal(
+        vocalSong([mkNote(55, 0, 1920, 100, { syllable: syl, expression: { vibrato: 0 } })]),
+        'v',
+        { voiceId: 'tenor-warm', sampleRate: SR },
+      ).channels[0];
     const a = render('ah');
     const i = render('ee');
     const s = Math.round(0.7 * SR);
     // /a/: high F1 (~770 Hz), low F2 (~1300 Hz). /i/: low F1 (~350 Hz), high F2 (~2300 Hz)
-    const ratio = (x: Float32Array) => bandEnergy(x, SR, 1900, 2900, s, 8192, 20) / bandEnergy(x, SR, 600, 1000, s, 8192, 20);
+    const ratio = (x: Float32Array) =>
+      bandEnergy(x, SR, 1900, 2900, s, 8192, 20) / bandEnergy(x, SR, 600, 1000, s, 8192, 20);
     const ra = ratio(a);
     const ri = ratio(i);
     expect(10 * Math.log10(ri / ra)).toBeGreaterThan(10);
     // F1 region: /a/ has more energy around 700-900 Hz relative to 250-400 Hz
-    const f1 = (x: Float32Array) => bandEnergy(x, SR, 650, 900, s, 8192, 20) / bandEnergy(x, SR, 250, 420, s, 8192, 20);
+    const f1 = (x: Float32Array) =>
+      bandEnergy(x, SR, 650, 900, s, 8192, 20) / bandEnergy(x, SR, 250, 420, s, 8192, 20);
     expect(f1(a)).toBeGreaterThan(f1(i) * 3);
   });
 
   it('renders consonants (fricative noise) and onset/release styles', () => {
-    const fric = synthesizeVocal(vocalSong([mkNote(57, 960, 1920, 100, { syllable: 'sea' })]), 'v', { sampleRate: SR }).channels[0];
+    const fric = synthesizeVocal(vocalSong([mkNote(57, 960, 1920, 100, { syllable: 'sea' })]), 'v', {
+      sampleRate: SR,
+    }).channels[0];
     // /s/ just before the note start (1.0 s): strong 5-9 kHz noise, ≥ 10 dB above the vowel's high band
     const sStart = Math.round(0.9 * SR);
-    expect(bandEnergy(fric, SR, 5000, 9000, sStart, 4096, 100)).toBeGreaterThan(bandEnergy(fric, SR, 5000, 9000, Math.round(1.6 * SR), 4096, 100) * 10);
+    expect(bandEnergy(fric, SR, 5000, 9000, sStart, 4096, 100)).toBeGreaterThan(
+      bandEnergy(fric, SR, 5000, 9000, Math.round(1.6 * SR), 4096, 100) * 10,
+    );
     // scoop onset starts below the target pitch
-    const sc = synthesizeVocal(vocalSong([mkNote(57, 0, 1920, 100, { syllable: 'ah', expression: { onset: 'scoop', vibrato: 0 } })]), 'v', { sampleRate: SR }).channels[0];
+    const sc = synthesizeVocal(
+      vocalSong([mkNote(57, 0, 1920, 100, { syllable: 'ah', expression: { onset: 'scoop', vibrato: 0 } })]),
+      'v',
+      { sampleRate: SR },
+    ).channels[0];
     expect(cents(yinF0(sc, SR, Math.round(0.02 * SR), 1024, 60, 1000), 220)).toBeLessThan(-40);
     // falling release ends lower
-    const fall = synthesizeVocal(vocalSong([mkNote(57, 0, 1920, 100, { syllable: 'ah', expression: { release: 'falling', vibrato: 0 } })]), 'v', { sampleRate: SR }).channels[0];
+    const fall = synthesizeVocal(
+      vocalSong([
+        mkNote(57, 0, 1920, 100, { syllable: 'ah', expression: { release: 'falling', vibrato: 0 } }),
+      ]),
+      'v',
+      { sampleRate: SR },
+    ).channels[0];
     expect(cents(yinF0(fall, SR, Math.round(1.93 * SR), 1024, 60, 1000), 220)).toBeLessThan(-60);
     // velocity → loudness
-    const soft = synthesizeVocal(vocalSong([mkNote(57, 0, 960, 40, { syllable: 'ah' })]), 'v', { sampleRate: SR }).channels[0];
-    const loud = synthesizeVocal(vocalSong([mkNote(57, 0, 960, 120, { syllable: 'ah' })]), 'v', { sampleRate: SR }).channels[0];
+    const soft = synthesizeVocal(vocalSong([mkNote(57, 0, 960, 40, { syllable: 'ah' })]), 'v', {
+      sampleRate: SR,
+    }).channels[0];
+    const loud = synthesizeVocal(vocalSong([mkNote(57, 0, 960, 120, { syllable: 'ah' })]), 'v', {
+      sampleRate: SR,
+    }).channels[0];
     expect(rms(loud, 0, SR)).toBeGreaterThan(rms(soft, 0, SR) * 2);
   });
 

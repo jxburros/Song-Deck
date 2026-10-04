@@ -8,10 +8,13 @@ import { type Capability, LLM_BASE_CAPABILITIES, unionCapabilities } from './cap
 import type { ModelInfo } from './types';
 
 /** Model ids that are not chat/completion LLMs (embeddings, speech, images, moderation…). */
-const NON_CHAT = /(embed|embedding|whisper|tts|text-to-speech|transcribe|dall-e|dalle|gpt-image|imagen|image-gen|stable-diffusion|sdxl|flux|sora|veo|moderation|rerank|guard|bge-|^e5-|clip|davinci|babbage|realtime|computer-use|search-preview|aqa|lyria)/i;
+const NON_CHAT =
+  /(embed|embedding|whisper|tts|text-to-speech|transcribe|dall-e|dalle|gpt-image|imagen|image-gen|stable-diffusion|sdxl|flux|sora|veo|moderation|rerank|guard|bge-|^e5-|clip|davinci|babbage|realtime|computer-use|search-preview|aqa|lyria)/i;
 
-const LONG_CONTEXT_FAMILIES = /(gpt-4o|gpt-4\.1|gpt-5|^o[1-9]|o[1-9]-|llama-?3\.[1-9]|llama-?4|llama3\.[1-9]|llama4|kimi|moonshot|mistral-(large|small|medium)|mistral-small3|deepseek|gemini|claude|qwen-?2\.5|command-r|jamba|phi-?4|128k|200k|1m\b|long)/i;
-const TOOL_FAMILIES = /(gpt-|^o[1-9]|o[1-9]-|llama-?3\.[1-9]|llama3\.[1-9]|llama-?4|qwen|mistral|mixtral|kimi|moonshot|deepseek|command-r|hermes|functionary|granite|gemini|claude|glm|phi-?4)/i;
+const LONG_CONTEXT_FAMILIES =
+  /(gpt-4o|gpt-4\.1|gpt-5|^o[1-9]|o[1-9]-|llama-?3\.[1-9]|llama-?4|llama3\.[1-9]|llama4|kimi|moonshot|mistral-(large|small|medium)|mistral-small3|deepseek|gemini|claude|qwen-?2\.5|command-r|jamba|phi-?4|128k|200k|1m\b|long)/i;
+const TOOL_FAMILIES =
+  /(gpt-|^o[1-9]|o[1-9]-|llama-?3\.[1-9]|llama3\.[1-9]|llama-?4|qwen|mistral|mixtral|kimi|moonshot|deepseek|command-r|hermes|functionary|granite|gemini|claude|glm|phi-?4)/i;
 const AUDIO_FAMILIES = /(audio|gemini|qwen2-audio|qwen2\.5-omni|qwen-omni|voxtral|phi-4-multimodal)/i;
 
 /** Parameter count in billions parsed from an id ("llama-3.1-70b", "qwen3:8b", "8x7b"). */
@@ -27,8 +30,18 @@ export function parameterBillions(id: string, parameterSize?: string): number | 
 /** Quality tier 1..5 from family names and size. */
 export function inferQualityTier(id: string, parameterSize?: string): number {
   const s = id.toLowerCase();
-  if (/(opus|fable|mythos|gpt-5(?![.\d]*-(mini|nano))|^o3(?!-mini)|gpt-4\.1(?!-(mini|nano))|gpt-4o(?!-mini)|gemini-[\d.]+-pro|kimi-k2|deepseek-r1|405b|qwen3-235b|llama-4-maverick)/.test(s)) return 5;
-  if (/(sonnet|gpt-[\d.]+-mini|o4-mini|o3-mini|flash(?!-lite)|mistral-large|llama-4-scout|deepseek-v3|deepseek-chat|qwen3-32b|qwen3-30b|command-r-plus)/.test(s)) return 4;
+  if (
+    /(opus|fable|mythos|gpt-5(?![.\d]*-(mini|nano))|^o3(?!-mini)|gpt-4\.1(?!-(mini|nano))|gpt-4o(?!-mini)|gemini-[\d.]+-pro|kimi-k2|deepseek-r1|405b|qwen3-235b|llama-4-maverick)/.test(
+      s,
+    )
+  )
+    return 5;
+  if (
+    /(sonnet|gpt-[\d.]+-mini|o4-mini|o3-mini|flash(?!-lite)|mistral-large|llama-4-scout|deepseek-v3|deepseek-chat|qwen3-32b|qwen3-30b|command-r-plus)/.test(
+      s,
+    )
+  )
+    return 4;
   if (/(haiku|nano|flash-lite)/.test(s)) return 3;
   const b = parameterBillions(s, parameterSize);
   if (b !== undefined) {
@@ -56,14 +69,21 @@ export interface InferOptions {
  * Infer capabilities of a chat model from its id and metadata. Returns undefined for models that
  * are not chat LLMs (embeddings, speech, images…).
  */
-export function inferModelCapabilities(id: string, opts: InferOptions = {}): Pick<ModelInfo, 'capabilities' | 'qualityTier' | 'contextLength' | 'capabilitiesInferred'> | undefined {
+export function inferModelCapabilities(
+  id: string,
+  opts: InferOptions = {},
+): Pick<ModelInfo, 'capabilities' | 'qualityTier' | 'contextLength' | 'capabilitiesInferred'> | undefined {
   const server = (opts.serverCapabilities ?? []).map((c) => c.toLowerCase());
   if (server.length && !server.includes('completion') && !server.includes('chat')) return undefined;
   if (!server.length && NON_CHAT.test(id)) return undefined;
   const caps: Capability[] = [...LLM_BASE_CAPABILITIES];
   if (opts.structuredOutput !== false) caps.push('STRUCTURED_JSON');
   if (server.includes('tools') || (!server.length && TOOL_FAMILIES.test(id))) caps.push('TOOL_CALLING');
-  if ((opts.contextLength !== undefined && opts.contextLength >= 100_000) || (opts.contextLength === undefined && LONG_CONTEXT_FAMILIES.test(id))) caps.push('LONG_CONTEXT');
+  if (
+    (opts.contextLength !== undefined && opts.contextLength >= 100_000) ||
+    (opts.contextLength === undefined && LONG_CONTEXT_FAMILIES.test(id))
+  )
+    caps.push('LONG_CONTEXT');
   if (server.includes('audio') || AUDIO_FAMILIES.test(id)) caps.push('AUDIO_INPUT', 'AUDIO_UNDERSTANDING');
   const out: Pick<ModelInfo, 'capabilities' | 'qualityTier' | 'contextLength' | 'capabilitiesInferred'> = {
     capabilities: unionCapabilities(caps),

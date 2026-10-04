@@ -247,7 +247,10 @@ export function getFFT(size: number): FFT {
  * Real FFT of `input`, zero-padded to `size` (default: next power of two). Returns the
  * non-redundant half spectrum (size/2 + 1 bins).
  */
-export function fftReal(input: ArrayLike<number>, size = nextPow2(Math.max(2, input.length))): { re: Float64Array; im: Float64Array } {
+export function fftReal(
+  input: ArrayLike<number>,
+  size = nextPow2(Math.max(2, input.length)),
+): { re: Float64Array; im: Float64Array } {
   if (!isPow2(size)) throw new Error(`fftReal size must be a power of two (got ${size})`);
   const plan = getFFT(size);
   const re = new Float64Array((size >> 1) + 1);
@@ -257,7 +260,11 @@ export function fftReal(input: ArrayLike<number>, size = nextPow2(Math.max(2, in
 }
 
 /** Inverse of `fftReal` (half spectrum → real signal of length `size`). */
-export function ifftReal(re: ArrayLike<number>, im: ArrayLike<number>, size = (re.length - 1) * 2): Float64Array {
+export function ifftReal(
+  re: ArrayLike<number>,
+  im: ArrayLike<number>,
+  size = (re.length - 1) * 2,
+): Float64Array {
   const plan = getFFT(size);
   const out = new Float64Array(size);
   plan.realInverse(re, im, out);

@@ -8,7 +8,14 @@ import type { VoiceConversionProvider, VoiceConversionRequest, VoiceTarget } fro
 
 /** A consent attestation is valid when it names who attests, the rights holder, a basis and a date. */
 export function isValidConsent(c: VoiceConsent | undefined): c is VoiceConsent {
-  return !!c && !!c.attestedBy?.trim() && !!c.rightsHolder?.trim() && !!c.basis && !!c.attestedAt && Number.isFinite(Date.parse(c.attestedAt));
+  return (
+    !!c &&
+    !!c.attestedBy?.trim() &&
+    !!c.rightsHolder?.trim() &&
+    !!c.basis &&
+    !!c.attestedAt &&
+    Number.isFinite(Date.parse(c.attestedAt))
+  );
 }
 
 /** Throws ConsentRequiredError unless the voice is stock or valid consent is supplied. */

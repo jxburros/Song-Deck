@@ -32,7 +32,9 @@ class PreviewPlayer {
 
   private context(): AudioContext {
     if (!this.ctx) {
-      const Ctx: typeof AudioContext = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const Ctx: typeof AudioContext =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctx();
     }
     return this.ctx;

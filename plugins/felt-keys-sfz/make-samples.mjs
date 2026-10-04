@@ -35,14 +35,18 @@ function feltNote(midi) {
       const phase = random() * Math.PI * 2;
       for (let i = 0; i < n; i++) {
         const t = i / SR;
-        out[i] += 0.5 * amp * Math.sin(2 * Math.PI * f * t + phase) * (0.65 * Math.exp(-t * decay * 2.2) + 0.35 * Math.exp(-t * decay * 0.45));
+        out[i] +=
+          0.5 *
+          amp *
+          Math.sin(2 * Math.PI * f * t + phase) *
+          (0.65 * Math.exp(-t * decay * 2.2) + 0.35 * Math.exp(-t * decay * 0.45));
       }
     }
   }
   // Felt hammer thump: a few milliseconds of low-passed noise.
   let lp = 0;
   for (let i = 0; i < Math.round(SR * 0.025); i++) {
-    lp += 0.12 * ((random() * 2 - 1) - lp);
+    lp += 0.12 * (random() * 2 - 1 - lp);
     out[i] += lp * 0.5 * Math.exp(-i / (SR * 0.006));
   }
   // Soft attack, gentle fade at the end, normalize to -3 dBFS.
@@ -61,7 +65,8 @@ function feltNote(midi) {
 
 function wav16(samples) {
   const data = Buffer.alloc(samples.length * 2);
-  for (let i = 0; i < samples.length; i++) data.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(samples[i] * 32767))), i * 2);
+  for (let i = 0; i < samples.length; i++)
+    data.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(samples[i] * 32767))), i * 2);
   const head = Buffer.alloc(44);
   head.write('RIFF', 0);
   head.writeUInt32LE(36 + data.length, 4);
@@ -79,7 +84,12 @@ function wav16(samples) {
   return Buffer.concat([head, data]);
 }
 
-for (const [name, midi] of [['felt-c2', 36], ['felt-c3', 48], ['felt-c4', 60], ['felt-c5', 72]]) {
+for (const [name, midi] of [
+  ['felt-c2', 36],
+  ['felt-c3', 48],
+  ['felt-c4', 60],
+  ['felt-c5', 72],
+]) {
   writeFileSync(join(here, 'samples', `${name}.wav`), wav16(feltNote(midi)));
   console.log(`samples/${name}.wav`);
 }

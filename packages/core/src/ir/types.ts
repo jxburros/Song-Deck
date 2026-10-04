@@ -253,7 +253,8 @@ export interface MotifNote {
   velocity: number;
 }
 
-export type MotifRole = 'vocal-hook' | 'instrumental-hook' | 'riff' | 'answer' | 'rhythmic' | 'bass-figure' | 'other';
+export type MotifRole =
+  'vocal-hook' | 'instrumental-hook' | 'riff' | 'answer' | 'rhythmic' | 'bass-figure' | 'other';
 
 export interface Motif {
   id: Id;
@@ -394,7 +395,8 @@ export interface AudioClip {
   muted?: boolean;
 }
 
-export type VocalMode = 'none' | 'melody-only' | 'placeholder' | 'ai-singer' | 'voice-conversion' | 'recorded';
+export type VocalMode =
+  'none' | 'melody-only' | 'placeholder' | 'ai-singer' | 'voice-conversion' | 'recorded';
 
 export type VoiceType = 'soprano' | 'mezzo' | 'alto' | 'tenor' | 'baritone' | 'bass';
 
@@ -505,7 +507,80 @@ export type DrumStyle =
   | 'folk'
   | 'country'
   | 'orchestral'
-  | 'cinematic';
+  | 'cinematic'
+  // Groove families added with the genre expansion (see composer/styles.ts for their traits).
+  | 'funk'
+  | 'disco'
+  | 'soul'
+  | 'gospel'
+  | 'shuffle'
+  | 'boom-bap'
+  | 'one-drop'
+  | 'ska'
+  | 'dembow'
+  | 'bossa-nova'
+  | 'samba'
+  | 'salsa'
+  | 'cumbia'
+  | 'afrobeats'
+  | 'amapiano'
+  | 'drum-and-bass'
+  | 'breakbeat'
+  | 'dubstep'
+  | 'techno'
+  | 'two-step'
+  | 'drill'
+  | 'phonk'
+  | 'jersey-club'
+  | 'footwork'
+  | 'baile-funk'
+  | 'flamenco'
+  | 'celtic'
+  | 'bhangra'
+  | 'ambient';
+
+/**
+ * Idiomatic bass-line patterns a genre (or tag) can ask for. Without one the bass generator picks a
+ * pattern from the drum style.
+ */
+export type BassPattern =
+  | 'kick-lock'
+  | 'eighths'
+  | 'root-fifth'
+  | 'walking'
+  | 'offbeat'
+  | 'rolling'
+  | 'sustain'
+  | 'eight-o-eight'
+  | 'pulse'
+  | 'octave'
+  | 'funk'
+  | 'boogie'
+  | 'reggae'
+  | 'tumbao'
+  | 'bossa'
+  | 'samba'
+  | 'log-drum'
+  | 'wobble';
+
+/**
+ * Idiomatic accompaniment (keys and rhythm guitar) a genre (or tag) can ask for: reggae/ska skank,
+ * funk scratch, salsa montuno, bossa nova comping, bluegrass chop and banjo roll, flamenco
+ * rasgueado, blues boogie, highlife picking, house stabs, arpeggios or sustained chords.
+ */
+export type CompStyle =
+  | 'skank'
+  | 'funk'
+  | 'montuno'
+  | 'bossa'
+  | 'chop'
+  | 'roll'
+  | 'rasgueado'
+  | 'boogie'
+  | 'highlife'
+  | 'stabs'
+  | 'arpeggio'
+  | 'sustain';
 
 export interface GenreProfile {
   id: string;
@@ -529,9 +604,19 @@ export interface GenreProfile {
     powerChords?: boolean;
   };
   structure: {
-    templates: { name: string; weight: number; sections: { kind: SectionKind; bars: number; name?: string }[] }[];
+    templates: {
+      name: string;
+      weight: number;
+      sections: { kind: SectionKind; bars: number; name?: string }[];
+    }[];
   };
-  instruments: { instrumentId: string; role: TrackRole; function?: MusicalFunction; weight: number; essential?: boolean }[];
+  instruments: {
+    instrumentId: string;
+    role: TrackRole;
+    function?: MusicalFunction;
+    weight: number;
+    essential?: boolean;
+  }[];
   rhythm: {
     drumStyle: DrumStyle;
     /** 0 = straight, 1 = full triplet swing. */
@@ -541,6 +626,10 @@ export interface GenreProfile {
     /** Base subdivision of grooves: 8ths, 16ths, or 12 (triplet 8ths). */
     subdivision: 8 | 12 | 16;
     halfTimeChance?: number;
+    /** Idiomatic bass pattern (overrides the drum style's default). */
+    bassStyle?: BassPattern;
+    /** Idiomatic keys/guitar accompaniment (overrides the drum style's default). */
+    compStyle?: CompStyle;
   };
   dynamics: {
     /** Typical energy (0..100) per section kind. */
@@ -608,8 +697,25 @@ export interface Blueprint {
   structure: BlueprintSection[];
   vocal?: { voiceType: VoiceType; mode: VocalMode; description?: string };
   lyricsTheme?: string;
+  /**
+   * Style, mood, era, production and other tag ids from the tag catalog (`composer/tags.ts`).
+   * Tags nudge the blended genre profile and the macros; unknown ids are ignored.
+   */
+  tags?: string[];
+  /** User-supplied lyrics the song is built from (lyrics-first composition). */
+  lyrics?: BlueprintLyrics;
   macros: MacroSettings;
   seed: number;
+}
+
+/** Lyrics supplied up front, parsed into sections (see `musician/lyrics/sheet.ts`). */
+export interface BlueprintLyrics {
+  /** The text exactly as the user entered it. */
+  text: string;
+  /** Parsed stanzas in song order; repeated stanzas (e.g. a chorus) appear once per occurrence. */
+  sections: { name: string; kind: SectionKind; lines: string[] }[];
+  /** Lock the lyrics in the composed song (default true: they are the user's words). */
+  lock?: boolean;
 }
 
 export interface PlanSection {
@@ -660,6 +766,8 @@ export interface SongDNA {
   energyCurve: number[];
   repetition: { pattern: string; repeatRatio: number };
   genreBlend: GenreWeight[];
+  /** Tag ids of the song (style, mood, era…), carried into DNA compositions. */
+  tags?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -902,6 +1010,12 @@ export interface Song {
   macros: MacroSettings;
   locks: LockMap;
   genreBlend: GenreWeight[];
+  /**
+   * Tag ids from the tag catalog (`composer/tags.ts`) the song was composed with. They shape the
+   * blended genre profile and shift `macros` (the user's base) at generation time, so
+   * regeneration and variations keep them. Falls back to `blueprint.tags` when absent.
+   */
+  tags?: string[];
   blueprint?: Blueprint;
   plan?: CompositionPlan;
   dna?: SongDNA;
@@ -970,16 +1084,39 @@ export interface NoteTransform {
 export type MusicOperation =
   | { op: 'replace_notes'; track: TrackRef; region: OpRegion; notes: OpNote[]; reason?: string }
   | { op: 'add_notes'; track: TrackRef; notes: OpNote[]; reason?: string }
-  | { op: 'delete_notes'; track: TrackRef; region?: OpRegion; note_ids?: Id[]; pitch_range?: [number, number]; reason?: string }
-  | { op: 'transform_notes'; track: TrackRef; region?: OpRegion; note_ids?: Id[]; transform: NoteTransform; reason?: string }
+  | {
+      op: 'delete_notes';
+      track: TrackRef;
+      region?: OpRegion;
+      note_ids?: Id[];
+      pitch_range?: [number, number];
+      reason?: string;
+    }
+  | {
+      op: 'transform_notes';
+      track: TrackRef;
+      region?: OpRegion;
+      note_ids?: Id[];
+      transform: NoteTransform;
+      reason?: string;
+    }
   | { op: 'set_chords'; region: OpRegion; chords: OpChord[]; reason?: string }
   | { op: 'set_tempo'; bpm: number; at_bar?: number; reason?: string }
-  | { op: 'set_key'; tonic: string; mode: ModeName; at_bar?: number; transpose_notes?: boolean; reason?: string }
+  | {
+      op: 'set_key';
+      tonic: string;
+      mode: ModeName;
+      at_bar?: number;
+      transpose_notes?: boolean;
+      reason?: string;
+    }
   | { op: 'set_meter'; numerator: number; denominator: number; at_bar?: number; reason?: string }
   | {
       op: 'update_section';
       section: Id | string;
-      changes: Partial<Pick<Section, 'name' | 'kind' | 'energy' | 'energyEnd' | 'purpose' | 'mood' | 'feel' | 'progression'>> & { bars?: number };
+      changes: Partial<
+        Pick<Section, 'name' | 'kind' | 'energy' | 'energyEnd' | 'purpose' | 'mood' | 'feel' | 'progression'>
+      > & { bars?: number };
       reason?: string;
     }
   | {
@@ -993,9 +1130,29 @@ export type MusicOperation =
   | { op: 'move_section'; section: Id | string; to_index: number; reason?: string }
   | { op: 'set_lyrics'; section: Id | string; lines: string[]; reason?: string }
   | { op: 'set_mixer'; track: TrackRef | 'master'; changes: MixerChange; reason?: string }
-  | { op: 'set_automation'; track: TrackRef | 'master'; param: AutomationParam; points: { bar: number; beat: number; value: number }[]; reason?: string }
-  | { op: 'set_expression'; track: TrackRef; region?: OpRegion; note_ids?: Id[]; expression: VocalExpression; reason?: string }
-  | { op: 'add_track'; name: string; instrument_id: string; role: TrackRole; function?: MusicalFunction; reason?: string }
+  | {
+      op: 'set_automation';
+      track: TrackRef | 'master';
+      param: AutomationParam;
+      points: { bar: number; beat: number; value: number }[];
+      reason?: string;
+    }
+  | {
+      op: 'set_expression';
+      track: TrackRef;
+      region?: OpRegion;
+      note_ids?: Id[];
+      expression: VocalExpression;
+      reason?: string;
+    }
+  | {
+      op: 'add_track';
+      name: string;
+      instrument_id: string;
+      role: TrackRole;
+      function?: MusicalFunction;
+      reason?: string;
+    }
   | { op: 'remove_track'; track: TrackRef; reason?: string }
   | { op: 'set_instrument'; track: TrackRef; instrument_id: string; reason?: string }
   | { op: 'set_macros'; track?: TrackRef; macros: Partial<MacroSettings>; reason?: string }
@@ -1222,6 +1379,60 @@ export interface RightsMetadata {
   notes?: string;
 }
 
+/**
+ * Basis on which a user attests they may use an uploaded audio file (docs/RIGHTS.md).
+ * Attestations are warn-only records: nothing in a local, open-source app can enforce them.
+ */
+export type AttestationBasis = 'own-work' | 'licensed' | 'open-licence' | 'personal-study';
+
+/** Something found when an uploaded file was checked (embedded tags or an online identification). */
+export interface ContentSignal {
+  kind: 'isrc' | 'copyright' | 'label' | 'purchase' | 'artist' | 'title' | 'album' | 'match';
+  /** e.g. "ISRC", "Copyright notice", "AcoustID match". */
+  label: string;
+  value: string;
+  /** e.g. "ID3 TSRC", "RIFF ICOP", "AcoustID". */
+  source?: string;
+}
+
+/** Online identification result (optional, opt-in; e.g. AcoustID → MusicBrainz). */
+export interface ContentMatch {
+  service: string;
+  /** 0..1 */
+  score: number;
+  recordingId?: string;
+  title?: string;
+  artists?: string[];
+  releaseTitle?: string;
+}
+
+/** A user's rights attestation for one uploaded audio file (spec §65 rights metadata). */
+export interface AudioAttestation {
+  id: Id;
+  /** SHA-256 of the uploaded file's bytes (lower-case hex). */
+  contentHash: string;
+  fileName: string;
+  /** Where the file entered: 'rebuild', 'transcribe', 'produce-reference', 'mix-stem', 'guide-stems', 'sample-instrument', … */
+  context: string;
+  basis: AttestationBasis;
+  attestedBy: string;
+  rightsHolder?: string;
+  /** Licence name / permission reference (e.g. "CC BY 4.0", "Sync licence #42"). */
+  licence?: string;
+  notes?: string;
+  attestedAt: string;
+  /** Project asset / provenance record of the stored file, when the file became an asset. */
+  assetId?: Id;
+  provenanceId?: Id;
+  /** What the checks found (embedded tags, online match). */
+  signals: ContentSignal[];
+  /** True when the checks suggested a commercial release (or an identification matched). */
+  flagged: boolean;
+  match?: ContentMatch;
+  /** Which checks ran: embedded metadata always; online identification only when opted in. */
+  checks: { metadata: boolean; online?: 'matched' | 'no-match' | 'error' | 'off' };
+}
+
 export interface Branch {
   id: Id;
   name: string;
@@ -1281,6 +1492,8 @@ export interface ProjectMeta {
   assets: AudioAssetMeta[];
   provenance: ProvenanceRecord[];
   voices: VoiceModelRecord[];
+  /** Rights attestations for uploaded audio files (absent in projects saved before they existed). */
+  attestations?: AudioAttestation[];
   /** Provider ids that have produced artifacts in this project (informational; project never depends on them). */
   providersUsed: { providerId: string; providerName: string; lastUsedAt: string }[];
   /** Custom genre/instrument profiles bundled with the project so it stays portable. */

@@ -19,7 +19,15 @@ const NEW_TAKE_SECONDS = 3;
  * Tap a rhythm (spec §27): click/touch the pad or press Space / T. Shows a live tempo estimate
  * and the taps on a timeline. Space is captured here so it does not toggle the transport.
  */
-export function TapPad({ onUse, sound, onSound }: { onUse: (taps: number[]) => void; sound: string; onSound: (v: string) => void }) {
+export function TapPad({
+  onUse,
+  sound,
+  onSound,
+}: {
+  onUse: (taps: number[]) => void;
+  sound: string;
+  onSound: (v: string) => void;
+}) {
   const [taps, setTaps] = useState<number[]>([]);
   const [flash, setFlash] = useState(0);
   const t0 = useRef<number | null>(null);
@@ -40,7 +48,11 @@ export function TapPad({ onUse, sound, onSound }: { onUse: (taps: number[]) => v
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (
+        t &&
+        (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+      )
+        return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (document.querySelector('.modal-backdrop')) return; // a dialog owns the keyboard
       if (e.key === ' ' || e.key.toLowerCase() === 't') {
@@ -53,7 +65,11 @@ export function TapPad({ onUse, sound, onSound }: { onUse: (taps: number[]) => v
     // Space activates a focused button on keyup — swallow it so tapping never clicks "Clear" etc.
     const onKeyUp = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (
+        t &&
+        (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+      )
+        return;
       if (document.querySelector('.modal-backdrop')) return;
       if (e.key === ' ') {
         e.preventDefault();
@@ -109,14 +125,26 @@ export function TapPad({ onUse, sound, onSound }: { onUse: (taps: number[]) => v
         </div>
         <span className="small dim">Pause {NEW_TAKE_SECONDS} s to start a new take</span>
       </div>
-      <svg width="100%" height={22} viewBox="0 0 400 22" preserveAspectRatio="none" style={{ background: 'var(--bg-input)', borderRadius: 6, border: '1px solid var(--border)' }} aria-hidden>
+      <svg
+        width="100%"
+        height={22}
+        viewBox="0 0 400 22"
+        preserveAspectRatio="none"
+        style={{ background: 'var(--bg-input)', borderRadius: 6, border: '1px solid var(--border)' }}
+        aria-hidden
+      >
         {taps.map((t, i) => (
           <rect key={i} x={6 + (t / span) * 386} y={4} width={3} height={14} rx={1} fill="var(--accent)" />
         ))}
       </svg>
       <div className="row wrap" style={{ alignItems: 'flex-end' }}>
         <Field label="Tap sound">
-          <Select value={sound} onChange={onSound} options={TAP_SOUNDS.map((s) => ({ value: s.value, label: s.label }))} aria-label="Tap sound" />
+          <Select
+            value={sound}
+            onChange={onSound}
+            options={TAP_SOUNDS.map((s) => ({ value: s.value, label: s.label }))}
+            aria-label="Tap sound"
+          />
         </Field>
         <div className="spacer" />
         <Button

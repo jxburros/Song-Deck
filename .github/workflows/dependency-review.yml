@@ -1,0 +1,23 @@
+# Flags pull requests that add dependencies with known vulnerabilities or incompatible licences.
+name: Dependency review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    # Dependency review needs the dependency graph with GitHub Advanced Security, which private
+    # repositories only have when it is enabled for them; CI's npm audit covers them meanwhile.
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

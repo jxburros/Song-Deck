@@ -72,26 +72,53 @@ export class StereoDelay {
   }
 
   /** Wet output → outL/outR (overwritten). */
-  process(inL: Float64Array, inR: Float64Array, outL: Float64Array, outR: Float64Array, start: number, end: number): void {
-    const bl = this.bl, br = this.br, mask = this.mask;
+  process(
+    inL: Float64Array,
+    inR: Float64Array,
+    outL: Float64Array,
+    outR: Float64Array,
+    start: number,
+    end: number,
+  ): void {
+    const bl = this.bl,
+      br = this.br,
+      mask = this.mask;
     const size = mask + 1;
     const fb = this.feedback;
     let w = this.w;
     let d = this.delay;
-    const tgt = this.target, slew = this.slew;
+    const tgt = this.target,
+      slew = this.slew;
     const pp = this.pingPong;
-    const h = this.hcL, l = this.lcL;
-    const hb0 = h.b0, hb1 = h.b1, hb2 = h.b2, ha1 = h.a1, ha2 = h.a2;
-    const lb0 = l.b0, lb1 = l.b1, lb2 = l.b2, la1 = l.a1, la2 = l.a2;
-    let h1L = this.hcL.z1L, h2L = this.hcL.z2L, h1R = this.hcR.z1L, h2R = this.hcR.z2L;
-    let l1L = this.lcL.z1L, l2L = this.lcL.z2L, l1R = this.lcR.z1L, l2R = this.lcR.z2L;
+    const h = this.hcL,
+      l = this.lcL;
+    const hb0 = h.b0,
+      hb1 = h.b1,
+      hb2 = h.b2,
+      ha1 = h.a1,
+      ha2 = h.a2;
+    const lb0 = l.b0,
+      lb1 = l.b1,
+      lb2 = l.b2,
+      la1 = l.a1,
+      la2 = l.a2;
+    let h1L = this.hcL.z1L,
+      h2L = this.hcL.z2L,
+      h1R = this.hcR.z1L,
+      h2R = this.hcR.z2L;
+    let l1L = this.lcL.z1L,
+      l2L = this.lcL.z2L,
+      l1R = this.lcR.z1L,
+      l2R = this.lcR.z2L;
     for (let i = start; i < end; i++) {
       d += (tgt - d) * slew;
       const pos = w - d + size;
       const ip = pos | 0;
       const f = pos - ip;
-      const a0 = bl[ip & mask], a1 = bl[(ip + 1) & mask];
-      const b0 = br[ip & mask], b1 = br[(ip + 1) & mask];
+      const a0 = bl[ip & mask],
+        a1 = bl[(ip + 1) & mask];
+      const b0 = br[ip & mask],
+        b1 = br[(ip + 1) & mask];
       const yl = a0 + f * (a1 - a0);
       const yr = b0 + f * (b1 - b0);
       // high-cut then low-cut (TDF-II), left

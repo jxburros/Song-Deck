@@ -18,13 +18,34 @@ import { inferQualityTier } from '../model-heuristics';
 import { compileSchema, schemaInstructions } from '../schemas/dialects';
 import { isRetryableHttpError } from '../transport/http';
 import { RequestGate, withRetry, withTimeout } from '../transport/limiter';
-import type { LLMProvider, LLMRequest, LLMResponse, ModelInfo, ProviderInstance, Transport, TransportAuth } from '../types';
-import { buildDescriptor, costFor, type CreateProviderDeps, jsonFromText, mergeManualModels, structuredMode, truncatedError } from './common';
+import type {
+  LLMProvider,
+  LLMRequest,
+  LLMResponse,
+  ModelInfo,
+  ProviderInstance,
+  Transport,
+  TransportAuth,
+} from '../types';
+import {
+  buildDescriptor,
+  costFor,
+  type CreateProviderDeps,
+  jsonFromText,
+  mergeManualModels,
+  structuredMode,
+  truncatedError,
+} from './common';
 
 export const ANTHROPIC_FIRST_PARTY_BASE_URL = 'https://api.anthropic.com';
 export const ANTHROPIC_FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 /** Models for which server-side refusal fallbacks are enabled by default. */
-export const ANTHROPIC_REFUSAL_FALLBACK_MODELS = ['claude-opus-5-5', 'claude-opus-5', 'claude-fable-5-1', 'claude-sonnet-5-5'];
+export const ANTHROPIC_REFUSAL_FALLBACK_MODELS = [
+  'claude-opus-5-5',
+  'claude-opus-5',
+  'claude-fable-5-1',
+  'claude-sonnet-5-5',
+];
 export const ANTHROPIC_DEFAULT_MODEL = 'claude-opus-5-5';
 export const ANTHROPIC_PLACEHOLDER_KEY = 'proxy-managed';
 
@@ -47,10 +68,15 @@ export function supportsRefusalFallback(model: string): boolean {
 /** fetch for the SDK that routes through a Song Deck Transport. */
 export function transportFetch(transport: Transport, auth: TransportAuth | undefined) {
   return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
-    if (typeof input === 'string' || input instanceof URL) return transport.fetch(String(input), init ?? {}, auth);
+    if (typeof input === 'string' || input instanceof URL)
+      return transport.fetch(String(input), init ?? {}, auth);
     const req = input as Request;
     const body = req.body ? new Uint8Array(await req.arrayBuffer()) : undefined;
-    return transport.fetch(req.url, { method: req.method, headers: req.headers, body, signal: req.signal, ...(init ?? {}) }, auth);
+    return transport.fetch(
+      req.url,
+      { method: req.method, headers: req.headers, body, signal: req.signal, ...(init ?? {}) },
+      auth,
+    );
   };
 }
 
@@ -60,22 +86,38 @@ export function mapAnthropicError(err: unknown, providerId: string, timedOut = f
   const cause = (err as { cause?: unknown } | undefined)?.cause;
   if (cause instanceof ProviderError) return cause;
   if (err instanceof Anthropic.APIUserAbortError) {
-    return timedOut ? new ProviderError('timeout', 'Anthropic request timed out', { providerId }) : new ProviderError('cancelled', 'Request cancelled', { providerId });
+    return timedOut
+      ? new ProviderError('timeout', 'Anthropic request timed out', { providerId })
+      : new ProviderError('cancelled', 'Request cancelled', { providerId });
   }
-  if (err instanceof Anthropic.APIConnectionTimeoutError) return new ProviderError('timeout', 'Anthropic request timed out', { providerId, cause: err });
-  if (err instanceof Anthropic.APIConnectionError) return new ProviderError('network', err.message || 'Could not reach the Anthropic API', { providerId, cause: err });
+  if (err instanceof Anthropic.APIConnectionTimeoutError)
+    return new ProviderError('timeout', 'Anthropic request timed out', { providerId, cause: err });
+  if (err instanceof Anthropic.APIConnectionError)
+    return new ProviderError('network', err.message || 'Could not reach the Anthropic API', {
+      providerId,
+      cause: err,
+    });
   if (err instanceof Anthropic.APIError) {
     const status = typeof err.status === 'number' ? err.status : undefined;
     const retryAfter = err.headers?.get?.('retry-after');
-    const retryAfterMs = retryAfter && Number.isFinite(Number(retryAfter)) ? Number(retryAfter) * 1000 : undefined;
+    const retryAfterMs =
+      retryAfter && Number.isFinite(Number(retryAfter)) ? Number(retryAfter) * 1000 : undefined;
     const opts = { providerId, status, retryAfterMs, details: err.error, cause: err };
-    const message = (err.error as { error?: { message?: string } } | undefined)?.error?.message ?? err.message;
-    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) return new ProviderError('auth', message, opts);
+    const message =
+      (err.error as { error?: { message?: string } } | undefined)?.error?.message ?? err.message;
+    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError)
+      return new ProviderError('auth', message, opts);
     if (err instanceof Anthropic.RateLimitError) return new ProviderError('rate-limit', message, opts);
-    if (err instanceof Anthropic.BadRequestError || err instanceof Anthropic.NotFoundError || err instanceof Anthropic.UnprocessableEntityError || err instanceof Anthropic.ConflictError) {
+    if (
+      err instanceof Anthropic.BadRequestError ||
+      err instanceof Anthropic.NotFoundError ||
+      err instanceof Anthropic.UnprocessableEntityError ||
+      err instanceof Anthropic.ConflictError
+    ) {
       return new ProviderError('bad-request', message, opts);
     }
-    if (err instanceof Anthropic.InternalServerError || (status !== undefined && status >= 500)) return new ProviderError('unavailable', message, opts);
+    if (err instanceof Anthropic.InternalServerError || (status !== undefined && status >= 500))
+      return new ProviderError('unavailable', message, opts);
     if (status === 408) return new ProviderError('timeout', message, opts);
     return new ProviderError('unknown', message, opts);
   }
@@ -93,17 +135,35 @@ interface MessageLike {
   content: ContentBlockLike[];
   stop_reason: string | null;
   stop_details?: { category?: string | null; explanation?: string | null } | null;
-  usage?: { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null };
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number | null;
+    cache_read_input_tokens?: number | null;
+  };
 }
 
 /** Map the models API's capability object to the Song Deck taxonomy. */
-export function anthropicModelInfo(m: { id: string; display_name?: string; max_input_tokens?: number | null; max_tokens?: number | null; capabilities?: unknown }): ModelInfo {
-  const caps = (m.capabilities ?? null) as Record<string, { supported?: boolean } & Record<string, { supported?: boolean } | boolean | null>> | null;
+export function anthropicModelInfo(m: {
+  id: string;
+  display_name?: string;
+  max_input_tokens?: number | null;
+  max_tokens?: number | null;
+  capabilities?: unknown;
+}): ModelInfo {
+  const caps = (m.capabilities ?? null) as Record<
+    string,
+    { supported?: boolean } & Record<string, { supported?: boolean } | boolean | null>
+  > | null;
   const supported = (k: string) => caps?.[k]?.supported === true;
   const capabilities: Capability[] = [...LLM_BASE_CAPABILITIES, 'TOOL_CALLING'];
   if (!caps || supported('structured_outputs')) capabilities.push('STRUCTURED_JSON');
   if ((m.max_input_tokens ?? 200_000) >= 100_000) capabilities.push('LONG_CONTEXT');
-  const effortLevels = caps?.effort ? (['low', 'medium', 'high', 'xhigh', 'max'] as const).filter((l) => (caps.effort?.[l] as { supported?: boolean } | null | undefined)?.supported === true) : [];
+  const effortLevels = caps?.effort
+    ? (['low', 'medium', 'high', 'xhigh', 'max'] as const).filter(
+        (l) => (caps.effort?.[l] as { supported?: boolean } | null | undefined)?.supported === true,
+      )
+    : [];
   const info: ModelInfo = {
     id: m.id,
     capabilities,
@@ -144,7 +204,10 @@ export class AnthropicLLM implements LLMProvider {
     readonly config: ProviderConfig,
     private readonly opts: AnthropicLLMOptions,
   ) {
-    const auth: TransportAuth = { ...config.auth, credentialRef: config.auth.type === 'none' ? undefined : config.credentialRef };
+    const auth: TransportAuth = {
+      ...config.auth,
+      credentialRef: config.auth.type === 'none' ? undefined : config.credentialRef,
+    };
     this.client =
       opts.client ??
       new Anthropic({
@@ -157,7 +220,9 @@ export class AnthropicLLM implements LLMProvider {
         timeout: config.timeoutMs,
         logLevel: 'off',
       });
-    this.gate = opts.gate ?? new RequestGate({ concurrency: config.concurrency, requestsPerMinute: config.requestsPerMinute });
+    this.gate =
+      opts.gate ??
+      new RequestGate({ concurrency: config.concurrency, requestsPerMinute: config.requestsPerMinute });
   }
 
   private async call<T>(fn: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -182,7 +247,8 @@ export class AnthropicLLM implements LLMProvider {
   async listModels(signal?: AbortSignal): Promise<ModelInfo[]> {
     const models = await this.call(async (s) => {
       const out: ModelInfo[] = [];
-      for await (const m of this.client.models.list({ limit: 100 }, { signal: s })) out.push(anthropicModelInfo(m));
+      for await (const m of this.client.models.list({ limit: 100 }, { signal: s }))
+        out.push(anthropicModelInfo(m));
       return out;
     }, signal);
     const merged = mergeManualModels(models, this.config, [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON']);
@@ -197,7 +263,8 @@ export class AnthropicLLM implements LLMProvider {
     if (info?.meta?.effort === false) return undefined;
     const level: AnthropicEffort = configured ?? 'medium';
     const levels = info?.meta?.effortLevels as string[] | undefined;
-    if (levels?.length && !levels.includes(level)) return levels.includes('medium') ? 'medium' : (levels[0] as AnthropicEffort);
+    if (levels?.length && !levels.includes(level))
+      return levels.includes('medium') ? 'medium' : (levels[0] as AnthropicEffort);
     return level;
   }
 
@@ -212,13 +279,17 @@ export class AnthropicLLM implements LLMProvider {
     const schema = req.responseSchema;
     const native = !!schema && this.nativeFormat(model);
     let system = req.system ?? '';
-    if (schema && !native) system = [system, schemaInstructions(schema, req.schemaName)].filter(Boolean).join('\n\n');
+    if (schema && !native)
+      system = [system, schemaInstructions(schema, req.schemaName)].filter(Boolean).join('\n\n');
     const messages = req.messages.map((m) => {
       if (typeof m.content === 'string') return { role: m.role, content: m.content };
       return {
         role: m.role,
         content: m.content.map((p) => {
-          if (p.type === 'audio') throw new ProviderError('unsupported', 'Claude models do not accept audio input', { providerId: this.config.id });
+          if (p.type === 'audio')
+            throw new ProviderError('unsupported', 'Claude models do not accept audio input', {
+              providerId: this.config.id,
+            });
           return { type: 'text' as const, text: p.text };
         }),
       };
@@ -230,7 +301,8 @@ export class AnthropicLLM implements LLMProvider {
     };
     if (system) params.system = system;
     const outputConfig: Record<string, unknown> = {};
-    if (native && schema) outputConfig.format = { type: 'json_schema', schema: compileSchema(schema, 'anthropic') };
+    if (native && schema)
+      outputConfig.format = { type: 'json_schema', schema: compileSchema(schema, 'anthropic') };
     const effort = this.effortFor(model);
     if (effort) outputConfig.effort = effort;
     if (Object.keys(outputConfig).length) params.output_config = outputConfig;
@@ -238,7 +310,12 @@ export class AnthropicLLM implements LLMProvider {
   }
 
   private useFallbacks(model: string): boolean {
-    return !this.fallbackDisabled && (this.config.extra?.refusalFallback ?? true) && isAnthropicFirstParty(this.config.baseUrl) && supportsRefusalFallback(model);
+    return (
+      !this.fallbackDisabled &&
+      (this.config.extra?.refusalFallback ?? true) &&
+      isAnthropicFirstParty(this.config.baseUrl) &&
+      supportsRefusalFallback(model)
+    );
   }
 
   async complete(req: LLMRequest): Promise<LLMResponse> {
@@ -258,14 +335,20 @@ export class AnthropicLLM implements LLMProvider {
           this.fallbackDisabled = true;
           continue;
         }
-        if (req.responseSchema && /output_config|format|schema|structured/i.test(msg) && this.nativeFormat(model)) {
+        if (
+          req.responseSchema &&
+          /output_config|format|schema|structured/i.test(msg) &&
+          this.nativeFormat(model)
+        ) {
           this.noFormat.add(model);
           continue;
         }
         throw err;
       }
     }
-    throw new ProviderError('bad-request', 'Anthropic request failed after adjusting unsupported options', { providerId: this.config.id });
+    throw new ProviderError('bad-request', 'Anthropic request failed after adjusting unsupported options', {
+      providerId: this.config.id,
+    });
   }
 
   private async send(req: LLMRequest, model: string): Promise<LLMResponse> {
@@ -274,8 +357,14 @@ export class AnthropicLLM implements LLMProvider {
     const native = !!(params.output_config as { format?: unknown } | undefined)?.format;
     const msg = (await this.call(async (signal) => {
       if (fallbacks) {
-        const betaParams = { ...params, betas: [ANTHROPIC_FALLBACK_BETA], fallbacks: 'default' } as unknown as Parameters<Anthropic['beta']['messages']['create']>[0];
-        return (await this.client.beta.messages.create(betaParams as never, { signal })) as unknown as MessageLike;
+        const betaParams = {
+          ...params,
+          betas: [ANTHROPIC_FALLBACK_BETA],
+          fallbacks: 'default',
+        } as unknown as Parameters<Anthropic['beta']['messages']['create']>[0];
+        return (await this.client.beta.messages.create(betaParams as never, {
+          signal,
+        })) as unknown as MessageLike;
       }
       const p = params as unknown as Anthropic.MessageCreateParamsNonStreaming;
       return (await this.client.messages.create(p, { signal })) as unknown as MessageLike;
@@ -297,7 +386,10 @@ export class AnthropicLLM implements LLMProvider {
     if (msg.stop_reason === 'max_tokens' && req.responseSchema) throw truncatedError(this.config.id, text);
     const usage = msg.usage
       ? {
-          inputTokens: (msg.usage.input_tokens ?? 0) + (msg.usage.cache_creation_input_tokens ?? 0) + (msg.usage.cache_read_input_tokens ?? 0),
+          inputTokens:
+            (msg.usage.input_tokens ?? 0) +
+            (msg.usage.cache_creation_input_tokens ?? 0) +
+            (msg.usage.cache_read_input_tokens ?? 0),
           outputTokens: msg.usage.output_tokens ?? 0,
         }
       : undefined;
@@ -319,7 +411,24 @@ export class AnthropicLLM implements LLMProvider {
 }
 
 export function createAnthropicProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
-  const gate = new RequestGate({ concurrency: config.concurrency, requestsPerMinute: config.requestsPerMinute, clock: deps.clock });
-  const llm = new AnthropicLLM(config, { transport: deps.transport, gate, retry: { ...(deps.clock ? { clock: deps.clock } : {}), ...(deps.retry ?? {}) } });
-  return { descriptor: buildDescriptor(config, [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON', 'TOOL_CALLING', 'LONG_CONTEXT']), config, llm };
+  const gate = new RequestGate({
+    concurrency: config.concurrency,
+    requestsPerMinute: config.requestsPerMinute,
+    clock: deps.clock,
+  });
+  const llm = new AnthropicLLM(config, {
+    transport: deps.transport,
+    gate,
+    retry: { ...(deps.clock ? { clock: deps.clock } : {}), ...(deps.retry ?? {}) },
+  });
+  return {
+    descriptor: buildDescriptor(config, [
+      ...LLM_BASE_CAPABILITIES,
+      'STRUCTURED_JSON',
+      'TOOL_CALLING',
+      'LONG_CONTEXT',
+    ]),
+    config,
+    llm,
+  };
 }

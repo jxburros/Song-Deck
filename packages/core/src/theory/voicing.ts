@@ -37,7 +37,9 @@ export function voiceChord(chord: ChordSpec, opts: VoicingOptions): MidiPitch[] 
   const voices = Math.max(1, opts.voices ?? 4);
   const tones = chordTones({ root: chord.root, quality: chord.quality });
   const pcs = Array.from(new Set(tones.map((t) => t.pc)));
-  const essentialAll = tones.filter((t) => t.role === 'root' || t.role === 'third' || t.role === 'sus' || t.role === 'seventh').map((t) => t.pc);
+  const essentialAll = tones
+    .filter((t) => t.role === 'root' || t.role === 'third' || t.role === 'sus' || t.role === 'seventh')
+    .map((t) => t.pc);
   const essential = Array.from(new Set(essentialAll.length ? essentialAll : pcs)).slice(0, voices);
   const thirdPcs = tones.filter((t) => t.role === 'third').map((t) => t.pc);
   const bassPc = chord.bass ?? chord.root;
@@ -56,7 +58,8 @@ export function voiceChord(chord: ChordSpec, opts: VoicingOptions): MidiPitch[] 
     let score: number;
     const mean = combo.reduce((s, p) => s + p, 0) / combo.length;
     const span = combo[combo.length - 1] - combo[0];
-    if (opts.previous && opts.previous.length) score = movement(combo, opts.previous) + Math.abs(mean - center) * 0.1;
+    if (opts.previous && opts.previous.length)
+      score = movement(combo, opts.previous) + Math.abs(mean - center) * 0.1;
     else score = Math.abs(mean - center) + span * 0.08;
     // Voicing quality: avoid doubled thirds, prefer covering all tones, avoid low-register clutter.
     const thirdCount = combo.filter((p) => thirdPcs.includes(mod12(p))).length;
@@ -147,7 +150,11 @@ export function guitarVoicing(chord: ChordSpec, style: 'power' | 'barre' | 'open
   if (eShape && (!aShape || eFret <= aFret || style === 'open')) voicing = eShape.map((i) => 40 + eFret + i);
   else if (aShape) voicing = aShape.map((i) => 45 + aFret + i);
   if (!voicing) {
-    voicing = voiceChord(chord, { low: 40, high: 76, voices: Math.min(5, CHORD_INTERVALS[chord.quality].length + 1) });
+    voicing = voiceChord(chord, {
+      low: 40,
+      high: 76,
+      voices: Math.min(5, CHORD_INTERVALS[chord.quality].length + 1),
+    });
   }
   if (chord.bass !== undefined && chord.bass !== chord.root) {
     // Put the slash bass under the shape.
@@ -172,7 +179,13 @@ export function pianoVoicing(
   const left = opts.octaveBass ? [bass, bass + 12] : [bass];
   const right = voiceChord(
     { root: chord.root, quality: chord.quality },
-    { low: opts.rightLow ?? 55, high: opts.rightHigh ?? 79, voices: 3, previous: previousRightHand, center: 66 },
+    {
+      low: opts.rightLow ?? 55,
+      high: opts.rightHigh ?? 79,
+      voices: 3,
+      previous: previousRightHand,
+      center: 66,
+    },
   );
   return { left, right };
 }

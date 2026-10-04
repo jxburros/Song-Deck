@@ -14,7 +14,19 @@ import {
   type JsonSchema,
 } from '../src';
 
-const CONSTRAINTS = ['minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'minLength', 'maxLength', 'minItems', 'maxItems', 'pattern', 'format'];
+const CONSTRAINTS = [
+  'minimum',
+  'maximum',
+  'exclusiveMinimum',
+  'exclusiveMaximum',
+  'multipleOf',
+  'minLength',
+  'maxLength',
+  'minItems',
+  'maxItems',
+  'pattern',
+  'format',
+];
 
 function nodes(s: JsonSchema, out: JsonSchema[] = []): JsonSchema[] {
   out.push(s);
@@ -42,19 +54,68 @@ describe('schema dialect compiler', () => {
   it('anthropic: folds rarely-used optional fields into params and unfoldParams restores them', () => {
     const compiled = compileSchema(OPERATIONS_SCHEMA, 'anthropic');
     const item = (compiled.properties!.operations as JsonSchema).items!;
-    expect(Object.keys(item.properties!)).toEqual(expect.arrayContaining(['op', 'track', 'start_bar', 'end_bar', 'notes', 'chords', 'lines', 'mixer', 'reason', 'params']));
+    expect(Object.keys(item.properties!)).toEqual(
+      expect.arrayContaining([
+        'op',
+        'track',
+        'start_bar',
+        'end_bar',
+        'notes',
+        'chords',
+        'lines',
+        'mixer',
+        'reason',
+        'params',
+      ]),
+    );
     expect(item.properties).not.toHaveProperty('bpm');
     const names = (item.properties!.params.items!.properties!.name.enum ?? []) as string[];
-    expect(names).toEqual(expect.arrayContaining(['bpm', 'tonic', 'mode', 'transform.transpose', 'expression.vibrato', 'macros.energy', 'to_index']));
-    const folded = { explanation: 'x', confidence: 0.8, operations: [{ op: 'set_tempo', params: [{ name: 'bpm', value: '140' }, { name: 'at_bar', value: '17' }] }, { op: 'transform_notes', track: 'bass', params: [{ name: 'transform.transpose', value: '12' }] }, { op: 'update_section', section: 'Chorus 1', params: [{ name: 'mood', value: '["dark","tense"]' }] }] };
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'bpm',
+        'tonic',
+        'mode',
+        'transform.transpose',
+        'expression.vibrato',
+        'macros.energy',
+        'to_index',
+      ]),
+    );
+    const folded = {
+      explanation: 'x',
+      confidence: 0.8,
+      operations: [
+        {
+          op: 'set_tempo',
+          params: [
+            { name: 'bpm', value: '140' },
+            { name: 'at_bar', value: '17' },
+          ],
+        },
+        { op: 'transform_notes', track: 'bass', params: [{ name: 'transform.transpose', value: '12' }] },
+        { op: 'update_section', section: 'Chorus 1', params: [{ name: 'mood', value: '["dark","tense"]' }] },
+      ],
+    };
     const restored = unfoldParams(folded, OPERATIONS_SCHEMA) as { operations: Record<string, unknown>[] };
     expect(restored.operations[0]).toEqual({ op: 'set_tempo', bpm: 140, at_bar: 17 });
-    expect(restored.operations[1]).toEqual({ op: 'transform_notes', track: 'bass', transform: { transpose: 12 } });
-    expect(restored.operations[2]).toEqual({ op: 'update_section', section: 'Chorus 1', mood: ['dark', 'tense'] });
+    expect(restored.operations[1]).toEqual({
+      op: 'transform_notes',
+      track: 'bass',
+      transform: { transpose: 12 },
+    });
+    expect(restored.operations[2]).toEqual({
+      op: 'update_section',
+      section: 'Chorus 1',
+      mood: ['dark', 'tense'],
+    });
     const parsed = parseOperations(folded);
     expect(parsed.errors).toEqual([]);
     expect(parsed.operations[0]).toEqual({ op: 'set_tempo', bpm: 140, at_bar: 17 });
-    expect(parsed.operations[1]).toEqual({ op: 'transform_notes', track: 'bass', transform: { transpose: 12 } });
+    expect(parsed.operations[1]).toEqual({
+      op: 'transform_notes',
+      track: 'bass',
+      transform: { transpose: 12 },
+    });
   });
 
   it('openai-strict: every property required, optional ones nullable, objects closed', () => {
@@ -74,7 +135,9 @@ describe('schema dialect compiler', () => {
     expect(bp.properties!.vocal.anyOf).toHaveLength(2);
     const instr = bp.properties!.instrumentation.items!.properties!;
     expect(instr.function.enum).toContain(null);
-    expect(compileSchema(BLUEPRINT_SCHEMA, 'openai-strict', { keepConstraints: true }).properties!.tempo.minimum).toBe(30);
+    expect(
+      compileSchema(BLUEPRINT_SCHEMA, 'openai-strict', { keepConstraints: true }).properties!.tempo.minimum,
+    ).toBe(30);
   });
 
   it('gemini: OpenAPI subset (uppercase types, nullable, no additionalProperties, propertyOrdering)', () => {
@@ -86,7 +149,10 @@ describe('schema dialect compiler', () => {
     expect(JSON.stringify(g)).not.toMatch(/additionalProperties|minimum|maximum/);
     const plan = compileSchema(CANONICAL_SCHEMAS.composition_plan, 'gemini') as Record<string, any>;
     // integer enums are dropped (Gemini enums are strings only)
-    expect(plan.properties.meter.properties.denominator).toEqual({ type: 'INTEGER', description: 'Beat unit (4 = quarter note, 8 = eighth note)' });
+    expect(plan.properties.meter.properties.denominator).toEqual({
+      type: 'INTEGER',
+      description: 'Beat unit (4 = quarter note, 8 = eighth note)',
+    });
     expect(plan.properties.key.properties.mode.enum).toContain('dorian');
   });
 
@@ -121,7 +187,11 @@ describe('validateJson', () => {
     expect(r.errors.map((e) => e.path)).toEqual(['bpm', 'mode', 'extra']);
   });
   it('coerces typical LLM deviations', () => {
-    const r = validateJson({ bpm: '400', bars: 7.6, mode: 'Pre Chorus', on: 'yes', tags: 'solo', note: null, extra: 1 }, schema, { coerce: true });
+    const r = validateJson(
+      { bpm: '400', bars: 7.6, mode: 'Pre Chorus', on: 'yes', tags: 'solo', note: null, extra: 1 },
+      schema,
+      { coerce: true },
+    );
     expect(r.valid).toBe(true);
     expect(r.value).toEqual({ bpm: 300, bars: 8, mode: 'pre-chorus', on: true, tags: ['solo'] });
     expect(r.warnings.length).toBeGreaterThanOrEqual(5);
@@ -148,13 +218,26 @@ describe('extractJson', () => {
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.repaired).toBe(true);
-      expect(r.value).toEqual({ explanation: 'It\'s "punchier" now', ops: [{ op: 'add_notes', velocity: 96, ok: true, none: null, ratio: 0.5 }], x: null });
+      expect(r.value).toEqual({
+        explanation: 'It\'s "punchier" now',
+        ops: [{ op: 'add_notes', velocity: 96, ok: true, none: null, ratio: 0.5 }],
+        x: null,
+      });
     }
   });
   it('inserts missing commas, strips <think> blocks and closes truncated output at the last complete member', () => {
-    expect(extractJson('<think>let me think {not json}</think>{"a": 1\n "b": 2}')).toMatchObject({ ok: true, value: { a: 1, b: 2 } });
-    const truncated = extractJson('{"explanation":"x","operations":[{"op":"add_notes","notes":[{"pitch":"E2","bar":1},{"pitch":"G');
-    expect(truncated).toMatchObject({ ok: true, truncated: true, value: { explanation: 'x', operations: [{ op: 'add_notes', notes: [{ pitch: 'E2', bar: 1 }] }] } });
+    expect(extractJson('<think>let me think {not json}</think>{"a": 1\n "b": 2}')).toMatchObject({
+      ok: true,
+      value: { a: 1, b: 2 },
+    });
+    const truncated = extractJson(
+      '{"explanation":"x","operations":[{"op":"add_notes","notes":[{"pitch":"E2","bar":1},{"pitch":"G',
+    );
+    expect(truncated).toMatchObject({
+      ok: true,
+      truncated: true,
+      value: { explanation: 'x', operations: [{ op: 'add_notes', notes: [{ pitch: 'E2', bar: 1 }] }] },
+    });
     // A number at the very end may be cut off → dropped; a complete one is kept.
     expect(repairJson('{"a": {"b": [1, 2').text).toBe('{"a": {"b": [1]}}');
     expect(repairJson('{"a": {"b": [1, 2 ').text).toBe('{"a": {"b": [1, 2]}}');
@@ -199,7 +282,21 @@ describe('parseOperations', () => {
     expect(r.explanation).toBe('Busier bass in the chorus');
     expect(r.confidence).toBe(0.85);
     const ops = r.operations;
-    expect(ops.map((o) => o.op)).toEqual(['replace_notes', 'set_chords', 'set_tempo', 'set_key', 'set_mixer', 'set_mixer', 'transform_notes', 'update_section', 'set_lyrics', 'add_track', 'set_automation', 'set_macros', 'regenerate']);
+    expect(ops.map((o) => o.op)).toEqual([
+      'replace_notes',
+      'set_chords',
+      'set_tempo',
+      'set_key',
+      'set_mixer',
+      'set_mixer',
+      'transform_notes',
+      'update_section',
+      'set_lyrics',
+      'add_track',
+      'set_automation',
+      'set_macros',
+      'regenerate',
+    ]);
     expect(ops[0]).toEqual({
       op: 'replace_notes',
       track: 'bass',
@@ -210,18 +307,50 @@ describe('parseOperations', () => {
       ],
       reason: 'more movement',
     });
-    expect(ops[1]).toEqual({ op: 'set_chords', region: { start_bar: 17, end_bar: 18 }, chords: [{ bar: 17, beat: 1, symbol: 'Em', duration_beats: 4 }] });
+    expect(ops[1]).toEqual({
+      op: 'set_chords',
+      region: { start_bar: 17, end_bar: 18 },
+      chords: [{ bar: 17, beat: 1, symbol: 'Em', duration_beats: 4 }],
+    });
     expect(ops[2]).toEqual({ op: 'set_tempo', bpm: 140 });
     expect(ops[3]).toEqual({ op: 'set_key', tonic: 'D', mode: 'dorian', transpose_notes: true });
     expect(ops[4]).toEqual({ op: 'set_mixer', track: 'Lead Vocal', changes: { volumeDb: -3, mute: false } });
     expect(ops[5]).toEqual({ op: 'set_mixer', track: 'master', changes: { 'eq.highShelfDb': 2 } });
-    expect(ops[6]).toEqual({ op: 'transform_notes', track: 'drums', transform: { quantize_beats: 0.25, humanize: 1 } });
-    expect(ops[7]).toEqual({ op: 'update_section', section: 'Chorus 1', changes: { energy: 100, kind: 'final-chorus' } });
+    expect(ops[6]).toEqual({
+      op: 'transform_notes',
+      track: 'drums',
+      transform: { quantize_beats: 0.25, humanize: 1 },
+    });
+    expect(ops[7]).toEqual({
+      op: 'update_section',
+      section: 'Chorus 1',
+      changes: { energy: 100, kind: 'final-chorus' },
+    });
     expect(ops[8]).toEqual({ op: 'set_lyrics', section: 'Verse 1', lines: ['line one', 'line two'] });
-    expect(ops[9]).toEqual({ op: 'add_track', name: 'Strings', instrument_id: 'string-ensemble', role: 'strings', function: 'pad' });
-    expect(ops[10]).toEqual({ op: 'set_automation', track: 'Lead Vocal', param: 'volumeDb', points: [{ bar: 1, beat: 1, value: -6 }, { bar: 4, beat: 1, value: 0 }] });
+    expect(ops[9]).toEqual({
+      op: 'add_track',
+      name: 'Strings',
+      instrument_id: 'string-ensemble',
+      role: 'strings',
+      function: 'pad',
+    });
+    expect(ops[10]).toEqual({
+      op: 'set_automation',
+      track: 'Lead Vocal',
+      param: 'volumeDb',
+      points: [
+        { bar: 1, beat: 1, value: -6 },
+        { bar: 4, beat: 1, value: 0 },
+      ],
+    });
     expect(ops[11]).toEqual({ op: 'set_macros', macros: { melodicMovement: 0.8, energy: 0.7 } });
-    expect(ops[12]).toEqual({ op: 'regenerate', track: 'keys', sections: ['Bridge'], level: 'variation', seed: 42 });
+    expect(ops[12]).toEqual({
+      op: 'regenerate',
+      track: 'keys',
+      sections: ['Bridge'],
+      level: 'variation',
+      seed: 42,
+    });
     // Dropped operations are reported with their index.
     expect(r.errors).toEqual([
       { index: 10, op: 'delete_notes', message: 'delete_notes needs a region, note_ids or a pitch range' },
@@ -237,9 +366,21 @@ describe('parseOperations', () => {
   });
 
   it('accepts a bare list, a single op and restricts op types when asked', () => {
-    expect(parseOperations([{ op: 'remove_track', track: 'Drums' }]).operations).toEqual([{ op: 'remove_track', track: 'Drums' }]);
-    expect(parseOperations({ op: 'move_section', section: 'Bridge', to_index: '2' }).operations).toEqual([{ op: 'move_section', section: 'Bridge', to_index: 2 }]);
-    const r = parseOperations({ operations: [{ op: 'set_tempo', bpm: 100 }, { op: 'set_mixer', track: 'bass', mixer: [{ param: 'pan', value: -0.3 }] }] }, { allowedOps: ['set_mixer', 'set_automation'] });
+    expect(parseOperations([{ op: 'remove_track', track: 'Drums' }]).operations).toEqual([
+      { op: 'remove_track', track: 'Drums' },
+    ]);
+    expect(parseOperations({ op: 'move_section', section: 'Bridge', to_index: '2' }).operations).toEqual([
+      { op: 'move_section', section: 'Bridge', to_index: 2 },
+    ]);
+    const r = parseOperations(
+      {
+        operations: [
+          { op: 'set_tempo', bpm: 100 },
+          { op: 'set_mixer', track: 'bass', mixer: [{ param: 'pan', value: -0.3 }] },
+        ],
+      },
+      { allowedOps: ['set_mixer', 'set_automation'] },
+    );
     expect(r.operations).toEqual([{ op: 'set_mixer', track: 'bass', changes: { pan: -0.3 } }]);
     expect(r.errors[0].message).toBe('operation "set_tempo" is not allowed here');
     expect(parseOperations('total garbage').errors[0].index).toBe(-1);

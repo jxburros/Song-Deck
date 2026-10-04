@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "description": "Music Engine: Music IR, theory engine, composition engine, arrangement, validation, serialization, project + version history, task engine.",
   "exports": {
     ".": "./src/index.ts"

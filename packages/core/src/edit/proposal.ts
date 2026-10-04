@@ -1,4 +1,11 @@
-import type { MusicOperation, Proposal, ProposalStatus, Song, ValidationIssue, ValidationReport } from '../ir/types';
+import type {
+  MusicOperation,
+  Proposal,
+  ProposalStatus,
+  Song,
+  ValidationIssue,
+  ValidationReport,
+} from '../ir/types';
 import { cloneSong, sortNotes } from '../ir/song-utils';
 import { randomId } from '../util/ids';
 import { applyOperations } from './apply';
@@ -51,14 +58,24 @@ function validateOpts(opts: ApplyOptions): ValidateOptions {
  * Proposed Change System (spec §21): apply operations to a copy of `before`, validate, diff.
  * The user then accepts (→ new revision), rejects, or modifies the proposal.
  */
-export function createProposal(before: Song, ops: MusicOperation[], meta: ProposalMeta & ApplyOptions): Proposal {
+export function createProposal(
+  before: Song,
+  ops: MusicOperation[],
+  meta: ProposalMeta & ApplyOptions,
+): Proposal {
   const { song: after, report } = applyOperations(before, ops, meta);
   const vopts = validateOpts(meta);
   const validation = mergeReports(report, newIssues(validateSong(before, vopts), validateSong(after, vopts)));
   return buildProposal(before, after, safeCloneOps(ops), validation, meta);
 }
 
-function buildProposal(before: Song, after: Song, operations: MusicOperation[], validation: ValidationReport, meta: ProposalMeta): Proposal {
+function buildProposal(
+  before: Song,
+  after: Song,
+  operations: MusicOperation[],
+  validation: ValidationReport,
+  meta: ProposalMeta,
+): Proposal {
   const p: Proposal = {
     id: meta.id ?? randomId('prop'),
     title: meta.title,
@@ -91,7 +108,14 @@ export function repairInvalidNotes(song: Song, issues: IssueList): Song {
     let removed = 0;
     let fixed = 0;
     t.notes = t.notes.filter((n) => {
-      if (!n || typeof n.id !== 'string' || ![n.pitch, n.tick, n.duration, n.velocity].every((v) => typeof v === 'number' && Number.isFinite(v)) || n.tick < 0) {
+      if (
+        !n ||
+        typeof n.id !== 'string' ||
+        ![n.pitch, n.tick, n.duration, n.velocity].every(
+          (v) => typeof v === 'number' && Number.isFinite(v),
+        ) ||
+        n.tick < 0
+      ) {
         removed++;
         return false;
       }
@@ -109,8 +133,17 @@ export function repairInvalidNotes(song: Song, issues: IssueList): Song {
       return true;
     });
     sortNotes(t.notes);
-    if (removed) issues.warn('note.invalid', `${removed} invalid note(s) removed from "${t.name}".`, { trackId: t.id, fixed: true });
-    if (fixed) issues.warn('note.invalid', `${fixed} note(s) on "${t.name}" had invalid MIDI values and were repaired.`, { trackId: t.id, fixed: true });
+    if (removed)
+      issues.warn('note.invalid', `${removed} invalid note(s) removed from "${t.name}".`, {
+        trackId: t.id,
+        fixed: true,
+      });
+    if (fixed)
+      issues.warn(
+        'note.invalid',
+        `${fixed} note(s) on "${t.name}" had invalid MIDI values and were repaired.`,
+        { trackId: t.id, fixed: true },
+      );
   }
   return song;
 }
@@ -123,7 +156,8 @@ export function repairInvalidNotes(song: Song, issues: IssueList): Song {
 export function proposalFromSongs(
   before: Song,
   after: Song,
-  meta: ProposalMeta & Pick<ApplyOptions, 'respectLocks' | 'autoFix' | 'customInstruments' | 'resolveInstrument'>,
+  meta: ProposalMeta &
+    Pick<ApplyOptions, 'respectLocks' | 'autoFix' | 'customInstruments' | 'resolveInstrument'>,
 ): Proposal {
   const issues = new IssueList();
   let candidate = cloneSong(after);
@@ -134,7 +168,11 @@ export function proposalFromSongs(
     const r = restoreLockedMaterial(before, candidate);
     if (r.restored) {
       candidate = r.song;
-      issues.warn('lock.violated', `${r.restored} locked component(s) were changed by the proposal and have been restored.`, { fixed: true });
+      issues.warn(
+        'lock.violated',
+        `${r.restored} locked component(s) were changed by the proposal and have been restored.`,
+        { fixed: true },
+      );
     }
   }
   const vopts = validateOpts(meta);
@@ -147,7 +185,11 @@ export function proposalFromSongs(
 }
 
 /** "Modify": replace the proposed song while pending; diff and validation are recomputed. */
-export function modifyProposal(p: Proposal, after: Song, opts: Pick<ApplyOptions, 'respectLocks' | 'autoFix' | 'customInstruments' | 'resolveInstrument'> = {}): Proposal {
+export function modifyProposal(
+  p: Proposal,
+  after: Song,
+  opts: Pick<ApplyOptions, 'respectLocks' | 'autoFix' | 'customInstruments' | 'resolveInstrument'> = {},
+): Proposal {
   const next = proposalFromSongs(p.before, after, {
     ...opts,
     id: p.id,
@@ -169,7 +211,10 @@ export function modifyProposal(p: Proposal, after: Song, opts: Pick<ApplyOptions
 export function acceptProposal(p: Proposal, opts: { force?: boolean } = {}): Song {
   if (!opts.force) {
     const violations = lockViolations(p.before, p.after);
-    if (violations.length) throw new Error(`Proposal "${p.title}" changes locked material: ${violations.map((v) => v.message).join(' ')}`);
+    if (violations.length)
+      throw new Error(
+        `Proposal "${p.title}" changes locked material: ${violations.map((v) => v.message).join(' ')}`,
+      );
   }
   return cloneSong(p.after);
 }
@@ -183,7 +228,10 @@ export function acceptProposalOnto(p: Proposal, current: Song, opts: { force?: b
   const result = rebaseProposal(p.before, p.after, current);
   if (!opts.force) {
     const violations = lockViolations(current, result.song, current.locks);
-    if (violations.length) throw new Error(`Proposal "${p.title}" changes locked material: ${violations.map((v) => v.message).join(' ')}`);
+    if (violations.length)
+      throw new Error(
+        `Proposal "${p.title}" changes locked material: ${violations.map((v) => v.message).join(' ')}`,
+      );
   }
   return result;
 }

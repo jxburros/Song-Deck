@@ -18,7 +18,13 @@ import {
   type VocalRender,
 } from '@songdeck/core';
 import { sliceAudio, spliceWithCrossfade, type AudioData } from '@songdeck/audio';
-import { assertVoiceConsent, buildSingingRequest, toProvenanceRecord, type RunProvenance, type SingingRequest } from '@songdeck/ai';
+import {
+  assertVoiceConsent,
+  buildSingingRequest,
+  toProvenanceRecord,
+  type RunProvenance,
+  type SingingRequest,
+} from '@songdeck/ai';
 import { aiAudio, getRegistry } from './ai';
 import { jobs } from './jobs';
 import { player } from './player';
@@ -165,7 +171,14 @@ function abortable<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
 }
 
 /** Progress estimate for jobs that report none (synthesis in the worker). */
-async function estimated<T>(p: Promise<T>, seconds: number, ctx: VocalJobContext, from: number, to: number, msg: string): Promise<T> {
+async function estimated<T>(
+  p: Promise<T>,
+  seconds: number,
+  ctx: VocalJobContext,
+  from: number,
+  to: number,
+  msg: string,
+): Promise<T> {
   const t0 = performance.now();
   const tau = Math.max(0.5, seconds) * 0.6;
   ctx.progress(from, msg);
@@ -198,10 +211,12 @@ export function audioSeconds(a: AudioData): number {
 
 function openSong(projectId: string, trackId: string): { project: Project; song: Song; track: Track } {
   const project = useStudio.getState().project;
-  if (!project || project.meta.id !== projectId) throw new Error('The project for this vocal task is not open. Open it and retry the task.');
+  if (!project || project.meta.id !== projectId)
+    throw new Error('The project for this vocal task is not open. Open it and retry the task.');
   const track = project.song.tracks.find((t) => t.id === trackId);
   if (!track) throw new Error('The vocal track no longer exists.');
-  if (!track.notes.length) throw new Error(`“${track.name}” has no notes to sing — generate or write a vocal melody first.`);
+  if (!track.notes.length)
+    throw new Error(`“${track.name}” has no notes to sing — generate or write a vocal melody first.`);
   return { project, song: project.song, track };
 }
 
@@ -215,7 +230,9 @@ function latestProject(projectId: string): Project {
 export function singerFor(voice: VoiceChoice): string {
   if (voice.source === 'built-in' || voice.providerId === BUILTIN_SINGER_ID) return 'internal';
   if (!voice.providerId || voice.providerId === 'external' || !getRegistry().has(voice.providerId)) {
-    throw new Error(`The voice “${voice.name}” is not connected to a singing provider. Connect its provider in Settings → AI providers, or choose a built-in voice.`);
+    throw new Error(
+      `The voice “${voice.name}” is not connected to a singing provider. Connect its provider in Settings → AI providers, or choose a built-in voice.`,
+    );
   }
   return voice.providerId;
 }
@@ -223,7 +240,10 @@ export function singerFor(voice: VoiceChoice): string {
 /** Spec §36: no cloning / conversion with a non-stock voice without a valid attestation. */
 export function assertVoiceAuthorized(voice: VoiceChoice): void {
   if (voice.kind === 'stock') return;
-  assertVoiceConsent({ id: voice.ref, kind: voice.kind, name: voice.name, consent: voice.consent }, voice.consent);
+  assertVoiceConsent(
+    { id: voice.ref, kind: voice.kind, name: voice.name, consent: voice.consent },
+    voice.consent,
+  );
 }
 
 function nextVersion(project: Project, stem: string): number {
@@ -284,7 +304,10 @@ async function saveAudio(projectId: string, o: SaveAudio): Promise<AudioAssetMet
   };
   const st = useStudio.getState();
   await assetStore.add(meta, o.bytes, o.audio);
-  st.updateProject((p) => ({ ...p, meta: { ...p.meta, assets: [...p.meta.assets.filter((a) => a.id !== meta.id), meta] } }));
+  st.updateProject((p) => ({
+    ...p,
+    meta: { ...p.meta, assets: [...p.meta.assets.filter((a) => a.id !== meta.id), meta] },
+  }));
   const rec = toProvenanceRecord(o.run, {
     id: provenanceId,
     artifactId: id,
@@ -302,24 +325,50 @@ async function saveAudio(projectId: string, o: SaveAudio): Promise<AudioAssetMet
 }
 
 function voiceParams(voice: VoiceChoice): Record<string, unknown> {
-  const out: Record<string, unknown> = { voiceKey: voice.key, voiceRef: voice.ref, voiceName: voice.name, voiceKind: voice.kind, voiceType: voice.voiceType, voiceSource: voice.source };
-  if (voice.consent) out.consent = { attestedBy: voice.consent.attestedBy, rightsHolder: voice.consent.rightsHolder, basis: voice.consent.basis, attestedAt: voice.consent.attestedAt, scope: voice.consent.scope };
+  const out: Record<string, unknown> = {
+    voiceKey: voice.key,
+    voiceRef: voice.ref,
+    voiceName: voice.name,
+    voiceKind: voice.kind,
+    voiceType: voice.voiceType,
+    voiceSource: voice.source,
+  };
+  if (voice.consent)
+    out.consent = {
+      attestedBy: voice.consent.attestedBy,
+      rightsHolder: voice.consent.rightsHolder,
+      basis: voice.consent.basis,
+      attestedAt: voice.consent.attestedAt,
+      scope: voice.consent.scope,
+    };
   return out;
 }
 
 function voiceRightsLabel(voice: VoiceChoice): string {
-  const kind = voice.source === 'built-in' ? 'built-in formant singer, stock synthetic' : VOICE_KIND_LABEL[voice.kind].toLowerCase();
-  const consent = voice.consent ? `, consent: ${CONSENT_BASIS_LABEL[voice.consent.basis] ?? voice.consent.basis} (${voice.consent.rightsHolder})` : '';
+  const kind =
+    voice.source === 'built-in'
+      ? 'built-in formant singer, stock synthetic'
+      : VOICE_KIND_LABEL[voice.kind].toLowerCase();
+  const consent = voice.consent
+    ? `, consent: ${CONSENT_BASIS_LABEL[voice.consent.basis] ?? voice.consent.basis} (${voice.consent.rightsHolder})`
+    : '';
   return `${voice.name} (${kind}${consent})`;
 }
 
-function sourcesFor(project: Project, song: Song, track: Track, voice: VoiceChoice, extra: ProvenanceSource[] = []): { sources: ProvenanceSource[]; display: string; versions: ReturnType<typeof artifactVersions> } {
+function sourcesFor(
+  project: Project,
+  song: Song,
+  track: Track,
+  voice: VoiceChoice,
+  extra: ProvenanceSource[] = [],
+): { sources: ProvenanceSource[]; display: string; versions: ReturnType<typeof artifactVersions> } {
   const versions = artifactVersions(project, track.id);
   const midiName = vocalMidiName(song, track.id);
   const sources: ProvenanceSource[] = [{ kind: 'midi', ref: midiName, revision: versions.midi }];
   if (versions.lyrics) sources.push({ kind: 'lyrics', ref: 'lyrics.txt', revision: versions.lyrics });
   sources.push({ kind: 'voice', ref: voice.key });
-  if (versions.revision !== undefined) sources.push({ kind: 'song', ref: song.id, revision: versions.revision });
+  if (versions.revision !== undefined)
+    sources.push({ kind: 'song', ref: song.id, revision: versions.revision });
   sources.push(...extra);
   const display = `${midiName} v${versions.midi}${versions.lyrics ? ` · lyrics.txt v${versions.lyrics}` : ''}`;
   return { sources, display, versions };
@@ -338,26 +387,63 @@ interface Sung {
   costUsd?: number;
 }
 
-function requestFor(song: Song, track: Track, voice: VoiceChoice, o: { seed: number; sampleRate: number; startTick?: number; endTick?: number; shiftSeconds?: number }): SingingRequest {
-  const req = buildSingingRequest(song, track.id, { voiceId: voice.ref, seed: o.seed, sampleRate: o.sampleRate, startTick: o.startTick, endTick: o.endTick, language: song.vocals.language });
+function requestFor(
+  song: Song,
+  track: Track,
+  voice: VoiceChoice,
+  o: { seed: number; sampleRate: number; startTick?: number; endTick?: number; shiftSeconds?: number },
+): SingingRequest {
+  const req = buildSingingRequest(song, track.id, {
+    voiceId: voice.ref,
+    seed: o.seed,
+    sampleRate: o.sampleRate,
+    startTick: o.startTick,
+    endTick: o.endTick,
+    language: song.vocals.language,
+  });
   if (o.shiftSeconds) {
     const sh = o.shiftSeconds;
-    req.notes = req.notes.map((n) => ({ ...n, startSeconds: Math.round((n.startSeconds - sh) * 10000) / 10000 }));
+    req.notes = req.notes.map((n) => ({
+      ...n,
+      startSeconds: Math.round((n.startSeconds - sh) * 10000) / 10000,
+    }));
   }
   return req;
 }
 
-async function decodeResult(audio: { data: Uint8Array; mimeType: string }): Promise<{ audio: AudioData; bytes: Uint8Array; mimeType: string }> {
+async function decodeResult(audio: {
+  data: Uint8Array;
+  mimeType: string;
+}): Promise<{ audio: AudioData; bytes: Uint8Array; mimeType: string }> {
   const decoded = await decodeAudioBytes(audio.data);
   return { audio: decoded, bytes: audio.data, mimeType: audio.mimeType || 'audio/wav' };
 }
 
-async function singFull(song: Song, track: Track, voice: VoiceChoice, seed: number, sampleRate: number, ctx: VocalJobContext, from: number, to: number): Promise<Sung> {
+async function singFull(
+  song: Song,
+  track: Track,
+  voice: VoiceChoice,
+  seed: number,
+  sampleRate: number,
+  ctx: VocalJobContext,
+  from: number,
+  to: number,
+): Promise<Sung> {
   const choice = singerFor(voice);
   const req = requestFor(song, track, voice, { seed, sampleRate });
   const dur = req.notes.reduce((m, n) => Math.max(m, n.startSeconds + n.durationSeconds), 0);
-  ctx.log('info', `Singing ${req.notes.length} notes (${dur.toFixed(1)} s) — voice “${voice.name}”, seed ${seed}, ${req.tempoBpm} BPM`);
-  const r = await estimated(abortable(aiAudio.synthesizeSinging(req, { providerChoice: choice, signal: ctx.signal }), ctx.signal), 0.6 + dur * 0.035, ctx, from, to, 'Singing…');
+  ctx.log(
+    'info',
+    `Singing ${req.notes.length} notes (${dur.toFixed(1)} s) — voice “${voice.name}”, seed ${seed}, ${req.tempoBpm} BPM`,
+  );
+  const r = await estimated(
+    abortable(aiAudio.synthesizeSinging(req, { providerChoice: choice, signal: ctx.signal }), ctx.signal),
+    0.6 + dur * 0.035,
+    ctx,
+    from,
+    to,
+    'Singing…',
+  );
   if (r.provenance.costUsd) ctx.addCost?.(r.provenance.costUsd);
   const d = await decodeResult(r.result.audio);
   return { ...d, run: r.provenance, model: r.result.model, costUsd: r.provenance.costUsd };
@@ -367,16 +453,36 @@ async function singFull(song: Song, track: Track, voice: VoiceChoice, seed: numb
  * Sing only [A, B] (seconds). Providers with phrase regeneration get the absolute timeline and
  * return exactly [A, B]; otherwise the range's notes are sung on their own (shifted to A).
  */
-async function singRange(song: Song, track: Track, voice: VoiceChoice, o: { startTick: number; endTick: number; a: number; b: number; seed: number; sampleRate: number }, ctx: VocalJobContext): Promise<Sung & { method: ResingOutput['method'] }> {
+async function singRange(
+  song: Song,
+  track: Track,
+  voice: VoiceChoice,
+  o: { startTick: number; endTick: number; a: number; b: number; seed: number; sampleRate: number },
+  ctx: VocalJobContext,
+): Promise<Sung & { method: ResingOutput['method'] }> {
   const choice = singerFor(voice);
   const providerId = choice === 'internal' ? BUILTIN_SINGER_ID : choice;
   const inst = getRegistry().get(providerId);
   const span = o.b - o.a;
   if (inst?.singing?.regeneratePhrase) {
-    const base = requestFor(song, track, voice, { seed: o.seed, sampleRate: o.sampleRate, startTick: o.startTick, endTick: o.endTick });
-    ctx.log('info', `Regenerating the phrase with ${inst.descriptor.name} (${base.notes.length} notes, ${o.a.toFixed(2)}–${o.b.toFixed(2)} s)`);
+    const base = requestFor(song, track, voice, {
+      seed: o.seed,
+      sampleRate: o.sampleRate,
+      startTick: o.startTick,
+      endTick: o.endTick,
+    });
+    ctx.log(
+      'info',
+      `Regenerating the phrase with ${inst.descriptor.name} (${base.notes.length} notes, ${o.a.toFixed(2)}–${o.b.toFixed(2)} s)`,
+    );
     const r = await estimated(
-      abortable(aiAudio.regeneratePhrase({ ...base, startSeconds: o.a, endSeconds: o.b }, { providerChoice: providerId, signal: ctx.signal }), ctx.signal),
+      abortable(
+        aiAudio.regeneratePhrase(
+          { ...base, startSeconds: o.a, endSeconds: o.b },
+          { providerChoice: providerId, signal: ctx.signal },
+        ),
+        ctx.signal,
+      ),
       0.6 + span * 0.05,
       ctx,
       0.15,
@@ -388,12 +494,34 @@ async function singRange(song: Song, track: Track, voice: VoiceChoice, o: { star
     const audio = audioSeconds(d.audio) > span + 0.05 ? sliceAudio(d.audio, 0, span) : d.audio;
     return { ...d, audio, run: r.provenance, model: r.result.model, method: 'regenerate-phrase' };
   }
-  const req = requestFor(song, track, voice, { seed: o.seed, sampleRate: o.sampleRate, startTick: o.startTick, endTick: o.endTick, shiftSeconds: o.a });
-  ctx.log('info', `Singing the range on its own with ${inst?.descriptor.name ?? providerId} (${req.notes.length} notes, ${span.toFixed(2)} s) — this provider has no phrase regeneration`);
-  const r = await estimated(abortable(aiAudio.synthesizeSinging(req, { providerChoice: choice, signal: ctx.signal }), ctx.signal), 0.4 + span * 0.05, ctx, 0.15, 0.7, 'Re-singing…');
+  const req = requestFor(song, track, voice, {
+    seed: o.seed,
+    sampleRate: o.sampleRate,
+    startTick: o.startTick,
+    endTick: o.endTick,
+    shiftSeconds: o.a,
+  });
+  ctx.log(
+    'info',
+    `Singing the range on its own with ${inst?.descriptor.name ?? providerId} (${req.notes.length} notes, ${span.toFixed(2)} s) — this provider has no phrase regeneration`,
+  );
+  const r = await estimated(
+    abortable(aiAudio.synthesizeSinging(req, { providerChoice: choice, signal: ctx.signal }), ctx.signal),
+    0.4 + span * 0.05,
+    ctx,
+    0.15,
+    0.7,
+    'Re-singing…',
+  );
   if (r.provenance.costUsd) ctx.addCost?.(r.provenance.costUsd);
   const d = await decodeResult(r.result.audio);
-  return { ...d, audio: sliceAudio(d.audio, 0, span), run: r.provenance, model: r.result.model, method: 'range-synthesis' };
+  return {
+    ...d,
+    audio: sliceAudio(d.audio, 0, span),
+    run: r.provenance,
+    model: r.result.model,
+    method: 'range-synthesis',
+  };
 }
 
 async function encodeWav(audio: AudioData, signal: AbortSignal): Promise<Uint8Array> {
@@ -405,7 +533,10 @@ async function encodeWav(audio: AudioData, signal: AbortSignal): Promise<Uint8Ar
 // ---------------------------------------------------------------------------------------------
 
 /** Point the vocal's render track at an asset (creating "<Track> (render)" next to the vocal MIDI track). */
-export function withRenderClip(song: Song, o: { midiTrackId: string; assetId: string; durationSeconds: number; clipName: string }): Song {
+export function withRenderClip(
+  song: Song,
+  o: { midiTrackId: string; assetId: string; durationSeconds: number; clipName: string },
+): Song {
   const midi = song.tracks.find((t) => t.id === o.midiTrackId);
   if (!midi) return song;
   const existing = renderTrackFor(song, midi.id);
@@ -442,8 +573,16 @@ export function withRenderClip(song: Song, o: { midiTrackId: string; assetId: st
   const tracks = [...song.tracks];
   tracks.splice(idx + 1, 0, track);
   // The render inherits the vocal's channel strip so the mix sounds the same.
-  const strip = { ...(song.mixer.channels[midi.id] ? channelFor(song, midi.id) : defaultChannelStrip()), mute: false, solo: false };
-  return { ...song, tracks, mixer: { ...song.mixer, channels: { ...song.mixer.channels, [track.id]: strip } } };
+  const strip = {
+    ...(song.mixer.channels[midi.id] ? channelFor(song, midi.id) : defaultChannelStrip()),
+    mute: false,
+    solo: false,
+  };
+  return {
+    ...song,
+    tracks,
+    mixer: { ...song.mixer, channels: { ...song.mixer.channels, [track.id]: strip } },
+  };
 }
 
 /** Mode after an explicit render: keep Placeholder / AI singer, otherwise pick by the voice's engine. */
@@ -453,10 +592,35 @@ function renderMode(song: Song, voice: VoiceChoice): VocalMode {
   return voice.source === 'built-in' ? 'placeholder' : 'ai-singer';
 }
 
-function commitRender(projectId: string, midiTrackId: string, o: { assetId: string; durationSeconds: number; clipName: string; renders: VocalRender[]; mode?: VocalMode; message: string; voiceKey?: string }): string[] {
+function commitRender(
+  projectId: string,
+  midiTrackId: string,
+  o: {
+    assetId: string;
+    durationSeconds: number;
+    clipName: string;
+    renders: VocalRender[];
+    mode?: VocalMode;
+    message: string;
+    voiceKey?: string;
+  },
+): string[] {
   const project = latestProject(projectId);
-  let song = withRenderClip(project.song, { midiTrackId, assetId: o.assetId, durationSeconds: o.durationSeconds, clipName: o.clipName });
-  song = { ...song, vocals: { ...song.vocals, mode: o.mode ?? song.vocals.mode, renders: [...song.vocals.renders, ...o.renders], ...(o.voiceKey && !song.vocals.voiceId ? { voiceId: o.voiceKey } : {}) } };
+  let song = withRenderClip(project.song, {
+    midiTrackId,
+    assetId: o.assetId,
+    durationSeconds: o.durationSeconds,
+    clipName: o.clipName,
+  });
+  song = {
+    ...song,
+    vocals: {
+      ...song.vocals,
+      mode: o.mode ?? song.vocals.mode,
+      renders: [...song.vocals.renders, ...o.renders],
+      ...(o.voiceKey && !song.vocals.voiceId ? { voiceId: o.voiceKey } : {}),
+    },
+  };
   const mon = applyVocalMonitoring(song, midiTrackId);
   useStudio.getState().commit(mon.song, o.message, 'vocals');
   return mon.skipped;
@@ -534,9 +698,17 @@ async function renderVocalBody(input: RenderInput, ctx: VocalJobContext): Promis
     message: `Rendered ${track.name} → ${fileName} (${sung.run.providerName}, ${voice.name}, seed ${seed})`,
     voiceKey: voice.key,
   });
-  useStudio.getState().updateProject((p) => withRights(p, { voiceModels: [voiceRightsLabel(voice)], modelProviders: [sung.run.location === 'internal' ? undefined : sung.run.providerName] }));
+  useStudio.getState().updateProject((p) =>
+    withRights(p, {
+      voiceModels: [voiceRightsLabel(voice)],
+      modelProviders: [sung.run.location === 'internal' ? undefined : sung.run.providerName],
+    }),
+  );
   if (skipped.length) ctx.log('warn', `Mixer locked — mute state left unchanged for ${skipped.join(', ')}`);
-  ctx.log('info', `${fileName}: ${durationSeconds.toFixed(1)} s from ${display} (project v${versions.revision ?? '?'})`);
+  ctx.log(
+    'info',
+    `${fileName}: ${durationSeconds.toFixed(1)} s from ${display} (project v${versions.revision ?? '?'})`,
+  );
   ctx.progress(1, 'Done');
   return {
     assetId: meta.id,
@@ -561,7 +733,12 @@ export function isConversionRender(parameters: Record<string, unknown> | undefin
  * Splice region in seconds: the whole changed range (so the audio of removed notes is replaced
  * too), padded into the middle of the surrounding rests — never into the previous or next note.
  */
-export function spliceWindow(song: Song, track: Track, startTick: number, endTick: number): { a: number; b: number } {
+export function spliceWindow(
+  song: Song,
+  track: Track,
+  startTick: number,
+  endTick: number,
+): { a: number; b: number } {
   const tm = createTimeMap(song);
   const sec = (t: number) => tm.tickToSeconds(t);
   const notes = [...track.notes].sort((x, y) => x.tick - y.tick);
@@ -589,20 +766,41 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
     const baseMeta = current?.asset;
     if (!current || !baseMeta) {
       ctx.log('info', 'No vocal render yet — rendering the whole vocal instead');
-      const r = await renderVocalBody({ projectId: input.projectId, trackId: input.trackId, seed: input.seed }, ctx);
-      return { ...r, phraseAssetIds: [], phraseFileNames: [], startTick: 0, endTick: lastNoteEnd(track), startSeconds: 0, endSeconds: r.durationSeconds, method: 'full-render' };
+      const r = await renderVocalBody(
+        { projectId: input.projectId, trackId: input.trackId, seed: input.seed },
+        ctx,
+      );
+      return {
+        ...r,
+        phraseAssetIds: [],
+        phraseFileNames: [],
+        startTick: 0,
+        endTick: lastNoteEnd(track),
+        startSeconds: 0,
+        endSeconds: r.durationSeconds,
+        method: 'full-render',
+      };
     }
     if (isConversionRender(current.provenance?.parameters)) {
-      throw new Error('The current vocal render is a voice conversion — a phrase cannot be re-sung into it with the singer. Run “Render & convert” again to update it.');
+      throw new Error(
+        'The current vocal render is a voice conversion — a phrase cannot be re-sung into it with the singer. Run “Render & convert” again to update it.',
+      );
     }
-    const ranges = mergeTickRanges((input.ranges?.length ? input.ranges : [{ startTick: input.startTick, endTick: input.endTick }]).map((r) => expandToRests(song, track, r.startTick, r.endTick)));
+    const ranges = mergeTickRanges(
+      (input.ranges?.length ? input.ranges : [{ startTick: input.startTick, endTick: input.endTick }]).map(
+        (r) => expandToRests(song, track, r.startTick, r.endTick),
+      ),
+    );
     const overall = { startTick: ranges[0].startTick, endTick: ranges[ranges.length - 1].endTick };
     const label = input.label ?? sectionLabel(song, overall.startTick, overall.endTick);
     const voiceKey = current.render?.voiceId ?? current.rendered?.voiceKey ?? song.vocals.voiceId;
     const voice = resolveVoice(project, voiceKey, track);
     assertVoiceAuthorized(voice);
     const seed = input.seed ?? current.render?.seed ?? randomSeed();
-    ctx.log('info', `Re-singing ${label} (${ranges.map((r) => formatBars(song, r.startTick, r.endTick)).join(', ')}) into ${baseMeta.name}; the instrumentation is not regenerated`);
+    ctx.log(
+      'info',
+      `Re-singing ${label} (${ranges.map((r) => formatBars(song, r.startTick, r.endTick)).join(', ')}) into ${baseMeta.name}; the instrumentation is not regenerated`,
+    );
     ctx.progress(0.05, 'Loading the current render');
     const base = await assetStore.audio(baseMeta);
     if (!base) throw new Error(`The current render (${baseMeta.name}) could not be loaded.`);
@@ -610,15 +808,35 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
     const signatureNow = renderSignature(song, track);
     let signature = current.rendered?.signature ?? signatureNow;
     let merged = base;
-    const pieces: { range: { startTick: number; endTick: number }; a: number; b: number; xf: number; sung: Sung & { method: ResingOutput['method'] }; label: string }[] = [];
+    const pieces: {
+      range: { startTick: number; endTick: number };
+      a: number;
+      b: number;
+      xf: number;
+      sung: Sung & { method: ResingOutput['method'] };
+      label: string;
+    }[] = [];
     for (const range of ranges) {
       const { a, b } = spliceWindow(song, track, range.startTick, range.endTick);
-      const sung = await singRange(song, track, voice, { startTick: range.startTick, endTick: range.endTick, a, b, seed, sampleRate: base.sampleRate }, ctx);
+      const sung = await singRange(
+        song,
+        track,
+        voice,
+        { startTick: range.startTick, endTick: range.endTick, a, b, seed, sampleRate: base.sampleRate },
+        ctx,
+      );
       throwIfAborted(ctx.signal);
       const xf = Math.min(0.04, Math.max(0.005, (b - a) / 4));
       merged = spliceWithCrossfade(merged, sung.audio, a, xf);
       signature = spliceSignature(signature, signatureNow, range.startTick, range.endTick);
-      pieces.push({ range, a, b, xf, sung, label: ranges.length === 1 ? label : sectionLabel(song, range.startTick, range.endTick) });
+      pieces.push({
+        range,
+        a,
+        b,
+        xf,
+        sung,
+        label: ranges.length === 1 ? label : sectionLabel(song, range.startTick, range.endTick),
+      });
     }
     ctx.progress(0.72, 'Splicing');
     const mergedBytes = await encodeWav(merged, ctx.signal);
@@ -632,7 +850,13 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
     const renders: VocalRender[] = [];
     for (const piece of pieces) {
       const fresh = latestProject(input.projectId);
-      const phraseStem = `${fileStem(piece.label.replace(/·.*$/, '').replace(/\(.*\)/, '').trim() || 'phrase', '-')}-vocal`;
+      const phraseStem = `${fileStem(
+        piece.label
+          .replace(/·.*$/, '')
+          .replace(/\(.*\)/, '')
+          .trim() || 'phrase',
+        '-',
+      )}-vocal`;
       const phraseVersion = nextVersion(fresh, phraseStem);
       const phraseFileName = `${phraseStem}-v${phraseVersion}.wav`;
       const bars = formatBars(song, piece.range.startTick, piece.range.endTick);
@@ -653,7 +877,13 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
           reason: input.reason,
           method: piece.sung.method,
           trackId: track.id,
-          range: { startTick: piece.range.startTick, endTick: piece.range.endTick, startSeconds: piece.a, endSeconds: piece.b, bars },
+          range: {
+            startTick: piece.range.startTick,
+            endTick: piece.range.endTick,
+            startSeconds: piece.a,
+            endSeconds: piece.b,
+            bars,
+          },
           ...voiceParams(voice),
           source: display,
         },
@@ -663,7 +893,12 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
         .filter((sp) => sp.startTick < piece.range.endTick && sp.endTick > piece.range.startTick)
         .map((sp) => sp.section.id);
       const tol = song.ppq / 4;
-      const phrase = song.phrases.find((ph) => ph.trackId === track.id && ph.startTick - tol <= piece.range.startTick && ph.endTick + tol >= piece.range.endTick);
+      const phrase = song.phrases.find(
+        (ph) =>
+          ph.trackId === track.id &&
+          ph.startTick - tol <= piece.range.startTick &&
+          ph.endTick + tol >= piece.range.endTick,
+      );
       renders.push({
         id: randomId('vr'),
         trackId: track.id,
@@ -689,7 +924,11 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
       mimeType: 'audio/wav',
       audio: merged,
       run,
-      sources: [...sources, { kind: 'audio', ref: baseMeta.id }, ...phraseMetas.map((m) => ({ kind: 'audio', ref: m.id }))],
+      sources: [
+        ...sources,
+        { kind: 'audio', ref: baseMeta.id },
+        ...phraseMetas.map((m) => ({ kind: 'audio', ref: m.id })),
+      ],
       seed,
       modelId: pieces[0].sung.model ?? voice.ref,
       parameters: {
@@ -704,7 +943,13 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
         baseName: baseMeta.name,
         phraseAssetIds: phraseMetas.map((m) => m.id),
         crossfadeMs: Math.round(Math.min(...pieces.map((p) => p.xf)) * 1000),
-        ranges: pieces.map((p) => ({ startTick: p.range.startTick, endTick: p.range.endTick, startSeconds: p.a, endSeconds: p.b, bars: formatBars(song, p.range.startTick, p.range.endTick) })),
+        ranges: pieces.map((p) => ({
+          startTick: p.range.startTick,
+          endTick: p.range.endTick,
+          startSeconds: p.a,
+          endSeconds: p.b,
+          bars: formatBars(song, p.range.startTick, p.range.endTick),
+        })),
         ...voiceParams(voice),
         sampleRate: merged.sampleRate,
         source: display,
@@ -712,7 +957,17 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
         timing: timingKey(song),
       },
     });
-    renders.push({ id: randomId('vr'), trackId: track.id, assetId: meta.id, startTick: 0, endTick: Math.max(lastNoteEnd(track), current.render?.endTick ?? 0), providerId: run.providerId, voiceId: voice.key, seed, createdAt: now });
+    renders.push({
+      id: randomId('vr'),
+      trackId: track.id,
+      assetId: meta.id,
+      startTick: 0,
+      endTick: Math.max(lastNoteEnd(track), current.render?.endTick ?? 0),
+      providerId: run.providerId,
+      voiceId: voice.key,
+      seed,
+      createdAt: now,
+    });
     const where = ranges.map((r) => formatBars(song, r.startTick, r.endTick)).join(', ');
     // An automatic re-sing keeps the vocal mode (e.g. Recorded vocal) as it is.
     commitRender(input.projectId, track.id, {
@@ -722,7 +977,10 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
       renders,
       message: `Re-sang ${label} only (${where}) → ${fileName}${input.reason ? ` — “${input.reason}”` : ''}`,
     });
-    ctx.log('info', `${phraseMetas.map((m) => m.name).join(', ')} spliced into ${fileName} with short crossfades (${method === 'regenerate-phrase' ? 'provider phrase regeneration' : 'range synthesis'})`);
+    ctx.log(
+      'info',
+      `${phraseMetas.map((m) => m.name).join(', ')} spliced into ${fileName} with short crossfades (${method === 'regenerate-phrase' ? 'provider phrase regeneration' : 'range synthesis'})`,
+    );
     ctx.progress(1, 'Done');
     return {
       assetId: meta.id,
@@ -741,7 +999,9 @@ export async function resingRange(input: ResingInput, ctx: VocalJobContext): Pro
 }
 
 /** Sort and merge overlapping / touching tick ranges. */
-export function mergeTickRanges(ranges: { startTick: number; endTick: number }[]): { startTick: number; endTick: number }[] {
+export function mergeTickRanges(
+  ranges: { startTick: number; endTick: number }[],
+): { startTick: number; endTick: number }[] {
   const sorted = ranges.filter((r) => r.endTick > r.startTick).sort((a, b) => a.startTick - b.startTick);
   const out: { startTick: number; endTick: number }[] = [];
   for (const r of sorted) {
@@ -754,7 +1014,8 @@ export function mergeTickRanges(ranges: { startTick: number; endTick: number }[]
 
 function sectionLabel(song: Song, startTick: number, endTick: number): string {
   const secs = sectionLayout(song).filter((s) => s.startTick < endTick && s.endTick > startTick);
-  if (secs.length === 1 && secs[0].startTick >= startTick - 1 && secs[0].endTick <= endTick + 1) return secs[0].section.name;
+  if (secs.length === 1 && secs[0].startTick >= startTick - 1 && secs[0].endTick <= endTick + 1)
+    return secs[0].section.name;
   if (secs.length === 1) return `${secs[0].section.name} (bar ${tickToMusical(song, startTick).bar})`;
   return secs.map((s) => s.section.name).join(' + ') || formatBars(song, startTick, endTick);
 }
@@ -779,14 +1040,18 @@ export async function convertVocal(input: ConvertInput, ctx: VocalJobContext): P
     // Consent first — nothing is rendered or sent without it (spec §36).
     assertVoiceAuthorized(target);
     if (!hasConversionProvider() && (!input.providerChoice || input.providerChoice === 'auto')) {
-      throw new Error('No voice-conversion provider is configured. Add a VOICE_CONVERSION provider (for example the RVC bridge) in Settings → AI providers.');
+      throw new Error(
+        'No voice-conversion provider is configured. Add a VOICE_CONVERSION provider (for example the RVC bridge) in Settings → AI providers.',
+      );
     }
     const seed = input.seed ?? randomSeed();
     // 1. Neutral performance with the built-in singer (stock voice for the track's voice type).
     const neutralVoice = resolveVoice(project, undefined, track);
     const neutral = await singFull(song, track, neutralVoice, seed, 44100, ctx, 0.05, 0.45);
     throwIfAborted(ctx.signal);
-    const neutralWav = /wav/.test(neutral.mimeType) ? neutral.bytes : await encodeWav(neutral.audio, ctx.signal);
+    const neutralWav = /wav/.test(neutral.mimeType)
+      ? neutral.bytes
+      : await encodeWav(neutral.audio, ctx.signal);
     const fresh = latestProject(input.projectId);
     const stem = fileStem(track.name);
     const neutralName = `${stem}-neutral-v${nextVersion(fresh, `${stem}-neutral`)}.wav`;
@@ -801,17 +1066,36 @@ export async function convertVocal(input: ConvertInput, ctx: VocalJobContext): P
       sources: sources.filter((s) => s.kind !== 'voice').concat({ kind: 'voice', ref: neutralVoice.key }),
       seed,
       modelId: neutralVoice.ref,
-      parameters: { renderKind: 'neutral', purpose: 'voice-conversion source', ...voiceParams(neutralVoice), source: display },
+      parameters: {
+        renderKind: 'neutral',
+        purpose: 'voice-conversion source',
+        ...voiceParams(neutralVoice),
+        source: display,
+      },
     });
     // 2. Convert to the authorized target voice.
     ctx.progress(0.5, `Converting to ${target.name}…`);
-    ctx.log('info', `Converting the neutral performance to “${target.name}” (${VOICE_KIND_LABEL[target.kind]}; ${target.consent ? `authorized: ${CONSENT_BASIS_LABEL[target.consent.basis]}` : 'stock'})`);
-    const providerChoice = input.providerChoice && input.providerChoice !== 'auto' ? input.providerChoice : target.providerId && getRegistry().has(target.providerId) ? target.providerId : 'auto';
+    ctx.log(
+      'info',
+      `Converting the neutral performance to “${target.name}” (${VOICE_KIND_LABEL[target.kind]}; ${target.consent ? `authorized: ${CONSENT_BASIS_LABEL[target.consent.basis]}` : 'stock'})`,
+    );
+    const providerChoice =
+      input.providerChoice && input.providerChoice !== 'auto'
+        ? input.providerChoice
+        : target.providerId && getRegistry().has(target.providerId)
+          ? target.providerId
+          : 'auto';
     const r = await estimated(
       abortable(
         aiAudio.convertVoice(
           {
-            audio: { mimeType: 'audio/wav', data: neutralWav, sampleRate: neutral.audio.sampleRate, channels: neutral.audio.channels.length, durationSeconds: audioSeconds(neutral.audio) },
+            audio: {
+              mimeType: 'audio/wav',
+              data: neutralWav,
+              sampleRate: neutral.audio.sampleRate,
+              channels: neutral.audio.channels.length,
+              durationSeconds: audioSeconds(neutral.audio),
+            },
             targetVoice: { id: target.ref, kind: target.kind, name: target.name, consent: target.consent },
             consent: target.consent,
             pitchShift: input.pitchShift || undefined,
@@ -857,13 +1141,37 @@ export async function convertVocal(input: ConvertInput, ctx: VocalJobContext): P
       assetId: meta.id,
       durationSeconds: audioSeconds(converted.audio),
       clipName: fileName,
-      renders: [{ id: randomId('vr'), trackId: track.id, assetId: meta.id, startTick: 0, endTick: lastNoteEnd(track), providerId: r.provenance.providerId, voiceId: target.key, seed, createdAt: now }],
+      renders: [
+        {
+          id: randomId('vr'),
+          trackId: track.id,
+          assetId: meta.id,
+          startTick: 0,
+          endTick: lastNoteEnd(track),
+          providerId: r.provenance.providerId,
+          voiceId: target.key,
+          seed,
+          createdAt: now,
+        },
+      ],
       mode: 'voice-conversion',
       message: `Converted ${track.name} to “${target.name}” (${r.provenance.providerName}) → ${fileName}`,
     });
-    useStudio.getState().updateProject((p) => withRights(p, { voiceModels: [voiceRightsLabel(target)], modelProviders: [r.provenance.location === 'internal' ? undefined : r.provenance.providerName] }));
+    useStudio.getState().updateProject((p) =>
+      withRights(p, {
+        voiceModels: [voiceRightsLabel(target)],
+        modelProviders: [r.provenance.location === 'internal' ? undefined : r.provenance.providerName],
+      }),
+    );
     ctx.progress(1, 'Done');
-    return { assetId: meta.id, neutralAssetId: neutralMeta.id, fileName, providerName: r.provenance.providerName, voiceName: target.name, summary: `${fileName} · ${target.name}` };
+    return {
+      assetId: meta.id,
+      neutralAssetId: neutralMeta.id,
+      fileName,
+      providerName: r.provenance.providerName,
+      voiceName: target.name,
+      summary: `${fileName} · ${target.name}`,
+    };
   });
 }
 

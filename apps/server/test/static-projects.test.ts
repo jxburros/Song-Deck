@@ -16,7 +16,10 @@ function studioDist(): string {
   const root = tempDir('songdeck-dist-');
   dirs.push(root);
   mkdirSync(path.join(root, 'assets'), { recursive: true });
-  writeFileSync(path.join(root, 'index.html'), '<!doctype html><title>Song Deck</title><div id="root"></div>');
+  writeFileSync(
+    path.join(root, 'index.html'),
+    '<!doctype html><title>Song Deck</title><div id="root"></div>',
+  );
   writeFileSync(path.join(root, 'assets', 'index-Bq3xY7aZ.js'), 'console.log("studio")');
   writeFileSync(path.join(root, 'assets', 'index-Dk2a9QwE.css'), 'body{}');
   writeFileSync(path.join(root, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
@@ -35,7 +38,9 @@ describe('static studio hosting', () => {
     const js = await fetch(`${srv.url}/assets/index-Bq3xY7aZ.js`);
     expect(js.headers.get('content-type')).toBe('text/javascript; charset=utf-8');
     expect(js.headers.get('cache-control')).toContain('immutable');
-    expect((await fetch(`${srv.url}/assets/index-Dk2a9QwE.css`)).headers.get('content-type')).toBe('text/css; charset=utf-8');
+    expect((await fetch(`${srv.url}/assets/index-Dk2a9QwE.css`)).headers.get('content-type')).toBe(
+      'text/css; charset=utf-8',
+    );
     expect((await fetch(`${srv.url}/favicon.svg`)).headers.get('content-type')).toBe('image/svg+xml');
     // Client-side routes fall back to index.html…
     const route = await fetch(`${srv.url}/projects/my-song/workbench`, { headers: { accept: 'text/html' } });
@@ -48,7 +53,9 @@ describe('static studio hosting', () => {
     expect(api.status).toBe(404);
     expect(api.headers.get('content-type')).toMatch(/json/);
     expect((await json(api)).code).toBe('not-found');
-    expect(await json(await fetch(`${srv.url}/api/health`))).toMatchObject({ features: expect.arrayContaining(['static']) });
+    expect(await json(await fetch(`${srv.url}/api/health`))).toMatchObject({
+      features: expect.arrayContaining(['static']),
+    });
     // Write methods are rejected.
     expect((await fetch(`${srv.url}/index.html`, { method: 'POST' })).status).toBe(405);
   });
@@ -57,7 +64,13 @@ describe('static studio hosting', () => {
     const dist = studioDist();
     writeFileSync(path.join(path.dirname(dist), 'outside-secret.txt'), 'TOP SECRET');
     srv = await startServer({ staticDir: dist });
-    for (const p of ['/..%2Foutside-secret.txt', '/assets/..%2F..%2Foutside-secret.txt', '/%2e%2e/outside-secret.txt', '/.secret', '/..%5Coutside-secret.txt']) {
+    for (const p of [
+      '/..%2Foutside-secret.txt',
+      '/assets/..%2F..%2Foutside-secret.txt',
+      '/%2e%2e/outside-secret.txt',
+      '/.secret',
+      '/..%5Coutside-secret.txt',
+    ]) {
       const res = await rawRequest(srv.url, { path: p });
       expect(res.body.toString(), p).not.toContain('TOP SECRET');
       expect(res.body.toString(), p).not.toContain('nope');
@@ -68,17 +81,31 @@ describe('static studio hosting', () => {
 
 describe('project storage', () => {
   // A ZIP local-file-header signature followed by some payload (the server only checks the signature).
-  const zip = (name: string) => Buffer.concat([Buffer.from('PK\u0003\u0004', 'binary'), Buffer.from(JSON.stringify({ name, pad: 'x'.repeat(64) }))]);
+  const zip = (name: string) =>
+    Buffer.concat([
+      Buffer.from('PK\u0003\u0004', 'binary'),
+      Buffer.from(JSON.stringify({ name, pad: 'x'.repeat(64) })),
+    ]);
 
   it('stores, lists, downloads, replaces and deletes .songproject packages', async () => {
     srv = await startServer();
     expect(await json(await fetch(`${srv.url}/api/projects`))).toEqual({ projects: [] });
     const bytes = zip('Night Drive');
-    const put = await fetch(`${srv.url}/api/projects/Night%20Drive`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: bytes });
+    const put = await fetch(`${srv.url}/api/projects/Night%20Drive`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: bytes,
+    });
     expect(put.status).toBe(201);
-    expect(await json(put)).toMatchObject({ name: 'Night Drive', file: 'Night Drive.songproject', size: bytes.length });
+    expect(await json(put)).toMatchObject({
+      name: 'Night Drive',
+      file: 'Night Drive.songproject',
+      size: bytes.length,
+    });
     const list = await json(await fetch(`${srv.url}/api/projects`));
-    expect(list.projects).toEqual([{ name: 'Night Drive', file: 'Night Drive.songproject', size: bytes.length, mtime: expect.any(String) }]);
+    expect(list.projects).toEqual([
+      { name: 'Night Drive', file: 'Night Drive.songproject', size: bytes.length, mtime: expect.any(String) },
+    ]);
     const get = await fetch(`${srv.url}/api/projects/Night%20Drive.songproject`);
     expect(get.status).toBe(200);
     expect(get.headers.get('content-type')).toBe('application/octet-stream');
@@ -97,7 +124,10 @@ describe('project storage', () => {
     expect((await json(notZip)).code).toBe('not-a-songproject');
     const empty = await fetch(`${srv.url}/api/projects/x`, { method: 'PUT', body: '' });
     expect(empty.status).toBe(400);
-    const big = await fetch(`${srv.url}/api/projects/x`, { method: 'PUT', body: Buffer.concat([Buffer.from('PK\u0003\u0004'), Buffer.alloc(4096)]) });
+    const big = await fetch(`${srv.url}/api/projects/x`, {
+      method: 'PUT',
+      body: Buffer.concat([Buffer.from('PK\u0003\u0004'), Buffer.alloc(4096)]),
+    });
     expect(big.status).toBe(413);
     expect((await json(await fetch(`${srv.url}/api/projects`))).projects).toEqual([]);
   });
@@ -110,9 +140,14 @@ describe('project storage', () => {
     expect(() => sanitizeProjectName('CON')).toThrow();
     expect(() => sanitizeProjectName('')).toThrow();
     srv = await startServer();
-    const res = await fetch(`${srv.url}/api/projects/${encodeURIComponent('../../evil')}`, { method: 'PUT', body: zip('evil') });
+    const res = await fetch(`${srv.url}/api/projects/${encodeURIComponent('../../evil')}`, {
+      method: 'PUT',
+      body: zip('evil'),
+    });
     expect(res.status).toBe(201);
     expect((await json(res)).file).toBe('_evil.songproject');
-    expect((await json(await fetch(`${srv.url}/api/projects`))).projects.map((p: { file: string }) => p.file)).toEqual(['_evil.songproject']);
+    expect(
+      (await json(await fetch(`${srv.url}/api/projects`))).projects.map((p: { file: string }) => p.file),
+    ).toEqual(['_evil.songproject']);
   });
 });

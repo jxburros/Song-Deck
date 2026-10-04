@@ -44,7 +44,9 @@ export function useProvideAudioAssets(song: Song | null) {
 
 /** Decoded audio of an asset (for waveforms and auditioning). */
 export function useAssetAudio(meta: AudioAssetMeta | undefined): AudioData | null {
-  const [audio, setAudio] = useState<AudioData | null>(() => (meta ? (assetStore.decodedSync(meta.id) ?? null) : null));
+  const [audio, setAudio] = useState<AudioData | null>(() =>
+    meta ? (assetStore.decodedSync(meta.id) ?? null) : null,
+  );
   useEffect(() => {
     if (!meta) {
       setAudio(null);
@@ -84,17 +86,30 @@ export function useResolvedProvider(role: TaskRole, choice: string): ResolvedPro
     try {
       const reg = getRegistry();
       let id = choice;
-      if (choice === 'internal') id = role === 'vocals' ? 'internal-singer' : role === 'lyrics' ? 'internal-composer' : '';
+      if (choice === 'internal')
+        id = role === 'vocals' ? 'internal-singer' : role === 'lyrics' ? 'internal-composer' : '';
       if (!id || choice === 'auto') {
         const d = getRouter().select({ role });
         id = d.providerId;
       }
       const inst = reg.get(id);
-      if (!inst) return { providerId: id, providerName: id, location: 'cloud', error: 'Provider not available' };
+      if (!inst)
+        return { providerId: id, providerName: id, location: 'cloud', error: 'Provider not available' };
       const cfg = reg.getConfig(id);
-      return { providerId: id, providerName: inst.descriptor.name, location: inst.descriptor.location, adapter: inst.descriptor.adapter, extra: cfg?.extra as Record<string, unknown> | undefined };
+      return {
+        providerId: id,
+        providerName: inst.descriptor.name,
+        location: inst.descriptor.location,
+        adapter: inst.descriptor.adapter,
+        extra: cfg?.extra as Record<string, unknown> | undefined,
+      };
     } catch (err) {
-      return { providerId: '', providerName: 'none', location: 'cloud', error: err instanceof Error ? err.message : String(err) };
+      return {
+        providerId: '',
+        providerName: 'none',
+        location: 'cloud',
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, choice, version]);
@@ -104,7 +119,14 @@ export function locationBadge(p: ResolvedProvider | null) {
   if (!p) return null;
   if (p.error) return <Badge tone="danger">{p.error}</Badge>;
   return (
-    <Badge tone={p.location === 'cloud' ? 'warning' : p.location === 'local' ? 'ai' : 'success'} title={p.location === 'cloud' ? 'Data leaves this device (you confirm before sending)' : 'Stays on this machine'}>
+    <Badge
+      tone={p.location === 'cloud' ? 'warning' : p.location === 'local' ? 'ai' : 'success'}
+      title={
+        p.location === 'cloud'
+          ? 'Data leaves this device (you confirm before sending)'
+          : 'Stays on this machine'
+      }
+    >
       <Icon name={p.location === 'cloud' ? 'cloud' : p.location === 'local' ? 'server' : 'cpu'} size={11} />
       {p.location === 'internal' ? 'on-device' : p.location}
     </Badge>
@@ -133,26 +155,60 @@ export function roleLabel(role: TaskRole): string {
 }
 
 /** Live status line for a queued vocal task (progress, message, cancel / retry). */
-export function TaskLine({ taskId, label, onDone }: { taskId: string | undefined; label?: string; onDone?: (t: TaskRecord) => void }) {
+export function TaskLine({
+  taskId,
+  label,
+  onDone,
+}: {
+  taskId: string | undefined;
+  label?: string;
+  onDone?: (t: TaskRecord) => void;
+}) {
   const task = useTask(taskId ?? null);
   const status = task?.status;
   useEffect(() => {
-    if (task && (status === 'succeeded' || status === 'failed' || status === 'cancelled')) onDone?.(task as TaskRecord);
+    if (task && (status === 'succeeded' || status === 'failed' || status === 'cancelled'))
+      onDone?.(task as TaskRecord);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
   if (!task) return null;
   const active = isActive(task);
   return (
-    <div className={`vx-task ${task.status}`} data-testid="vocal-task" data-status={task.status} role="status" aria-live="polite">
+    <div
+      className={`vx-task ${task.status}`}
+      data-testid="vocal-task"
+      data-status={task.status}
+      role="status"
+      aria-live="polite"
+    >
       <div className="row between">
         <div className="row" style={{ minWidth: 0 }}>
-          {active ? <Spinner /> : <Icon name={task.status === 'succeeded' ? 'check' : task.status === 'failed' ? 'alert' : 'info'} size={14} />}
+          {active ? (
+            <Spinner />
+          ) : (
+            <Icon
+              name={task.status === 'succeeded' ? 'check' : task.status === 'failed' ? 'alert' : 'info'}
+              size={14}
+            />
+          )}
           <span className="ellipsis" style={{ fontWeight: 600 }}>
             {label ?? task.title}
           </span>
         </div>
         <div className="row">
-          <Badge tone={task.status === 'succeeded' ? 'success' : task.status === 'failed' ? 'danger' : task.status === 'running' ? 'ai' : undefined}>{task.status}</Badge>
+          <Badge
+            tone={
+              task.status === 'succeeded'
+                ? 'success'
+                : task.status === 'failed'
+                  ? 'danger'
+                  : task.status === 'running'
+                    ? 'ai'
+                    : undefined
+            }
+          >
+            {task.status}
+          </Badge>
           {active && (
             <Button size="sm" variant="ghost" onClick={() => taskQueue.cancel(task.id)}>
               Cancel
@@ -167,14 +223,28 @@ export function TaskLine({ taskId, label, onDone }: { taskId: string | undefined
       </div>
       {active && <Progress value={task.progress} ai />}
       {task.message && active && <div className="small dim">{task.message}</div>}
-      {task.status === 'failed' && task.error && <div className="small" style={{ color: 'var(--danger)' }}>{task.error}</div>}
-      {task.status === 'succeeded' && (task.result as { summary?: string } | undefined)?.summary && <div className="small muted">{(task.result as { summary: string }).summary}</div>}
+      {task.status === 'failed' && task.error && (
+        <div className="small" style={{ color: 'var(--danger)' }}>
+          {task.error}
+        </div>
+      )}
+      {task.status === 'succeeded' && (task.result as { summary?: string } | undefined)?.summary && (
+        <div className="small muted">{(task.result as { summary: string }).summary}</div>
+      )}
     </div>
   );
 }
 
 /** Audition an asset on its own (preview player), with a waveform and playhead. */
-export function AssetAudition({ meta, height = 40, label }: { meta: AudioAssetMeta | undefined; height?: number; label?: string }) {
+export function AssetAudition({
+  meta,
+  height = 40,
+  label,
+}: {
+  meta: AudioAssetMeta | undefined;
+  height?: number;
+  label?: string;
+}) {
   const audio = useAssetAudio(meta);
   const id = meta ? `vx:${meta.id}` : null;
   const playing = usePreviewId();
@@ -192,7 +262,11 @@ export function AssetAudition({ meta, height = 40, label }: { meta: AudioAssetMe
         title="Audition on its own"
       />
       <div className="grow" style={{ minWidth: 0 }}>
-        {audio ? <Waveform audio={audio} height={height} position={on ? pos : null} color="var(--accent)" /> : <div className="vx-wave-skeleton" style={{ height }} />}
+        {audio ? (
+          <Waveform audio={audio} height={height} position={on ? pos : null} color="var(--accent)" />
+        ) : (
+          <div className="vx-wave-skeleton" style={{ height }} />
+        )}
       </div>
       <span className="small dim mono nowrap">{formatDuration(meta.durationSeconds)}</span>
     </div>

@@ -77,7 +77,7 @@ class BitWriter {
 
   /** Write the low `n` bits (n ≤ 24) of non-negative int `v`, MSB first. */
   private put(v: number, n: number): void {
-    let acc = (this.acc << n) | v;
+    const acc = (this.acc << n) | v;
     let nb = this.nb + n;
     const buf = this.buf;
     while (nb >= 8) {
@@ -195,12 +195,34 @@ class BitReader {
 // ---------------------------------------------------------------------------
 
 const SR_CODES: Record<number, number> = {
-  88200: 1, 176400: 2, 192000: 3, 8000: 4, 16000: 5, 22050: 6, 24000: 7, 32000: 8, 44100: 9, 48000: 10, 96000: 11,
+  88200: 1,
+  176400: 2,
+  192000: 3,
+  8000: 4,
+  16000: 5,
+  22050: 6,
+  24000: 7,
+  32000: 8,
+  44100: 9,
+  48000: 10,
+  96000: 11,
 };
 
 function blockSizeCode(n: number): { code: number; extra: number; extraBits: number } {
   const table: Record<number, number> = {
-    192: 1, 576: 2, 1152: 3, 2304: 4, 4608: 5, 256: 8, 512: 9, 1024: 10, 2048: 11, 4096: 12, 8192: 13, 16384: 14, 32768: 15,
+    192: 1,
+    576: 2,
+    1152: 3,
+    2304: 4,
+    4608: 5,
+    256: 8,
+    512: 9,
+    1024: 10,
+    2048: 11,
+    4096: 12,
+    8192: 13,
+    16384: 14,
+    32768: 15,
   };
   if (table[n]) return { code: table[n], extra: 0, extraBits: 0 };
   if (n <= 256) return { code: 6, extra: n - 1, extraBits: 8 };
@@ -260,9 +282,17 @@ function fixedResidual(x: Int32Array, n: number, order: number, res: Int32Array)
 
 /** Sum of |residual| for fixed orders 0..4 (cheap order selection). */
 function fixedAbsSums(x: Int32Array, n: number, out: Float64Array): void {
-  let s0 = 0, s1 = 0, s2 = 0, s3 = 0, s4 = 0;
+  let s0 = 0,
+    s1 = 0,
+    s2 = 0,
+    s3 = 0,
+    s4 = 0;
   for (let i = 4; i < n; i++) {
-    const x0 = x[i], x1 = x[i - 1], x2 = x[i - 2], x3 = x[i - 3], x4 = x[i - 4];
+    const x0 = x[i],
+      x1 = x[i - 1],
+      x2 = x[i - 2],
+      x3 = x[i - 3],
+      x4 = x[i - 4];
     const e1 = x0 - x1;
     const e2 = e1 - (x1 - x2);
     const e3 = e2 - (x1 - 2 * x2 + x3);
@@ -427,7 +457,14 @@ function lpcResidual(x: Int32Array, n: number, lq: LpcQuant, res: Int32Array): n
 }
 
 /** Encode one channel block as the cheapest subframe type. */
-function encodeSubframe(w: BitWriter, xin: Int32Array, n: number, bps: number, scratch: EncScratch, maxLpc: number): void {
+function encodeSubframe(
+  w: BitWriter,
+  xin: Int32Array,
+  n: number,
+  bps: number,
+  scratch: EncScratch,
+  maxLpc: number,
+): void {
   // constant?
   const first = xin[0];
   let allSame = true;
@@ -552,7 +589,10 @@ export function encodeFlac(buf: AudioData, opts: FlacEncodeOptions = {}): Uint8A
   const chans = buf.channels.length ? buf.channels : [new Float32Array(0)];
   const nch = Math.min(8, chans.length);
   const total = chans[0].length;
-  const q = quantizeChannels({ sampleRate: sr, channels: chans.slice(0, nch) }, bps, { dither: opts.dither, seed: opts.seed });
+  const q = quantizeChannels({ sampleRate: sr, channels: chans.slice(0, nch) }, bps, {
+    dither: opts.dither,
+    seed: opts.seed,
+  });
   const blockSize = Math.max(16, Math.min(65535, opts.blockSize ?? 4096));
   const maxLpc = Math.max(0, Math.min(32, opts.maxLpcOrder ?? 8));
 
@@ -589,7 +629,9 @@ export function encodeFlac(buf: AudioData, opts: FlacEncodeOptions = {}): Uint8A
   const xs = Array.from({ length: Math.max(nch, 2) + 2 }, () => new Int32Array(blockSize));
   let minFrame = Infinity;
   let maxFrame = 0;
-  const srCode = SR_CODES[sr] ?? (sr % 1000 === 0 && sr / 1000 < 256 ? 12 : sr < 65536 ? 13 : sr % 10 === 0 && sr / 10 < 65536 ? 14 : 0);
+  const srCode =
+    SR_CODES[sr] ??
+    (sr % 1000 === 0 && sr / 1000 < 256 ? 12 : sr < 65536 ? 13 : sr % 10 === 0 && sr / 10 < 65536 ? 14 : 0);
   const ssCode = bps === 16 ? 4 : 6;
   let frameNo = 0;
   for (let start = 0; start < total || (total === 0 && frameNo === 0); start += blockSize) {
@@ -605,12 +647,18 @@ export function encodeFlac(buf: AudioData, opts: FlacEncodeOptions = {}): Uint8A
     // stereo decorrelation choice
     let assignment = nch - 1;
     if (nch === 2) {
-      const L = xs[0], R = xs[1], M = xs[2], S = xs[3];
+      const L = xs[0],
+        R = xs[1],
+        M = xs[2],
+        S = xs[3];
       for (let i = 0; i < n; i++) {
         M[i] = (L[i] + R[i]) >> 1;
         S[i] = L[i] - R[i];
       }
-      const bl = estimateBits(L, n), br = estimateBits(R, n), bm = estimateBits(M, n), bs = estimateBits(S, n);
+      const bl = estimateBits(L, n),
+        br = estimateBits(R, n),
+        bm = estimateBits(M, n),
+        bs = estimateBits(S, n);
       const opts4 = [bl + br, bl + bs, bs + br, bm + bs];
       let best = 0;
       for (let k = 1; k < 4; k++) if (opts4[k] < opts4[best]) best = k;
@@ -632,7 +680,10 @@ export function encodeFlac(buf: AudioData, opts: FlacEncodeOptions = {}): Uint8A
     w.bits(crc8(w.buf, frameStart, w.pos), 8);
     // subframes
     if (nch === 2 && assignment >= 8) {
-      const L = xs[0], R = xs[1], M = xs[2], S = xs[3];
+      const L = xs[0],
+        R = xs[1],
+        M = xs[2],
+        S = xs[3];
       if (assignment === 8) {
         encodeSubframe(w, L, n, bps, scratch, maxLpc);
         encodeSubframe(w, S, n, bps + 1, scratch, maxLpc);
@@ -750,7 +801,8 @@ function decodeSubframe(r: BitReader, n: number, bps: number, out: Float64Array,
         for (let i = 3; i < n; i++) out[i] = res[i] + 3 * out[i - 1] - 3 * out[i - 2] + out[i - 3];
         break;
       default:
-        for (let i = 4; i < n; i++) out[i] = res[i] + 4 * out[i - 1] - 6 * out[i - 2] + 4 * out[i - 3] - out[i - 4];
+        for (let i = 4; i < n; i++)
+          out[i] = res[i] + 4 * out[i - 1] - 6 * out[i - 2] + 4 * out[i - 3] - out[i - 4];
     }
   } else if (type >= 32) {
     const order = (type & 31) + 1;
@@ -832,7 +884,6 @@ function parseHeader(bytes: Uint8Array): { info: FlacInfo; frameStart: number } 
 }
 
 const BLOCK_SIZES = [0, 192, 576, 1152, 2304, 4608, 0, 0, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768];
-const SAMPLE_RATES = [0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000];
 const SAMPLE_SIZES = [0, 8, 12, 0, 16, 20, 24, 32];
 
 export function decodeFlac(bytes: Uint8Array, opts: { verifyCrc?: boolean } = {}): AudioData {
@@ -885,8 +936,10 @@ export function decodeFlac(bytes: Uint8Array, opts: { verifyCrc?: boolean } = {}
     r.align();
     const frameEnd = r.bytePos;
     const fcrc = r.bits(16);
-    if (verify && fcrc !== crc16(bytes, p, p + frameEnd)) throw new Error('decodeFlac: frame CRC-16 mismatch');
-    const a = work[0], b = work[1];
+    if (verify && fcrc !== crc16(bytes, p, p + frameEnd))
+      throw new Error('decodeFlac: frame CRC-16 mismatch');
+    const a = work[0],
+      b = work[1];
     if (chAssign === 8) for (let i = 0; i < n; i++) b[i] = a[i] - b[i];
     else if (chAssign === 9) for (let i = 0; i < n; i++) a[i] = a[i] + b[i];
     else if (chAssign === 10) {

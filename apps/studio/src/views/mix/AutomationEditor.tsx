@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react';
 import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent as RMouseEvent,
+  type PointerEvent as RPointerEvent,
+} from 'react';
+import {
+  TRACK_NEUTRAL,
   barLengthTicks,
   barToTick,
   createTimeMap,
@@ -19,6 +28,7 @@ import { player } from '../../engine/player';
 import { useElementSize } from '../../hooks';
 import { Badge, Button, EmptyState, Select, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
+import { alpha, cssVar, sectionColor, useThemeName } from '../../ui/theme';
 import {
   AUTOMATION_META,
   AUTOMATION_PARAMS,
@@ -44,30 +54,19 @@ const LANE_H = 96;
 const RULER_H = 38;
 const POINT_R = 5;
 
-const SECTION_COLORS: Record<string, string> = {
-  intro: '#5d6b82',
-  verse: '#46c2cb',
-  'pre-chorus': '#7d9bff',
-  chorus: '#ff8a3d',
-  'post-chorus': '#ffb347',
-  bridge: '#a68cff',
-  breakdown: '#5ad1a4',
-  build: '#f5c451',
-  drop: '#ff5d5d',
-  solo: '#d083ff',
-  interlude: '#5d6b82',
-  'final-chorus': '#ff7417',
-  outro: '#5d6b82',
-  custom: '#9aa3b2',
-};
-
 function snapTick(song: Song, tick: number, snap: Snap, end: number): number {
   const t = Math.max(0, Math.min(end, tick));
   if (snap === 'off') return Math.round(t);
   const p = tickToBar(song, t);
   const barStart = barToTick(song, p.bar);
   const unit =
-    snap === 'bar' ? barLengthTicks(p.meter, song.ppq) : snap === 'beat' ? ticksPerBeat(p.meter.denominator, song.ppq) : snap === '8th' ? song.ppq / 2 : song.ppq / 4;
+    snap === 'bar'
+      ? barLengthTicks(p.meter, song.ppq)
+      : snap === 'beat'
+        ? ticksPerBeat(p.meter.denominator, song.ppq)
+        : snap === '8th'
+          ? song.ppq / 2
+          : song.ppq / 4;
   return Math.max(0, Math.min(end, Math.round(barStart + Math.round((t - barStart) / unit) * unit)));
 }
 
@@ -77,10 +76,6 @@ function snapUnit(song: Song, tick: number, snap: Snap): number {
   if (snap === '8th') return song.ppq / 2;
   if (snap === '16th') return song.ppq / 4;
   return ticksPerBeat(p.meter.denominator, song.ppq);
-}
-
-function cssVar(name: string, fallback: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
 function posLabel(song: Song, tick: number): string {
@@ -102,6 +97,7 @@ function commitAutomation(song: Song, automation: AutomationLane[], message: str
 
 function Ruler({ song, width, end }: { song: Song; width: number; end: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const theme = useThemeName();
   useEffect(() => {
     const c = ref.current;
     if (!c || width <= 0) return;
@@ -115,12 +111,12 @@ function Ruler({ song, width, end }: { song: Song; width: number; end: number })
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, RULER_H);
     const x = (t: number) => (t / end) * width;
-    ctx.font = '600 10.5px ui-sans-serif, system-ui, sans-serif';
+    ctx.font = `600 10.5px ${cssVar('--font-ui')}`;
     ctx.textBaseline = 'middle';
     for (const span of sectionLayout(song)) {
       const x0 = x(span.startTick);
       const x1 = x(span.endTick);
-      const color = SECTION_COLORS[span.section.kind] ?? '#9aa3b2';
+      const color = sectionColor(span.section.kind);
       ctx.fillStyle = color;
       ctx.globalAlpha = 0.22;
       ctx.fillRect(x0 + 1, 2, Math.max(1, x1 - x0 - 2), 18);
@@ -131,7 +127,7 @@ function Ruler({ song, width, end }: { song: Song; width: number; end: number })
       ctx.beginPath();
       ctx.rect(x0 + 6, 2, Math.max(0, x1 - x0 - 8), 18);
       ctx.clip();
-      ctx.fillStyle = cssVar('--text', '#e7eaf0');
+      ctx.fillStyle = cssVar('--text');
       ctx.fillText(span.section.name, x0 + 8, 11);
       ctx.restore();
     }
@@ -139,9 +135,9 @@ function Ruler({ song, width, end }: { song: Song; width: number; end: number })
     const bars = tickToBar(song, Math.max(0, end - 1)).bar + 1;
     const pxPerBar = width / Math.max(1, bars);
     const every = pxPerBar >= 28 ? 1 : pxPerBar >= 14 ? 2 : pxPerBar >= 7 ? 4 : 8;
-    ctx.font = '10px ui-monospace, monospace';
-    ctx.fillStyle = cssVar('--text-dim', '#646d7c');
-    ctx.strokeStyle = cssVar('--grid-bar', 'rgba(255,255,255,0.16)');
+    ctx.font = `10px ${cssVar('--font-mono')}`;
+    ctx.fillStyle = cssVar('--text-dim');
+    ctx.strokeStyle = cssVar('--grid-bar');
     for (let b = 0; b < bars; b++) {
       const bx = Math.round(x(barToTick(song, b))) + 0.5;
       ctx.beginPath();
@@ -153,7 +149,7 @@ function Ruler({ song, width, end }: { song: Song; width: number; end: number })
         ctx.fillText(String(b + 1), bx + 3, 30);
       }
     }
-  }, [song, width, end]);
+  }, [song, width, end, theme]);
   return <canvas ref={ref} className="mx-auto-ruler" aria-hidden />;
 }
 
@@ -176,10 +172,26 @@ interface LaneCanvasProps {
   onCommit: (points: AutomationPoint[], message: string) => void;
 }
 
-function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, snap, newCurve, onSelectPoint, onDraft, onCommit }: LaneCanvasProps) {
+function LaneCanvas({
+  song,
+  lane,
+  points,
+  width,
+  end,
+  locked,
+  selectedIndex,
+  snap,
+  newCurve,
+  onSelectPoint,
+  onDraft,
+  onCommit,
+}: LaneCanvasProps) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const drag = useRef<{ index: number; points: AutomationPoint[]; moved: boolean; created: boolean } | null>(null);
+  const drag = useRef<{ index: number; points: AutomationPoint[]; moved: boolean; created: boolean } | null>(
+    null,
+  );
   const [hover, setHover] = useState<number | null>(null);
+  const theme = useThemeName();
   const meta = AUTOMATION_META[lane.param];
   const staticValue = staticAutomationValue(song.mixer, lane.target, lane.param);
   const PAD = 7;
@@ -187,7 +199,8 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
   const xOf = (t: number) => (t / end) * width;
   const yOf = (v: number) => PAD + (1 - automationNorm(lane.param, v)) * plotH;
   const tickOf = (x: number) => (x / width) * end;
-  const valueOf = (y: number) => roundAutomation(lane.param, automationDenorm(lane.param, 1 - (y - PAD) / plotH));
+  const valueOf = (y: number) =>
+    roundAutomation(lane.param, automationDenorm(lane.param, 1 - (y - PAD) / plotH));
   const title = laneTitle(song, lane);
 
   useEffect(() => {
@@ -203,9 +216,9 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, LANE_H);
     const enabled = lane.enabled;
-    const color = enabled ? cssVar('--ai', '#46c2cb') : cssVar('--text-dim', '#646d7c');
+    const color = enabled ? cssVar('--ai') : cssVar('--text-dim');
     // Grid: sections and bars.
-    ctx.strokeStyle = cssVar('--grid-line', 'rgba(255,255,255,0.05)');
+    ctx.strokeStyle = cssVar('--grid-line');
     const bars = tickToBar(song, Math.max(0, end - 1)).bar + 1;
     const pxPerBar = width / Math.max(1, bars);
     const every = pxPerBar >= 10 ? 1 : 4;
@@ -216,7 +229,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
       ctx.lineTo(bx, LANE_H);
       ctx.stroke();
     }
-    ctx.strokeStyle = cssVar('--grid-bar', 'rgba(255,255,255,0.16)');
+    ctx.strokeStyle = cssVar('--grid-bar');
     for (const span of sectionLayout(song)) {
       const sx = Math.round(xOf(span.startTick)) + 0.5;
       ctx.beginPath();
@@ -228,7 +241,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (lane.param === 'pan' || lane.param.endsWith('Db')) {
       const zy = Math.round(yOf(0)) + 0.5;
       ctx.setLineDash([2, 4]);
-      ctx.strokeStyle = cssVar('--border-strong', '#343b48');
+      ctx.strokeStyle = cssVar('--border-strong');
       ctx.beginPath();
       ctx.moveTo(0, zy);
       ctx.lineTo(width, zy);
@@ -239,7 +252,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (!points.length || !enabled) {
       const sy = yOf(staticValue);
       ctx.setLineDash([5, 4]);
-      ctx.strokeStyle = cssVar('--text-dim', '#646d7c');
+      ctx.strokeStyle = cssVar('--text-dim');
       ctx.beginPath();
       ctx.moveTo(0, sy);
       ctx.lineTo(width, sy);
@@ -262,7 +275,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
       fill.lineTo(width, LANE_H);
       fill.lineTo(0, LANE_H);
       fill.closePath();
-      ctx.fillStyle = enabled ? 'rgba(70, 194, 203, 0.12)' : 'rgba(128,128,128,0.06)';
+      ctx.fillStyle = alpha(color, enabled ? 0.12 : 0.06);
       ctx.fill(fill);
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
@@ -277,9 +290,9 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
         ctx.beginPath();
         if ((p.curve ?? 'linear') === 'step') ctx.rect(x - POINT_R, y - POINT_R, POINT_R * 2, POINT_R * 2);
         else ctx.arc(x, y, sel || i === hover ? POINT_R + 1.5 : POINT_R, 0, Math.PI * 2);
-        ctx.fillStyle = sel ? cssVar('--accent', '#ff8a3d') : color;
+        ctx.fillStyle = sel ? cssVar('--accent') : color;
         ctx.fill();
-        ctx.strokeStyle = cssVar('--bg', '#0e1014');
+        ctx.strokeStyle = cssVar('--bg');
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
@@ -288,19 +301,19 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
       const tp = tagIndex !== null ? points[tagIndex] : undefined;
       if (tp) {
         const text = `${posLabel(song, tp.tick)} · ${meta.fmt(tp.value)}`;
-        ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+        ctx.font = `11px ${cssVar('--font-ui')}`;
         const tw = ctx.measureText(text).width + 10;
         const x = Math.min(width - tw - 2, Math.max(2, xOf(tp.tick) - tw / 2));
         const y = yOf(tp.value) < 26 ? yOf(tp.value) + 9 : yOf(tp.value) - 26;
-        ctx.fillStyle = cssVar('--bg-elev-3', '#222731');
+        ctx.fillStyle = cssVar('--bg-elev-3');
         ctx.fillRect(x, y, tw, 17);
-        ctx.fillStyle = cssVar('--text', '#e7eaf0');
+        ctx.fillStyle = cssVar('--text');
         ctx.textBaseline = 'middle';
         ctx.fillText(text, x + 5, y + 9);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song, lane, points, width, end, selectedIndex, hover, staticValue]);
+  }, [song, lane, points, width, end, selectedIndex, hover, staticValue, theme]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const r = ref.current!.getBoundingClientRect();
@@ -325,7 +338,7 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (locked) return;
     const { x, y } = local(e);
     let index = hitPoint(x, y);
-    let pts = points.map((p) => ({ ...p }));
+    const pts = points.map((p) => ({ ...p }));
     let created = false;
     if (index === null) {
       const tick = snapTick(song, tickOf(x), snap, end);
@@ -393,9 +406,16 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (i === null) return;
     e.preventDefault();
     if (locked) return;
-    const pts = points.map((p, k) => (k === i ? { ...p, curve: (p.curve ?? 'linear') === 'step' ? ('linear' as const) : ('step' as const) } : p));
+    const pts = points.map((p, k) =>
+      k === i
+        ? { ...p, curve: (p.curve ?? 'linear') === 'step' ? ('linear' as const) : ('step' as const) }
+        : p,
+    );
     onSelectPoint(i);
-    onCommit(pts, `Automation: ${laneTitle(song, lane)} — ${pts[i].curve} segment at ${posLabel(song, pts[i].tick)}`);
+    onCommit(
+      pts,
+      `Automation: ${laneTitle(song, lane)} — ${pts[i].curve} segment at ${posLabel(song, pts[i].tick)}`,
+    );
   };
   const onKeyDown = (e: KeyboardEvent<HTMLCanvasElement>) => {
     if (locked || selectedIndex === null || !points[selectedIndex]) return;
@@ -409,8 +429,10 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     }
     const n = automationNorm(lane.param, p.value);
     const stepN = e.shiftKey ? 0.01 : 0.04;
-    if (e.key === 'ArrowUp') next = { ...p, value: roundAutomation(lane.param, automationDenorm(lane.param, n + stepN)) };
-    if (e.key === 'ArrowDown') next = { ...p, value: roundAutomation(lane.param, automationDenorm(lane.param, n - stepN)) };
+    if (e.key === 'ArrowUp')
+      next = { ...p, value: roundAutomation(lane.param, automationDenorm(lane.param, n + stepN)) };
+    if (e.key === 'ArrowDown')
+      next = { ...p, value: roundAutomation(lane.param, automationDenorm(lane.param, n - stepN)) };
     const unit = snapUnit(song, p.tick, snap === 'off' ? 'beat' : snap);
     const prevT = i > 0 ? points[i - 1].tick : 0;
     const nextT = i < points.length - 1 ? points[i + 1].tick : end;
@@ -419,7 +441,10 @@ function LaneCanvas({ song, lane, points, width, end, locked, selectedIndex, sna
     if (!next) return;
     e.preventDefault();
     const pts = points.map((q, k) => (k === i ? next! : q));
-    onCommit(pts, `Automation: ${laneTitle(song, lane)} — ${posLabel(song, next.tick)} ${meta.fmt(next.value)}`);
+    onCommit(
+      pts,
+      `Automation: ${laneTitle(song, lane)} — ${posLabel(song, next.tick)} ${meta.fmt(next.value)}`,
+    );
   };
 
   return (
@@ -472,7 +497,11 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
   const [hostRef, size] = useElementSize<HTMLDivElement>();
   const [snap, setSnap] = useState<Snap>('beat');
   const [newCurve, setNewCurve] = useState<'linear' | 'step'>('linear');
-  const [target, setTarget] = useState<string>(defaultTarget && song.tracks.some((t) => t.id === defaultTarget) ? defaultTarget : (song.tracks[0]?.id ?? MASTER));
+  const [target, setTarget] = useState<string>(
+    defaultTarget && song.tracks.some((t) => t.id === defaultTarget)
+      ? defaultTarget
+      : (song.tracks[0]?.id ?? MASTER),
+  );
   const [param, setParam] = useState<AutomationParam>('volumeDb');
   const [selected, setSelected] = useState<{ laneId: string; index: number } | null>(null);
   const [draft, setDraft] = useState<{ laneId: string; points: AutomationPoint[] } | null>(null);
@@ -486,7 +515,9 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
     ...song.tracks.map((t) => ({ value: t.id, label: t.name })),
     { value: MASTER, label: 'Master' },
   ];
-  const paramOptions = AUTOMATION_PARAMS.filter((p) => target !== MASTER || AUTOMATION_META[p].masterOk).map((p) => ({ value: p, label: AUTOMATION_META[p].label }));
+  const paramOptions = AUTOMATION_PARAMS.filter((p) => target !== MASTER || AUTOMATION_META[p].masterOk).map(
+    (p) => ({ value: p, label: AUTOMATION_META[p].label }),
+  );
   const existing = lanes.find((l) => l.target === target && l.param === param);
   const targetLocked = isStripLocked(song, target);
 
@@ -510,17 +541,45 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
       <div className="panel-header wrap">
         <Icon name="sliders" />
         <h3>Automation</h3>
-        <span className="small dim grow">Parameter changes over time — rendered identically in playback and exports.</span>
+        <span className="small dim grow">
+          Parameter changes over time — rendered identically in playback and exports.
+        </span>
       </div>
       <div className="mx-auto-toolbar">
         <div className="row wrap">
           <span className="field-label">Add lane</span>
-          <Select size="sm" value={target} onChange={(v) => {
-            setTarget(v);
-            if (v === MASTER && !AUTOMATION_META[param].masterOk) setParam('volumeDb');
-          }} options={targetOptions} aria-label="Automation target" style={{ width: 170 }} />
-          <Select size="sm" value={param} onChange={setParam} options={paramOptions} aria-label="Automation parameter" style={{ width: 150 }} />
-          <Button size="sm" icon="plus" onClick={addLane} disabled={targetLocked} title={targetLocked ? 'This strip is locked' : existing ? 'Lane exists — scroll to it' : 'Add an automation lane'}>
+          <Select
+            size="sm"
+            value={target}
+            onChange={(v) => {
+              setTarget(v);
+              if (v === MASTER && !AUTOMATION_META[param].masterOk) setParam('volumeDb');
+            }}
+            options={targetOptions}
+            aria-label="Automation target"
+            style={{ width: 170 }}
+          />
+          <Select
+            size="sm"
+            value={param}
+            onChange={setParam}
+            options={paramOptions}
+            aria-label="Automation parameter"
+            style={{ width: 150 }}
+          />
+          <Button
+            size="sm"
+            icon="plus"
+            onClick={addLane}
+            disabled={targetLocked}
+            title={
+              targetLocked
+                ? 'This strip is locked'
+                : existing
+                  ? 'Lane exists — scroll to it'
+                  : 'Add an automation lane'
+            }
+          >
             {existing ? 'Show lane' : 'Add lane'}
           </Button>
         </div>
@@ -571,8 +630,8 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
       <div className="mx-auto-scroll" ref={hostRef}>
         {lanes.length === 0 ? (
           <EmptyState icon="sliders" title="No automation lanes yet">
-            Pick a track (or the master) and a parameter, then click <strong>Add lane</strong>. Click inside a lane to add points; drag them to shape fades,
-            swells and rides across sections.
+            Pick a track (or the master) and a parameter, then click <strong>Add lane</strong>. Click inside a
+            lane to add points; drag them to shape fades, swells and rides across sections.
           </EmptyState>
         ) : (
           <div className="mx-auto-content" style={{ width: HEADER_W + width }}>
@@ -588,11 +647,25 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
               const sel = selected?.laneId === lane.id ? selected.index : null;
               const selPoint = sel !== null ? lane.points[sel] : undefined;
               return (
-                <div className={`mx-auto-row ${lane.enabled ? '' : 'disabled'}`} key={lane.id} id={`lane-${lane.id}`}>
+                <div
+                  className={`mx-auto-row ${lane.enabled ? '' : 'disabled'}`}
+                  key={lane.id}
+                  id={`lane-${lane.id}`}
+                >
                   <div className="mx-auto-head">
                     <div className="row" style={{ gap: 6 }}>
-                      <span className="mx-color-dot" style={{ background: lane.target === MASTER ? 'var(--accent)' : (track?.color ?? '#9aa3b2') }} />
-                      <span className="ellipsis grow" style={{ fontWeight: 600 }} title={laneTitle(song, lane)}>
+                      <span
+                        className="mx-color-dot"
+                        style={{
+                          background:
+                            lane.target === MASTER ? 'var(--accent)' : (track?.color ?? TRACK_NEUTRAL),
+                        }}
+                      />
+                      <span
+                        className="ellipsis grow"
+                        style={{ fontWeight: 600 }}
+                        title={laneTitle(song, lane)}
+                      >
                         {targetName(song, lane.target)}
                       </span>
                       {locked && <Icon name="lock" size={12} />}
@@ -603,7 +676,13 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
                         aria-label={`Remove ${laneTitle(song, lane)} lane`}
                         title="Remove lane"
                         disabled={locked}
-                        onClick={() => commitAutomation(song, lanes.filter((l) => l.id !== lane.id), `Removed automation lane: ${laneTitle(song, lane)}`)}
+                        onClick={() =>
+                          commitAutomation(
+                            song,
+                            lanes.filter((l) => l.id !== lane.id),
+                            `Removed automation lane: ${laneTitle(song, lane)}`,
+                          )
+                        }
                       />
                     </div>
                     <div className="row between small">
@@ -615,7 +694,14 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
                     <div className="row between small">
                       <Toggle
                         on={lane.enabled}
-                        onChange={(v) => !locked && updateLane(lane.id, { enabled: v }, `${v ? 'Enabled' : 'Disabled'} automation: ${laneTitle(song, lane)}`)}
+                        onChange={(v) =>
+                          !locked &&
+                          updateLane(
+                            lane.id,
+                            { enabled: v },
+                            `${v ? 'Enabled' : 'Disabled'} automation: ${laneTitle(song, lane)}`,
+                          )
+                        }
                         label={lane.enabled ? 'On' : 'Off'}
                         title="Enable / bypass this lane"
                       />
@@ -639,7 +725,9 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
                           style={{ width: 78 }}
                         />
                       ) : (
-                        <span className="dim">{lane.points.length ? 'select a point' : 'click lane to add'}</span>
+                        <span className="dim">
+                          {lane.points.length ? 'select a point' : 'click lane to add'}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -671,7 +759,8 @@ export function AutomationEditor({ song, defaultTarget }: { song: Song; defaultT
       </div>
       {lanes.length > 0 && (
         <div className="mx-auto-help small dim">
-          Click = add point · drag = move (Shift locks value, Alt locks time) · double-click = delete · right-click = linear/step · arrows nudge the selected point
+          Click = add point · drag = move (Shift locks value, Alt locks time) · double-click = delete ·
+          right-click = linear/step · arrows nudge the selected point
         </div>
       )}
     </div>

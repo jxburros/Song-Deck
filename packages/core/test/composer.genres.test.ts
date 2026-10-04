@@ -1,9 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { BUILTIN_GENRES, BUILTIN_INSTRUMENTS, blendGenres, getGenre, getInstrument, instrumentForGmProgram } from '../src/composer';
+import {
+  BUILTIN_GENRES,
+  BUILTIN_INSTRUMENTS,
+  blendGenres,
+  getGenre,
+  getInstrument,
+  instrumentForGmProgram,
+} from '../src/composer';
 import { romanToChord } from '../src/theory/roman';
 import type { GenreProfile } from '../src/ir/types';
 
-const SPEC_GENRES = ['pop', 'synth-pop', 'punk', 'pop-punk', 'emo', 'indie-rock', 'metal', 'folk', 'country', 'edm', 'house', 'trance', 'jazz', 'rnb', 'hip-hop', 'orchestral', 'cinematic'];
+const SPEC_GENRES = [
+  'pop',
+  'synth-pop',
+  'punk',
+  'pop-punk',
+  'emo',
+  'indie-rock',
+  'metal',
+  'folk',
+  'country',
+  'edm',
+  'house',
+  'trance',
+  'jazz',
+  'rnb',
+  'hip-hop',
+  'orchestral',
+  'cinematic',
+];
 
 describe('genre profiles (§14)', () => {
   it('ships every genre of the spec with kebab-case ids', () => {
@@ -24,8 +49,14 @@ describe('genre profiles (§14)', () => {
       expect(g.structure.templates.length).toBeGreaterThan(0);
       expect(g.instruments.some((i) => i.essential)).toBe(true);
       expect(g.harmony.progressions.length).toBeGreaterThan(2);
-      for (const p of g.harmony.progressions) for (const r of p.roman) expect(romanToChord(r, { tonic: 0, mode: 'major' }), `${g.id}: ${r}`).not.toBeNull();
-      for (const i of g.instruments) expect(BUILTIN_INSTRUMENTS.some((x) => x.id === i.instrumentId), `${g.id}: ${i.instrumentId}`).toBe(true);
+      for (const p of g.harmony.progressions)
+        for (const r of p.roman)
+          expect(romanToChord(r, { tonic: 0, mode: 'major' }), `${g.id}: ${r}`).not.toBeNull();
+      for (const i of g.instruments)
+        expect(
+          BUILTIN_INSTRUMENTS.some((x) => x.id === i.instrumentId),
+          `${g.id}: ${i.instrumentId}`,
+        ).toBe(true);
     }
   });
 
@@ -52,16 +83,25 @@ describe('genre blending', () => {
     ]);
     const exp = Math.round(pp.tempo.typical * 0.5 + emo.tempo.typical * 0.3 + cin.tempo.typical * 0.2);
     expect(b.tempo.typical).toBe(exp);
-    expect(b.harmony.extensionRate).toBeCloseTo(pp.harmony.extensionRate * 0.5 + emo.harmony.extensionRate * 0.3 + cin.harmony.extensionRate * 0.2, 6);
+    expect(b.harmony.extensionRate).toBeCloseTo(
+      pp.harmony.extensionRate * 0.5 + emo.harmony.extensionRate * 0.3 + cin.harmony.extensionRate * 0.2,
+      6,
+    );
     expect(b.name).toBe('50% Pop-Punk / 30% Emo / 20% Cinematic');
     // Dominant genre decides categorical traits.
     expect(b.rhythm.drumStyle).toBe('pop-punk');
     // Pools: progression weights scaled by genre share (identical entries merged).
     const first = pp.harmony.progressions[0];
-    const merged = b.harmony.progressions.find((p) => p.roman.join(' ') === first.roman.join(' ') && (p.sectionKinds ?? []).join() === (first.sectionKinds ?? []).join());
+    const merged = b.harmony.progressions.find(
+      (p) =>
+        p.roman.join(' ') === first.roman.join(' ') &&
+        (p.sectionKinds ?? []).join() === (first.sectionKinds ?? []).join(),
+    );
     expect(merged).toBeDefined();
     expect(merged!.weight).toBeGreaterThanOrEqual(first.weight * 0.5 - 1e-9);
-    expect(b.structure.templates.length).toBe(pp.structure.templates.length + emo.structure.templates.length + cin.structure.templates.length);
+    expect(b.structure.templates.length).toBe(
+      pp.structure.templates.length + emo.structure.templates.length + cin.structure.templates.length,
+    );
     expect(b.instruments.some((i) => i.instrumentId === 'string-ensemble')).toBe(true);
     // Energy per section is a weighted average.
     const e = (g: GenreProfile) => g.dynamics.energyBySection.chorus!;
@@ -69,8 +109,14 @@ describe('genre blending', () => {
   });
 
   it('normalizes weights and handles a single or unknown genre', () => {
-    const a = blendGenres([{ genreId: 'jazz', weight: 1 }, { genreId: 'rnb', weight: 1 }]);
-    const b = blendGenres([{ genreId: 'jazz', weight: 5 }, { genreId: 'rnb', weight: 5 }]);
+    const a = blendGenres([
+      { genreId: 'jazz', weight: 1 },
+      { genreId: 'rnb', weight: 1 },
+    ]);
+    const b = blendGenres([
+      { genreId: 'jazz', weight: 5 },
+      { genreId: 'rnb', weight: 5 },
+    ]);
     expect(a.tempo).toEqual(b.tempo);
     expect(blendGenres([{ genreId: 'metal', weight: 3 }]).id).toBe('metal');
     expect(blendGenres([{ genreId: 'unknown', weight: 1 }]).id).toBe('pop');
@@ -79,17 +125,55 @@ describe('genre blending', () => {
 
 describe('instrument profiles (§17)', () => {
   const TABLE: [string, string, string][] = [
-    ['drum-kit', 'drums', 'drums-acoustic'], ['electronic-kit', 'drums', 'drums-electronic'], ['percussion', 'percussion', 'percussion'],
-    ['electric-bass', 'bass', 'bass-electric'], ['synth-bass', 'bass', 'bass-synth'], ['upright-bass', 'bass', 'bass-upright'],
-    ['electric-guitar-distorted', 'guitar', 'guitar-distorted'], ['electric-guitar-clean', 'guitar', 'guitar-clean'], ['acoustic-guitar', 'guitar', 'guitar-acoustic'],
-    ['electric-guitar-lead', 'guitar', 'guitar-lead'], ['piano', 'keys', 'piano'], ['electric-piano', 'keys', 'epiano'], ['organ', 'organ', 'organ'],
-    ['violin', 'strings', 'strings-solo'], ['viola', 'strings', 'strings-solo'], ['cello', 'strings', 'strings-solo'], ['contrabass', 'strings', 'strings-solo'],
-    ['string-ensemble', 'strings', 'strings-ensemble'], ['pizzicato-strings', 'strings', 'strings-pizz'], ['trumpet', 'brass', 'brass-solo'],
-    ['trombone', 'brass', 'brass-solo'], ['french-horn', 'brass', 'brass-solo'], ['brass-section', 'brass', 'brass'], ['flute', 'woodwind', 'flute'],
-    ['clarinet', 'woodwind', 'reed'], ['saxophone', 'woodwind', 'reed'], ['synth-pad', 'synth', 'pad-warm'], ['synth-lead', 'synth', 'lead-saw'],
-    ['synth-arp', 'synth', 'pluck'], ['synth-seq', 'synth', 'pluck'], ['choir', 'vocal', 'choir'], ['lead-vocal', 'vocal', 'vocal-placeholder'],
-    ['backing-vocal', 'vocal', 'vocal-placeholder'], ['harp', 'strings', 'harp'], ['timpani', 'percussion', 'timpani'], ['glockenspiel', 'percussion', 'bell'],
+    ['drum-kit', 'drums', 'drums-acoustic'],
+    ['electronic-kit', 'drums', 'drums-electronic'],
+    ['percussion', 'percussion', 'percussion'],
+    ['electric-bass', 'bass', 'bass-electric'],
+    ['synth-bass', 'bass', 'bass-synth'],
+    ['upright-bass', 'bass', 'bass-upright'],
+    ['electric-guitar-distorted', 'guitar', 'guitar-distorted'],
+    ['electric-guitar-clean', 'guitar', 'guitar-clean'],
+    ['acoustic-guitar', 'guitar', 'guitar-acoustic'],
+    ['electric-guitar-lead', 'guitar', 'guitar-lead'],
+    ['piano', 'keys', 'piano'],
+    ['electric-piano', 'keys', 'epiano'],
+    ['organ', 'organ', 'organ'],
+    ['violin', 'strings', 'strings-solo'],
+    ['viola', 'strings', 'strings-solo'],
+    ['cello', 'strings', 'strings-solo'],
+    ['contrabass', 'strings', 'strings-solo'],
+    ['string-ensemble', 'strings', 'strings-ensemble'],
+    ['pizzicato-strings', 'strings', 'strings-pizz'],
+    ['trumpet', 'brass', 'brass-solo'],
+    ['trombone', 'brass', 'brass-solo'],
+    ['french-horn', 'brass', 'brass-solo'],
+    ['brass-section', 'brass', 'brass'],
+    ['flute', 'woodwind', 'flute'],
+    ['clarinet', 'woodwind', 'reed'],
+    ['saxophone', 'woodwind', 'reed'],
+    ['synth-pad', 'synth', 'pad-warm'],
+    ['synth-lead', 'synth', 'lead-saw'],
+    ['synth-arp', 'synth', 'pluck'],
+    ['synth-seq', 'synth', 'pluck'],
+    ['choir', 'vocal', 'choir'],
+    ['lead-vocal', 'vocal', 'vocal-placeholder'],
+    ['backing-vocal', 'vocal', 'vocal-placeholder'],
+    ['harp', 'strings', 'harp'],
+    ['timpani', 'percussion', 'timpani'],
+    ['glockenspiel', 'percussion', 'bell'],
     ['marimba', 'percussion', 'mallet'],
+    ['nylon-guitar', 'guitar', 'guitar-nylon'],
+    ['banjo', 'guitar', 'banjo'],
+    ['mandolin', 'guitar', 'mandolin'],
+    ['pedal-steel', 'guitar', 'pedal-steel'],
+    ['sitar', 'guitar', 'sitar'],
+    ['clavinet', 'keys', 'clavinet'],
+    ['accordion', 'keys', 'accordion'],
+    ['harmonica', 'woodwind', 'harmonica'],
+    ['steel-pan', 'percussion', 'steel-pan'],
+    ['log-drum', 'bass', 'log-drum'],
+    ['808-bass', 'bass', 'bass-808'],
+    ['chip-lead', 'synth', 'chip-pulse'],
   ];
 
   it('uses the exact ids, families and patch ids of the contract', () => {
@@ -117,6 +201,10 @@ describe('instrument profiles (§17)', () => {
     expect(getInstrument('heavy guitar').id).toBe('electric-guitar-distorted');
     expect(getInstrument('gm-33').id).toBe('electric-bass');
     expect(getInstrument('kazoo-9000').id).toBe('piano');
+    expect(getInstrument('808').id).toBe('808-bass');
+    expect(getInstrument('steel drums').id).toBe('steel-pan');
+    expect(getInstrument('classical guitar').id).toBe('nylon-guitar');
+    expect(getInstrument('clav').id).toBe('clavinet');
     expect(getInstrument('').id).toBeTruthy();
     const custom = { ...getInstrument('violin'), id: 'my-erhu', name: 'Erhu', custom: true };
     expect(getInstrument('my-erhu', [custom]).name).toBe('Erhu');

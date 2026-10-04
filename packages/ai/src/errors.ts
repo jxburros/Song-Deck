@@ -32,7 +32,12 @@ export interface ProviderErrorOptions {
   cause?: unknown;
 }
 
-const RETRYABLE: ReadonlySet<ProviderErrorKind> = new Set(['rate-limit', 'unavailable', 'network', 'timeout']);
+const RETRYABLE: ReadonlySet<ProviderErrorKind> = new Set([
+  'rate-limit',
+  'unavailable',
+  'network',
+  'timeout',
+]);
 
 export class ProviderError extends Error {
   readonly kind: ProviderErrorKind;
@@ -68,7 +73,14 @@ export function isProviderError(err: unknown): err is ProviderError {
 
 /** Kinds after which the orchestrator may try another provider (the provider is unusable right now). */
 export function isAvailabilityError(err: unknown): boolean {
-  return err instanceof ProviderError && (err.kind === 'unavailable' || err.kind === 'network' || err.kind === 'rate-limit' || err.kind === 'timeout' || err.kind === 'auth');
+  return (
+    err instanceof ProviderError &&
+    (err.kind === 'unavailable' ||
+      err.kind === 'network' ||
+      err.kind === 'rate-limit' ||
+      err.kind === 'timeout' ||
+      err.kind === 'auth')
+  );
 }
 
 /** Map an HTTP status to an error kind. */
@@ -76,7 +88,16 @@ export function kindForStatus(status: number): ProviderErrorKind {
   if (status === 401 || status === 403) return 'auth';
   if (status === 408) return 'timeout';
   if (status === 429) return 'rate-limit';
-  if (status === 400 || status === 404 || status === 405 || status === 409 || status === 413 || status === 415 || status === 422) return 'bad-request';
+  if (
+    status === 400 ||
+    status === 404 ||
+    status === 405 ||
+    status === 409 ||
+    status === 413 ||
+    status === 415 ||
+    status === 422
+  )
+    return 'bad-request';
   if (status === 402) return 'auth';
   if (status >= 500) return 'unavailable';
   return 'unknown';
@@ -110,12 +131,17 @@ export function messageFromErrorBody(body: unknown, fallback: string): string {
       if (typeof d.message === 'string') return d.message;
     }
     if (Array.isArray(b.errors) && b.errors.length) return String(b.errors[0]);
-    if (Array.isArray(b) && b.length && typeof b[0] === 'object' && b[0]) return messageFromErrorBody(b[0], fallback);
+    if (Array.isArray(b) && b.length && typeof b[0] === 'object' && b[0])
+      return messageFromErrorBody(b[0], fallback);
   }
   return fallback;
 }
 
-export function errorFromStatus(status: number, body: unknown, opts: ProviderErrorOptions & { retryAfter?: string | null } = {}): ProviderError {
+export function errorFromStatus(
+  status: number,
+  body: unknown,
+  opts: ProviderErrorOptions & { retryAfter?: string | null } = {},
+): ProviderError {
   const kind = kindForStatus(status);
   const message = messageFromErrorBody(body, `HTTP ${status}`);
   return new ProviderError(kind, message, {
@@ -145,9 +171,14 @@ export function toProviderError(err: unknown, providerId?: string): ProviderErro
   const e = err as { name?: string; message?: string } | undefined;
   const name = e?.name ?? '';
   const message = e?.message ?? String(err);
-  if (name === 'AbortError' || name === 'APIUserAbortError') return new ProviderError('cancelled', 'Request cancelled', { providerId, cause: err });
-  if (name === 'TimeoutError') return new ProviderError('timeout', 'Request timed out', { providerId, cause: err });
-  if (err instanceof TypeError || /fetch failed|network|ECONNREFUSED|ENOTFOUND|ECONNRESET|Failed to fetch|socket/i.test(message)) {
+  if (name === 'AbortError' || name === 'APIUserAbortError')
+    return new ProviderError('cancelled', 'Request cancelled', { providerId, cause: err });
+  if (name === 'TimeoutError')
+    return new ProviderError('timeout', 'Request timed out', { providerId, cause: err });
+  if (
+    err instanceof TypeError ||
+    /fetch failed|network|ECONNREFUSED|ENOTFOUND|ECONNRESET|Failed to fetch|socket/i.test(message)
+  ) {
     return new ProviderError('network', message || 'Network error', { providerId, cause: err });
   }
   return new ProviderError('unknown', message || 'Unknown error', { providerId, cause: err });
@@ -169,7 +200,10 @@ export class NoCompatibleProviderError extends Error {
     const detail = excluded.length
       ? excluded.map((c) => `${c.providerName}: ${c.reasons.join('; ')}`).join(' | ')
       : 'no providers are registered';
-    super(message ?? `No compatible provider for ${role} (${requirements.join(', ') || 'no requirements'}): ${detail}`);
+    super(
+      message ??
+        `No compatible provider for ${role} (${requirements.join(', ') || 'no requirements'}): ${detail}`,
+    );
     this.name = 'NoCompatibleProviderError';
     this.role = role;
     this.requirements = requirements;

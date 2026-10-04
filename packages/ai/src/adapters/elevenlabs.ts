@@ -8,7 +8,14 @@
  * section per song section, durations from the tempo map (summing exactly to the song length),
  * lyric lines per section, styles from genre/moods/instrumentation/production prompt.
  */
-import { createTimeMap, keyAtTick, keyName, sectionLayout, songDurationSeconds, type Song } from '@songdeck/core';
+import {
+  createTimeMap,
+  keyAtTick,
+  keyName,
+  sectionLayout,
+  songDurationSeconds,
+  type Song,
+} from '@songdeck/core';
 import type { Capability } from '../capabilities';
 import type { ProviderConfig } from '../config';
 import { audioCostUsd } from '../cost';
@@ -24,7 +31,14 @@ import type {
   ProviderInstance,
 } from '../types';
 import { audioMimeType, clamp, joinUrl, round, uniq, withQuery } from '../util';
-import { audioFromResponse, buildDescriptor, createHttpClient, type CreateProviderDeps, notSupported, pricingFor } from './common';
+import {
+  audioFromResponse,
+  buildDescriptor,
+  createHttpClient,
+  type CreateProviderDeps,
+  notSupported,
+  pricingFor,
+} from './common';
 
 export interface ElevenLabsPlanSection {
   section_name: string;
@@ -51,7 +65,13 @@ export interface CompositionPlanOptions {
   negativeStyles?: string[];
 }
 
-export const ELEVENLABS_MUSIC_CAPABILITIES: Capability[] = ['TEXT_TO_MUSIC', 'LYRIC_CONDITIONING', 'VOCAL_GENERATION', 'SECTION_GENERATION', 'INSTRUMENTAL_ONLY'];
+export const ELEVENLABS_MUSIC_CAPABILITIES: Capability[] = [
+  'TEXT_TO_MUSIC',
+  'LYRIC_CONDITIONING',
+  'VOCAL_GENERATION',
+  'SECTION_GENERATION',
+  'INSTRUMENTAL_ONLY',
+];
 const MIN_SONG_MS = 10_000;
 const MAX_SONG_MS = 300_000;
 
@@ -69,14 +89,20 @@ function mergeSections(a: ElevenLabsPlanSection, b: ElevenLabsPlanSection): Elev
   return {
     section_name: clip(`${a.section_name} + ${b.section_name}`, 100),
     positive_local_styles: uniq([...a.positive_local_styles, ...b.positive_local_styles]),
-    negative_local_styles: uniq([...a.negative_local_styles, ...b.negative_local_styles]).filter((s) => !(s === 'vocals' && (a.lines.length || b.lines.length))),
+    negative_local_styles: uniq([...a.negative_local_styles, ...b.negative_local_styles]).filter(
+      (s) => !(s === 'vocals' && (a.lines.length || b.lines.length)),
+    ),
     duration_ms: a.duration_ms + b.duration_ms,
     lines: [...a.lines, ...b.lines],
   };
 }
 
 /** Enforce per-section duration limits while preserving the total duration exactly. */
-function normalizeDurations(sections: ElevenLabsPlanSection[], minMs: number, maxMs: number): ElevenLabsPlanSection[] {
+function normalizeDurations(
+  sections: ElevenLabsPlanSection[],
+  minMs: number,
+  maxMs: number,
+): ElevenLabsPlanSection[] {
   let out = [...sections];
   // Merge too-short sections into the following (or previous) one.
   let i = 0;
@@ -102,8 +128,14 @@ function normalizeDurations(sections: ElevenLabsPlanSection[], minMs: number, ma
     for (let p = 0; p < parts; p++) {
       const dur = p === parts - 1 ? s.duration_ms - used : Math.floor(s.duration_ms / parts);
       used += dur;
-      const take = p === parts - 1 ? s.lines.length - lineIdx : Math.round(((p + 1) * s.lines.length) / parts) - lineIdx;
-      split.push({ ...s, section_name: clip(`${s.section_name} (${p + 1}/${parts})`, 100), duration_ms: dur, lines: s.lines.slice(lineIdx, lineIdx + take) });
+      const take =
+        p === parts - 1 ? s.lines.length - lineIdx : Math.round(((p + 1) * s.lines.length) / parts) - lineIdx;
+      split.push({
+        ...s,
+        section_name: clip(`${s.section_name} (${p + 1}/${parts})`, 100),
+        duration_ms: dur,
+        lines: s.lines.slice(lineIdx, lineIdx + take),
+      });
       lineIdx += take;
     }
   }
@@ -115,7 +147,10 @@ function normalizeDurations(sections: ElevenLabsPlanSection[], minMs: number, ma
  * Build an ElevenLabs composition plan from a Song. Durations come from the tempo map; their sum
  * equals the song length in ms (rounded once, distributed by cumulative boundaries).
  */
-export function buildElevenLabsCompositionPlan(song: Song, opts: CompositionPlanOptions = {}): ElevenLabsCompositionPlan {
+export function buildElevenLabsCompositionPlan(
+  song: Song,
+  opts: CompositionPlanOptions = {},
+): ElevenLabsCompositionPlan {
   const tm = createTimeMap(song);
   const layout = sectionLayout(song);
   const tags = songStyleTags(song);
@@ -130,7 +165,11 @@ export function buildElevenLabsCompositionPlan(song: Song, opts: CompositionPlan
     keyName(keyAtTick(song, 0)),
     ...(opts.extraStyles ?? []),
   ]).map((s) => clip(s, 100));
-  const negative = uniq([...splitStyles(song.production.negativePrompt), ...(instrumental ? ['vocals'] : []), ...(opts.negativeStyles ?? [])]).map((s) => clip(s, 100));
+  const negative = uniq([
+    ...splitStyles(song.production.negativePrompt),
+    ...(instrumental ? ['vocals'] : []),
+    ...(opts.negativeStyles ?? []),
+  ]).map((s) => clip(s, 100));
 
   const totalMs = Math.round(songDurationSeconds(song) * 1000);
   const boundaries = layout.map((s) => Math.round(tm.tickToSeconds(s.startTick) * 1000));
@@ -164,7 +203,9 @@ export function buildElevenLabsCompositionPlan(song: Song, opts: CompositionPlan
 }
 
 /** Composition plan from generic generation sections (when no Song is supplied). */
-export function compositionPlanFromSections(req: MusicGenerationRequest): ElevenLabsCompositionPlan | undefined {
+export function compositionPlanFromSections(
+  req: MusicGenerationRequest,
+): ElevenLabsCompositionPlan | undefined {
   const sections = req.sections ?? [];
   if (!sections.length) return undefined;
   const totalMs = Math.round(req.durationSeconds * 1000);
@@ -173,7 +214,11 @@ export function compositionPlanFromSections(req: MusicGenerationRequest): Eleven
     const end = i === sections.length - 1 ? totalMs : Math.round(sections[i + 1].startSeconds * 1000);
     return {
       section_name: clip(s.name, 100),
-      positive_local_styles: uniq([pretty(s.kind ?? s.name), ...(s.energy !== undefined ? [energyDescriptor(s.energy)] : []), ...splitStyles(s.prompt)]),
+      positive_local_styles: uniq([
+        pretty(s.kind ?? s.name),
+        ...(s.energy !== undefined ? [energyDescriptor(s.energy)] : []),
+        ...splitStyles(s.prompt),
+      ]),
       negative_local_styles: splitStyles(s.negativePrompt),
       duration_ms: Math.max(0, end - start),
       lines: req.instrumental ? [] : (s.lines ?? []).map((l) => clip(l, 200)),
@@ -181,7 +226,10 @@ export function compositionPlanFromSections(req: MusicGenerationRequest): Eleven
   });
   return {
     positive_global_styles: splitStyles(req.prompt),
-    negative_global_styles: uniq([...splitStyles(req.negativePrompt), ...(req.instrumental ? ['vocals'] : [])]),
+    negative_global_styles: uniq([
+      ...splitStyles(req.negativePrompt),
+      ...(req.instrumental ? ['vocals'] : []),
+    ]),
     sections: normalizeDurations(plan, 3000, 120_000),
   };
 }
@@ -194,7 +242,12 @@ export class ElevenLabsMusicProvider implements AudioGenerationProvider {
 
   async discoverModels(): Promise<ModelInfo[]> {
     const caps = this.config.capabilities?.length ? this.config.capabilities : ELEVENLABS_MUSIC_CAPABILITIES;
-    const manual = (this.config.models ?? []).map((m) => ({ id: m.id, name: m.name, capabilities: m.capabilities ?? [...caps], manual: true }));
+    const manual = (this.config.models ?? []).map((m) => ({
+      id: m.id,
+      name: m.name,
+      capabilities: m.capabilities ?? [...caps],
+      manual: true,
+    }));
     if (manual.length) return manual;
     return [{ id: this.config.defaultModel ?? 'music_v1', name: 'Eleven Music', capabilities: [...caps] }];
   }
@@ -207,7 +260,9 @@ export class ElevenLabsMusicProvider implements AudioGenerationProvider {
   buildBody(req: MusicGenerationRequest): Record<string, unknown> {
     const model = req.model ?? this.config.defaultModel;
     const planFromExtra = req.extra?.compositionPlan as ElevenLabsCompositionPlan | undefined;
-    const plan = planFromExtra ?? (req.song ? buildElevenLabsCompositionPlan(req.song) : compositionPlanFromSections(req));
+    const plan =
+      planFromExtra ??
+      (req.song ? buildElevenLabsCompositionPlan(req.song) : compositionPlanFromSections(req));
     const body: Record<string, unknown> = {};
     if (plan) body.composition_plan = plan;
     else {
@@ -220,13 +275,21 @@ export class ElevenLabsMusicProvider implements AudioGenerationProvider {
   }
 
   async generateMusic(req: MusicGenerationRequest): Promise<AudioGenerationResult> {
-    const outputFormat = (req.extra?.outputFormat as string | undefined) ?? this.config.extra?.outputFormat ?? (req.outputFormat === 'wav' ? 'pcm_44100' : 'mp3_44100_128');
+    const outputFormat =
+      (req.extra?.outputFormat as string | undefined) ??
+      this.config.extra?.outputFormat ??
+      (req.outputFormat === 'wav' ? 'pcm_44100' : 'mp3_44100_128');
     const url = withQuery(joinUrl(this.config.baseUrl, 'music'), { output_format: outputFormat });
     const body = this.buildBody(req);
     const r = await this.http.bytes({ url, json: body, accept: 'audio/*', signal: req.signal });
     const plan = body.composition_plan as ElevenLabsCompositionPlan | undefined;
-    const durationSeconds = plan ? plan.sections.reduce((a, s) => a + s.duration_ms, 0) / 1000 : (body.music_length_ms as number) / 1000;
-    const res: AudioGenerationResult = { audio: audioFromResponse(r.data, r.contentType, outputFormat), durationSeconds };
+    const durationSeconds = plan
+      ? plan.sections.reduce((a, s) => a + s.duration_ms, 0) / 1000
+      : (body.music_length_ms as number) / 1000;
+    const res: AudioGenerationResult = {
+      audio: audioFromResponse(r.data, r.contentType, outputFormat),
+      durationSeconds,
+    };
     if (!res.audio.mimeType.startsWith('audio/')) res.audio.mimeType = audioMimeType(outputFormat);
     const model = (body.model_id as string | undefined) ?? undefined;
     if (model) res.model = model;
@@ -242,5 +305,9 @@ export class ElevenLabsMusicProvider implements AudioGenerationProvider {
 
 export function createElevenLabsProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
   const http = createHttpClient(config, deps);
-  return { descriptor: buildDescriptor(config, ELEVENLABS_MUSIC_CAPABILITIES), config, audioGeneration: new ElevenLabsMusicProvider(config, http) };
+  return {
+    descriptor: buildDescriptor(config, ELEVENLABS_MUSIC_CAPABILITIES),
+    config,
+    audioGeneration: new ElevenLabsMusicProvider(config, http),
+  };
 }

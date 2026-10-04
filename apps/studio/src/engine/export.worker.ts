@@ -79,7 +79,12 @@ self.onmessage = async (ev: MessageEvent<ExportRequest>) => {
     self.postMessage({ id: req.id, ok: true, result } satisfies ExportResponse, transferOf(result));
   } catch (err) {
     const aborted = err instanceof Error && err.name === 'AbortError';
-    self.postMessage({ id: req.id, ok: false, error: err instanceof Error ? err.message : String(err), aborted } satisfies ExportResponse);
+    self.postMessage({
+      id: req.id,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+      aborted,
+    } satisfies ExportResponse);
   } finally {
     cancelled.delete(req.id);
   }

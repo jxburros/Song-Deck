@@ -6,16 +6,24 @@
 import {
   bpmAtTick,
   createTimeMap,
+  getTag,
   hashSeed,
   keyAtTick,
   keyName,
   meterAtBar,
   sectionLayout,
   songLengthTicks,
+  songTags,
   type Song,
   type Track,
 } from '@songdeck/core';
-import type { EncodedAudio, GenerationSection, MusicGenerationRequest, SingingNote, SingingRequest } from './types';
+import type {
+  EncodedAudio,
+  GenerationSection,
+  MusicGenerationRequest,
+  SingingNote,
+  SingingRequest,
+} from './types';
 import { round, uniq } from './util';
 
 export interface ProductionPromptOptions {
@@ -65,16 +73,47 @@ function hasVocals(song: Song): boolean {
   return song.tracks.some((t) => t.role === 'vocal') || song.lyrics.length > 0;
 }
 
-/** Genre, mood, instrument and production style tags for a song. */
-export function songStyleTags(song: Song): { genres: string[]; moods: string[]; instruments: string[]; production: string[]; vocals: string[] } {
-  const genres = song.blueprint?.styles?.length ? [...song.blueprint.styles] : song.genreBlend.map((g) => pretty(g.genreId));
-  const moods = song.blueprint?.moods ?? [];
-  const instruments = uniq(audibleTracks(song).filter((t) => t.role !== 'vocal').map((t) => t.name || pretty(t.instrumentId)));
-  const production = splitList(song.production.prompt);
+/**
+ * Genre, mood, instrument and production style tags for a song. Catalog tags join in by kind:
+ * style tags with the genres, mood tags with the moods, vocal tags with the vocals and era,
+ * production, region and rhythm tags with the production words.
+ */
+export function songStyleTags(song: Song): {
+  genres: string[];
+  moods: string[];
+  instruments: string[];
+  production: string[];
+  vocals: string[];
+} {
+  const catalog = songTags(song)
+    .map((id) => getTag(id))
+    .filter((t) => t !== undefined);
+  const uniqCi = (xs: string[]) =>
+    xs.filter((x, i) => xs.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
+  const named = (kinds: string[]) =>
+    catalog.filter((t) => kinds.includes(t.kind)).map((t) => t.name.toLowerCase());
+  const genres = uniqCi([
+    ...(song.blueprint?.styles?.length
+      ? [...song.blueprint.styles]
+      : song.genreBlend.map((g) => pretty(g.genreId))),
+    ...named(['style']),
+  ]);
+  const moods = uniqCi([...(song.blueprint?.moods ?? []), ...named(['mood'])]);
+  const instruments = uniq(
+    audibleTracks(song)
+      .filter((t) => t.role !== 'vocal')
+      .map((t) => t.name || pretty(t.instrumentId)),
+  );
+  const production = uniqCi([
+    ...splitList(song.production.prompt),
+    ...named(['era', 'production', 'region', 'rhythm']),
+  ]);
   const vocals: string[] = [];
   if (hasVocals(song)) {
-    const vt = song.tracks.find((t) => t.role === 'vocal')?.vocal?.voiceType ?? song.blueprint?.vocal?.voiceType;
+    const vt =
+      song.tracks.find((t) => t.role === 'vocal')?.vocal?.voiceType ?? song.blueprint?.vocal?.voiceType;
     vocals.push(vt ? `${vt} lead vocal` : 'lead vocal');
+    vocals.push(...named(['vocal']));
   } else vocals.push('instrumental');
   return { genres, moods, instruments, production, vocals };
 }
@@ -90,14 +129,18 @@ export function buildProductionPrompt(song: Song, opts: ProductionPromptOptions 
   const parts: string[] = [];
   parts.push(...tags.genres);
   if (track) {
-    parts.push(`solo ${track.name || pretty(track.instrumentId)} stem`, `isolated ${pretty(track.instrumentId)}`);
+    parts.push(
+      `solo ${track.name || pretty(track.instrumentId)} stem`,
+      `isolated ${pretty(track.instrumentId)}`,
+    );
   } else {
     parts.push(...tags.instruments);
     parts.push(...tags.vocals);
   }
   parts.push(...tags.moods);
   parts.push(`${round(bpmAtTick(song, atTick), 1)} BPM`, keyName(keyAtTick(song, atTick)));
-  if (meter.numerator !== 4 || meter.denominator !== 4) parts.push(`${meter.numerator}/${meter.denominator} time`);
+  if (meter.numerator !== 4 || meter.denominator !== 4)
+    parts.push(`${meter.numerator}/${meter.denominator} time`);
   if (span) {
     const s = span.section;
     parts.push(pretty(s.kind));
@@ -148,12 +191,18 @@ export interface ProductionCandidatePlan {
 /** Deterministic A/B/C candidate seeds (spec §54): same composition, different interpretation. */
 export function planCandidates(n: number, baseSeed: number): ProductionCandidatePlan[] {
   const count = Math.max(1, Math.min(26, Math.floor(n)));
-  return Array.from({ length: count }, (_, i) => ({ label: String.fromCharCode(65 + i), seed: i === 0 ? baseSeed >>> 0 : hashSeed(baseSeed, 'production-candidate', i) }));
+  return Array.from({ length: count }, (_, i) => ({
+    label: String.fromCharCode(65 + i),
+    seed: i === 0 ? baseSeed >>> 0 : hashSeed(baseSeed, 'production-candidate', i),
+  }));
 }
 
 /** Lyric lines of a section (in song order). */
 export function sectionLyricLines(song: Song, sectionId: string): string[] {
-  return song.lyrics.filter((l) => l.sectionId === sectionId).map((l) => l.text.trim()).filter(Boolean);
+  return song.lyrics
+    .filter((l) => l.sectionId === sectionId)
+    .map((l) => l.text.trim())
+    .filter(Boolean);
 }
 
 /** Sections with absolute times from the tempo map (seconds). */
@@ -192,13 +241,26 @@ export interface MusicRequestOptions {
 }
 
 /** A MusicGenerationRequest that describes the composition (spec §29: perform THIS composition). */
-export function buildMusicGenerationRequest(song: Song, opts: MusicRequestOptions = {}): MusicGenerationRequest {
+export function buildMusicGenerationRequest(
+  song: Song,
+  opts: MusicRequestOptions = {},
+): MusicGenerationRequest {
   const tm = createTimeMap(song);
   const sections = generationSections(song, opts.sectionIds);
   const start = sections.length ? sections[0].startSeconds : 0;
-  const end = sections.length ? sections[sections.length - 1].endSeconds : tm.tickToSeconds(songLengthTicks(song));
-  const pp = buildProductionPrompt(song, { sectionId: opts.sectionIds?.length === 1 ? opts.sectionIds[0] : undefined, trackId: opts.trackId, extra: opts.extraPrompt });
-  const shifted = sections.map((s) => ({ ...s, startSeconds: round(s.startSeconds - start, 3), endSeconds: round(s.endSeconds - start, 3) }));
+  const end = sections.length
+    ? sections[sections.length - 1].endSeconds
+    : tm.tickToSeconds(songLengthTicks(song));
+  const pp = buildProductionPrompt(song, {
+    sectionId: opts.sectionIds?.length === 1 ? opts.sectionIds[0] : undefined,
+    trackId: opts.trackId,
+    extra: opts.extraPrompt,
+  });
+  const shifted = sections.map((s) => ({
+    ...s,
+    startSeconds: round(s.startSeconds - start, 3),
+    endSeconds: round(s.endSeconds - start, 3),
+  }));
   const lyrics = shifted
     .filter((s) => s.lines?.length)
     .map((s) => `[${(s.kind ?? s.name).toLowerCase()}]\n${s.lines!.join('\n')}`)
@@ -239,13 +301,21 @@ export interface SingingRequestOptions {
 }
 
 /** Convert a vocal track to a SingingRequest (times in seconds from the tempo map). */
-export function buildSingingRequest(song: Song, trackId: string, opts: SingingRequestOptions): SingingRequest {
+export function buildSingingRequest(
+  song: Song,
+  trackId: string,
+  opts: SingingRequestOptions,
+): SingingRequest {
   const track = song.tracks.find((t) => t.id === trackId);
   if (!track) throw new Error(`Track ${trackId} not found`);
   const tm = createTimeMap(song);
   const defaults = song.vocals.defaultExpression ?? {};
   const notes: SingingNote[] = track.notes
-    .filter((n) => (opts.startTick === undefined || n.tick >= opts.startTick) && (opts.endTick === undefined || n.tick < opts.endTick))
+    .filter(
+      (n) =>
+        (opts.startTick === undefined || n.tick >= opts.startTick) &&
+        (opts.endTick === undefined || n.tick < opts.endTick),
+    )
     .sort((a, b) => a.tick - b.tick)
     .map((n) => {
       const startSeconds = tm.tickToSeconds(n.tick);

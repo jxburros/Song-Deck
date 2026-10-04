@@ -34,7 +34,9 @@ describe('buffer utilities', () => {
     const lo = resample(hi, 22050);
     expect(rms(lo.channels[0], 2000, lo.channels[0].length - 2000)).toBeLessThan(0.5 * 1e-3);
     // band-limited content below the new Nyquist passes
-    expect(toneMag(resample(sine(9000, 0.5, 48000, 0.5), 22050).channels[0], 22050, 9000, 1000, 8192)).toBeGreaterThan(0.1);
+    expect(
+      toneMag(resample(sine(9000, 0.5, 48000, 0.5), 22050).channels[0], 22050, 9000, 1000, 8192),
+    ).toBeGreaterThan(0.1);
   });
 
   it('converts channels, gains, normalizes, slices and concatenates', () => {
@@ -84,12 +86,19 @@ describe('buffer utilities', () => {
     const ins = sine(300, 0.5, sr, 0.5);
     const out = spliceWithCrossfade(base, ins, 1, 0.02);
     expect(out.channels[0].length).toBe(2 * sr);
-    expect(Math.abs(cents(yinF0(out.channels[0], sr, Math.round(1.2 * sr), 1024, 50, 1000), 300))).toBeLessThan(5);
-    expect(Math.abs(cents(yinF0(out.channels[0], sr, Math.round(0.4 * sr), 1024, 50, 1000), 100))).toBeLessThan(5);
-    expect(Math.abs(cents(yinF0(out.channels[0], sr, Math.round(1.6 * sr), 1024, 50, 1000), 100))).toBeLessThan(5);
+    expect(
+      Math.abs(cents(yinF0(out.channels[0], sr, Math.round(1.2 * sr), 1024, 50, 1000), 300)),
+    ).toBeLessThan(5);
+    expect(
+      Math.abs(cents(yinF0(out.channels[0], sr, Math.round(0.4 * sr), 1024, 50, 1000), 100)),
+    ).toBeLessThan(5);
+    expect(
+      Math.abs(cents(yinF0(out.channels[0], sr, Math.round(1.6 * sr), 1024, 50, 1000), 100)),
+    ).toBeLessThan(5);
     // no discontinuity at the boundaries
     let maxStep = 0;
-    for (let i = sr - 400; i < sr + 400; i++) maxStep = Math.max(maxStep, Math.abs(out.channels[0][i] - out.channels[0][i - 1]));
+    for (let i = sr - 400; i < sr + 400; i++)
+      maxStep = Math.max(maxStep, Math.abs(out.channels[0][i] - out.channels[0][i - 1]));
     expect(maxStep).toBeLessThan(0.15);
     // past the end + different sample rate and channel count
     const ext = spliceWithCrossfade(sine(100, 1, sr, 0.5, 2), sine(300, 1, 16000, 0.5, 1), 0.75, 0.01);

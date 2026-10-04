@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { midiToSong } from '@songdeck/core';
 import { useStudio } from '../../state/store';
+import { useSettings } from '../../state/settings';
+import { localGet, localSet } from '../../state/persistence';
+import { openSettings } from '../settings/nav';
 import { Badge, Button, FileButton, Modal, TextInput } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
+import { useComposeSession } from '../compose/session';
 
 export default function Home() {
   const projects = useStudio((s) => s.projects);
@@ -34,12 +38,23 @@ export default function Home() {
         <div className="hero">
           <h1>AI that gives you the song back.</h1>
           <p className="promise">
-            Generate a song. Keep the song. Change the notes. Change the instruments. Change the singer. Change the production. Regenerate only what
-            you want. Use whichever AI you want — or none at all: everything here runs on this device until you choose a provider.
+            Generate a song. Keep the song. Change the notes. Change the instruments. Change the singer.
+            Change the production. Regenerate only what you want. Use whichever AI you want — or none at all:
+            everything here runs on this device until you choose a provider.
           </p>
           <div className="row wrap" style={{ marginTop: 14 }}>
             <Button variant="primary" size="lg" icon="sparkles" onClick={() => st.setMode('compose')}>
               Compose a new song
+            </Button>
+            <Button
+              size="lg"
+              icon="book"
+              onClick={() => {
+                useComposeSession.getState().set({ tab: 'lyrics' });
+                st.setMode('compose');
+              }}
+            >
+              Start from lyrics
             </Button>
             <Button size="lg" icon="plus" onClick={() => setNewName('Untitled project')}>
               Empty project
@@ -59,16 +74,26 @@ export default function Home() {
           </div>
         </div>
 
+        <ConnectNudge />
+
         <div className="section-title">
           <h3>Recent projects</h3>
           <span className="muted small">Stored on this device · autosaved with full version history</span>
         </div>
         {projects.length === 0 ? (
-          <div className="card muted">No projects yet. Start by composing a song from a prompt — no API key needed.</div>
+          <div className="card muted">
+            No projects yet. Start by composing a song from a prompt — no API key needed.
+          </div>
         ) : (
           <div className="project-grid">
             {projects.map((p) => (
-              <div key={p.id} className="card selectable" onClick={() => void st.openProject(p.id)} role="button" tabIndex={0}>
+              <div
+                key={p.id}
+                className="card selectable"
+                onClick={() => void st.openProject(p.id)}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="row between">
                   <div style={{ fontWeight: 700 }} className="ellipsis">
                     {p.name}
@@ -109,13 +134,29 @@ export default function Home() {
         </div>
         <div className="grid-4">
           {[
-            ['compose', 'Composition first', 'Prompt → Song Blueprint → plan → MIDI. The song is structured data you own: key, chords, melodies, motifs, lyrics.'],
-            ['lock', 'Lock & regenerate', 'Lock anything — tempo, chords, a drum section — then regenerate only unlocked material, reproducibly by seed.'],
-            ['sparkles', 'AI proposes, you decide', 'Natural-language edits come back as visual note diffs to accept, reject or modify. Bad model output never corrupts a project.'],
-            ['shield', 'Any AI, or none', 'Bring your own keys, run local models, or stay fully offline. Every request shows exactly what leaves the device.'],
+            [
+              'compose',
+              'Composition first',
+              'Prompt → Song Blueprint → plan → MIDI. The song is structured data you own: key, chords, melodies, motifs, lyrics.',
+            ],
+            [
+              'lock',
+              'Lock & regenerate',
+              'Lock anything — tempo, chords, a drum section — then regenerate only unlocked material, reproducibly by seed.',
+            ],
+            [
+              'sparkles',
+              'AI proposes, you decide',
+              'Natural-language edits come back as visual note diffs to accept, reject or modify. Bad model output never corrupts a project.',
+            ],
+            [
+              'shield',
+              'Any AI, or none',
+              'Bring your own keys, run local models, or stay fully offline. Every request shows exactly what leaves the device.',
+            ],
           ].map(([icon, title, body]) => (
             <div className="card" key={title}>
-              <div className="row" style={{ marginBottom: 6, color: 'var(--accent)' }}>
+              <div className="row" style={{ marginBottom: 6, color: 'var(--accent-text)' }}>
                 <Icon name={icon} />
                 <strong style={{ color: 'var(--text)' }}>{title}</strong>
               </div>
@@ -144,7 +185,8 @@ export default function Home() {
             </>
           }
         >
-          This removes the project, its version history and its audio from this device. Export a .songproject first if you want a backup.
+          This removes the project, its version history and its audio from this device. Export a .songproject
+          first if you want a backup.
         </Modal>
       )}
       {newName !== null && (
@@ -170,6 +212,49 @@ export default function Home() {
           <TextInput value={newName} onChange={setNewName} autoFocus />
         </Modal>
       )}
+    </div>
+  );
+}
+
+const NUDGE_KEY = 'connect-nudge-dismissed';
+
+/** First-run hint: the studio works offline; connecting an AI service is one paste away. */
+function ConnectNudge() {
+  const hasProviders = useSettings((s) => s.providers.length > 0);
+  const [dismissed, setDismissed] = useState(() => localGet<boolean>(NUDGE_KEY, false));
+  if (hasProviders || dismissed) return null;
+  return (
+    <div
+      className="card row"
+      data-testid="connect-nudge"
+      style={{
+        gap: 12,
+        marginBottom: 18,
+        borderColor: 'var(--ai-line)',
+        boxShadow: 'inset 3px 0 0 var(--ai)',
+      }}
+    >
+      <Icon name="plug" />
+      <div className="grow" style={{ minWidth: 0 }}>
+        <strong>Works offline — add AI when you want it.</strong>
+        <div className="small muted">
+          Paste an API key (Gemini, Claude, OpenAI, ElevenLabs…) or use a local model server; Song Deck lists
+          what each model can do here.
+        </div>
+      </div>
+      <Button variant="ai" icon="plug" onClick={() => openSettings('providers', 'connect')}>
+        Connect an AI service
+      </Button>
+      <Button
+        variant="ghost"
+        icon="close"
+        aria-label="Dismiss"
+        title="Dismiss"
+        onClick={() => {
+          localSet(NUDGE_KEY, true);
+          setDismissed(true);
+        }}
+      />
     </div>
   );
 }

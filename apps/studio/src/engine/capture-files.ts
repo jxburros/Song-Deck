@@ -1,6 +1,10 @@
 /** Small browser file helpers for the capture modes (download, read, names). */
 
-export function downloadBytes(bytes: Uint8Array | string, filename: string, mime = 'application/octet-stream') {
+export function downloadBytes(
+  bytes: Uint8Array | string,
+  filename: string,
+  mime = 'application/octet-stream',
+) {
   const part: BlobPart = typeof bytes === 'string' ? bytes : (bytes as Uint8Array<ArrayBuffer>);
   const blob = new Blob([part], { type: mime });
   const url = URL.createObjectURL(blob);

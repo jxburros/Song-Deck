@@ -105,16 +105,26 @@ export class EncryptedFileVault implements CredentialVault {
     try {
       text = await fsp.readFile(this.vaultFile, 'utf8');
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { format: 'songdeck-vault', version: 1, cipher: 'aes-256-gcm', entries: {} };
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT')
+        return { format: 'songdeck-vault', version: 1, cipher: 'aes-256-gcm', entries: {} };
       throw err;
     }
     let parsed: VaultFile;
     try {
       parsed = JSON.parse(text) as VaultFile;
     } catch {
-      throw new VaultError('vault-corrupt', `${this.vaultFile} is not valid JSON (corrupted or tampered with)`);
+      throw new VaultError(
+        'vault-corrupt',
+        `${this.vaultFile} is not valid JSON (corrupted or tampered with)`,
+      );
     }
-    if (!parsed || parsed.format !== 'songdeck-vault' || parsed.version !== 1 || typeof parsed.entries !== 'object' || parsed.entries === null) {
+    if (
+      !parsed ||
+      parsed.format !== 'songdeck-vault' ||
+      parsed.version !== 1 ||
+      typeof parsed.entries !== 'object' ||
+      parsed.entries === null
+    ) {
       throw new VaultError('vault-corrupt', `${this.vaultFile} has an unknown format`);
     }
     return parsed;
@@ -124,7 +134,13 @@ export class EncryptedFileVault implements CredentialVault {
     await writeFileAtomic(this.vaultFile, JSON.stringify(file, null, 1), 0o600);
   }
 
-  private encrypt(key: Buffer, ref: string, secret: string, label: string | undefined, updatedAt: string): StoredEntry {
+  private encrypt(
+    key: Buffer,
+    ref: string,
+    secret: string,
+    label: string | undefined,
+    updatedAt: string,
+  ): StoredEntry {
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', key, iv);
     cipher.setAAD(aad(ref, label, updatedAt));
@@ -147,7 +163,9 @@ export class EncryptedFileVault implements CredentialVault {
       const decipher = createDecipheriv('aes-256-gcm', key, iv);
       decipher.setAAD(aad(ref, entry.label, entry.updatedAt));
       decipher.setAuthTag(tag);
-      return Buffer.concat([decipher.update(Buffer.from(entry.data, 'base64')), decipher.final()]).toString('utf8');
+      return Buffer.concat([decipher.update(Buffer.from(entry.data, 'base64')), decipher.final()]).toString(
+        'utf8',
+      );
     } catch {
       throw new VaultError(
         'vault-tampered',
@@ -186,7 +204,11 @@ export class EncryptedFileVault implements CredentialVault {
   async list(): Promise<VaultEntryMeta[]> {
     const file = await this.readFile();
     return Object.entries(file.entries)
-      .map(([ref, e]) => ({ ref, ...(typeof e.label === 'string' ? { label: e.label } : {}), updatedAt: String(e.updatedAt) }))
+      .map(([ref, e]) => ({
+        ref,
+        ...(typeof e.label === 'string' ? { label: e.label } : {}),
+        updatedAt: String(e.updatedAt),
+      }))
       .sort((a, b) => a.ref.localeCompare(b.ref));
   }
 }

@@ -40,7 +40,9 @@ describe('planComposition (§15)', () => {
     expect(p('chorus')).toBe('Emotional release');
     expect(p('final-chorus')).toBe('Maximum release');
     expect(p('bridge')).toBe('Build');
-    expect(plan.sections.find((s) => s.kind === 'bridge')!.energyEnd).toBeGreaterThan(plan.sections.find((s) => s.kind === 'bridge')!.energy);
+    expect(plan.sections.find((s) => s.kind === 'bridge')!.energyEnd).toBeGreaterThan(
+      plan.sections.find((s) => s.kind === 'bridge')!.energy,
+    );
   });
 
   it('repeats harmony for repeated sections and contrasts verse and chorus', () => {
@@ -60,12 +62,25 @@ describe('planComposition (§15)', () => {
 
   it('is deterministic and seed-dependent', () => {
     expect(planComposition(bp)).toEqual(plan);
-    const many = new Set([1, 2, 3, 4, 5, 6, 7, 8].map((seed) => JSON.stringify(planComposition({ ...bp, seed }).sections.map((s) => s.harmony))));
+    const many = new Set(
+      [1, 2, 3, 4, 5, 6, 7, 8].map((seed) =>
+        JSON.stringify(planComposition({ ...bp, seed }).sections.map((s) => s.harmony)),
+      ),
+    );
     expect(many.size).toBeGreaterThan(1);
   });
 
   it('honours explicit harmony (symbols or roman numerals)', () => {
-    const custom: Blueprint = { ...bp, structure: bp.structure.map((s) => (s.kind === 'verse' ? { ...s, harmony: ['i', 'VI', 'III', 'VII'] } : s.kind === 'chorus' ? { ...s, harmony: ['G', 'D', 'Em', 'C'] } : s)) };
+    const custom: Blueprint = {
+      ...bp,
+      structure: bp.structure.map((s) =>
+        s.kind === 'verse'
+          ? { ...s, harmony: ['i', 'VI', 'III', 'VII'] }
+          : s.kind === 'chorus'
+            ? { ...s, harmony: ['G', 'D', 'Em', 'C'] }
+            : s,
+      ),
+    };
     const p2 = planComposition(custom);
     expect(p2.sections.find((s) => s.kind === 'verse')!.harmony).toEqual(['Em', 'C', 'G', 'D']);
     expect(p2.sections.find((s) => s.kind === 'chorus')!.harmony).toEqual(['G', 'D', 'Em', 'C']);
@@ -92,7 +107,15 @@ describe('composeSong — the §73 workflow', () => {
       return performance.now() - t0;
     });
     expect(Math.min(...times)).toBeLessThan(1000);
-    expect(song.tracks.map((t) => t.name)).toEqual(['Lead Vocal', 'Drums', 'Bass', 'Rhythm Guitar L', 'Rhythm Guitar R', 'Piano', 'Violin']);
+    expect(song.tracks.map((t) => t.name)).toEqual([
+      'Lead Vocal',
+      'Drums',
+      'Bass',
+      'Rhythm Guitar L',
+      'Rhythm Guitar R',
+      'Piano',
+      'Violin',
+    ]);
     for (const t of song.tracks) expect(t.notes.length, t.name).toBeGreaterThan(20);
     expect(validityProblems(song)).toEqual([]);
     expect(song.generation.engineVersion).toBe(ENGINE_VERSION);
@@ -133,7 +156,9 @@ describe('composeSong — the §73 workflow', () => {
 
   it('creates motifs, tags notes with them and records vocal phrases', () => {
     const descs = song.motifs.map((m) => m.description);
-    expect(descs).toEqual(expect.arrayContaining(['Verse vocal motif', 'Chorus hook', 'Answering phrase', 'Chorus vocal hook']));
+    expect(descs).toEqual(
+      expect.arrayContaining(['Verse vocal motif', 'Chorus hook', 'Answering phrase', 'Chorus vocal hook']),
+    );
     const vocal = song.tracks.find((t) => t.role === 'vocal')!;
     const motifIds = new Set(song.motifs.map((m) => m.id));
     expect(vocal.notes.some((n) => n.motifId && motifIds.has(n.motifId))).toBe(true);
@@ -151,7 +176,9 @@ describe('composeSong — the §73 workflow', () => {
     const spans = sectionLayout(song);
     const notesOf = (name: string) => {
       const sp = spans.find((s) => s.section.name === name)!;
-      return vocal.notes.filter((n) => n.tick >= sp.startTick && n.tick < sp.endTick).map((n) => ({ ...n, rel: n.tick - sp.startTick }));
+      return vocal.notes
+        .filter((n) => n.tick >= sp.startTick && n.tick < sp.endTick)
+        .map((n) => ({ ...n, rel: n.tick - sp.startTick }));
     };
     const avg = (ns: { pitch: number }[]) => ns.reduce((t, n) => t + n.pitch, 0) / ns.length;
     expect(avg(notesOf('Chorus 1'))).toBeGreaterThan(avg(notesOf('Verse 1')) + 2);
@@ -229,7 +256,13 @@ describe('every genre generates valid material', () => {
       { key: { tonic: 7, mode: 'mixolydian' }, genreBlend: [{ genreId: 'rock', weight: 1 }] },
       { key: { tonic: 4, mode: 'phrygian' }, genreBlend: [{ genreId: 'metal', weight: 1 }] },
       { key: { tonic: 9, mode: 'harmonic-minor' }, genreBlend: [{ genreId: 'orchestral', weight: 1 }] },
-      { genreBlend: [{ genreId: 'pop-punk', weight: 50 }, { genreId: 'emo', weight: 30 }, { genreId: 'cinematic', weight: 20 }] },
+      {
+        genreBlend: [
+          { genreId: 'pop-punk', weight: 50 },
+          { genreId: 'emo', weight: 30 },
+          { genreId: 'cinematic', weight: 20 },
+        ],
+      },
     ];
     for (const c of cases) {
       const song = composeSong(defaultBlueprint({ ...c, seed: 5 }));
@@ -242,7 +275,17 @@ describe('constraints, lyrics and plans', () => {
   it('honours instrument constraints (range, sections)', () => {
     const bp = parsePromptToBlueprint(SPEC_PROMPT, { seed: 4 });
     bp.instrumentation = bp.instrumentation.map((t) =>
-      t.instrumentId === 'violin' ? { ...t, constraints: { lowest: 67, highest: 88, sectionKinds: ['chorus', 'bridge', 'final-chorus'], avoid: ['double-vocal'] } } : t,
+      t.instrumentId === 'violin'
+        ? {
+            ...t,
+            constraints: {
+              lowest: 67,
+              highest: 88,
+              sectionKinds: ['chorus', 'bridge', 'final-chorus'],
+              avoid: ['double-vocal'],
+            },
+          }
+        : t,
     );
     const song = composeSong(bp);
     const violin = song.tracks.find((t) => t.instrumentId === 'violin')!;
@@ -256,7 +299,15 @@ describe('constraints, lyrics and plans', () => {
     expect(violin.notes.length).toBeGreaterThan(0);
     // No sustained unison/octave doubling with the vocal.
     const vocal = song.tracks.find((t) => t.role === 'vocal')!;
-    const doubled = violin.notes.filter((v) => vocal.notes.some((n) => n.tick < v.tick + v.duration && n.tick + n.duration > v.tick && (n.pitch - v.pitch) % 12 === 0 && n.tick === v.tick));
+    const doubled = violin.notes.filter((v) =>
+      vocal.notes.some(
+        (n) =>
+          n.tick < v.tick + v.duration &&
+          n.tick + n.duration > v.tick &&
+          (n.pitch - v.pitch) % 12 === 0 &&
+          n.tick === v.tick,
+      ),
+    );
     expect(doubled.length / violin.notes.length).toBeLessThan(0.1);
   });
 
@@ -280,9 +331,19 @@ describe('constraints, lyrics and plans', () => {
     const song = composeSong(parsePromptToBlueprint(SPEC_PROMPT, { seed: 3 }));
     const verse = song.sections.find((s) => s.kind === 'verse')!;
     const vocal = song.tracks.find((t) => t.role === 'vocal')!;
-    const lines = ['Under the streetlights I wait for the rain', 'Counting the cars as they carry my name', 'Nobody answers the call', 'Shadows are taller than all'];
+    const lines = [
+      'Under the streetlights I wait for the rain',
+      'Counting the cars as they carry my name',
+      'Nobody answers the call',
+      'Shadows are taller than all',
+    ];
     const withLyrics = cloneSong(song);
-    withLyrics.lyrics = lines.map((text, i) => ({ id: `ly${i}`, sectionId: verse.id, text, trackId: vocal.id }));
+    withLyrics.lyrics = lines.map((text, i) => ({
+      id: `ly${i}`,
+      sectionId: verse.id,
+      text,
+      trackId: vocal.id,
+    }));
     const res = regenerateUnlocked(withLyrics, { seed: 3, trackIds: [vocal.id], sectionIds: [verse.id] });
     const v = res.song.tracks.find((t) => t.id === vocal.id)!;
     const sp = sectionLayout(res.song).find((s) => s.section.id === verse.id)!;
@@ -307,7 +368,9 @@ describe('constraints, lyrics and plans', () => {
     expect(next.sections[0].id).not.toBe(song.sections[0].id);
     expect(next.tempoMap[0].bpm).toBe(100);
     const sp = sectionLayout(next)[0];
-    const chords = next.chords.filter((c) => c.tick >= sp.startTick && c.tick < sp.endTick).map((c) => c.symbol);
+    const chords = next.chords
+      .filter((c) => c.tick >= sp.startTick && c.tick < sp.endTick)
+      .map((c) => c.symbol);
     expect(chords.slice(0, 4)).toEqual(['Am', 'F', 'C', 'G']);
     expect(validityProblems(next).filter((p) => !p.includes('outside'))).toEqual([]);
     // Locked tempo is not changed.

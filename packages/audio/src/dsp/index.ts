@@ -29,6 +29,18 @@ export { encodeWav, decodeWav } from './codecs/wav';
 export type { WavEncodeOptions } from './codecs/wav';
 export { encodeFlac, decodeFlac, flacInfo } from './codecs/flac';
 export type { FlacEncodeOptions, FlacInfo } from './codecs/flac';
+export { readAudioMetadata, classifyRightsSignals, normalizeIsrc, id3v2Size } from './codecs/metadata';
+export type {
+  AudioFileMetadata,
+  AudioTag,
+  MetadataContainer,
+  MetadataReadOptions,
+  RightsClassification,
+  RightsSignal,
+  RightsSignalKind,
+  TagField,
+  TagSource,
+} from './codecs/metadata';
 
 // Buffer utilities
 export {

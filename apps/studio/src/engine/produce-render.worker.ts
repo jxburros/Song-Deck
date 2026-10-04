@@ -21,7 +21,7 @@ import {
   type AudioData,
   type SampleInstrument,
 } from '@songdeck/audio';
-import { defaultChannelStrip, type Song, type Track } from '@songdeck/core';
+import { TRACK_NEUTRAL, defaultChannelStrip, type Song, type Track } from '@songdeck/core';
 import type { RenderInstrumentConfig } from './render-config';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -106,7 +106,11 @@ function abortError(): Error {
   return e;
 }
 
-function collectTransfer(value: unknown, out: Transferable[] = [], seen = new Set<unknown>()): Transferable[] {
+function collectTransfer(
+  value: unknown,
+  out: Transferable[] = [],
+  seen = new Set<unknown>(),
+): Transferable[] {
   if (!value || typeof value !== 'object' || seen.has(value)) return out;
   seen.add(value);
   if (ArrayBuffer.isView(value)) {
@@ -126,7 +130,11 @@ const frames = (a: AudioData) => a.channels[0]?.length ?? 0;
 const yieldNow = () => new Promise<void>((r) => setTimeout(r, 0));
 
 /** Chunked offline render with progress; yields every ~150 ms so cancel messages are handled. */
-async function renderChunked(args: RenderArgs, signal: AbortSignal, progress: (p: number) => void): Promise<AudioData> {
+async function renderChunked(
+  args: RenderArgs,
+  signal: AbortSignal,
+  progress: (p: number) => void,
+): Promise<AudioData> {
   const assets = args.assets ?? {};
   const r = new SongRenderer(args.song, {
     sampleRate: args.sampleRate ?? 44100,
@@ -172,14 +180,29 @@ function audioTrackFor(base: Track | undefined, id: string, clipSeconds: number,
     instrumentId: 'audio',
     constraints: {},
     notes: [],
-    clips: [{ id: `${id}_clip`, assetId: `${id}_audio`, tick: atTick, offsetSeconds: 0, durationSeconds: clipSeconds, gainDb: 0, fadeInSeconds: 0, fadeOutSeconds: 0 }],
-    color: base?.color ?? '#9aa3b2',
+    clips: [
+      {
+        id: `${id}_clip`,
+        assetId: `${id}_audio`,
+        tick: atTick,
+        offsetSeconds: 0,
+        durationSeconds: clipSeconds,
+        gainDb: 0,
+        fadeInSeconds: 0,
+        fadeOutSeconds: 0,
+      },
+    ],
+    color: base?.color ?? TRACK_NEUTRAL,
     stemGroup: base?.stemGroup ?? 'others',
   };
 }
 
 /** Run dry audio (singing synthesis, an external render) through a track's channel strip, automation and sends. */
-async function printStem(a: PrintStemArgs, signal: AbortSignal, progress: (p: number) => void): Promise<AudioData> {
+async function printStem(
+  a: PrintStemArgs,
+  signal: AbortSignal,
+  progress: (p: number) => void,
+): Promise<AudioData> {
   const base = a.song.tracks.find((t) => t.id === a.trackId);
   const seconds = frames(a.audio) / a.audio.sampleRate;
   const startTick = 0;
@@ -191,7 +214,15 @@ async function printStem(a: PrintStemArgs, signal: AbortSignal, progress: (p: nu
   const audio = offset > 0 ? padStart(a.audio, offset) : a.audio;
   if (offset > 0) track.clips[0].durationSeconds = frames(audio) / audio.sampleRate;
   return renderChunked(
-    { song, assets: { [`${a.trackId}_audio`]: audio }, sampleRate: a.sampleRate ?? audio.sampleRate, trackIds: [a.trackId], applyMaster: false, ignoreMuteSolo: true, tailSeconds: 2 },
+    {
+      song,
+      assets: { [`${a.trackId}_audio`]: audio },
+      sampleRate: a.sampleRate ?? audio.sampleRate,
+      trackIds: [a.trackId],
+      applyMaster: false,
+      ignoreMuteSolo: true,
+      tailSeconds: 2,
+    },
     signal,
     progress,
   );
@@ -199,15 +230,22 @@ async function printStem(a: PrintStemArgs, signal: AbortSignal, progress: (p: nu
 
 function padStart(a: AudioData, seconds: number): AudioData {
   const pad = Math.round(seconds * a.sampleRate);
-  return { sampleRate: a.sampleRate, channels: a.channels.map((c) => {
-    const out = new Float32Array(pad + c.length);
-    out.set(c, pad);
-    return out;
-  }) };
+  return {
+    sampleRate: a.sampleRate,
+    channels: a.channels.map((c) => {
+      const out = new Float32Array(pad + c.length);
+      out.set(c, pad);
+      return out;
+    }),
+  };
 }
 
 /** Apply the song's master bus to a summed stem buffer (unity strip, no sends): equals mixing the stems as audio tracks. */
-async function masterSum(a: MasterSumArgs, signal: AbortSignal, progress: (p: number) => void): Promise<AudioData> {
+async function masterSum(
+  a: MasterSumArgs,
+  signal: AbortSignal,
+  progress: (p: number) => void,
+): Promise<AudioData> {
   const seconds = frames(a.audio) / a.audio.sampleRate;
   const id = '__production_sum';
   const track = audioTrackFor(undefined, id, seconds);
@@ -215,32 +253,55 @@ async function masterSum(a: MasterSumArgs, signal: AbortSignal, progress: (p: nu
     ...a.song,
     tracks: [track],
     automation: a.song.automation.filter((l) => l.target === 'master'),
-    mixer: { ...a.song.mixer, channels: { [id]: defaultChannelStrip({ volumeDb: 0, reverbSend: 0, delaySend: 0 }) } },
+    mixer: {
+      ...a.song.mixer,
+      channels: { [id]: defaultChannelStrip({ volumeDb: 0, reverbSend: 0, delaySend: 0 }) },
+    },
   };
   const out = await renderChunked(
-    { song, assets: { [`${id}_audio`]: a.audio }, sampleRate: a.sampleRate ?? a.audio.sampleRate, applyMaster: a.applyMaster ?? true, includeSends: false, tailSeconds: 0.5 },
+    {
+      song,
+      assets: { [`${id}_audio`]: a.audio },
+      sampleRate: a.sampleRate ?? a.audio.sampleRate,
+      applyMaster: a.applyMaster ?? true,
+      includeSends: false,
+      tailSeconds: 0.5,
+    },
     signal,
     progress,
   );
   // Keep exactly the input length (the renderer appends a short tail for the limiter).
-  return frames(out) > frames(a.audio) + Math.round(0.5 * out.sampleRate) ? sliceAudio(out, 0, seconds + 0.5) : out;
+  return frames(out) > frames(a.audio) + Math.round(0.5 * out.sampleRate)
+    ? sliceAudio(out, 0, seconds + 0.5)
+    : out;
 }
 
 /** Resample / convert to stereo so buffers can be summed sample by sample. */
 function conform(a: { audio: AudioData; sampleRate: number }): AudioData {
-  let out = Math.round(a.audio.sampleRate) === Math.round(a.sampleRate) ? a.audio : resample(a.audio, a.sampleRate);
+  let out =
+    Math.round(a.audio.sampleRate) === Math.round(a.sampleRate) ? a.audio : resample(a.audio, a.sampleRate);
   if (out.channels.length < 2) out = toStereo(out);
   else if (out.channels.length > 2) out = { sampleRate: out.sampleRate, channels: out.channels.slice(0, 2) };
   return out;
 }
 
-function matchLoudness(a: { audio: AudioData; reference: AudioData; maxGainDb?: number }): MatchLoudnessResult {
+function matchLoudness(a: {
+  audio: AudioData;
+  reference: AudioData;
+  maxGainDb?: number;
+}): MatchLoudnessResult {
   const ref = measureLoudness(a.reference).integratedLufs;
   const inp = measureLoudness(a.audio).integratedLufs;
   const max = a.maxGainDb ?? 24;
-  if (!Number.isFinite(ref) || !Number.isFinite(inp) || ref < -70 || inp < -70) return { audio: a.audio, gainDb: 0, referenceLufs: ref, inputLufs: inp };
+  if (!Number.isFinite(ref) || !Number.isFinite(inp) || ref < -70 || inp < -70)
+    return { audio: a.audio, gainDb: 0, referenceLufs: ref, inputLufs: inp };
   const gainDb = Math.max(-max, Math.min(max, ref - inp));
-  return { audio: Math.abs(gainDb) < 0.01 ? a.audio : gainAudio(a.audio, gainDb), gainDb, referenceLufs: ref, inputLufs: inp };
+  return {
+    audio: Math.abs(gainDb) < 0.01 ? a.audio : gainAudio(a.audio, gainDb),
+    gainDb,
+    referenceLufs: ref,
+    inputLufs: inp,
+  };
 }
 
 async function run(req: ProduceJobRequest, signal: AbortSignal): Promise<unknown> {
@@ -255,7 +316,12 @@ async function run(req: ProduceJobRequest, signal: AbortSignal): Promise<unknown
     case 'conform':
       return conform(req.args as { audio: AudioData; sampleRate: number });
     case 'splice': {
-      const a = req.args as { base: AudioData; insert: AudioData; atSeconds: number; crossfadeSeconds?: number };
+      const a = req.args as {
+        base: AudioData;
+        insert: AudioData;
+        atSeconds: number;
+        crossfadeSeconds?: number;
+      };
       return spliceWithCrossfade(a.base, a.insert, a.atSeconds, a.crossfadeSeconds ?? 0.03);
     }
     case 'slice': {
@@ -292,7 +358,12 @@ self.onmessage = async (ev: MessageEvent<ProduceJobRequest>) => {
     self.postMessage({ id: req.id, ok: true, result } satisfies ProduceJobResponse, collectTransfer(result));
   } catch (err) {
     const aborted = controller.signal.aborted || (err instanceof Error && err.name === 'AbortError');
-    self.postMessage({ id: req.id, ok: false, error: err instanceof Error ? err.message : String(err), aborted } satisfies ProduceJobResponse);
+    self.postMessage({
+      id: req.id,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+      aborted,
+    } satisfies ProduceJobResponse);
   } finally {
     controllers.delete(req.id);
   }

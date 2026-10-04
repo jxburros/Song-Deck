@@ -71,7 +71,9 @@ export async function encodeMp3(a: PcmInput, ctl: CodecControl = {}): Promise<Ui
     const n = Math.min(BLOCK, frames - start);
     for (let i = 0; i < n; i++) l16[i] = toI16(left[start + i]);
     if (right) for (let i = 0; i < n; i++) r16[i] = toI16(right[start + i]);
-    const out = right ? enc.encodeBuffer(l16.subarray(0, n), r16.subarray(0, n)) : enc.encodeBuffer(l16.subarray(0, n));
+    const out = right
+      ? enc.encodeBuffer(l16.subarray(0, n), r16.subarray(0, n))
+      : enc.encodeBuffer(l16.subarray(0, n));
     if (out.length) {
       parts.push(new Uint8Array(out));
       total += out.length;
@@ -114,12 +116,20 @@ export function adtsHeader(payloadLength: number, sampleRate: number, channels: 
 }
 
 export async function encodeAac(a: PcmInput, ctl: CodecControl = {}): Promise<Uint8Array> {
-  const g = globalThis as unknown as { AudioEncoder?: typeof AudioEncoder; AudioData?: typeof globalThis.AudioData };
+  const g = globalThis as unknown as {
+    AudioEncoder?: typeof AudioEncoder;
+    AudioData?: typeof globalThis.AudioData;
+  };
   const Encoder = g.AudioEncoder;
   const WcAudioData = g.AudioData;
   if (!Encoder || !WcAudioData) throw new Error('This browser has no WebCodecs AudioEncoder');
   const nch = Math.min(2, Math.max(1, a.channels.length));
-  const config: AudioEncoderConfig = { codec: 'mp4a.40.2', sampleRate: a.sampleRate, numberOfChannels: nch, bitrate: a.kbps * 1000 };
+  const config: AudioEncoderConfig = {
+    codec: 'mp4a.40.2',
+    sampleRate: a.sampleRate,
+    numberOfChannels: nch,
+    bitrate: a.kbps * 1000,
+  };
   const support = await Encoder.isConfigSupported(config);
   if (!support.supported) throw new Error('AAC encoding is not supported by this browser');
   const parts: Uint8Array[] = [];
@@ -130,7 +140,10 @@ export async function encodeAac(a: PcmInput, ctl: CodecControl = {}): Promise<Ui
       const raw = new Uint8Array(chunk.byteLength);
       chunk.copyTo(raw);
       // Some encoders already emit ADTS (sync word 0xFFF) — only wrap raw access units.
-      const framed = raw.length > 1 && raw[0] === 0xff && (raw[1] & 0xf0) === 0xf0 ? [raw] : [adtsHeader(raw.length, a.sampleRate, nch), raw];
+      const framed =
+        raw.length > 1 && raw[0] === 0xff && (raw[1] & 0xf0) === 0xf0
+          ? [raw]
+          : [adtsHeader(raw.length, a.sampleRate, nch), raw];
       for (const f of framed) {
         parts.push(f);
         total += f.length;

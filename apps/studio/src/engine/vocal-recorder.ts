@@ -112,7 +112,14 @@ export class VocalTakeRecorder {
     const bpm = bpmAtTick(o.song, o.startTick);
     // One click per beat of the bar (bpm is quarter notes per minute; x/8 meters click eighths).
     const clickBpm = (bpm * (meter.denominator || 4)) / 4;
-    const countIn = o.countInBars > 0 ? { beats: Math.max(1, Math.round(o.countInBars * meter.numerator)), bpm: clickBpm, beatsPerBar: meter.numerator } : null;
+    const countIn =
+      o.countInBars > 0
+        ? {
+            beats: Math.max(1, Math.round(o.countInBars * meter.numerator)),
+            bpm: clickBpm,
+            beatsPerBar: meter.numerator,
+          }
+        : null;
     try {
       await this.mic.start({ countIn, maxSeconds: 900 });
     } catch (err) {

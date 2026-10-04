@@ -116,10 +116,13 @@ export function validateEnvelope(body: unknown): ProxyEnvelope {
     throw proxyError(400, 'invalid-envelope', `method must be one of ${[...METHODS].join(', ')}`);
   }
   if (e.headers !== undefined && e.headers !== null) {
-    if (!isPlainObject(e.headers)) throw proxyError(400, 'invalid-envelope', 'headers must be an object of strings');
-    for (const v of Object.values(e.headers)) if (typeof v !== 'string') throw proxyError(400, 'invalid-envelope', 'header values must be strings');
+    if (!isPlainObject(e.headers))
+      throw proxyError(400, 'invalid-envelope', 'headers must be an object of strings');
+    for (const v of Object.values(e.headers))
+      if (typeof v !== 'string') throw proxyError(400, 'invalid-envelope', 'header values must be strings');
   }
-  if (e.body !== undefined && e.body !== null && typeof e.body !== 'string') throw proxyError(400, 'invalid-envelope', 'body must be a string');
+  if (e.body !== undefined && e.body !== null && typeof e.body !== 'string')
+    throw proxyError(400, 'invalid-envelope', 'body must be a string');
   if (e.bodyEncoding !== undefined && e.bodyEncoding !== 'utf8' && e.bodyEncoding !== 'base64') {
     throw proxyError(400, 'invalid-envelope', "bodyEncoding must be 'utf8' or 'base64'");
   }
@@ -131,8 +134,10 @@ export function validateEnvelope(body: unknown): ProxyEnvelope {
     if (!isPlainObject(a) || !['bearer', 'header', 'query', 'none'].includes(String(a.type))) {
       throw proxyError(400, 'invalid-envelope', 'auth.type must be bearer, header, query or none');
     }
-    if (a.name !== undefined && typeof a.name !== 'string') throw proxyError(400, 'invalid-envelope', 'auth.name must be a string');
-    if (a.prefix !== undefined && typeof a.prefix !== 'string') throw proxyError(400, 'invalid-envelope', 'auth.prefix must be a string');
+    if (a.name !== undefined && typeof a.name !== 'string')
+      throw proxyError(400, 'invalid-envelope', 'auth.name must be a string');
+    if (a.prefix !== undefined && typeof a.prefix !== 'string')
+      throw proxyError(400, 'invalid-envelope', 'auth.prefix must be a string');
   }
   return {
     url: e.url,
@@ -173,7 +178,13 @@ function prepareRequest(
   const headers = new Headers();
   for (const [name, value] of Object.entries(clientHeaders)) {
     const lower = name.toLowerCase();
-    if (DROP_REQUEST_HEADERS.has(lower) || lower.startsWith('proxy-') || lower.startsWith('sec-') || lower.startsWith('x-songdeck-')) continue;
+    if (
+      DROP_REQUEST_HEADERS.has(lower) ||
+      lower.startsWith('proxy-') ||
+      lower.startsWith('sec-') ||
+      lower.startsWith('x-songdeck-')
+    )
+      continue;
     try {
       headers.set(lower, value);
     } catch {
@@ -184,12 +195,16 @@ function prepareRequest(
   if (credential && auth?.type === 'query' && !credentialInScope(target, credential.ref, rules)) {
     // A redirect left the provider's scope: never carry an echoed query credential along.
     const name = auth.name ?? 'key';
-    if (url.searchParams.get(name) === `${auth.prefix ?? ''}${credential.secret}`) url.searchParams.delete(name);
+    if (url.searchParams.get(name) === `${auth.prefix ?? ''}${credential.secret}`)
+      url.searchParams.delete(name);
   }
   if (credential && auth && auth.type !== 'none' && credentialInScope(target, credential.ref, rules)) {
     switch (auth.type) {
       case 'bearer':
-        headers.set((auth.name ?? 'authorization').toLowerCase(), `${auth.prefix ?? 'Bearer '}${credential.secret}`);
+        headers.set(
+          (auth.name ?? 'authorization').toLowerCase(),
+          `${auth.prefix ?? 'Bearer '}${credential.secret}`,
+        );
         break;
       case 'header':
         // Overrides placeholders such as the Anthropic SDK's `x-api-key: proxy-managed`.
@@ -210,7 +225,12 @@ function describeFetchError(err: unknown): string {
   return e?.message ?? String(err);
 }
 
-async function relay(res: ServerResponse, upstream: Response, method: string, maxBytes: number): Promise<void> {
+async function relay(
+  res: ServerResponse,
+  upstream: Response,
+  method: string,
+  maxBytes: number,
+): Promise<void> {
   const headers: Record<string, string> = {};
   upstream.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
@@ -234,7 +254,9 @@ async function relay(res: ServerResponse, upstream: Response, method: string, ma
       else cb(null, chunk);
     },
   });
-  const source = Readable.fromWeb(upstream.body as unknown as import('node:stream/web').ReadableStream<Uint8Array>);
+  const source = Readable.fromWeb(
+    upstream.body as unknown as import('node:stream/web').ReadableStream<Uint8Array>,
+  );
   try {
     await pipeline(source, limiter, res);
   } catch {
@@ -250,7 +272,9 @@ export function registerProxyRoutes(router: Router, deps: ProxyDeps): void {
       envelope = validateEnvelope(await readJson<unknown>(req, deps.maxRequestBytes));
     } catch (err) {
       if (err instanceof HttpError && !err.headers?.[PROXY_ERROR_HEADER]) {
-        throw new HttpError(err.status, err.code, err.message, { headers: { ...(err.headers ?? {}), [PROXY_ERROR_HEADER]: '1' } });
+        throw new HttpError(err.status, err.code, err.message, {
+          headers: { ...(err.headers ?? {}), [PROXY_ERROR_HEADER]: '1' },
+        });
       }
       throw err;
     }
@@ -261,8 +285,10 @@ export function registerProxyRoutes(router: Router, deps: ProxyDeps): void {
     } catch {
       throw proxyError(400, 'invalid-url', 'url must be an absolute http(s) URL');
     }
-    if (target.protocol !== 'http:' && target.protocol !== 'https:') throw proxyError(400, 'invalid-url', 'Only http and https URLs can be proxied');
-    if (target.username || target.password) throw proxyError(400, 'invalid-url', 'URLs with embedded credentials are not proxied');
+    if (target.protocol !== 'http:' && target.protocol !== 'https:')
+      throw proxyError(400, 'invalid-url', 'Only http and https URLs can be proxied');
+    if (target.username || target.password)
+      throw proxyError(400, 'invalid-url', 'URLs with embedded credentials are not proxied');
 
     const rules = deps.providers.allowlist();
     if (!isAllowlisted(target, rules)) {
@@ -277,7 +303,12 @@ export function registerProxyRoutes(router: Router, deps: ProxyDeps): void {
     const auth = envelope.auth ?? (envelope.credentialRef ? { type: 'bearer' as const } : undefined);
     let credential: { ref: string; secret: string } | undefined;
     if (auth && auth.type !== 'none') {
-      if (!envelope.credentialRef) throw proxyError(502, 'credential-missing', 'No credential configured for this provider (add an API key in Settings → Providers)');
+      if (!envelope.credentialRef)
+        throw proxyError(
+          502,
+          'credential-missing',
+          'No credential configured for this provider (add an API key in Settings → Providers)',
+        );
       if (!credentialInScope(target, envelope.credentialRef, rules)) {
         throw proxyError(
           403,
@@ -289,17 +320,26 @@ export function registerProxyRoutes(router: Router, deps: ProxyDeps): void {
       try {
         secret = await deps.getVault().get(envelope.credentialRef);
       } catch (err) {
-        throw proxyError(502, 'vault-error', `The credential vault could not be read: ${(err as Error).message}`);
+        throw proxyError(
+          502,
+          'vault-error',
+          `The credential vault could not be read: ${(err as Error).message}`,
+        );
       }
       if (secret === undefined || secret === '') {
-        throw proxyError(502, 'credential-missing', `No secret stored for credential "${envelope.credentialRef}" in the vault`);
+        throw proxyError(
+          502,
+          'credential-missing',
+          `No secret stored for credential "${envelope.credentialRef}" in the vault`,
+        );
       }
       credential = { ref: envelope.credentialRef, secret };
     }
 
     let body: Buffer | undefined;
     if (envelope.body !== undefined) {
-      if (method === 'GET' || method === 'HEAD') throw proxyError(400, 'invalid-envelope', `${method} requests cannot have a body`);
+      if (method === 'GET' || method === 'HEAD')
+        throw proxyError(400, 'invalid-envelope', `${method} requests cannot have a body`);
       if (envelope.bodyEncoding === 'base64') {
         if (!isBase64(envelope.body)) throw proxyError(400, 'invalid-envelope', 'body is not valid base64');
         body = Buffer.from(envelope.body, 'base64');
@@ -322,21 +362,32 @@ export function registerProxyRoutes(router: Router, deps: ProxyDeps): void {
         upstream = await deps.fetch(prepared.url, {
           method: currentMethod,
           headers: prepared.headers,
-          body: currentBody ? new Uint8Array(currentBody.buffer, currentBody.byteOffset, currentBody.byteLength) : undefined,
+          body: currentBody
+            ? new Uint8Array(currentBody.buffer, currentBody.byteOffset, currentBody.byteLength)
+            : undefined,
           redirect: 'manual',
           signal: combined,
         });
       } catch (err) {
         if (signal.aborted) return; // client went away; nothing to answer
         if (timeout.aborted || (err as Error)?.name === 'TimeoutError') {
-          throw proxyError(504, 'upstream-timeout', `Upstream ${current.origin} did not respond within ${Math.round(deps.timeoutMs / 1000)} s`);
+          throw proxyError(
+            504,
+            'upstream-timeout',
+            `Upstream ${current.origin} did not respond within ${Math.round(deps.timeoutMs / 1000)} s`,
+          );
         }
-        throw proxyError(502, 'upstream-error', `Upstream request to ${current.origin} failed: ${describeFetchError(err)}`);
+        throw proxyError(
+          502,
+          'upstream-error',
+          `Upstream request to ${current.origin} failed: ${describeFetchError(err)}`,
+        );
       }
       const location = upstream.headers.get('location');
       if (!REDIRECTS.has(upstream.status) || !location) break;
       await upstream.body?.cancel().catch(() => undefined);
-      if (hop + 1 > MAX_REDIRECTS) throw proxyError(502, 'too-many-redirects', `Upstream ${target.origin} redirected too many times`);
+      if (hop + 1 > MAX_REDIRECTS)
+        throw proxyError(502, 'too-many-redirects', `Upstream ${target.origin} redirected too many times`);
       let next: URL;
       try {
         next = new URL(location, current);
@@ -344,16 +395,27 @@ export function registerProxyRoutes(router: Router, deps: ProxyDeps): void {
         throw proxyError(502, 'bad-redirect', 'Upstream sent an invalid redirect location');
       }
       if (!isAllowlisted(next, rules)) {
-        throw proxyError(502, 'redirect-not-allowlisted', `Upstream redirected to ${next.origin}${next.pathname}, which is not in the proxy allowlist`);
+        throw proxyError(
+          502,
+          'redirect-not-allowlisted',
+          `Upstream redirected to ${next.origin}${next.pathname}, which is not in the proxy allowlist`,
+        );
       }
-      if (upstream.status === 303 || ((upstream.status === 301 || upstream.status === 302) && currentMethod === 'POST')) {
+      if (
+        upstream.status === 303 ||
+        ((upstream.status === 301 || upstream.status === 302) && currentMethod === 'POST')
+      ) {
         currentMethod = currentMethod === 'HEAD' ? 'HEAD' : 'GET';
         currentBody = undefined;
-        clientHeaders = Object.fromEntries(Object.entries(clientHeaders).filter(([k]) => !/^content-/i.test(k)));
+        clientHeaders = Object.fromEntries(
+          Object.entries(clientHeaders).filter(([k]) => !/^content-/i.test(k)),
+        );
       }
       current = next;
     }
-    deps.logger.debug(`proxy ${method} ${current.origin}${current.pathname} → ${upstream.status} (${Date.now() - started} ms)`);
+    deps.logger.debug(
+      `proxy ${method} ${current.origin}${current.pathname} → ${upstream.status} (${Date.now() - started} ms)`,
+    );
     await relay(res, upstream, currentMethod, deps.maxResponseBytes);
   });
 }

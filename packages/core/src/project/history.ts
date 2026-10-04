@@ -1,4 +1,15 @@
-import type { Branch, ChordEvent, Note, Project, Revision, RevisionKind, Song, SongDiff, Track, ValidationReport } from '../ir/types';
+import type {
+  Branch,
+  ChordEvent,
+  Note,
+  Project,
+  Revision,
+  RevisionKind,
+  Song,
+  SongDiff,
+  Track,
+  ValidationReport,
+} from '../ir/types';
 import { cloneSong, sortNotes } from '../ir/song-utils';
 import { randomId } from '../util/ids';
 import { keyAtTick, sectionLayout } from '../timing';
@@ -78,13 +89,22 @@ function withRevision(project: Project, rev: Revision, working: Song, now: strin
     history: {
       ...project.history,
       revisions: [...project.history.revisions, rev],
-      branches: project.history.branches.map((b) => (b.id === rev.branchId ? { ...b, headRevisionId: rev.id } : b)),
+      branches: project.history.branches.map((b) =>
+        b.id === rev.branchId ? { ...b, headRevisionId: rev.id } : b,
+      ),
     },
   };
 }
 
 /** New revision on the current branch (parents = [head]); the song becomes the working copy. */
-export function commitRevision(project: Project, song: Song, message: string, kind: RevisionKind, author?: string, opts?: HistoryOptions): Project {
+export function commitRevision(
+  project: Project,
+  song: Song,
+  message: string,
+  kind: RevisionKind,
+  author?: string,
+  opts?: HistoryOptions,
+): Project {
   const head = headRevision(project);
   const now = nowIso(opts);
   const rev: Revision = {
@@ -102,9 +122,21 @@ export function commitRevision(project: Project, song: Song, message: string, ki
 }
 
 /** Restore: a NEW revision (kind "restore") whose snapshot equals an earlier revision's. */
-export function restoreRevision(project: Project, revisionId: string, message?: string, opts?: HistoryOptions & { author?: string }): Project {
+export function restoreRevision(
+  project: Project,
+  revisionId: string,
+  message?: string,
+  opts?: HistoryOptions & { author?: string },
+): Project {
   const target = requireRevision(project, revisionId);
-  return commitRevision(project, cloneSong(target.snapshot), message ?? `Restored v${target.number}`, 'restore', opts?.author, opts);
+  return commitRevision(
+    project,
+    cloneSong(target.snapshot),
+    message ?? `Restored v${target.number}`,
+    'restore',
+    opts?.author,
+    opts,
+  );
 }
 
 function uniqueBranchName(project: Project, name: string): string {
@@ -115,16 +147,32 @@ function uniqueBranchName(project: Project, name: string): string {
 }
 
 /** Create a branch at a revision (default: current head) and switch to it. */
-export function createBranch(project: Project, name: string, fromRevisionId?: string, description?: string, opts?: HistoryOptions): Project {
+export function createBranch(
+  project: Project,
+  name: string,
+  fromRevisionId?: string,
+  description?: string,
+  opts?: HistoryOptions,
+): Project {
   const from = fromRevisionId ? requireRevision(project, fromRevisionId) : headRevision(project);
   const now = nowIso(opts);
-  const branch: Branch = { id: opts?.id ?? randomId('br'), name: uniqueBranchName(project, name), headRevisionId: from.id, baseRevisionId: from.id, createdAt: now };
+  const branch: Branch = {
+    id: opts?.id ?? randomId('br'),
+    name: uniqueBranchName(project, name),
+    headRevisionId: from.id,
+    baseRevisionId: from.id,
+    createdAt: now,
+  };
   if (description) branch.description = description;
   return {
     ...project,
     meta: { ...project.meta, updatedAt: now },
     song: cloneSong(from.snapshot),
-    history: { ...project.history, branches: [...project.history.branches, branch], currentBranchId: branch.id },
+    history: {
+      ...project.history,
+      branches: [...project.history.branches, branch],
+      currentBranchId: branch.id,
+    },
   };
 }
 
@@ -133,18 +181,33 @@ export function switchBranch(project: Project, branchId: string): Project {
   const branch = project.history.branches.find((b) => b.id === branchId);
   if (!branch) throw new Error(`Unknown branch "${branchId}".`);
   if (branchId === project.history.currentBranchId) return project;
-  return { ...project, song: cloneSong(requireRevision(project, branch.headRevisionId).snapshot), history: { ...project.history, currentBranchId: branchId } };
+  return {
+    ...project,
+    song: cloneSong(requireRevision(project, branch.headRevisionId).snapshot),
+    history: { ...project.history, currentBranchId: branchId },
+  };
 }
 
-export function renameBranch(project: Project, branchId: string, name: string, opts?: HistoryOptions): Project {
+export function renameBranch(
+  project: Project,
+  branchId: string,
+  name: string,
+  opts?: HistoryOptions,
+): Project {
   const branch = project.history.branches.find((b) => b.id === branchId);
   if (!branch) throw new Error(`Unknown branch "${branchId}".`);
-  const others = { ...project, history: { ...project.history, branches: project.history.branches.filter((b) => b.id !== branchId) } };
+  const others = {
+    ...project,
+    history: { ...project.history, branches: project.history.branches.filter((b) => b.id !== branchId) },
+  };
   const unique = uniqueBranchName(others, name);
   return {
     ...project,
     meta: { ...project.meta, updatedAt: nowIso(opts) },
-    history: { ...project.history, branches: project.history.branches.map((b) => (b.id === branchId ? { ...b, name: unique } : b)) },
+    history: {
+      ...project.history,
+      branches: project.history.branches.map((b) => (b.id === branchId ? { ...b, name: unique } : b)),
+    },
   };
 }
 
@@ -169,12 +232,20 @@ export function deleteBranch(project: Project, branchId: string, opts?: HistoryO
   const { branches, currentBranchId } = project.history;
   if (!branches.some((b) => b.id === branchId)) throw new Error(`Unknown branch "${branchId}".`);
   if (branches.length <= 1) throw new Error('Cannot delete the last branch.');
-  if (branchId === currentBranchId) throw new Error('Cannot delete the current branch; switch to another branch first.');
+  if (branchId === currentBranchId)
+    throw new Error('Cannot delete the current branch; switch to another branch first.');
   const remaining = branches.filter((b) => b.id !== branchId);
-  const reachable = ancestors(project, remaining.map((b) => b.headRevisionId));
+  const reachable = ancestors(
+    project,
+    remaining.map((b) => b.headRevisionId),
+  );
   // Keep undone (redoable) revisions of other branches; drop only the deleted branch's orphans.
   const revisions = project.history.revisions.filter((r) => r.branchId !== branchId || reachable.has(r.id));
-  return { ...project, meta: { ...project.meta, updatedAt: nowIso(opts) }, history: { ...project.history, branches: remaining, revisions } };
+  return {
+    ...project,
+    meta: { ...project.meta, updatedAt: nowIso(opts) },
+    history: { ...project.history, branches: remaining, revisions },
+  };
 }
 
 /** Structured diff between two revisions. */
@@ -189,7 +260,8 @@ export function compareRevisions(project: Project, aId: string, bId: string): So
 export function undoTarget(project: Project): Revision | undefined {
   const branch = currentBranch(project);
   const head = getRevision(project, branch.headRevisionId);
-  if (!head || head.branchId !== branch.id || head.id === branch.baseRevisionId || !head.parents.length) return undefined;
+  if (!head || head.branchId !== branch.id || head.id === branch.baseRevisionId || !head.parents.length)
+    return undefined;
   return getRevision(project, head.parents[0]);
 }
 
@@ -219,7 +291,12 @@ export function stepHistory(project: Project, direction: 'undo' | 'redo'): Proje
   return {
     ...project,
     song: cloneSong(target.snapshot),
-    history: { ...project.history, branches: project.history.branches.map((b) => (b.id === branchId ? { ...b, headRevisionId: target.id } : b)) },
+    history: {
+      ...project.history,
+      branches: project.history.branches.map((b) =>
+        b.id === branchId ? { ...b, headRevisionId: target.id } : b,
+      ),
+    },
   };
 }
 
@@ -245,12 +322,20 @@ export function duplicateProject(project: Project, newName: string, opts?: Histo
     const copy = cloneSong(s);
     if (!songMap.has(copy.id)) songMap.set(copy.id, randomId('song'));
     copy.id = songMap.get(copy.id)!;
-    for (const c of copy.production?.candidates ?? []) if (c.sourceRevisionId && revMap.has(c.sourceRevisionId)) c.sourceRevisionId = revMap.get(c.sourceRevisionId);
+    for (const c of copy.production?.candidates ?? [])
+      if (c.sourceRevisionId && revMap.has(c.sourceRevisionId))
+        c.sourceRevisionId = revMap.get(c.sourceRevisionId);
     return copy;
   };
   const rev = (id: string | undefined) => (id && revMap.has(id) ? revMap.get(id)! : id);
   return {
-    meta: { ...cloneSong(project.meta), id: opts?.id ?? randomId('proj'), name: newName, createdAt: now, updatedAt: now },
+    meta: {
+      ...cloneSong(project.meta),
+      id: opts?.id ?? randomId('proj'),
+      name: newName,
+      createdAt: now,
+      updatedAt: now,
+    },
     song: remapSong(project.song),
     history: {
       revisions: project.history.revisions.map((r) => ({
@@ -260,7 +345,12 @@ export function duplicateProject(project: Project, newName: string, opts?: Histo
         branchId: brMap.get(r.branchId) ?? r.branchId,
         snapshot: remapSong(r.snapshot),
       })),
-      branches: project.history.branches.map((b) => ({ ...b, id: brMap.get(b.id)!, headRevisionId: rev(b.headRevisionId)!, baseRevisionId: rev(b.baseRevisionId) })),
+      branches: project.history.branches.map((b) => ({
+        ...b,
+        id: brMap.get(b.id)!,
+        headRevisionId: rev(b.headRevisionId)!,
+        baseRevisionId: rev(b.baseRevisionId),
+      })),
       currentBranchId: brMap.get(project.history.currentBranchId) ?? project.history.currentBranchId,
     },
     analysis: cloneSong(project.analysis),
@@ -296,7 +386,12 @@ export interface MergeResult {
  * Locked material in `base` is left untouched (reported as `lock.violated` warnings) unless
  * `respectLocks` is false.
  */
-export function mergeSongs(base: Song, from: Song, selection: MergeSelection, opts: { respectLocks?: boolean } = {}): MergeResult {
+export function mergeSongs(
+  base: Song,
+  from: Song,
+  selection: MergeSelection,
+  opts: { respectLocks?: boolean } = {},
+): MergeResult {
   const out = cloneSong(base);
   const issues = new IssueList();
   const merged: string[] = [];
@@ -304,8 +399,10 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
   const locks = parseLocks(base.locks ?? {});
   const ids = new IdAllocator(out);
   const locator = new SectionLocator(out);
-  const findIn = (song: Song, ref: string): Track | undefined => song.tracks.find((t) => t.id === ref) ?? song.tracks.find((t) => t.name === ref);
-  const counterpart = (t: Track): Track | undefined => out.tracks.find((x) => x.id === t.id) ?? out.tracks.find((x) => x.name === t.name);
+  const findIn = (song: Song, ref: string): Track | undefined =>
+    song.tracks.find((t) => t.id === ref) ?? song.tracks.find((t) => t.name === ref);
+  const counterpart = (t: Track): Track | undefined =>
+    out.tracks.find((x) => x.id === t.id) ?? out.tracks.find((x) => x.name === t.name);
   const usedNoteIds = new Set(out.tracks.flatMap((t) => t.notes.map((n) => n.id)));
   const importNote = (n: Note, tick = n.tick): Note => {
     const copy: Note = { ...cloneSong(n), tick };
@@ -313,13 +410,16 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
     usedNoteIds.add(copy.id);
     return copy;
   };
-  const isProtected = (t: Track, n: Note) => respect && noteProtected(locks, t.id, n, locator.sectionIdAt(n.tick));
+  const isProtected = (t: Track, n: Note) =>
+    respect && noteProtected(locks, t.id, n, locator.sectionIdAt(n.tick));
   const fromTracks = selection.trackIds?.length
-    ? selection.trackIds.map((ref) => {
-        const t = findIn(from, ref);
-        if (!t) issues.warn('merge.track-missing', `Track "${ref}" does not exist in the source revision.`);
-        return t;
-      }).filter((t): t is Track => !!t)
+    ? selection.trackIds
+        .map((ref) => {
+          const t = findIn(from, ref);
+          if (!t) issues.warn('merge.track-missing', `Track "${ref}" does not exist in the source revision.`);
+          return t;
+        })
+        .filter((t): t is Track => !!t)
     : undefined;
   const touchedTracks = new Set<Track>();
 
@@ -329,7 +429,8 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
     for (const ref of selection.sectionIds) {
       const fs = fromSpans.find((s) => s.section.id === ref) ?? fromSpans.find((s) => s.section.name === ref);
       const bs = fs
-        ? (baseSpans.find((s) => s.section.id === fs.section.id) ?? baseSpans.find((s) => s.section.name === fs.section.name))
+        ? (baseSpans.find((s) => s.section.id === fs.section.id) ??
+          baseSpans.find((s) => s.section.name === fs.section.name))
         : undefined;
       if (!fs || !bs) {
         issues.warn('merge.section-missing', `Section "${ref}" was not found in both versions.`);
@@ -337,7 +438,11 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
       }
       const len = Math.min(fs.endTick - fs.startTick, bs.endTick - bs.startTick);
       if (fs.endTick - fs.startTick !== bs.endTick - bs.startTick) {
-        issues.info('merge.section-length', `"${bs.section.name}" has a different length in the two versions; only the overlapping bars were merged.`, { sectionId: bs.section.id });
+        issues.info(
+          'merge.section-length',
+          `"${bs.section.name}" has a different length in the two versions; only the overlapping bars were merged.`,
+          { sectionId: bs.section.id },
+        );
       }
       const inFrom = (tick: number) => tick >= fs.startTick && tick < fs.startTick + len;
       const inBase = (tick: number) => tick >= bs.startTick && tick < bs.startTick + len;
@@ -346,13 +451,27 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
         let bt = counterpart(ft);
         if (!bt) {
           if (!fromTracks) continue; // unknown tracks are only added when explicitly selected
-          bt = { ...cloneSong(ft), id: out.tracks.some((t) => t.id === ft.id) ? ids.next('trk') : ft.id, notes: [] };
+          bt = {
+            ...cloneSong(ft),
+            id: out.tracks.some((t) => t.id === ft.id) ? ids.next('trk') : ft.id,
+            notes: [],
+          };
           out.tracks.push(bt);
           merged.push(`added track "${bt.name}"`);
         }
         const target = bt;
-        if (target.notes.some((n) => inBase(n.tick) && isProtected(target, n)) || (respect && (locks.tracks.has(target.id) || locks.sections.has(bs.section.id) || locks.trackSections.get(target.id)?.has(bs.section.id)))) {
-          issues.warn('lock.violated', `"${target.name}" in "${bs.section.name}" is locked and was not merged.`, { trackId: target.id, sectionId: bs.section.id });
+        if (
+          target.notes.some((n) => inBase(n.tick) && isProtected(target, n)) ||
+          (respect &&
+            (locks.tracks.has(target.id) ||
+              locks.sections.has(bs.section.id) ||
+              locks.trackSections.get(target.id)?.has(bs.section.id)))
+        ) {
+          issues.warn(
+            'lock.violated',
+            `"${target.name}" in "${bs.section.name}" is locked and was not merged.`,
+            { trackId: target.id, sectionId: bs.section.id },
+          );
           continue;
         }
         const incoming = ft.notes.filter((n) => inFrom(n.tick)).map((n) => importNote(n, n.tick + shift));
@@ -362,34 +481,53 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
       }
       // Chords within the section.
       if (respect && chordsProtected(locks, bs.section.id)) {
-        issues.warn('lock.violated', `Chords in "${bs.section.name}" are locked and were not merged.`, { sectionId: bs.section.id });
+        issues.warn('lock.violated', `Chords in "${bs.section.name}" are locked and were not merged.`, {
+          sectionId: bs.section.id,
+        });
       } else {
         const incoming: ChordEvent[] = from.chords
           .filter((c) => inFrom(c.tick))
-          .map((c) => ({ ...cloneSong(c), id: out.chords.some((x) => x.id === c.id) ? ids.next('ch') : c.id, tick: c.tick + shift, duration: Math.max(1, Math.min(c.duration, bs.startTick + len - (c.tick + shift))) }));
+          .map((c) => ({
+            ...cloneSong(c),
+            id: out.chords.some((x) => x.id === c.id) ? ids.next('ch') : c.id,
+            tick: c.tick + shift,
+            duration: Math.max(1, Math.min(c.duration, bs.startTick + len - (c.tick + shift))),
+          }));
         // Chords sounding into the section from before are cut at its start.
         out.chords = out.chords
           .filter((c) => !inBase(c.tick))
-          .map((c) => (c.tick < bs.startTick && c.tick + c.duration > bs.startTick ? { ...c, duration: bs.startTick - c.tick } : c))
+          .map((c) =>
+            c.tick < bs.startTick && c.tick + c.duration > bs.startTick
+              ? { ...c, duration: bs.startTick - c.tick }
+              : c,
+          )
           .concat(incoming)
           .sort((a, b) => a.tick - b.tick);
       }
       if (selection.lyrics) {
         if (respect && lyricsProtected(locks, bs.section.id)) {
-          issues.warn('lock.violated', `Lyrics of "${bs.section.name}" are locked and were not merged.`, { sectionId: bs.section.id });
+          issues.warn('lock.violated', `Lyrics of "${bs.section.name}" are locked and were not merged.`, {
+            sectionId: bs.section.id,
+          });
         } else {
-          const lines = from.lyrics.filter((l) => l.sectionId === fs.section.id).map((l) => ({ ...cloneSong(l), sectionId: bs.section.id }));
+          const lines = from.lyrics
+            .filter((l) => l.sectionId === fs.section.id)
+            .map((l) => ({ ...cloneSong(l), sectionId: bs.section.id }));
           out.lyrics = [...out.lyrics.filter((l) => l.sectionId !== bs.section.id), ...lines];
         }
       }
-      merged.push(`section "${bs.section.name}"${fromTracks ? ` (${fromTracks.map((t) => t.name).join(', ')})` : ''}`);
+      merged.push(
+        `section "${bs.section.name}"${fromTracks ? ` (${fromTracks.map((t) => t.name).join(', ')})` : ''}`,
+      );
     }
   } else if (fromTracks) {
     for (const ft of fromTracks) {
       const bt = counterpart(ft);
       if (bt) {
         if (respect && (locks.tracks.has(bt.id) || bt.notes.some((n) => isProtected(bt, n)))) {
-          issues.warn('lock.violated', `Track "${bt.name}" has locked material and was not merged.`, { trackId: bt.id });
+          issues.warn('lock.violated', `Track "${bt.name}" has locked material and was not merged.`, {
+            trackId: bt.id,
+          });
           continue;
         }
         const replacement: Track = { ...cloneSong(ft), id: bt.id, notes: ft.notes.map((n) => importNote(n)) };
@@ -401,7 +539,11 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
         const added: Track = { ...cloneSong(ft), id, notes: ft.notes.map((n) => importNote(n)) };
         out.tracks.push(added);
         if (from.mixer.channels[ft.id]) out.mixer.channels[id] = cloneSong(from.mixer.channels[ft.id]);
-        out.automation.push(...from.automation.filter((l) => l.target === ft.id).map((l) => ({ ...cloneSong(l), id: ids.next('auto'), target: id })));
+        out.automation.push(
+          ...from.automation
+            .filter((l) => l.target === ft.id)
+            .map((l) => ({ ...cloneSong(l), id: ids.next('auto'), target: id })),
+        );
         touchedTracks.add(added);
         merged.push(`added track "${added.name}"`);
       }
@@ -409,7 +551,8 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
   }
 
   if (selection.chords && !selection.sectionIds?.length) {
-    if (respect && locks.chords) issues.warn('lock.violated', 'The chord progression is locked and was not merged.');
+    if (respect && locks.chords)
+      issues.warn('lock.violated', 'The chord progression is locked and was not merged.');
     else {
       out.chords = cloneSong(from.chords);
       merged.push('chords');
@@ -421,7 +564,11 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
       const sectionIds = new Set(out.sections.map((s) => s.id));
       out.lyrics = from.lyrics.filter((l) => sectionIds.has(l.sectionId)).map((l) => cloneSong(l));
       const dropped = from.lyrics.length - out.lyrics.length;
-      if (dropped) issues.info('merge.lyrics-skipped', `${dropped} lyric line(s) belong to sections that do not exist here.`);
+      if (dropped)
+        issues.info(
+          'merge.lyrics-skipped',
+          `${dropped} lyric line(s) belong to sections that do not exist here.`,
+        );
       merged.push('lyrics');
     }
   }
@@ -431,7 +578,9 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
       const bt = counterpart(ft);
       if (!bt) continue;
       if (respect && locks.mixers.has(bt.id)) {
-        issues.warn('lock.violated', `The mixer channel of "${bt.name}" is locked and was not merged.`, { trackId: bt.id });
+        issues.warn('lock.violated', `The mixer channel of "${bt.name}" is locked and was not merged.`, {
+          trackId: bt.id,
+        });
         continue;
       }
       if (from.mixer.channels[ft.id]) out.mixer.channels[bt.id] = cloneSong(from.mixer.channels[ft.id]);
@@ -441,12 +590,16 @@ export function mergeSongs(base: Song, from: Song, selection: MergeSelection, op
       ];
     }
     if (!fromTracks) {
-      if (respect && locks.mixers.has('master')) issues.warn('lock.violated', 'The master bus is locked and was not merged.');
+      if (respect && locks.mixers.has('master'))
+        issues.warn('lock.violated', 'The master bus is locked and was not merged.');
       else {
         out.mixer.master = cloneSong(from.mixer.master);
         out.mixer.reverb = cloneSong(from.mixer.reverb);
         out.mixer.delay = cloneSong(from.mixer.delay);
-        out.automation = [...out.automation.filter((l) => l.target !== 'master'), ...cloneSong(from.automation.filter((l) => l.target === 'master'))];
+        out.automation = [
+          ...out.automation.filter((l) => l.target !== 'master'),
+          ...cloneSong(from.automation.filter((l) => l.target === 'master')),
+        ];
       }
     }
     merged.push('mixer');
@@ -485,7 +638,9 @@ export function mergeSelected(
     number: nextNumber(project),
     parents: [head.id, from.id],
     branchId: project.history.currentBranchId,
-    message: message ?? `Merged ${result.merged.length ? result.merged.join(', ') : 'selected changes'} from v${from.number}`,
+    message:
+      message ??
+      `Merged ${result.merged.length ? result.merged.join(', ') : 'selected changes'} from v${from.number}`,
     kind: 'merge',
     createdAt: now,
     snapshot: cloneSong(result.song),

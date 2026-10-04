@@ -24,7 +24,7 @@ export const MUSIC_IR_CONVENTIONS = [
 export const EDITING_RULES = [
   'Rules:',
   '- NEVER modify locked material (locked tracks, sections, chords, lyrics, motifs or notes). If the request requires changing locked material, explain that instead of changing it.',
-  '- Keep every note inside its instrument\'s range and respect the listed constraints (complexity, function, avoid rules).',
+  "- Keep every note inside its instrument's range and respect the listed constraints (complexity, function, avoid rules).",
   '- Change only what the request needs and preserve everything outside the requested region.',
   '- Keep output minimal: only the operations needed; never restate unchanged material.',
   '- Prefer musically idiomatic choices for the style; keep voice leading smooth and rhythms playable.',

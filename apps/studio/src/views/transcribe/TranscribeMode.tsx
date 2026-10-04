@@ -5,6 +5,7 @@ import { decodeAudioBytes, guessMime } from '../../state/assets';
 import { enqueueTask, useTask } from '../../engine/capture-tasks';
 import { useStopPreviewOnUnmount } from '../../engine/capture-playback';
 import { AUDIO_ACCEPT, baseName, readFileBytes } from '../../engine/capture-files';
+import { requestAttestation } from '../../engine/rights';
 import { externalProvider, type TranscribeTaskInput } from '../../engine/handlers/analysis';
 import { ProviderPicker } from '../shared/ProviderPicker';
 import { Badge, Button, Field, FileButton, NumberInput, Select, Tabs, Toggle } from '../../ui/kit';
@@ -63,7 +64,10 @@ export default function TranscribeMode() {
     return null;
   }, [capture, tapView, task, runCtx]);
 
-  const resolveTempo = (c: Capture, o: TranscribeOptions): { bpm?: number; source: TranscriptionView['bpmSource'] } => {
+  const resolveTempo = (
+    c: Capture,
+    o: TranscribeOptions,
+  ): { bpm?: number; source: TranscriptionView['bpmSource'] } => {
     if (o.tempoMode === 'project' && projectBpm) return { bpm: projectBpm, source: 'project' };
     if (o.tempoMode === 'manual') return { bpm: o.manualBpm, source: 'manual' };
     if (c.countInBpm) return { bpm: c.countInBpm, source: 'count-in' };
@@ -114,7 +118,12 @@ export default function TranscribeMode() {
   const convertTaps = (c: Capture, o: TranscribeOptions) => {
     const taps = c.taps ?? [];
     const sound = TAP_SOUNDS.find((s) => s.value === tapSound) ?? TAP_SOUNDS[0];
-    const tempo = o.tempoMode === 'project' && projectBpm ? { bpm: projectBpm, src: 'project' as const } : o.tempoMode === 'manual' ? { bpm: o.manualBpm, src: 'manual' as const } : { bpm: tapTempo(taps) ?? 100, src: 'taps' as const };
+    const tempo =
+      o.tempoMode === 'project' && projectBpm
+        ? { bpm: projectBpm, src: 'project' as const }
+        : o.tempoMode === 'manual'
+          ? { bpm: o.manualBpm, src: 'manual' as const }
+          : { bpm: tapTempo(taps) ?? 100, src: 'taps' as const };
     setTaskId(null);
     setTapView(
       tapsToTranscription(taps, {
@@ -144,7 +153,26 @@ export default function TranscribeMode() {
       const audio = await decodeAudioBytes(bytes);
       const durationSeconds = (audio.channels[0]?.length ?? 0) / audio.sampleRate;
       if (durationSeconds < 0.2) throw new Error('The file is too short.');
-      accept({ id: randomId('cap'), name: baseName(f.name), origin: 'upload', bytes, mimeType: guessMime(f.name, bytes), audio, durationSeconds, createdAt: new Date().toISOString() });
+      // Uploaded files need a rights attestation before they are used (mic takes and taps do not).
+      const attested = await requestAttestation([{ name: f.name, bytes, audio }], {
+        context: 'transcribe',
+        purpose: 'Transcribe an uploaded recording to MIDI',
+      });
+      if (!attested) {
+        st.toast('info', `Upload of “${f.name}” cancelled.`);
+        return;
+      }
+      accept({
+        id: randomId('cap'),
+        name: baseName(f.name),
+        origin: 'upload',
+        bytes,
+        mimeType: guessMime(f.name, bytes),
+        audio,
+        durationSeconds,
+        createdAt: new Date().toISOString(),
+        attestation: attested[0],
+      });
     } catch (err) {
       st.toast('error', `Could not read ${f.name}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -153,7 +181,14 @@ export default function TranscribeMode() {
   };
 
   const onTaps = (taps: number[]) => {
-    const c: Capture = { id: randomId('cap'), name: `Tapped rhythm (${taps.length} taps)`, origin: 'taps', taps, durationSeconds: taps[taps.length - 1] ?? 0, createdAt: new Date().toISOString() };
+    const c: Capture = {
+      id: randomId('cap'),
+      name: `Tapped rhythm (${taps.length} taps)`,
+      origin: 'taps',
+      taps,
+      durationSeconds: taps[taps.length - 1] ?? 0,
+      createdAt: new Date().toISOString(),
+    };
     setCapture(c);
     convertTaps(c, options);
   };
@@ -166,8 +201,9 @@ export default function TranscribeMode() {
         <div className="grow">
           <h1>Transcribe</h1>
           <div className="lede">
-            Audio → MIDI. Hum a melody, sing a bass line, tap or clap a rhythm, play an instrument or drop in a rough voice memo — the AI then refines <em>your</em> idea
-            instead of inventing one. Every note carries a confidence so uncertain material is easy to spot.
+            Audio → MIDI. Hum a melody, sing a bass line, tap or clap a rhythm, play an instrument or drop in
+            a rough voice memo — the AI then refines <em>your</em> idea instead of inventing one. Every note
+            carries a confidence so uncertain material is easy to spot.
           </div>
         </div>
         {project ? (
@@ -226,8 +262,12 @@ export default function TranscribeMode() {
                   { value: 'clap', label: 'Clap', icon: 'waveform' },
                 ]}
               />
-              {inputTab === 'record' && <RecordPanel kind="record" bpm={countInBpm} beatsPerBar={beatsPerBar} onCaptured={accept} />}
-              {inputTab === 'clap' && <RecordPanel kind="clap" bpm={countInBpm} beatsPerBar={beatsPerBar} onCaptured={accept} />}
+              {inputTab === 'record' && (
+                <RecordPanel kind="record" bpm={countInBpm} beatsPerBar={beatsPerBar} onCaptured={accept} />
+              )}
+              {inputTab === 'clap' && (
+                <RecordPanel kind="clap" bpm={countInBpm} beatsPerBar={beatsPerBar} onCaptured={accept} />
+              )}
               {inputTab === 'tap' && <TapPad onUse={onTaps} sound={tapSound} onSound={setTapSound} />}
               {inputTab === 'upload' && (
                 <div
@@ -254,7 +294,9 @@ export default function TranscribeMode() {
                   data-testid="upload-drop"
                 >
                   <Icon name="upload" size={22} />
-                  <div className="small muted">Drop a voice memo or audio file (WAV, MP3, FLAC, OGG, M4A, WebM)</div>
+                  <div className="small muted">
+                    Drop a voice memo or audio file (WAV, MP3, FLAC, OGG, M4A, WebM)
+                  </div>
                   <FileButton accept={AUDIO_ACCEPT} onFile={(f) => void onFiles(f)}>
                     {loadingFile ? 'Reading…' : 'Choose audio file'}
                   </FileButton>
@@ -278,20 +320,42 @@ export default function TranscribeMode() {
             </div>
             <div className="panel-body col" style={{ gap: 10 }}>
               <div className="grid-2">
-                <Field label="Tempo" hint={options.tempoMode === 'detect' ? (capture?.countInBpm ? `Count-in tempo (${Math.round(capture.countInBpm)} BPM) is used.` : 'Estimated from the audio.') : undefined}>
+                <Field
+                  label="Tempo"
+                  hint={
+                    options.tempoMode === 'detect'
+                      ? capture?.countInBpm
+                        ? `Count-in tempo (${Math.round(capture.countInBpm)} BPM) is used.`
+                        : 'Estimated from the audio.'
+                      : undefined
+                  }
+                >
                   <Select
                     value={options.tempoMode}
                     onChange={(tempoMode) => set({ tempoMode })}
                     options={[
                       { value: 'detect', label: 'Detect' },
-                      { value: 'project', label: projectBpm ? `Project tempo (${Math.round(projectBpm)})` : 'Project tempo (no project)', disabled: !song },
+                      {
+                        value: 'project',
+                        label: projectBpm
+                          ? `Project tempo (${Math.round(projectBpm)})`
+                          : 'Project tempo (no project)',
+                        disabled: !song,
+                      },
                       { value: 'manual', label: 'Manual' },
                     ]}
                     aria-label="Tempo mode"
                   />
                 </Field>
                 <Field label="Manual BPM">
-                  <NumberInput value={options.manualBpm} min={30} max={300} onChange={(manualBpm) => set({ manualBpm })} disabled={options.tempoMode !== 'manual'} aria-label="Manual BPM" />
+                  <NumberInput
+                    value={options.manualBpm}
+                    min={30}
+                    max={300}
+                    onChange={(manualBpm) => set({ manualBpm })}
+                    disabled={options.tempoMode !== 'manual'}
+                    aria-label="Manual BPM"
+                  />
                 </Field>
                 <Field label="Quantize grid">
                   <Select
@@ -312,21 +376,42 @@ export default function TranscribeMode() {
                     onChange={(keyMode) => set({ keyMode })}
                     options={[
                       { value: 'detect', label: 'Detect' },
-                      { value: 'project', label: song ? `Project key (${keyName(song.keyMap[0]?.key ?? { tonic: 0, mode: 'major' })})` : 'Project key (no project)', disabled: !song },
+                      {
+                        value: 'project',
+                        label: song
+                          ? `Project key (${keyName(song.keyMap[0]?.key ?? { tonic: 0, mode: 'major' })})`
+                          : 'Project key (no project)',
+                        disabled: !song,
+                      },
                     ]}
                     aria-label="Key mode"
                   />
                 </Field>
               </div>
-              <Toggle on={options.snapToKey} onChange={(snapToKey) => set({ snapToKey })} label="Snap out-of-key notes to the key" />
-              <Field label="Transcription engine" hint="Auto follows your routing rules; the on-device engine never uploads anything. Taps are always converted on-device.">
-                <ProviderPicker role="transcription" value={options.provider} onChange={(provider) => set({ provider })} />
+              <Toggle
+                on={options.snapToKey}
+                onChange={(snapToKey) => set({ snapToKey })}
+                label="Snap out-of-key notes to the key"
+              />
+              <Field
+                label="Transcription engine"
+                hint="Auto follows your routing rules; the on-device engine never uploads anything. Taps are always converted on-device."
+              >
+                <ProviderPicker
+                  role="transcription"
+                  value={options.provider}
+                  onChange={(provider) => set({ provider })}
+                />
               </Field>
               <div className="row">
                 <Button
                   variant="primary"
                   icon="midi"
-                  disabled={!capture || (capture.origin !== 'taps' && !capture.audio) || (!!task && (task.status === 'running' || task.status === 'queued'))}
+                  disabled={
+                    !capture ||
+                    (capture.origin !== 'taps' && !capture.audio) ||
+                    (!!task && (task.status === 'running' || task.status === 'queued'))
+                  }
                   onClick={() => capture && run(capture)}
                   data-testid="run-transcription"
                 >
@@ -339,10 +424,15 @@ export default function TranscribeMode() {
         </div>
 
         <div style={{ flex: '2 1 560px', minWidth: 0 }}>
-          <ResultPanel capture={capture} view={view} task={capture?.origin === 'taps' ? null : task} options={options} onRerun={() => capture && run(capture)} />
+          <ResultPanel
+            capture={capture}
+            view={view}
+            task={capture?.origin === 'taps' ? null : task}
+            options={options}
+            onRerun={() => capture && run(capture)}
+          />
         </div>
       </div>
     </div>
   );
 }
-

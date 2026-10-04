@@ -39,11 +39,17 @@ export default function AiEditPanel() {
     if (!text.trim()) return;
     setBusy(true);
     try {
-      const res = await aiEdit(song, text, { ...selection, trackIds: scopeTracks }, { providerChoice: provider });
+      const res = await aiEdit(
+        song,
+        text,
+        { ...selection, trackIds: scopeTracks },
+        { providerChoice: provider },
+      );
       setLast({ explanation: res.explanation, source: res.source });
       if (!res.proposalCreated && res.explanation) st.toast('info', res.explanation);
     } catch (err) {
-      if (!(err instanceof Error && err.name === 'AbortError')) st.toast('error', err instanceof Error ? err.message : String(err));
+      if (!(err instanceof Error && err.name === 'AbortError'))
+        st.toast('error', err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
@@ -53,13 +59,17 @@ export default function AiEditPanel() {
     <div className="col">
       <div>
         <h3>Change it with words</h3>
-        <div className="small muted">The output stays MIDI. Nothing is overwritten until you accept the proposal.</div>
+        <div className="small muted">
+          The output stays MIDI. Nothing is overwritten until you accept the proposal.
+        </div>
       </div>
       <div className="card small">
         <div className="row wrap">
           <span className="muted">Scope:</span>
           {scopeTracks.length ? (
-            scopeTracks.map((id) => <Badge key={id}>{song.tracks.find((t) => t.id === id)?.name ?? id}</Badge>)
+            scopeTracks.map((id) => (
+              <Badge key={id}>{song.tracks.find((t) => t.id === id)?.name ?? id}</Badge>
+            ))
           ) : (
             <Badge>all tracks</Badge>
           )}

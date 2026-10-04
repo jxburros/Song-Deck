@@ -15,7 +15,16 @@ import type {
   Track,
   VocalExpression,
 } from '../ir/types';
-import { barToTick, chordAtTick, keyAtTick, sectionLayout, tickToBar, tickToMusical, ticksPerBeat, type SectionSpan } from '../timing';
+import {
+  barToTick,
+  chordAtTick,
+  keyAtTick,
+  sectionLayout,
+  tickToBar,
+  tickToMusical,
+  ticksPerBeat,
+  type SectionSpan,
+} from '../timing';
 import { LockKeys, isChordSectionLocked, isLocked, isTrackSectionLocked } from '../locks';
 import { parseChordSymbol } from '../theory/chords';
 import { stableStringify } from '../ir/song-utils';
@@ -121,11 +130,12 @@ export function mergeRanges(ranges: TickRange[]): TickRange[] {
 
 export function intersectRanges(a: TickRange[], b: TickRange[]): TickRange[] {
   const out: TickRange[] = [];
-  for (const x of a) for (const y of b) {
-    const s = Math.max(x.startTick, y.startTick);
-    const e = Math.min(x.endTick, y.endTick);
-    if (e > s) out.push({ startTick: s, endTick: e });
-  }
+  for (const x of a)
+    for (const y of b) {
+      const s = Math.max(x.startTick, y.startTick);
+      const e = Math.min(x.endTick, y.endTick);
+      if (e > s) out.push({ startTick: s, endTick: e });
+    }
   return mergeRanges(out);
 }
 
@@ -175,11 +185,17 @@ export function describeRanges(song: Song, ranges: TickRange[]): string {
 
 export function sectionRanges(song: Song, sectionIds: string[]): TickRange[] {
   const layout = sectionLayout(song);
-  return mergeRanges(layout.filter((s) => sectionIds.includes(s.section.id)).map((s) => ({ startTick: s.startTick, endTick: s.endTick })));
+  return mergeRanges(
+    layout
+      .filter((s) => sectionIds.includes(s.section.id))
+      .map((s) => ({ startTick: s.startTick, endTick: s.endTick })),
+  );
 }
 
 export function sectionsOverlapping(song: Song, ranges: TickRange[]): SectionSpan[] {
-  return sectionLayout(song).filter((s) => ranges.some((r) => r.startTick < s.endTick && s.startTick < r.endTick));
+  return sectionLayout(song).filter((s) =>
+    ranges.some((r) => r.startTick < s.endTick && s.startTick < r.endTick),
+  );
 }
 
 /** Selection → tick ranges (explicit range, sections, or the extent of selected notes). */
@@ -225,7 +241,8 @@ export function selectionTracks(song: Song, sel: EditSelection | undefined): Tra
 // ---------------------------------------------------------------------------
 
 export function lockedRanges(song: Song, track: Track): TickRange[] {
-  if (isLocked(song.locks, LockKeys.track(track.id))) return [{ startTick: 0, endTick: Number.MAX_SAFE_INTEGER }];
+  if (isLocked(song.locks, LockKeys.track(track.id)))
+    return [{ startTick: 0, endTick: Number.MAX_SAFE_INTEGER }];
   return sectionLayout(song)
     .filter((s) => isTrackSectionLocked(song, track.id, s.section.id))
     .map((s) => ({ startTick: s.startTick, endTick: s.endTick }));
@@ -257,7 +274,12 @@ export function lockedSectionNames(song: Song, track: Track, ranges: TickRange[]
 // ---------------------------------------------------------------------------
 
 export function isDrumTrack(t: Track): boolean {
-  return t.role === 'drums' || t.role === 'percussion' || ['drum-kit', 'electronic-kit', 'percussion'].includes(t.instrumentId) || t.midiChannel === 9;
+  return (
+    t.role === 'drums' ||
+    t.role === 'percussion' ||
+    ['drum-kit', 'electronic-kit', 'percussion'].includes(t.instrumentId) ||
+    t.midiChannel === 9
+  );
 }
 
 export function isVocalTrack(t: Track): boolean {
@@ -265,7 +287,11 @@ export function isVocalTrack(t: Track): boolean {
 }
 
 export function isBassTrack(t: Track): boolean {
-  return t.role === 'bass' || ['electric-bass', 'synth-bass', 'upright-bass', 'contrabass'].includes(t.instrumentId) || t.constraints.function === 'bass-line';
+  return (
+    t.role === 'bass' ||
+    ['electric-bass', 'synth-bass', 'upright-bass', 'contrabass'].includes(t.instrumentId) ||
+    t.constraints.function === 'bass-line'
+  );
 }
 
 export function isMelodicTrack(t: Track): boolean {
@@ -278,7 +304,16 @@ export function isMelodicTrack(t: Track): boolean {
     f === 'solo' ||
     t.role === 'lead-guitar' ||
     t.role === 'synth-lead' ||
-    ['violin', 'flute', 'trumpet', 'saxophone', 'clarinet', 'electric-guitar-lead', 'synth-lead', 'cello'].includes(t.instrumentId)
+    [
+      'violin',
+      'flute',
+      'trumpet',
+      'saxophone',
+      'clarinet',
+      'electric-guitar-lead',
+      'synth-lead',
+      'cello',
+    ].includes(t.instrumentId)
   );
 }
 
@@ -291,7 +326,9 @@ export function findMelodyTrack(song: Song): Track | undefined {
   const withNotes = song.tracks.filter((t) => t.kind === 'midi' && t.notes.length > 0);
   const pool = withNotes.length ? withNotes : song.tracks;
   return (
-    pool.find((t) => isVocalTrack(t) && t.instrumentId !== 'backing-vocal' && !/backing|harmony/i.test(t.name)) ??
+    pool.find(
+      (t) => isVocalTrack(t) && t.instrumentId !== 'backing-vocal' && !/backing|harmony/i.test(t.name),
+    ) ??
     pool.find((t) => isVocalTrack(t)) ??
     pool.find((t) => t.constraints.function === 'melody') ??
     pool.find((t) => t.constraints.function === 'hook') ??
@@ -354,7 +391,8 @@ const VOICE_RANGES: Record<string, [number, number]> = {
 
 /** Playable/singable range of a track: constraints → voice type → instrument table → role default. */
 export function trackPitchRange(t: Track): { low: number; high: number } {
-  let [low, high] = INSTRUMENT_RANGES[t.instrumentId] ?? (isBassTrack(t) ? [28, 67] : isDrumTrack(t) ? [27, 87] : [36, 96]);
+  let [low, high] =
+    INSTRUMENT_RANGES[t.instrumentId] ?? (isBassTrack(t) ? [28, 67] : isDrumTrack(t) ? [27, 87] : [36, 96]);
   if (isVocalTrack(t) && t.vocal?.voiceType) [low, high] = VOICE_RANGES[t.vocal.voiceType] ?? [low, high];
   if (t.constraints.lowest !== undefined) low = t.constraints.lowest;
   if (t.constraints.highest !== undefined) high = t.constraints.highest;
@@ -418,7 +456,13 @@ function sameSpec(a: ChordSpec, b: ChordSpec): boolean {
   return a.root === b.root && a.quality === b.quality && (a.bass ?? a.root) === (b.bass ?? b.root);
 }
 
-export function toOpChord(song: Song, tick: Ticks, duration: Ticks, spec: ChordSpec, key?: KeySignature): OpChord {
+export function toOpChord(
+  song: Song,
+  tick: Ticks,
+  duration: Ticks,
+  spec: ChordSpec,
+  key?: KeySignature,
+): OpChord {
   const { bar, beat } = tickToMusical(song, tick);
   return {
     bar,
@@ -439,12 +483,18 @@ export function chordOpsFromSlots(
 ): { ops: MusicOperation[]; lockedSections: string[]; changed: number } {
   const original = chordSlots(song);
   const bySource = new Map<string, ChordSlot[]>();
-  for (const s of finalSlots) if (s.sourceId) bySource.set(s.sourceId, [...(bySource.get(s.sourceId) ?? []), s]);
+  for (const s of finalSlots)
+    if (s.sourceId) bySource.set(s.sourceId, [...(bySource.get(s.sourceId) ?? []), s]);
   const changedBars = new Set<number>();
   let changed = 0;
   for (const o of original) {
     const repl = o.sourceId ? bySource.get(o.sourceId) : undefined;
-    const same = repl && repl.length === 1 && repl[0].tick === o.tick && repl[0].duration === o.duration && sameSpec(repl[0].spec, o.spec);
+    const same =
+      repl &&
+      repl.length === 1 &&
+      repl[0].tick === o.tick &&
+      repl[0].duration === o.duration &&
+      sameSpec(repl[0].spec, o.spec);
     if (same) continue;
     changed++;
     const a = barIndex(song, o.tick);
@@ -466,7 +516,8 @@ export function chordOpsFromSlots(
   const runs: { start: number; end: number }[] = [];
   for (const b of bars) {
     const last = runs[runs.length - 1];
-    if (last && sectionOfBar(b)?.section.id === sectionOfBar(last.end)?.section.id && b - last.end <= 8) last.end = b;
+    if (last && sectionOfBar(b)?.section.id === sectionOfBar(last.end)?.section.id && b - last.end <= 8)
+      last.end = b;
     else runs.push({ start: b, end: b });
   }
   const ops: MusicOperation[] = [];
@@ -489,7 +540,12 @@ export function chordOpsFromSlots(
       const en = Math.min(s.tick + s.duration, endTick);
       if (en > st) chords.push(toOpChord(song, st, en - st, s.spec));
     }
-    ops.push({ op: 'set_chords', region: { start_bar: run.start + 1, end_bar: run.end + 1 }, chords, reason });
+    ops.push({
+      op: 'set_chords',
+      region: { start_bar: run.start + 1, end_bar: run.end + 1 },
+      chords,
+      reason,
+    });
   }
   return { ops, lockedSections: [...lockedSections], changed };
 }
@@ -553,9 +609,20 @@ export interface EmitResult {
  *   grouped transform_notes / set_expression · anything structural → replace_notes over
  *   the affected bar runs (never across bars holding locked notes).
  */
-export function emitNoteOps(song: Song, track: Track, original: Note[], final: WorkNote[], opts: EmitOptions): EmitResult {
+export function emitNoteOps(
+  song: Song,
+  track: Track,
+  original: Note[],
+  final: WorkNote[],
+  opts: EmitOptions,
+): EmitResult {
   const diff = diffNotes(original, final);
-  const res: EmitResult = { ops: [], added: diff.added.length, removed: diff.removed.length, modified: diff.modified.length };
+  const res: EmitResult = {
+    ops: [],
+    added: diff.added.length,
+    removed: diff.removed.length,
+    modified: diff.modified.length,
+  };
   if (!diff.added.length && !diff.removed.length && !diff.modified.length) return res;
   const reason = opts.reason;
   const syllableChange = diff.modified.some((m) => (m.before.syllable ?? '') !== (m.after.syllable ?? ''));
@@ -566,7 +633,12 @@ export function emitNoteOps(song: Song, track: Track, original: Note[], final: W
       return res;
     }
     if (diff.added.length) {
-      res.ops.push({ op: 'add_notes', track: track.id, notes: sortWork([...diff.added]).map((n) => toOpNote(song, n)), reason });
+      res.ops.push({
+        op: 'add_notes',
+        track: track.id,
+        notes: sortWork([...diff.added]).map((n) => toOpNote(song, n)),
+        reason,
+      });
       return res;
     }
     const grouped = transformGroups(song, track, original, diff.modified, reason);
@@ -591,10 +663,12 @@ function transformGroups(
   for (const { before: b, after: a } of modified) {
     const t: NoteTransform = {};
     if (a.pitch !== b.pitch) t.transpose = a.pitch - b.pitch;
-    if (clampVel(a.velocity) !== clampVel(b.velocity)) t.velocity_add = clampVel(a.velocity) - clampVel(b.velocity);
+    if (clampVel(a.velocity) !== clampVel(b.velocity))
+      t.velocity_add = clampVel(a.velocity) - clampVel(b.velocity);
     if (a.tick !== b.tick) t.time_shift_beats = round6((a.tick - b.tick) / beatTicks(song, b.tick));
     if (a.duration !== b.duration) t.duration_scale = round6(a.duration / Math.max(1, b.duration));
-    if ((a.articulation ?? 'normal') !== (b.articulation ?? 'normal')) t.articulation = a.articulation ?? 'normal';
+    if ((a.articulation ?? 'normal') !== (b.articulation ?? 'normal'))
+      t.articulation = a.articulation ?? 'normal';
     if (Object.keys(t).length) {
       const key = stableStringify(t);
       const g = groups.get(key) ?? { transform: t, ids: [] };
@@ -616,12 +690,14 @@ function transformGroups(
   for (const g of groups.values()) {
     const region = moves ? null : exactRegion(song, original, g.ids);
     if (region) ops.push({ op: 'transform_notes', track: track.id, region, transform: g.transform, reason });
-    else ops.push({ op: 'transform_notes', track: track.id, note_ids: g.ids, transform: g.transform, reason });
+    else
+      ops.push({ op: 'transform_notes', track: track.id, note_ids: g.ids, transform: g.transform, reason });
   }
   for (const g of exprGroups.values()) {
     const region = moves ? null : exactRegion(song, original, g.ids);
     if (region) ops.push({ op: 'set_expression', track: track.id, region, expression: g.expression, reason });
-    else ops.push({ op: 'set_expression', track: track.id, note_ids: g.ids, expression: g.expression, reason });
+    else
+      ops.push({ op: 'set_expression', track: track.id, note_ids: g.ids, expression: g.expression, reason });
   }
   return { ops, transformOps: groups.size + exprGroups.size };
 }
@@ -641,7 +717,14 @@ export function exactRegion(song: Song, original: Note[], ids: string[]): OpRegi
   return { start_bar: a + 1, end_bar: b + 1 };
 }
 
-function replaceOps(song: Song, track: Track, original: Note[], final: WorkNote[], diff: NoteDiff, reason: string): MusicOperation[] {
+function replaceOps(
+  song: Song,
+  track: Track,
+  original: Note[],
+  final: WorkNote[],
+  diff: NoteDiff,
+  reason: string,
+): MusicOperation[] {
   const affected = new Set<number>();
   const mark = (tick: number) => affected.add(barIndex(song, tick));
   diff.removed.forEach((n) => mark(n.tick));
@@ -665,7 +748,9 @@ function replaceOps(song: Song, track: Track, original: Note[], final: WorkNote[
   // The edit module cuts notes that sustain into a replaced region and trims replacement notes that
   // sustain past it, so extend runs to cover both (never into locked ranges or bars with locked notes).
   const locked = lockedRanges(song, track);
-  const barFree = (b: number) => !blocked.has(b) && !locked.some((r) => barToTick(song, b) < r.endTick && barToTick(song, b + 1) > r.startTick);
+  const barFree = (b: number) =>
+    !blocked.has(b) &&
+    !locked.some((r) => barToTick(song, b) < r.endTick && barToTick(song, b + 1) > r.startTick);
   const spanFree = (a: number, b: number) => {
     for (let x = a; x <= b; x++) if (!barFree(x)) return false;
     return true;
@@ -724,9 +809,21 @@ function replaceOps(song: Song, track: Track, original: Note[], final: WorkNote[
     const s = barToTick(song, run.start);
     const e = barToTick(song, run.end + 1);
     const notes = sortWork(final.filter((n) => n.tick >= s && n.tick < e)).map((n) => toOpNote(song, n));
-    ops.push({ op: 'replace_notes', track: track.id, region: { start_bar: run.start + 1, end_bar: run.end + 1 }, notes, reason });
+    ops.push({
+      op: 'replace_notes',
+      track: track.id,
+      region: { start_bar: run.start + 1, end_bar: run.end + 1 },
+      notes,
+      reason,
+    });
   }
-  if (adds.length) ops.push({ op: 'add_notes', track: track.id, notes: sortWork(adds).map((n) => toOpNote(song, n)), reason });
+  if (adds.length)
+    ops.push({
+      op: 'add_notes',
+      track: track.id,
+      notes: sortWork(adds).map((n) => toOpNote(song, n)),
+      reason,
+    });
   if (mods.length) ops.push(...transformGroups(song, track, original, mods, reason).ops);
   return ops;
 }
@@ -777,10 +874,17 @@ export function uniformTransformOps(
     let { start, end } = r;
     while (start < end && !editable.some((n) => barIndex(song, n.tick) === start)) start++;
     while (end > start && !editable.some((n) => barIndex(song, n.tick) === end)) end--;
-    ops.push({ op: 'transform_notes', track: track.id, region: { start_bar: start + 1, end_bar: end + 1 }, transform, reason });
+    ops.push({
+      op: 'transform_notes',
+      track: track.id,
+      region: { start_bar: start + 1, end_bar: end + 1 },
+      transform,
+      reason,
+    });
   }
   const rest = editable.filter((n) => !fullBars.has(barIndex(song, n.tick)));
-  if (rest.length) ops.push({ op: 'transform_notes', track: track.id, note_ids: rest.map((n) => n.id), transform, reason });
+  if (rest.length)
+    ops.push({ op: 'transform_notes', track: track.id, note_ids: rest.map((n) => n.id), transform, reason });
   return ops;
 }
 

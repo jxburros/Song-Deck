@@ -3,7 +3,13 @@ import { GM_DRUM } from '../ir/gm';
 import { barToTick, quantizeTick, tickToBar } from '../timing';
 import { chordPitchClasses, chordTones, isDominantQuality, triadQuality } from '../theory/chords';
 import { mod12 } from '../theory/pitch';
-import { isInScale, pitchToScaleIndex, scaleIndexToPitch, scalePitchClasses, transposeDiatonic } from '../theory/scales';
+import {
+  isInScale,
+  pitchToScaleIndex,
+  scaleIndexToPitch,
+  scalePitchClasses,
+  transposeDiatonic,
+} from '../theory/scales';
 import { chordFunction } from '../theory/analysis';
 import type { Rng } from '../util/random';
 import { DRUM_GROUPS } from './nlp';
@@ -65,7 +71,10 @@ const keyOf = (ctx: TransformContext, tick: number): KeySignature => keyAt(ctx.s
 const posInBar = (ctx: TransformContext, tick: number) => tickToBar(ctx.song, tick).beat;
 const frac = (x: number) => x - Math.floor(x);
 const near = (a: number, b: number, eps = 0.02) => Math.abs(a - b) < eps;
-const cloneN = (n: WorkNote): WorkNote => ({ ...n, expression: n.expression ? { ...n.expression } : undefined });
+const cloneN = (n: WorkNote): WorkNote => ({
+  ...n,
+  expression: n.expression ? { ...n.expression } : undefined,
+});
 
 function strip(n: WorkNote): WorkNote {
   const out = { ...n };
@@ -103,7 +112,10 @@ export function groupByOnset(notes: WorkNote[]): WorkNote[][] {
 }
 
 /** Split a monophonic line into phrases at rests of at least `gapTicks`. */
-export function splitPhrases<T extends { tick: number; duration: number }>(notes: T[], gapTicks: number): T[][] {
+export function splitPhrases<T extends { tick: number; duration: number }>(
+  notes: T[],
+  gapTicks: number,
+): T[][] {
   const sorted = [...notes].sort((a, b) => a.tick - b.tick);
   const out: T[][] = [];
   let cur: T[] = [];
@@ -210,7 +222,11 @@ export function busier(ctx: TransformContext, notes: WorkNote[]): TransformResul
     const beat = tpb(ctx, n.tick);
     const gap = Math.max(1, Math.round(beat / 16));
     const nextT = nextOnset(ctx, n.tick);
-    const limit = Math.min(nextT ?? scopeEnd(ctx, n.tick), scopeEnd(ctx, n.tick), n.tick + Math.max(n.duration, beat) + beat * 2);
+    const limit = Math.min(
+      nextT ?? scopeEnd(ctx, n.tick),
+      scopeEnd(ctx, n.tick),
+      n.tick + Math.max(n.duration, beat) + beat * 2,
+    );
     const span = limit - n.tick;
     const next = nextT !== undefined ? noteStartingAt(ctx.context, nextT) : undefined;
     if (n.duration >= beat * 0.95 && span >= 2 * beat) {
@@ -221,9 +237,12 @@ export function busier(ctx: TransformContext, notes: WorkNote[]): TransformResul
       let prev = n.pitch;
       for (let b = 1; b < beats; b++) {
         const t = n.tick + b * beat;
-        const isLast = b === beats - 1 && next !== undefined && nextT !== undefined && nextT - t <= beat * 1.01;
+        const isLast =
+          b === beats - 1 && next !== undefined && nextT !== undefined && nextT - t <= beat * 1.01;
         const p = isLast ? approachTone(ctx, next!.pitch, prev, t) : fillTone(ctx, n, prev, t, b);
-        out.push(withSyllable(ctx, { pitch: p, tick: t, duration: beat - gap, velocity: clampVel(n.velocity - 10) }));
+        out.push(
+          withSyllable(ctx, { pitch: p, tick: t, duration: beat - gap, velocity: clampVel(n.velocity - 10) }),
+        );
         prev = p;
         added++;
       }
@@ -274,11 +293,23 @@ function busierChords(ctx: TransformContext, notes: WorkNote[]): TransformResult
     for (let k = 1; k < count; k++) {
       const t = Math.round(t0 + k * step);
       const accent = (k % 2 === 0 ? 0 : -10) - 4;
-      for (const n of g) out.push({ pitch: n.pitch, tick: t, duration: Math.round(step - gap), velocity: clampVel(n.velocity + accent), articulation: n.articulation });
+      for (const n of g)
+        out.push({
+          pitch: n.pitch,
+          tick: t,
+          duration: Math.round(step - gap),
+          velocity: clampVel(n.velocity + accent),
+          articulation: n.articulation,
+        });
       strikes++;
     }
   }
-  return { notes: out, summary: strikes ? `re-articulated sustained chords with ${strikes} extra rhythmic strikes` : 'chords are already articulated rhythmically' };
+  return {
+    notes: out,
+    summary: strikes
+      ? `re-articulated sustained chords with ${strikes} extra rhythmic strikes`
+      : 'chords are already articulated rhythmically',
+  };
 }
 
 const HAT_PITCHES = new Set<number>([...DRUM_GROUPS.hats, ...DRUM_GROUPS.ride]);
@@ -309,15 +340,33 @@ function busierDrums(ctx: TransformContext, notes: WorkNote[]): TransformResult 
     const d = b.tick - a.tick;
     if (d >= beat / 2 - 1 && d <= beat + 1 && (d === Math.round(beat / 2) || d === beat)) {
       const t = a.tick + Math.round(d / 2);
-      if (add({ pitch: GM_DRUM.HIHAT_CLOSED === a.pitch || a.pitch === GM_DRUM.HIHAT_OPEN ? GM_DRUM.HIHAT_CLOSED : a.pitch, tick: t, duration: Math.max(30, Math.round(d / 4)), velocity: clampVel(a.velocity * 0.6) }))
+      if (
+        add({
+          pitch:
+            GM_DRUM.HIHAT_CLOSED === a.pitch || a.pitch === GM_DRUM.HIHAT_OPEN
+              ? GM_DRUM.HIHAT_CLOSED
+              : a.pitch,
+          tick: t,
+          duration: Math.max(30, Math.round(d / 4)),
+          velocity: clampVel(a.velocity * 0.6),
+        })
+      )
         hats++;
     }
   }
   if (!hatNotes.length) {
     for (const r of ctx.ranges) {
-      for (let t = r.startTick; t < r.endTick; ) {
+      for (let t = r.startTick; t < r.endTick;) {
         const beat = tpb(ctx, t);
-        if (add({ pitch: GM_DRUM.HIHAT_CLOSED, tick: t, duration: Math.round(beat / 4), velocity: frac(posInBar(ctx, t)) < 0.01 ? 80 : 60 })) hats++;
+        if (
+          add({
+            pitch: GM_DRUM.HIHAT_CLOSED,
+            tick: t,
+            duration: Math.round(beat / 4),
+            velocity: frac(posInBar(ctx, t)) < 0.01 ? 80 : 60,
+          })
+        )
+          hats++;
         t += Math.round(beat / 2);
       }
     }
@@ -326,7 +375,16 @@ function busierDrums(ctx: TransformContext, notes: WorkNote[]): TransformResult 
   for (const s of out.filter((n) => SNARES.has(n.pitch) && n.velocity >= 70)) {
     const beat = tpb(ctx, s.tick);
     if (ctx.rng.chance(0.7 * Math.min(1.3, ctx.amount))) {
-      if (add({ pitch: GM_DRUM.SNARE, tick: s.tick - Math.round(beat / 4), duration: Math.round(beat / 8), velocity: 34, articulation: 'ghost' })) ghosts++;
+      if (
+        add({
+          pitch: GM_DRUM.SNARE,
+          tick: s.tick - Math.round(beat / 4),
+          duration: Math.round(beat / 8),
+          velocity: 34,
+          articulation: 'ghost',
+        })
+      )
+        ghosts++;
     }
   }
   // Extra kicks on the "and" of 3 (or the bar's second half) per bar.
@@ -342,18 +400,32 @@ function busierDrums(ctx: TransformContext, notes: WorkNote[]): TransformResult 
       if (add({ pitch: GM_DRUM.KICK, tick: t, duration: Math.round(beat / 4), velocity: 92 })) kicks++;
     }
   }
-  const parts = [hats && `${hats} hi-hat subdivisions`, ghosts && `${ghosts} ghost snares`, kicks && `${kicks} syncopated kicks`].filter(Boolean);
-  return { notes: out, summary: parts.length ? `added ${parts.join(', ')}` : 'the groove is already dense — nothing added' };
+  const parts = [
+    hats && `${hats} hi-hat subdivisions`,
+    ghosts && `${ghosts} ghost snares`,
+    kicks && `${kicks} syncopated kicks`,
+  ].filter(Boolean);
+  return {
+    notes: out,
+    summary: parts.length ? `added ${parts.join(', ')}` : 'the groove is already dense — nothing added',
+  };
 }
 
 export function simplify(ctx: TransformContext, notes: WorkNote[]): TransformResult {
   if (ctx.isDrums) return simplifyDrums(ctx, notes);
   const sorted = sortWork(notes.map(cloneN));
   if (!sorted.length) return { notes: [], summary: 'no notes to simplify' };
-  const totalBeats = sorted.length ? Math.max(1, (sorted[sorted.length - 1].tick + sorted[sorted.length - 1].duration - sorted[0].tick) / tpb(ctx, sorted[0].tick)) : 1;
+  const totalBeats = sorted.length
+    ? Math.max(
+        1,
+        (sorted[sorted.length - 1].tick + sorted[sorted.length - 1].duration - sorted[0].tick) /
+          tpb(ctx, sorted[0].tick),
+      )
+    : 1;
   const onsets = new Set(sorted.map((n) => n.tick)).size;
   const density = onsets / totalBeats;
-  const protectedNote = (n: WorkNote) => ctx.isVocal && !!n.syllable && n.syllable !== '_' && n.syllable !== '-';
+  const protectedNote = (n: WorkNote) =>
+    ctx.isVocal && !!n.syllable && n.syllable !== '_' && n.syllable !== '-';
   const kept: WorkNote[] = [];
   let removed = 0;
   for (const n of sorted) {
@@ -379,7 +451,13 @@ export function simplify(ctx: TransformContext, notes: WorkNote[]): TransformRes
     for (const n of kept) {
       const last = merged[merged.length - 1];
       const beat = tpb(ctx, n.tick);
-      if (last && last.pitch === n.pitch && n.tick - (last.tick + last.duration) <= beat / 2 && !protectedNote(n) && n.tick - last.tick <= beat * 2) {
+      if (
+        last &&
+        last.pitch === n.pitch &&
+        n.tick - (last.tick + last.duration) <= beat / 2 &&
+        !protectedNote(n) &&
+        n.tick - last.tick <= beat * 2
+      ) {
         last.duration = n.tick + n.duration - last.tick;
         mergedCount++;
         continue;
@@ -391,7 +469,14 @@ export function simplify(ctx: TransformContext, notes: WorkNote[]): TransformRes
   const final = sortWork(merged);
   for (let i = 0; i < final.length; i++) {
     const n = final[i];
-    const nextKept = final.slice(i + 1).find((m) => m.tick > n.tick)?.tick ?? nextOnset(ctx, n.tick, ctx.context.filter((c) => !inScope(ctx, c.tick))) ?? scopeEnd(ctx, n.tick);
+    const nextKept =
+      final.slice(i + 1).find((m) => m.tick > n.tick)?.tick ??
+      nextOnset(
+        ctx,
+        n.tick,
+        ctx.context.filter((c) => !inScope(ctx, c.tick)),
+      ) ??
+      scopeEnd(ctx, n.tick);
     const removedAfter = sorted.filter((m) => m.tick > n.tick && m.tick < nextKept && !final.includes(m));
     if (removedAfter.length) {
       const until = Math.max(...removedAfter.map((m) => m.tick + m.duration));
@@ -424,8 +509,14 @@ function simplifyDrums(ctx: TransformContext, notes: WorkNote[]): TransformResul
     const downbeat = onBeat && beatIdx === 0;
     const ghost = n.articulation === 'ghost' || n.velocity < 50;
     let keep: boolean;
-    if (KICKS.has(n.pitch)) keep = onBeat && (beatIdx === 0 || (meter.numerator === 4 && beatIdx === 2) || (meter.numerator !== 4 && beatIdx % 2 === 0));
-    else if (SNARES.has(n.pitch) || n.pitch === GM_DRUM.SIDE_STICK) keep = onBeat && !ghost && (meter.numerator === 4 ? beatIdx % 2 === 1 : beatIdx > 0);
+    if (KICKS.has(n.pitch))
+      keep =
+        onBeat &&
+        (beatIdx === 0 ||
+          (meter.numerator === 4 && beatIdx === 2) ||
+          (meter.numerator !== 4 && beatIdx % 2 === 0));
+    else if (SNARES.has(n.pitch) || n.pitch === GM_DRUM.SIDE_STICK)
+      keep = onBeat && !ghost && (meter.numerator === 4 ? beatIdx % 2 === 1 : beatIdx > 0);
     else if (HAT_PITCHES.has(n.pitch)) keep = hatHasSixteenths ? onBeat || near(f, 0.5) : onBeat;
     else if (CRASHES.has(n.pitch)) keep = downbeat;
     else if (TOMS.has(n.pitch)) keep = downbeat;
@@ -464,7 +555,8 @@ export function refitNotes(
     if (melodic) {
       const pcs = scalePitchClasses(keyOf(ctx, n.tick)).map((pc) => (map ? map(pc) : pc));
       const mapped = map ? n.pitch + signedPcDelta(mod12(n.pitch), map(mod12(n.pitch))) : n.pitch;
-      if (oldC && newC && sameChordSpec(oldC, newC) && chordPitchClasses(newC).includes(mod12(n.pitch))) p = n.pitch;
+      if (oldC && newC && sameChordSpec(oldC, newC) && chordPitchClasses(newC).includes(mod12(n.pitch)))
+        p = n.pitch;
       else p = refitMelodicPitch(mapped, newC, pcs);
     } else p = refitPitch(n.pitch, oldC, newC, map);
     if (p !== n.pitch) {
@@ -476,7 +568,8 @@ export function refitNotes(
   // A refitted chord tone must not collide with another note of the same chord (e.g. G → G5 moves
   // the third onto the fifth): try another tone of the new chord, else drop the duplicate.
   const byTick = new Map<number, WorkNote[]>();
-  for (const n of [...ctx.context.filter((c) => !notes.includes(c)), ...out]) byTick.set(n.tick, [...(byTick.get(n.tick) ?? []), n]);
+  for (const n of [...ctx.context.filter((c) => !notes.includes(c)), ...out])
+    byTick.set(n.tick, [...(byTick.get(n.tick) ?? []), n]);
   const dropped = new Set<WorkNote>();
   out.forEach((n, i) => {
     if (n === notes[i]) return;
@@ -487,17 +580,27 @@ export function refitNotes(
     const used = new Set(group.filter((m) => m !== n).map((m) => m.pitch));
     let best: number | undefined;
     for (let d = 1; d <= 6 && best === undefined; d++) {
-      for (const cand of [notes[i].pitch - d, notes[i].pitch + d]) if (pcs.includes(mod12(cand)) && !used.has(cand) && cand >= ctx.low && cand <= ctx.high) best = cand;
+      for (const cand of [notes[i].pitch - d, notes[i].pitch + d])
+        if (pcs.includes(mod12(cand)) && !used.has(cand) && cand >= ctx.low && cand <= ctx.high) best = cand;
     }
     if (best !== undefined) n.pitch = best;
     else dropped.add(n);
   });
   const finalNotes = out.filter((n) => !dropped.has(n));
-  return { notes: finalNotes, summary: moved ? `re-pitched ${moved} note${moved === 1 ? '' : 's'} to fit${dropped.size ? ` (${dropped.size} doubled tone${dropped.size === 1 ? '' : 's'} removed)` : ''}` : '' };
+  return {
+    notes: finalNotes,
+    summary: moved
+      ? `re-pitched ${moved} note${moved === 1 ? '' : 's'} to fit${dropped.size ? ` (${dropped.size} doubled tone${dropped.size === 1 ? '' : 's'} removed)` : ''}`
+      : '',
+  };
 }
 
 /** Expressive tendencies for darker (softer, legato, lower) / brighter (lighter, detached, higher). */
-export function shadeExpression(ctx: TransformContext, notes: WorkNote[], mood: 'darker' | 'brighter'): TransformResult {
+export function shadeExpression(
+  ctx: TransformContext,
+  notes: WorkNote[],
+  mood: 'darker' | 'brighter',
+): TransformResult {
   if (!notes.length) return { notes, summary: '' };
   const out = sortWork(notes.map(cloneN));
   const parts: string[] = [];
@@ -519,7 +622,12 @@ export function shadeExpression(ctx: TransformContext, notes: WorkNote[], mood: 
         }
       }
       if (legato) parts.push('legato phrasing');
-      if (ctx.isMelodic && !ctx.isVocal && avg > mid + 7 && Math.min(...out.map((n) => n.pitch)) - 12 >= ctx.low) {
+      if (
+        ctx.isMelodic &&
+        !ctx.isVocal &&
+        avg > mid + 7 &&
+        Math.min(...out.map((n) => n.pitch)) - 12 >= ctx.low
+      ) {
         for (const n of out) n.pitch -= 12;
         parts.push('an octave lower register');
       }
@@ -530,10 +638,16 @@ export function shadeExpression(ctx: TransformContext, notes: WorkNote[], mood: 
     if (!ctx.isDrums) {
       for (const n of out) {
         const beat = tpb(ctx, n.tick);
-        if (n.duration >= beat / 2) n.duration = Math.max(Math.round(beat / 4), Math.round(n.duration * 0.88));
+        if (n.duration >= beat / 2)
+          n.duration = Math.max(Math.round(beat / 4), Math.round(n.duration * 0.88));
       }
       parts.push('slightly detached articulation');
-      if (ctx.isMelodic && !ctx.isVocal && avg < mid - 7 && Math.max(...out.map((n) => n.pitch)) + 12 <= ctx.high) {
+      if (
+        ctx.isMelodic &&
+        !ctx.isVocal &&
+        avg < mid - 7 &&
+        Math.max(...out.map((n) => n.pitch)) + 12 <= ctx.high
+      ) {
         for (const n of out) n.pitch += 12;
         parts.push('an octave higher register');
       }
@@ -617,7 +731,9 @@ export function doubleTime(ctx: TransformContext, notes: WorkNote[]): TransformR
   }
   return {
     notes: out,
-    summary: ctx.isDrums ? 'double-time feel: each bar’s groove played twice as fast (backbeat on every off-beat)' : 'compressed each bar’s rhythm ×2 and repeated it (double-time)',
+    summary: ctx.isDrums
+      ? 'double-time feel: each bar’s groove played twice as fast (backbeat on every off-beat)'
+      : 'compressed each bar’s rhythm ×2 and repeated it (double-time)',
   };
 }
 
@@ -646,11 +762,16 @@ export function addTension(ctx: TransformContext, notes: WorkNote[]): TransformR
     const buildStart = Math.max(barStartT + Math.round(beat * 2), start);
     const kept = out.filter((n) => !(SNARES.has(n.pitch) && n.tick >= buildStart && n.tick < end));
     let hits = 0;
-    for (let t = buildStart; t < end; ) {
+    for (let t = buildStart; t < end;) {
       const lastBeat = end - t <= beat;
       const step = Math.round(lastBeat ? beat / 4 : beat / 2);
       const pos = (t - buildStart) / Math.max(1, end - buildStart);
-      kept.push({ pitch: GM_DRUM.SNARE, tick: t, duration: Math.round(step / 2), velocity: clampVel(64 + 50 * pos) });
+      kept.push({
+        pitch: GM_DRUM.SNARE,
+        tick: t,
+        duration: Math.round(step / 2),
+        velocity: clampVel(64 + 50 * pos),
+      });
       hits++;
       t += step;
     }
@@ -665,16 +786,30 @@ export function addTension(ctx: TransformContext, notes: WorkNote[]): TransformR
       const chord = chordAt(ctx, g[0].tick);
       if (!chord) continue;
       const pcs = new Set(g.map((n) => mod12(n.pitch)));
-      const dominant = chordFunction(chord, keyOf(ctx, g[0].tick)) === 'dominant' && triadQuality(chord.quality) === 'maj';
-      const candidates = dominant ? [10, 1, 2] : isDominantQuality(chord.quality) ? [2] : triadQuality(chord.quality) === 'min' ? [10, 2] : [2, 11];
-      const pc = candidates.map((i) => mod12(chord.root + i)).find((p) => !pcs.has(p) && (isInScale(p, keyOf(ctx, g[0].tick)) || dominant));
+      const dominant =
+        chordFunction(chord, keyOf(ctx, g[0].tick)) === 'dominant' && triadQuality(chord.quality) === 'maj';
+      const candidates = dominant
+        ? [10, 1, 2]
+        : isDominantQuality(chord.quality)
+          ? [2]
+          : triadQuality(chord.quality) === 'min'
+            ? [10, 2]
+            : [2, 11];
+      const pc = candidates
+        .map((i) => mod12(chord.root + i))
+        .find((p) => !pcs.has(p) && (isInScale(p, keyOf(ctx, g[0].tick)) || dominant));
       if (pc === undefined) continue;
       const top = Math.max(...g.map((n) => n.pitch));
       let p = nearestWithPc(pc, top - 3);
       if (g.some((n) => Math.abs(n.pitch - p) < 1)) continue;
       p = fold(ctx, p);
       const dur = Math.min(...g.map((n) => n.duration));
-      out.push({ pitch: p, tick: g[0].tick, duration: dur, velocity: clampVel(g.reduce((s, n) => s + n.velocity, 0) / g.length - 8) });
+      out.push({
+        pitch: p,
+        tick: g[0].tick,
+        duration: dur,
+        velocity: clampVel(g.reduce((s, n) => s + n.velocity, 0) / g.length - 8),
+      });
       ext++;
     }
     if (ext) parts.push(`added ${ext} chord extension${ext === 1 ? '' : 's'} (7ths/9ths)`);
@@ -694,20 +829,42 @@ export function addTension(ctx: TransformContext, notes: WorkNote[]): TransformR
         const fourth = nearestWithPc(mod12(chord.root + 5), n.pitch + 1);
         const half = Math.round(n.duration / 2);
         result.push({ ...n, pitch: fourth, duration: half });
-        result.push(withSyllable(ctx, { pitch: n.pitch, tick: n.tick + half, duration: n.duration - half, velocity: clampVel(n.velocity - 6) }));
+        result.push(
+          withSyllable(ctx, {
+            pitch: n.pitch,
+            tick: n.tick + half,
+            duration: n.duration - half,
+            velocity: clampVel(n.velocity - 6),
+          }),
+        );
         sus++;
         continue;
       }
     }
     const nextT = nextOnset(ctx, n.tick);
     const next = nextT !== undefined ? noteStartingAt(ctx.context, nextT) : undefined;
-    if (next && nextT !== undefined && chordStarts.has(nextT) && n.duration >= beat * 0.95 && nextT - n.tick >= beat && inScope(ctx, nextT - 1) && appr < 8) {
+    if (
+      next &&
+      nextT !== undefined &&
+      chordStarts.has(nextT) &&
+      n.duration >= beat * 0.95 &&
+      nextT - n.tick >= beat &&
+      inScope(ctx, nextT - 1) &&
+      appr < 8
+    ) {
       const at = nextT - Math.round(beat / 2);
       if (at > n.tick) {
         n.duration = Math.min(n.duration, at - n.tick - Math.round(beat / 32));
         result.push(n);
         const p = ctx.isBass ? next.pitch - 1 : ctx.rng.chance(0.5) ? next.pitch + 1 : next.pitch - 1;
-        result.push(withSyllable(ctx, { pitch: fold(ctx, p), tick: at, duration: Math.round(beat / 2) - Math.round(beat / 32), velocity: clampVel(n.velocity + 4) }));
+        result.push(
+          withSyllable(ctx, {
+            pitch: fold(ctx, p),
+            tick: at,
+            duration: Math.round(beat / 2) - Math.round(beat / 32),
+            velocity: clampVel(n.velocity + 4),
+          }),
+        );
         appr++;
         continue;
       }
@@ -723,11 +880,23 @@ export function addTension(ctx: TransformContext, notes: WorkNote[]): TransformR
 // Answer instead of doubling
 // ---------------------------------------------------------------------------
 
-export function answerPhrases(ctx: TransformContext, notes: WorkNote[], reference: WorkNote[]): TransformResult {
-  const ref = sortWork(reference.filter((n) => inScope(ctx, n.tick) || inScope(ctx, n.tick + n.duration - 1)).map(cloneN));
-  if (!ref.length) return { notes, summary: 'the reference part has no notes in this range, so there is nothing to answer' };
+export function answerPhrases(
+  ctx: TransformContext,
+  notes: WorkNote[],
+  reference: WorkNote[],
+): TransformResult {
+  const ref = sortWork(
+    reference.filter((n) => inScope(ctx, n.tick) || inScope(ctx, n.tick + n.duration - 1)).map(cloneN),
+  );
+  if (!ref.length)
+    return { notes, summary: 'the reference part has no notes in this range, so there is nothing to answer' };
   const beat0 = tpb(ctx, ref[0].tick);
-  const sounding = mergeRanges(ref.map((n) => ({ startTick: n.tick - Math.round(beat0 / 8), endTick: n.tick + n.duration + Math.round(beat0 / 8) })));
+  const sounding = mergeRanges(
+    ref.map((n) => ({
+      startTick: n.tick - Math.round(beat0 / 8),
+      endTick: n.tick + n.duration + Math.round(beat0 / 8),
+    })),
+  );
   const overlapsRef = (n: WorkNote) =>
     sounding.some((s) => {
       const ov = Math.min(s.endTick, n.tick + n.duration) - Math.max(s.startTick, n.tick);
@@ -748,7 +917,11 @@ export function answerPhrases(ctx: TransformContext, notes: WorkNote[], referenc
     const restEnd = Math.min(nextStart, scopeEnd(ctx, restStart - 1));
     if (restEnd - restStart < beat * 0.75 || !inScope(ctx, restStart)) continue;
     if (kept.some((n) => n.tick >= restStart && n.tick < restEnd)) continue;
-    const startAt = restStart + ((Math.round(beat / 2) - ((restStart - barToTick(ctx.song, barIndex(ctx.song, restStart))) % Math.round(beat / 2))) % Math.round(beat / 2));
+    const startAt =
+      restStart +
+      ((Math.round(beat / 2) -
+        ((restStart - barToTick(ctx.song, barIndex(ctx.song, restStart))) % Math.round(beat / 2))) %
+        Math.round(beat / 2));
     const avail = restEnd - startAt - Math.round(beat / 8);
     if (avail < beat / 4) continue;
     // Imitate the end of the phrase: as many of its last notes as fit (8th notes minimum).
@@ -767,7 +940,10 @@ export function answerPhrases(ctx: TransformContext, notes: WorkNote[], referenc
     const phraseNotes: WorkNote[] = motif.map((n, j) => ({
       pitch: fold(ctx, shifted[j] + octave),
       tick: even ? startAt + j * slot : startAt + Math.round((n.tick - m0) * scale),
-      duration: Math.max(Math.round(beat / 8), (even ? slot : Math.round(n.duration * scale)) - Math.round(beat / 32)),
+      duration: Math.max(
+        Math.round(beat / 8),
+        (even ? slot : Math.round(n.duration * scale)) - Math.round(beat / 32),
+      ),
       velocity: clampVel(vel - 4 + j * 2),
       articulation: ctx.track.role === 'strings' ? 'legato' : undefined,
     }));
@@ -805,7 +981,10 @@ export function newPitchesSameRhythm(ctx: TransformContext, notes: WorkNote[]): 
       }
       changed++;
     }
-    return { notes: sorted, summary: `re-voiced ${changed} chord${changed === 1 ? '' : 's'} (new inversions) with the same rhythm` };
+    return {
+      notes: sorted,
+      summary: `re-voiced ${changed} chord${changed === 1 ? '' : 's'} (new inversions) with the same rhythm`,
+    };
   }
   let prev = sorted[0]?.pitch ?? 60;
   let changed = 0;
@@ -817,7 +996,11 @@ export function newPitchesSameRhythm(ctx: TransformContext, notes: WorkNote[]): 
     const scalePcs = scalePitchClasses(key);
     const chordPcs = chord ? chordPitchClasses(chord) : scalePcs;
     let pcs: number[];
-    if (ctx.isBass) pcs = strong && chord ? [chord.bass ?? chord.root, ...(ctx.rng.chance(0.25) ? [mod12(chord.root + 7)] : [])] : chordPcs;
+    if (ctx.isBass)
+      pcs =
+        strong && chord
+          ? [chord.bass ?? chord.root, ...(ctx.rng.chance(0.25) ? [mod12(chord.root + 7)] : [])]
+          : chordPcs;
     else pcs = strong ? chordPcs : scalePcs;
     const lo = Math.max(ctx.low, n.pitch - 7);
     const hi = Math.min(ctx.high, n.pitch + 7);
@@ -825,13 +1008,21 @@ export function newPitchesSameRhythm(ctx: TransformContext, notes: WorkNote[]): 
     for (let p = lo; p <= hi; p++) if (pcs.includes(mod12(p))) cands.push(p);
     const pool = cands.filter((p) => p !== n.pitch);
     const choices = pool.length ? pool : cands.length ? cands : [n.pitch];
-    const weights = choices.map((p) => (1 / (1 + Math.abs(p - prev))) * (chordPcs.includes(mod12(p)) ? 1.5 : 1) * (Math.abs(p - prev) > 7 ? 0.2 : 1));
+    const weights = choices.map(
+      (p) =>
+        (1 / (1 + Math.abs(p - prev))) *
+        (chordPcs.includes(mod12(p)) ? 1.5 : 1) *
+        (Math.abs(p - prev) > 7 ? 0.2 : 1),
+    );
     const p = ctx.rng.weighted(choices, weights);
     if (p !== n.pitch) changed++;
     n.pitch = p;
     prev = p;
   }
-  return { notes: sorted, summary: `wrote new ${ctx.isBass ? 'chord-root/chord-tone' : 'chord-tone (strong beats) and scale-tone'} pitches for ${changed} note${changed === 1 ? '' : 's'}, keeping every onset, duration and velocity` };
+  return {
+    notes: sorted,
+    summary: `wrote new ${ctx.isBass ? 'chord-root/chord-tone' : 'chord-tone (strong beats) and scale-tone'} pitches for ${changed} note${changed === 1 ? '' : 's'}, keeping every onset, duration and velocity`,
+  };
 }
 
 export function invertMelody(ctx: TransformContext, notes: WorkNote[]): TransformResult {
@@ -851,7 +1042,10 @@ export function invertMelody(ctx: TransformContext, notes: WorkNote[]): Transfor
   while (lo + shift < ctx.low && hi + shift + 12 <= ctx.high + 12) shift += 12;
   while (hi + shift > ctx.high && lo + shift - 12 >= ctx.low - 12) shift -= 12;
   for (const n of sorted) n.pitch = fold(ctx, n.pitch + shift);
-  return { notes: sorted, summary: `mirrored the contour diatonically around the first note (${sorted.length} notes; rhythm unchanged)` };
+  return {
+    notes: sorted,
+    summary: `mirrored the contour diatonically around the first note (${sorted.length} notes; rhythm unchanged)`,
+  };
 }
 
 export function reverseNotes(ctx: TransformContext, notes: WorkNote[]): TransformResult {
@@ -869,10 +1063,17 @@ export function reverseNotes(ctx: TransformContext, notes: WorkNote[]): Transfor
       out.push(m);
     }
   }
-  return { notes: out, summary: `played ${out.length} notes in reverse order (retrograde)${ctx.isVocal ? ' — lyrics will need re-alignment' : ''}` };
+  return {
+    notes: out,
+    summary: `played ${out.length} notes in reverse order (retrograde)${ctx.isVocal ? ' — lyrics will need re-alignment' : ''}`,
+  };
 }
 
-export function transposeNotes(ctx: TransformContext, notes: WorkNote[], spec: { semitones?: number; steps?: number }): TransformResult {
+export function transposeNotes(
+  ctx: TransformContext,
+  notes: WorkNote[],
+  spec: { semitones?: number; steps?: number },
+): TransformResult {
   if (ctx.isDrums) return { notes, summary: 'drum parts are not transposed' };
   const out = notes.map((n) => {
     const m = cloneN(n);
@@ -892,20 +1093,44 @@ export function registerShift(ctx: TransformContext, notes: WorkNote[], dir: 1 |
   const semis = fits ? 12 * dir : 0;
   if (!semis) {
     const steps = 2 * dir;
-    const out = notes.map((n) => ({ ...cloneN(n), pitch: fold(ctx, transposeDiatonic(n.pitch, steps, keyOf(ctx, n.tick))) }));
-    return { notes: out, summary: `moved ${dir > 0 ? 'up' : 'down'} a diatonic third (an octave would leave the instrument's range)` };
+    const out = notes.map((n) => ({
+      ...cloneN(n),
+      pitch: fold(ctx, transposeDiatonic(n.pitch, steps, keyOf(ctx, n.tick))),
+    }));
+    return {
+      notes: out,
+      summary: `moved ${dir > 0 ? 'up' : 'down'} a diatonic third (an octave would leave the instrument's range)`,
+    };
   }
-  return { notes: notes.map((n) => ({ ...cloneN(n), pitch: n.pitch + semis })), summary: `moved ${dir > 0 ? 'up' : 'down'} an octave` };
+  return {
+    notes: notes.map((n) => ({ ...cloneN(n), pitch: n.pitch + semis })),
+    summary: `moved ${dir > 0 ? 'up' : 'down'} an octave`,
+  };
 }
 
-export function octaveDoubling(ctx: TransformContext, source: WorkNote[], semitones: number): TransformResult {
+export function octaveDoubling(
+  ctx: TransformContext,
+  source: WorkNote[],
+  semitones: number,
+): TransformResult {
   const out: WorkNote[] = [];
   for (const n of source) {
     const p = n.pitch + semitones;
     const q = p >= ctx.low && p <= ctx.high ? p : fold(ctx, p);
-    out.push(strip({ pitch: q, tick: n.tick, duration: n.duration, velocity: clampVel(n.velocity * 0.85), articulation: n.articulation }));
+    out.push(
+      strip({
+        pitch: q,
+        tick: n.tick,
+        duration: n.duration,
+        velocity: clampVel(n.velocity * 0.85),
+        articulation: n.articulation,
+      }),
+    );
   }
-  return { notes: out, summary: `doubled ${out.length} note${out.length === 1 ? '' : 's'} ${semitones >= 0 ? 'an octave higher' : 'an octave lower'}` };
+  return {
+    notes: out,
+    summary: `doubled ${out.length} note${out.length === 1 ? '' : 's'} ${semitones >= 0 ? 'an octave higher' : 'an octave lower'}`,
+  };
 }
 
 export function harmonizeNotes(ctx: TransformContext, source: WorkNote[], steps: number): TransformResult {
@@ -919,10 +1144,28 @@ export function harmonizeNotes(ctx: TransformContext, source: WorkNote[], steps:
       const alt = transposeDiatonic(n.pitch, steps + (steps > 0 ? -1 : 1), key);
       if (chordPitchClasses(chord).includes(mod12(alt)) && alt !== n.pitch) p = alt;
     }
-    out.push(strip({ pitch: fold(ctx, p), tick: n.tick, duration: n.duration, velocity: clampVel(n.velocity - 10), articulation: n.articulation }));
+    out.push(
+      strip({
+        pitch: fold(ctx, p),
+        tick: n.tick,
+        duration: n.duration,
+        velocity: clampVel(n.velocity - 10),
+        articulation: n.articulation,
+      }),
+    );
   }
-  const label = Math.abs(steps) === 2 ? 'third' : Math.abs(steps) === 5 ? 'sixth' : Math.abs(steps) === 9 ? 'tenth' : `${Math.abs(steps)}-step`;
-  return { notes: out, summary: `added a diatonic ${label} ${steps > 0 ? 'above' : 'below'} (${out.length} notes, adjusted to chord tones on strong beats)` };
+  const label =
+    Math.abs(steps) === 2
+      ? 'third'
+      : Math.abs(steps) === 5
+        ? 'sixth'
+        : Math.abs(steps) === 9
+          ? 'tenth'
+          : `${Math.abs(steps)}-step`;
+  return {
+    notes: out,
+    summary: `added a diatonic ${label} ${steps > 0 ? 'above' : 'below'} (${out.length} notes, adjusted to chord tones on strong beats)`,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -933,14 +1176,22 @@ export function velocityChange(ctx: TransformContext, notes: WorkNote[], add: nu
   return { notes: notes.map((n) => ({ ...cloneN(n), velocity: clampVel(n.velocity + add) })), summary: '' };
 }
 
-export function velocityRamp(ctx: TransformContext, notes: WorkNote[], from: number, to: number): TransformResult {
+export function velocityRamp(
+  ctx: TransformContext,
+  notes: WorkNote[],
+  from: number,
+  to: number,
+): TransformResult {
   const ranges = mergeRanges(ctx.ranges);
   const s = ranges[0]?.startTick ?? 0;
   const e = ranges[ranges.length - 1]?.endTick ?? s + 1;
   return {
     notes: notes.map((n) => {
       const pos = Math.max(0, Math.min(1, (n.tick - s) / Math.max(1, e - s)));
-      return { ...cloneN(n), velocity: clampVel(n.velocity + Math.round((from + (to - from) * pos) * ctx.amount)) };
+      return {
+        ...cloneN(n),
+        velocity: clampVel(n.velocity + Math.round((from + (to - from) * pos) * ctx.amount)),
+      };
     }),
     summary: '',
   };
@@ -964,13 +1215,19 @@ export function expressiveDynamics(ctx: TransformContext, notes: WorkNote[]): Tr
       }
     }
   }
-  return { notes: sorted, summary: `shaped ${phrases.length} phrase${phrases.length === 1 ? '' : 's'} with rising-and-falling dynamics${ctx.isMelodic ? ' and more connected phrasing' : ''}` };
+  return {
+    notes: sorted,
+    summary: `shaped ${phrases.length} phrase${phrases.length === 1 ? '' : 's'} with rising-and-falling dynamics${ctx.isMelodic ? ' and more connected phrasing' : ''}`,
+  };
 }
 
 export function flattenDynamics(ctx: TransformContext, notes: WorkNote[]): TransformResult {
   if (!notes.length) return { notes, summary: '' };
   const mean = notes.reduce((s, n) => s + n.velocity, 0) / notes.length;
-  return { notes: notes.map((n) => ({ ...cloneN(n), velocity: clampVel(mean + (n.velocity - mean) * 0.4) })), summary: 'evened out the velocities (60% less variation)' };
+  return {
+    notes: notes.map((n) => ({ ...cloneN(n), velocity: clampVel(mean + (n.velocity - mean) * 0.4) })),
+    summary: 'evened out the velocities (60% less variation)',
+  };
 }
 
 export function accentDownbeats(ctx: TransformContext, notes: WorkNote[]): TransformResult {
@@ -979,7 +1236,11 @@ export function accentDownbeats(ctx: TransformContext, notes: WorkNote[]): Trans
     const pos = posInBar(ctx, n.tick);
     if (near(pos, 0)) {
       count++;
-      return { ...cloneN(n), velocity: clampVel(n.velocity + 15), articulation: n.articulation === 'normal' || !n.articulation ? ('accent' as const) : n.articulation };
+      return {
+        ...cloneN(n),
+        velocity: clampVel(n.velocity + 15),
+        articulation: n.articulation === 'normal' || !n.articulation ? ('accent' as const) : n.articulation,
+      };
     }
     return n;
   });
@@ -1000,14 +1261,24 @@ export function legatoNotes(ctx: TransformContext, notes: WorkNote[]): Transform
     }
     if (!ctx.isDrums) n.articulation = 'legato';
   }
-  return { notes: sorted, summary: `connected ${changed} note${changed === 1 ? '' : 's'} into the next (legato)` };
+  return {
+    notes: sorted,
+    summary: `connected ${changed} note${changed === 1 ? '' : 's'} into the next (legato)`,
+  };
 }
 
 export function staccatoNotes(ctx: TransformContext, notes: WorkNote[]): TransformResult {
   return {
     notes: notes.map((n) => {
       const beat = tpb(ctx, n.tick);
-      return { ...cloneN(n), duration: Math.max(Math.round(beat / 8), Math.min(Math.round(n.duration * 0.5), Math.round(beat / 2))), articulation: 'staccato' as const };
+      return {
+        ...cloneN(n),
+        duration: Math.max(
+          Math.round(beat / 8),
+          Math.min(Math.round(n.duration * 0.5), Math.round(beat / 2)),
+        ),
+        articulation: 'staccato' as const,
+      };
     }),
     summary: '',
   };
@@ -1018,14 +1289,21 @@ export function lengthen(ctx: TransformContext, notes: WorkNote[], factor: numbe
   for (const n of sorted) {
     const nextT = nextOnset(ctx, n.tick, [...sorted, ...ctx.context]);
     const beat = tpb(ctx, n.tick);
-    const max = nextT !== undefined && !isPolyphonic(sorted) ? nextT - n.tick - Math.round(beat / 32) : Infinity;
+    const max =
+      nextT !== undefined && !isPolyphonic(sorted) ? nextT - n.tick - Math.round(beat / 32) : Infinity;
     n.duration = Math.max(n.duration, Math.min(Math.round(n.duration * factor), max));
   }
   return { notes: sorted, summary: '' };
 }
 
 export function scaleDurations(ctx: TransformContext, notes: WorkNote[], factor: number): TransformResult {
-  return { notes: notes.map((n) => ({ ...cloneN(n), duration: Math.max(Math.round(tpb(ctx, n.tick) / 16), Math.round(n.duration * factor)) })), summary: '' };
+  return {
+    notes: notes.map((n) => ({
+      ...cloneN(n),
+      duration: Math.max(Math.round(tpb(ctx, n.tick) / 16), Math.round(n.duration * factor)),
+    })),
+    summary: '',
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1054,10 +1332,14 @@ export function swingNotes(ctx: TransformContext, notes: WorkNote[]): TransformR
       m.duration = Math.max(Math.round(unit / 8), m.duration - shift);
       return m;
     }
-    if (rel < unit / 12 && Math.abs(n.duration - unit / 2) < unit / 8) return { ...cloneN(n), duration: n.duration + shift };
+    if (rel < unit / 12 && Math.abs(n.duration - unit / 2) < unit / 8)
+      return { ...cloneN(n), duration: n.duration + shift };
     return n;
   });
-  return { notes: out, summary: `swung ${moved} off-beat ${unit === tpb(ctx, notes[0]?.tick ?? 0) ? '8th' : '16th'} note${moved === 1 ? '' : 's'} toward a triplet feel` };
+  return {
+    notes: out,
+    summary: `swung ${moved} off-beat ${unit === tpb(ctx, notes[0]?.tick ?? 0) ? '8th' : '16th'} note${moved === 1 ? '' : 's'} toward a triplet feel`,
+  };
 }
 
 export function straightenNotes(ctx: TransformContext, notes: WorkNote[]): TransformResult {
@@ -1098,7 +1380,9 @@ export function syncopateNotes(ctx: TransformContext, notes: WorkNote[]): Transf
     } else if (!strong) continue;
     if (!ctx.rng.chance(Math.min(0.9, 0.55 * ctx.amount))) continue;
     const beat = tpb(ctx, n.tick);
-    const shift = Math.round(isPolyphonic(sorted) || ctx.isBass ? beat / 2 : ctx.rng.chance(0.5) ? beat / 2 : beat / 4);
+    const shift = Math.round(
+      isPolyphonic(sorted) || ctx.isBass ? beat / 2 : ctx.rng.chance(0.5) ? beat / 2 : beat / 4,
+    );
     const newTick = n.tick - shift;
     if (!inScope(ctx, newTick)) continue;
     const group = ctx.isDrums ? [n] : sorted.filter((m) => m.tick === n.tick);
@@ -1106,10 +1390,17 @@ export function syncopateNotes(ctx: TransformContext, notes: WorkNote[]): Transf
       m.tick = newTick;
       m.duration += ctx.isDrums ? 0 : shift;
     }
-    for (const p of sorted) if (p.tick < newTick && p.tick + p.duration > newTick && !group.includes(p) && !ctx.isDrums) p.duration = Math.max(Math.round(beat / 8), newTick - p.tick);
+    for (const p of sorted)
+      if (p.tick < newTick && p.tick + p.duration > newTick && !group.includes(p) && !ctx.isDrums)
+        p.duration = Math.max(Math.round(beat / 8), newTick - p.tick);
     moved += group.length;
   }
-  return { notes: sortWork(sorted), summary: moved ? `anticipated ${moved} strong-beat note${moved === 1 ? '' : 's'} (pushed ahead of the beat)` : 'no strong-beat notes to push' };
+  return {
+    notes: sortWork(sorted),
+    summary: moved
+      ? `anticipated ${moved} strong-beat note${moved === 1 ? '' : 's'} (pushed ahead of the beat)`
+      : 'no strong-beat notes to push',
+  };
 }
 
 export function desyncopateNotes(ctx: TransformContext, notes: WorkNote[]): TransformResult {
@@ -1133,7 +1424,12 @@ export function desyncopateNotes(ctx: TransformContext, notes: WorkNote[]): Tran
   return { notes: out, summary: `moved ${moved} off-beat note${moved === 1 ? '' : 's'} onto the beat` };
 }
 
-export function quantizeNotes(ctx: TransformContext, notes: WorkNote[], gridBeats: number, strength: number): TransformResult {
+export function quantizeNotes(
+  ctx: TransformContext,
+  notes: WorkNote[],
+  gridBeats: number,
+  strength: number,
+): TransformResult {
   return {
     notes: notes.map((n) => {
       const start = barToTick(ctx.song, barIndex(ctx.song, n.tick));
@@ -1161,7 +1457,11 @@ export function humanizeNotes(ctx: TransformContext, notes: WorkNote[], amount: 
 // Removal & fills
 // ---------------------------------------------------------------------------
 
-export function removeNotes(ctx: TransformContext, notes: WorkNote[], filter?: { drumPitches?: number[]; ghost?: boolean; high?: boolean; low?: boolean }): TransformResult {
+export function removeNotes(
+  ctx: TransformContext,
+  notes: WorkNote[],
+  filter?: { drumPitches?: number[]; ghost?: boolean; high?: boolean; low?: boolean },
+): TransformResult {
   let pred: (n: WorkNote) => boolean = () => true;
   let what = 'all notes in range';
   if (filter?.drumPitches) {
@@ -1178,7 +1478,10 @@ export function removeNotes(ctx: TransformContext, notes: WorkNote[], filter?: {
     what = filter.high ? 'the highest notes' : 'the lowest notes';
   }
   const kept = notes.filter((n) => !pred(n));
-  return { notes: kept, summary: `removed ${notes.length - kept.length} note${notes.length - kept.length === 1 ? '' : 's'} (${what})` };
+  return {
+    notes: kept,
+    summary: `removed ${notes.length - kept.length} note${notes.length - kept.length === 1 ? '' : 's'} (${what})`,
+  };
 }
 
 export function addDrumFills(ctx: TransformContext, notes: WorkNote[], everyBars: number): TransformResult {
@@ -1199,9 +1502,25 @@ export function addDrumFills(ctx: TransformContext, notes: WorkNote[], everyBars
     const beat = tpb(ctx, end - 1);
     const s = end - beat;
     if (!inScope(ctx, s)) continue;
-    result = result.filter((n) => !(n.tick >= s && n.tick < end && (HAT_PITCHES.has(n.pitch) || SNARES.has(n.pitch) || TOMS.has(n.pitch))));
-    for (let k = 0; k < 4; k++) result.push({ pitch: toms[k], tick: s + Math.round((k * beat) / 4), duration: Math.round(beat / 4), velocity: clampVel(88 + k * 7) });
+    result = result.filter(
+      (n) =>
+        !(
+          n.tick >= s &&
+          n.tick < end &&
+          (HAT_PITCHES.has(n.pitch) || SNARES.has(n.pitch) || TOMS.has(n.pitch))
+        ),
+    );
+    for (let k = 0; k < 4; k++)
+      result.push({
+        pitch: toms[k],
+        tick: s + Math.round((k * beat) / 4),
+        duration: Math.round(beat / 4),
+        velocity: clampVel(88 + k * 7),
+      });
     fills++;
   }
-  return { notes: result, summary: `added ${fills} tom fill${fills === 1 ? '' : 's'} on the last beat of ${everyBars === 1 ? 'the range' : `every ${everyBars} bars`}` };
+  return {
+    notes: result,
+    summary: `added ${fills} tom fill${fills === 1 ? '' : 's'} on the last beat of ${everyBars === 1 ? 'the range' : `every ${everyBars} bars`}`,
+  };
 }

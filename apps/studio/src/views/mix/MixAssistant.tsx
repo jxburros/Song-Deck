@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
-import { interpretMixInstruction, stableStringify, tickToMusical, type AutomationLane, type Proposal, type Song } from '@songdeck/core';
+import {
+  TRACK_NEUTRAL,
+  interpretMixInstruction,
+  stableStringify,
+  tickToMusical,
+  type AutomationLane,
+  type Proposal,
+  type Song,
+} from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { propose } from '../../engine/proposals';
 import { aiMix } from '../../engine/ai';
@@ -32,7 +40,10 @@ interface LogEntry {
   at: string;
 }
 
-const useAssistantLog = create<{ entries: LogEntry[]; provider: string }>(() => ({ entries: [], provider: 'auto' }));
+const useAssistantLog = create<{ entries: LogEntry[]; provider: string }>(() => ({
+  entries: [],
+  provider: 'auto',
+}));
 
 let seq = 0;
 
@@ -40,7 +51,13 @@ let seq = 0;
 export function isMixProposal(p: Proposal): boolean {
   const d = p.diff;
   const notes = d.tracks.some((t) => t.added.length || t.removed.length || t.modified.length);
-  return !notes && !d.sectionsChanged && !d.tempoChanged && !d.keyChanged && (d.mixerChanged.length > 0 || d.automationChanged);
+  return (
+    !notes &&
+    !d.sectionsChanged &&
+    !d.tempoChanged &&
+    !d.keyChanged &&
+    (d.mixerChanged.length > 0 || d.automationChanged)
+  );
 }
 
 function fmtValue(field: string, v: unknown): string {
@@ -61,18 +78,26 @@ function fieldLabel(field: string, master: boolean): string {
   if (field === 'mute') return 'Mute';
   if (field === 'solo') return 'Solo';
   const meta = FIELD_META[field];
-  if (meta) return master && field.startsWith('compressor.') ? meta.label.replace('Compressor', 'Glue compressor') : meta.label;
+  if (meta)
+    return master && field.startsWith('compressor.')
+      ? meta.label.replace('Compressor', 'Glue compressor')
+      : meta.label;
   return field;
 }
 
-function delta(field: string, before: unknown, after: unknown): { text: string; dir: 'up' | 'down' | 'none' } {
+function delta(
+  field: string,
+  before: unknown,
+  after: unknown,
+): { text: string; dir: 'up' | 'down' | 'none' } {
   if (typeof before !== 'number' || typeof after !== 'number') return { text: '', dir: 'none' };
   const d = after - before;
   if (Math.abs(d) < 1e-9) return { text: '', dir: 'none' };
   const dir = d > 0 ? 'up' : 'down';
   if (field === 'volumeDb' || /Db$/.test(field)) return { text: `${fmtDb(d)} dB`, dir };
   if (field === 'pan') return { text: d > 0 ? '→ R' : '→ L', dir };
-  if (/Send$|^width$|^drive$|feedback|size|damping/.test(field)) return { text: `${d > 0 ? '+' : '−'}${Math.round(Math.abs(d) * 100)}%`, dir };
+  if (/Send$|^width$|^drive$|feedback|size|damping/.test(field))
+    return { text: `${d > 0 ? '+' : '−'}${Math.round(Math.abs(d) * 100)}%`, dir };
   return { text: '', dir };
 }
 
@@ -93,24 +118,41 @@ function automationChanges(song: Song, before: AutomationLane[], after: Automati
     const last = tickToMusical(song, l.points[l.points.length - 1].tick).bar;
     return first === last ? ` at bar ${first}` : ` over bars ${first}–${last}`;
   };
-  const title = (l: AutomationLane) => `${targetName(song, l.target)} · ${AUTOMATION_META[l.param]?.label ?? l.param}`;
+  const title = (l: AutomationLane) =>
+    `${targetName(song, l.target)} · ${AUTOMATION_META[l.param]?.label ?? l.param}`;
   for (const [k, l] of a) {
     const prev = b.get(k);
     if (!prev) {
       const vals = l.points.map((p) => p.value);
       const meta = AUTOMATION_META[l.param];
-      const range = vals.length && meta ? ` (${meta.fmt(Math.min(...vals))} … ${meta.fmt(Math.max(...vals))})` : '';
-      out.push({ title: title(l), detail: `new lane, ${l.points.length} point${l.points.length === 1 ? '' : 's'}${bars(l)}${range}`, kind: 'added' });
+      const range =
+        vals.length && meta ? ` (${meta.fmt(Math.min(...vals))} … ${meta.fmt(Math.max(...vals))})` : '';
+      out.push({
+        title: title(l),
+        detail: `new lane, ${l.points.length} point${l.points.length === 1 ? '' : 's'}${bars(l)}${range}`,
+        kind: 'added',
+      });
     } else if (stableStringify(prev) !== stableStringify(l)) {
-      out.push({ title: title(l), detail: `${prev.points.length} → ${l.points.length} points${bars(l)}${prev.enabled !== l.enabled ? (l.enabled ? ', enabled' : ', disabled') : ''}`, kind: 'changed' });
+      out.push({
+        title: title(l),
+        detail: `${prev.points.length} → ${l.points.length} points${bars(l)}${prev.enabled !== l.enabled ? (l.enabled ? ', enabled' : ', disabled') : ''}`,
+        kind: 'changed',
+      });
     }
   }
-  for (const [k, l] of b) if (!a.has(k)) out.push({ title: title(l), detail: 'lane removed', kind: 'removed' });
+  for (const [k, l] of b)
+    if (!a.has(k)) out.push({ title: title(l), detail: 'lane removed', kind: 'removed' });
   return out;
 }
 
 /** Long assistant explanations collapse to four lines. */
-function Explanation({ text, className = 'small mx-proposal-explain' }: { text: string; className?: string }) {
+function Explanation({
+  text,
+  className = 'small mx-proposal-explain',
+}: {
+  text: string;
+  className?: string;
+}) {
   const [open, setOpen] = useState(false);
   const long = text.length > 220;
   return (
@@ -155,18 +197,28 @@ function ProposalCard({ proposal, song }: { proposal: Proposal; song: Song }) {
             return (
               <div className="mx-diff-group" role="rowgroup" key={target}>
                 <div className="mx-diff-target" role="row">
-                  <span className="mx-color-dot" style={{ background: target === 'master' ? 'var(--accent)' : (track?.color ?? '#9aa3b2') }} />
+                  <span
+                    className="mx-color-dot"
+                    style={{
+                      background: target === 'master' ? 'var(--accent)' : (track?.color ?? TRACK_NEUTRAL),
+                    }}
+                  />
                   <span role="rowheader">{targetName(song, target)}</span>
                 </div>
                 {list.map((r) => {
                   const d = delta(r.field, r.before, r.after);
                   return (
                     <div className="mx-diff-row" role="row" key={r.field}>
-                      <span className="mx-diff-field" role="cell" title={fieldLabel(r.field, target === 'master')}>
+                      <span
+                        className="mx-diff-field"
+                        role="cell"
+                        title={fieldLabel(r.field, target === 'master')}
+                      >
                         {fieldLabel(r.field, target === 'master')}
                       </span>
                       <span className="mx-diff-vals" role="cell">
-                        <span className="dim">{fmtValue(r.field, r.before)}</span> → {fmtValue(r.field, r.after)}
+                        <span className="dim">{fmtValue(r.field, r.before)}</span> →{' '}
+                        {fmtValue(r.field, r.after)}
                       </span>
                       <span className={`mx-delta ${d.dir}`} role="cell">
                         {d.text}
@@ -275,18 +327,37 @@ export function MixAssistant({ song }: { song: Song }) {
         const interp = interpretMixInstruction(song, instr);
         explanation = interp.explanation;
         source = 'On-device mix assistant';
-        const p = propose(song, interp.operations, { title: `Mix: ${instr}`, source: 'internal', instruction: instr, explanation: interp.explanation });
+        const p = propose(song, interp.operations, {
+          title: `Mix: ${instr}`,
+          source: 'internal',
+          instruction: instr,
+          explanation: interp.explanation,
+        });
         proposalId = p?.id;
         if (!(err instanceof Error && /no provider|not configured|unavailable/i.test(err.message))) {
-          st.toast('warning', `AI mix provider unavailable — used the on-device assistant. ${err instanceof Error ? err.message : ''}`);
+          st.toast(
+            'warning',
+            `AI mix provider unavailable — used the on-device assistant. ${err instanceof Error ? err.message : ''}`,
+          );
         }
       }
       useAssistantLog.setState((s) => ({
-        entries: [...s.entries, { id: `mx${seq++}`, instruction: instr, explanation: explanation || 'No mixer change was needed.', source, proposalId, at: new Date().toISOString() }].slice(-20),
+        entries: [
+          ...s.entries,
+          {
+            id: `mx${seq++}`,
+            instruction: instr,
+            explanation: explanation || 'No mixer change was needed.',
+            source,
+            proposalId,
+            at: new Date().toISOString(),
+          },
+        ].slice(-20),
       }));
       setInstruction('');
     } catch (err) {
-      if (!(err instanceof Error && err.name === 'AbortError')) st.toast('error', `Mix assistant failed: ${err instanceof Error ? err.message : String(err)}`);
+      if (!(err instanceof Error && err.name === 'AbortError'))
+        st.toast('error', `Mix assistant failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy(false);
     }
@@ -301,8 +372,8 @@ export function MixAssistant({ song }: { song: Song }) {
       </div>
       <div className="mx-assistant-body">
         <div className="small muted">
-          Describe the sound you want. Requests become ordinary mixer and automation changes you can review — audio is never regenerated, so the result
-          stays deterministic.
+          Describe the sound you want. Requests become ordinary mixer and automation changes you can review —
+          audio is never regenerated, so the result stays deterministic.
         </div>
         <Field label="Mix instruction">
           <TextArea
@@ -321,16 +392,32 @@ export function MixAssistant({ song }: { song: Song }) {
         </Field>
         <div className="chip-list">
           {MIX_EXAMPLES.map((ex) => (
-            <button key={ex} type="button" className="chip" onClick={() => setInstruction(ex)} title="Use this example">
+            <button
+              key={ex}
+              type="button"
+              className="chip"
+              onClick={() => setInstruction(ex)}
+              title="Use this example"
+            >
               {ex.length > 44 ? `${ex.slice(0, 42)}…` : ex}
             </button>
           ))}
         </div>
         <div className="row">
           <div className="grow">
-            <ProviderPicker role="mixing" value={provider} onChange={(v) => useAssistantLog.setState({ provider: v })} size="sm" />
+            <ProviderPicker
+              role="mixing"
+              value={provider}
+              onChange={(v) => useAssistantLog.setState({ provider: v })}
+              size="sm"
+            />
           </div>
-          <Button variant="ai" icon="sparkles" onClick={() => void run(instruction)} disabled={busy || !instruction.trim()}>
+          <Button
+            variant="ai"
+            icon="sparkles"
+            onClick={() => void run(instruction)}
+            disabled={busy || !instruction.trim()}
+          >
             {busy ? <Spinner /> : null}
             {busy ? 'Thinking…' : 'Propose mix change'}
           </Button>
@@ -361,7 +448,13 @@ export function MixAssistant({ song }: { song: Song }) {
                   <Explanation text={e.explanation} className="small" />
                   <div className="row small dim" style={{ marginTop: 4 }}>
                     <span>{e.source}</span>
-                    {p && <Badge tone={p.status === 'accepted' ? 'success' : p.status === 'pending' ? 'ai' : undefined}>{p.status}</Badge>}
+                    {p && (
+                      <Badge
+                        tone={p.status === 'accepted' ? 'success' : p.status === 'pending' ? 'ai' : undefined}
+                      >
+                        {p.status}
+                      </Badge>
+                    )}
                     {!e.proposalId && <Badge>no change</Badge>}
                   </div>
                 </div>

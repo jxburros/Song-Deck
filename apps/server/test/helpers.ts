@@ -25,7 +25,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<TestServer>
     vault: 'memory',
     logLevel: 'silent',
     pluginDirs: [],
-    discovery: { ollamaUrl: false, lmStudioUrl: false, ...(opts.discovery ?? {}) },
+    discovery: { ollamaUrl: false, lmStudioUrl: false, localServices: false, ...(opts.discovery ?? {}) },
     ...opts,
     dataDir,
   });
@@ -48,7 +48,9 @@ export interface MockServer {
 }
 
 /** A local HTTP server for upstream mocks (providers, Ollama, bridges). */
-export async function startMock(handler: (req: IncomingMessage, res: ServerResponse, body: Buffer) => unknown): Promise<MockServer> {
+export async function startMock(
+  handler: (req: IncomingMessage, res: ServerResponse, body: Buffer) => unknown,
+): Promise<MockServer> {
   const requests: MockServer['requests'] = [];
   const server = http.createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -87,11 +89,19 @@ export function rawRequest(
   const u = new URL(url);
   return new Promise((resolve, reject) => {
     const req = http.request(
-      { host: u.hostname, port: u.port, method: opts.method ?? 'GET', path: opts.path ?? `${u.pathname}${u.search}`, headers: opts.headers },
+      {
+        host: u.hostname,
+        port: u.port,
+        method: opts.method ?? 'GET',
+        path: opts.path ?? `${u.pathname}${u.search}`,
+        headers: opts.headers,
+      },
       (res) => {
         const chunks: Buffer[] = [];
         res.on('data', (c: Buffer) => chunks.push(c));
-        res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) }));
+        res.on('end', () =>
+          resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) }),
+        );
       },
     );
     req.on('error', reject);

@@ -37,17 +37,77 @@ export {
   melToHz,
   type Filterbank,
 } from './features';
-export { detectOnsets, onsetEnvelopeFromSignal, pickOnsetPeaks, type OnsetResult, type OnsetOptions, type OnsetEnvelope, type PeakPickOptions } from './onsets';
-export { detectTempo, tempoFromEnvelope, trackBeats, estimateMeter, beatsToBpm, extendBeatGrid, tempoPrior, type TempoResult, type TempoOptions } from './tempo';
-export { chromagram, chromagramFromSignal, syncChroma, normalizeChroma, estimateTuning, type ChromaResult, type ChromaOptions } from './chroma';
-export { detectKey, keyFromHistogram, keyFromNotes, chromaHistogram, type KeyResult, type KeyInput } from './key';
+export {
+  detectOnsets,
+  onsetEnvelopeFromSignal,
+  pickOnsetPeaks,
+  type OnsetResult,
+  type OnsetOptions,
+  type OnsetEnvelope,
+  type PeakPickOptions,
+} from './onsets';
+export {
+  detectTempo,
+  tempoFromEnvelope,
+  trackBeats,
+  estimateMeter,
+  beatsToBpm,
+  extendBeatGrid,
+  tempoPrior,
+  type TempoResult,
+  type TempoOptions,
+} from './tempo';
+export {
+  chromagram,
+  chromagramFromSignal,
+  syncChroma,
+  normalizeChroma,
+  estimateTuning,
+  type ChromaResult,
+  type ChromaOptions,
+} from './chroma';
+export {
+  detectKey,
+  keyFromHistogram,
+  keyFromNotes,
+  chromaHistogram,
+  type KeyResult,
+  type KeyInput,
+} from './key';
 export { detectChords, chordsFromChroma, type ChordSegment, type ChordOptions } from './chords';
 export { trackPitch, yinTrack, medianF0, type PitchTrack, type PitchTrackOptions } from './pitch-yin';
-export { transcribeMonophonic, notesFromPitchTrack, type MonophonicOptions, type MonophonicResult } from './transcribe-mono';
-export { transcribePolyphonic, transcribePolyphonicSignal, type PolyphonicOptions, type PolyphonicResult } from './transcribe-poly';
-export { transcribeDrums, type DrumTranscriptionOptions, type DrumTranscriptionResult } from './transcribe-drums';
-export { separateSources, medianFilterTime, medianFilterFreq, type SeparationOptions, type SeparationResult } from './separation';
-export { classifyStem, stemFeatures, STEM_INSTRUMENT_ROLE, type StemClassification, type StemInstrumentId, type ClassifyOptions } from './classify';
+export {
+  transcribeMonophonic,
+  notesFromPitchTrack,
+  type MonophonicOptions,
+  type MonophonicResult,
+} from './transcribe-mono';
+export {
+  transcribePolyphonic,
+  transcribePolyphonicSignal,
+  type PolyphonicOptions,
+  type PolyphonicResult,
+} from './transcribe-poly';
+export {
+  transcribeDrums,
+  type DrumTranscriptionOptions,
+  type DrumTranscriptionResult,
+} from './transcribe-drums';
+export {
+  separateSources,
+  medianFilterTime,
+  medianFilterFreq,
+  type SeparationOptions,
+  type SeparationResult,
+} from './separation';
+export {
+  classifyStem,
+  stemFeatures,
+  STEM_INSTRUMENT_ROLE,
+  type StemClassification,
+  type StemInstrumentId,
+  type ClassifyOptions,
+} from './classify';
 export { segmentStructure, assignKinds, type StructureSegment, type StructureOptions } from './structure';
 export {
   transcribedToNotes,
@@ -61,5 +121,31 @@ export {
   type DrumHitsToNotesOptions,
   type TapsToNotesOptions,
 } from './quantize';
-export { transcribeAudio, gridOrigin, type TranscriptionSource, type TranscribeAudioOptions, type TranscribeAudioResult } from './transcribe';
-export { rebuildProject, type RebuildStage, type RebuildStageId, type RebuildReport, type RebuildOptions } from './rebuild';
+export {
+  transcribeAudio,
+  gridOrigin,
+  type TranscriptionSource,
+  type TranscribeAudioOptions,
+  type TranscribeAudioResult,
+} from './transcribe';
+export {
+  rebuildProject,
+  type RebuildStage,
+  type RebuildStageId,
+  type RebuildReport,
+  type RebuildOptions,
+} from './rebuild';
+export {
+  chromaprintFingerprint,
+  chromaprintRaw,
+  compressFingerprint,
+  encodeChromaprint,
+  chromaprintBase64,
+  fingerprintBitErrorRate,
+  resampleForFingerprint,
+  CHROMAPRINT_ALGORITHM,
+  CHROMAPRINT_SAMPLE_RATE,
+  CHROMAPRINT_MAX_SECONDS,
+  type ChromaprintOptions,
+  type ChromaprintResult,
+} from './chromaprint';

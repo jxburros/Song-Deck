@@ -64,14 +64,21 @@ export function framePeaks(
     amp.push(Math.exp(lb - 0.25 * (la - lc) * d));
   }
   if (freq.length > maxPeaks) {
-    const idx = amp.map((_, i) => i).sort((i, j) => amp[j] - amp[i]).slice(0, maxPeaks).sort((i, j) => i - j);
+    const idx = amp
+      .map((_, i) => i)
+      .sort((i, j) => amp[j] - amp[i])
+      .slice(0, maxPeaks)
+      .sort((i, j) => i - j);
     return { freq: idx.map((i) => freq[i]), amp: idx.map((i) => amp[i]) };
   }
   return { freq, amp };
 }
 
 /** Weighted circular mean of fractional MIDI pitch → tuning offset in semitones (-0.5..0.5). */
-export function estimateTuning(pitches: ArrayLike<number>, weights: ArrayLike<number>): { offset: number; strength: number } {
+export function estimateTuning(
+  pitches: ArrayLike<number>,
+  weights: ArrayLike<number>,
+): { offset: number; strength: number } {
   let c = 0;
   let s = 0;
   let w = 0;
@@ -157,7 +164,13 @@ export function chromagramFromSignal(x: Float32Array, sr: number, opts: ChromaOp
     frames.push(c);
     bassFrames.push(b);
   }
-  return { frames, bassFrames, hopSeconds: hop / sr, tuningCents: Math.round(tuning * 100), energy: Float32Array.from(energy) };
+  return {
+    frames,
+    bassFrames,
+    hopSeconds: hop / sr,
+    tuningCents: Math.round(tuning * 100),
+    energy: Float32Array.from(energy),
+  };
 }
 
 /** Chromagram of a recording (mixes down to mono, analyses at ≈ 22 kHz). */

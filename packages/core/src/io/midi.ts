@@ -1,4 +1,16 @@
-import type { ChordEvent, KeyEvent, KeySignature, LyricLine, MeterEvent, ModeName, Note, Section, Song, TempoEvent, Track } from '../ir/types';
+import type {
+  ChordEvent,
+  KeyEvent,
+  KeySignature,
+  LyricLine,
+  MeterEvent,
+  ModeName,
+  Note,
+  Section,
+  Song,
+  TempoEvent,
+  Track,
+} from '../ir/types';
 import { PPQ } from '../ir/types';
 import { createEmptySong, defaultChannelStrip } from '../ir/defaults';
 import { GM_DRUM_CHANNEL, GM_PROGRAM_NAMES } from '../ir/gm';
@@ -9,7 +21,13 @@ import { chordToRoman } from '../theory/roman';
 import { mod12 } from '../theory/pitch';
 import type { IdFactory } from '../util/ids';
 import { randomId } from '../util/ids';
-import { colorForStemGroup, instrumentIdForProgram, isDrumTrack, lookupInstrument, type InstrumentLookupOptions } from '../edit/instruments';
+import {
+  colorForStemGroup,
+  instrumentIdForProgram,
+  isDrumTrack,
+  lookupInstrument,
+  type InstrumentLookupOptions,
+} from '../edit/instruments';
 import { MODE_NAMES, MUSICAL_FUNCTIONS, SECTION_KINDS, TRACK_ROLES, isRecord, oneOf } from '../edit/util';
 import { concatBytes, decodeText, inferSectionKind, keyFifths, keyFromFifths, utf8 } from './util';
 
@@ -27,7 +45,14 @@ export type MidiEvent =
   /** Pitch bend −8192…8191. */
   | { tick: number; type: 'pitchBend'; channel: number; value: number }
   | { tick: number; type: 'tempo'; microsecondsPerQuarter: number }
-  | { tick: number; type: 'timeSignature'; numerator: number; denominator: number; clocksPerClick: number; thirtySecondsPerQuarter: number }
+  | {
+      tick: number;
+      type: 'timeSignature';
+      numerator: number;
+      denominator: number;
+      clocksPerClick: number;
+      thirtySecondsPerQuarter: number;
+    }
   /** Key signature: −7 (7 flats) … +7 (7 sharps), minor flag. */
   | { tick: number; type: 'keySignature'; sharps: number; minor: boolean }
   /** Text-like meta events: 1 text, 2 copyright, 3 track name, 4 instrument, 5 lyric, 6 marker, 7 cue point. */
@@ -50,7 +75,16 @@ export interface MidiFile {
   tracks: MidiTrack[];
 }
 
-export const META = { TEXT: 1, COPYRIGHT: 2, TRACK_NAME: 3, INSTRUMENT: 4, LYRIC: 5, MARKER: 6, CUE: 7, SEQUENCER: 0x7f } as const;
+export const META = {
+  TEXT: 1,
+  COPYRIGHT: 2,
+  TRACK_NAME: 3,
+  INSTRUMENT: 4,
+  LYRIC: 5,
+  MARKER: 6,
+  CUE: 7,
+  SEQUENCER: 0x7f,
+} as const;
 
 // ---------------------------------------------------------------------------
 // Writer
@@ -160,7 +194,15 @@ function writeEvent(w: ByteWriter, e: MidiEvent, running: { status: number }, us
     }
     case 'timeSignature': {
       const dd = Math.max(0, Math.round(Math.log2(Math.max(1, e.denominator))));
-      w.bytes([0xff, 0x58, 0x04, e.numerator & 0xff, dd, e.clocksPerClick & 0xff, e.thirtySecondsPerQuarter & 0xff]);
+      w.bytes([
+        0xff,
+        0x58,
+        0x04,
+        e.numerator & 0xff,
+        dd,
+        e.clocksPerClick & 0xff,
+        e.thirtySecondsPerQuarter & 0xff,
+      ]);
       return;
     }
     case 'keySignature': {
@@ -245,7 +287,8 @@ export function parseMidiFile(bytes: Uint8Array): MidiFile {
       p += 8 + len + (len & 1);
     }
   }
-  if (data.length < pos + 14 || str(pos) !== 'MThd') throw new Error('Not a Standard MIDI File (missing MThd header).');
+  if (data.length < pos + 14 || str(pos) !== 'MThd')
+    throw new Error('Not a Standard MIDI File (missing MThd header).');
   const headerLen = u32(pos + 4);
   const formatRaw = u16(pos + 8);
   const ntrks = u16(pos + 10);
@@ -303,11 +346,26 @@ function parseTrack(data: Uint8Array, start: number, end: number): MidiTrack {
       pos += len;
       running = 0;
       if (type === 0x2f) return { events, endTick: tick };
-      if (type === 0x51 && d.length >= 3) events.push({ tick, type: 'tempo', microsecondsPerQuarter: (d[0] << 16) | (d[1] << 8) | d[2] });
+      if (type === 0x51 && d.length >= 3)
+        events.push({ tick, type: 'tempo', microsecondsPerQuarter: (d[0] << 16) | (d[1] << 8) | d[2] });
       else if (type === 0x58 && d.length >= 2)
-        events.push({ tick, type: 'timeSignature', numerator: d[0], denominator: 2 ** d[1], clocksPerClick: d[2] ?? 24, thirtySecondsPerQuarter: d[3] ?? 8 });
-      else if (type === 0x59 && d.length >= 2) events.push({ tick, type: 'keySignature', sharps: d[0] > 127 ? d[0] - 256 : d[0], minor: d[1] === 1 });
-      else if (type >= 0x01 && type <= 0x0f) events.push({ tick, type: 'text', metaType: type, text: decodeText(d) });
+        events.push({
+          tick,
+          type: 'timeSignature',
+          numerator: d[0],
+          denominator: 2 ** d[1],
+          clocksPerClick: d[2] ?? 24,
+          thirtySecondsPerQuarter: d[3] ?? 8,
+        });
+      else if (type === 0x59 && d.length >= 2)
+        events.push({
+          tick,
+          type: 'keySignature',
+          sharps: d[0] > 127 ? d[0] - 256 : d[0],
+          minor: d[1] === 1,
+        });
+      else if (type >= 0x01 && type <= 0x0f)
+        events.push({ tick, type: 'text', metaType: type, text: decodeText(d) });
       else events.push({ tick, type: 'meta', metaType: type, data: d.slice() });
       continue;
     }
@@ -384,11 +442,20 @@ const STEM_GROUPS = ['vocals', 'drums', 'bass', 'guitars', 'keys', 'strings', 'o
 const SONGDECK_MANUFACTURER = 0x7d;
 
 function songDeckMeta(tick: number, payload: unknown): MidiEvent {
-  return { tick, type: 'meta', metaType: META.SEQUENCER, data: concatBytes([Uint8Array.of(SONGDECK_MANUFACTURER), utf8(SONGDECK_PREFIX + JSON.stringify(payload))]) };
+  return {
+    tick,
+    type: 'meta',
+    metaType: META.SEQUENCER,
+    data: concatBytes([
+      Uint8Array.of(SONGDECK_MANUFACTURER),
+      utf8(SONGDECK_PREFIX + JSON.stringify(payload)),
+    ]),
+  };
 }
 
 function readSongDeckMeta(e: MidiEvent): Record<string, unknown> | undefined {
-  if (e.type !== 'meta' || e.metaType !== META.SEQUENCER || e.data[0] !== SONGDECK_MANUFACTURER) return undefined;
+  if (e.type !== 'meta' || e.metaType !== META.SEQUENCER || e.data[0] !== SONGDECK_MANUFACTURER)
+    return undefined;
   const text = decodeText(e.data.subarray(1));
   if (!text.startsWith(SONGDECK_PREFIX)) return undefined;
   try {
@@ -410,19 +477,33 @@ export function assignChannels(tracks: Track[], lookup: InstrumentLookupOptions 
       continue;
     }
     const ch = t.midiChannel;
-    if (ch !== undefined && Number.isInteger(ch) && ch >= 0 && ch <= 15 && ch !== GM_DRUM_CHANNEL && !used.has(ch)) {
+    if (
+      ch !== undefined &&
+      Number.isInteger(ch) &&
+      ch >= 0 &&
+      ch <= 15 &&
+      ch !== GM_DRUM_CHANNEL &&
+      !used.has(ch)
+    ) {
       out.set(t.id, ch);
       used.add(ch);
     } else pending.push(t);
   }
   const free = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15].filter((c) => !used.has(c));
-  pending.forEach((t, i) => out.set(t.id, free.length ? free[i % free.length] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15][i % 15]));
+  pending.forEach((t, i) =>
+    out.set(
+      t.id,
+      free.length ? free[i % free.length] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15][i % 15],
+    ),
+  );
   return out;
 }
 
 /** Non-overlapping note on/off pairs per pitch (same-pitch overlaps are cut at the next onset). */
 function notePairs(notes: readonly Note[]): { note: Note; end: number }[] {
-  const sorted = [...notes].filter((n) => Number.isFinite(n.tick) && n.duration > 0).sort((a, b) => a.tick - b.tick || a.pitch - b.pitch);
+  const sorted = [...notes]
+    .filter((n) => Number.isFinite(n.tick) && n.duration > 0)
+    .sort((a, b) => a.tick - b.tick || a.pitch - b.pitch);
   const nextByPitch = new Map<number, number>();
   const out: { note: Note; end: number }[] = [];
   for (let i = sorted.length - 1; i >= 0; i--) {
@@ -455,21 +536,55 @@ function sortRanked(list: Ranked[]): MidiEvent[] {
 
 function conductorEvents(song: Song, opts: SongToMidiOptions, trackOrder: Track[]): Ranked[] {
   const out: Ranked[] = [];
-  out.push({ e: { tick: 0, type: 'text', metaType: META.TRACK_NAME, text: song.title || 'Song' }, rank: RANK.meta });
+  out.push({
+    e: { tick: 0, type: 'text', metaType: META.TRACK_NAME, text: song.title || 'Song' },
+    rank: RANK.meta,
+  });
   const tempos = [...song.tempoMap].sort((a, b) => a.tick - b.tick);
   if (!tempos.length || tempos[0].tick !== 0) tempos.unshift({ tick: 0, bpm: tempos[0]?.bpm ?? 120 });
-  for (const t of tempos) out.push({ e: { tick: Math.round(t.tick), type: 'tempo', microsecondsPerQuarter: 60_000_000 / t.bpm }, rank: RANK.meta });
+  for (const t of tempos)
+    out.push({
+      e: { tick: Math.round(t.tick), type: 'tempo', microsecondsPerQuarter: 60_000_000 / t.bpm },
+      rank: RANK.meta,
+    });
   const meters = [...song.meterMap].sort((a, b) => a.bar - b.bar);
-  if (!meters.length || meters[0].bar !== 0) meters.unshift({ bar: 0, numerator: meters[0]?.numerator ?? 4, denominator: meters[0]?.denominator ?? 4 });
+  if (!meters.length || meters[0].bar !== 0)
+    meters.unshift({
+      bar: 0,
+      numerator: meters[0]?.numerator ?? 4,
+      denominator: meters[0]?.denominator ?? 4,
+    });
   for (const m of meters) {
-    out.push({ e: { tick: barToTick(song, m.bar), type: 'timeSignature', numerator: m.numerator, denominator: m.denominator, clocksPerClick: 24, thirtySecondsPerQuarter: 8 }, rank: RANK.meta });
+    out.push({
+      e: {
+        tick: barToTick(song, m.bar),
+        type: 'timeSignature',
+        numerator: m.numerator,
+        denominator: m.denominator,
+        clocksPerClick: 24,
+        thirtySecondsPerQuarter: 8,
+      },
+      rank: RANK.meta,
+    });
   }
   const keys = [...song.keyMap].sort((a, b) => a.bar - b.bar);
   for (const k of keys) {
-    out.push({ e: { tick: barToTick(song, k.bar), type: 'keySignature', sharps: keyFifths(k.key), minor: isMinorFlag(k.key) }, rank: RANK.meta });
+    out.push({
+      e: {
+        tick: barToTick(song, k.bar),
+        type: 'keySignature',
+        sharps: keyFifths(k.key),
+        minor: isMinorFlag(k.key),
+      },
+      rank: RANK.meta,
+    });
   }
   if (opts.includeMarkers !== false) {
-    for (const span of sectionLayout(song)) out.push({ e: { tick: span.startTick, type: 'text', metaType: META.MARKER, text: span.section.name }, rank: RANK.meta });
+    for (const span of sectionLayout(song))
+      out.push({
+        e: { tick: span.startTick, type: 'text', metaType: META.MARKER, text: span.section.name },
+        rank: RANK.meta,
+      });
   }
   if (opts.includeSongDeckMeta !== false) {
     const trackIndex = new Map(trackOrder.map((t, i) => [t.id, i] as const));
@@ -503,10 +618,23 @@ function conductorEvents(song: Song, opts: SongToMidiOptions, trackOrder: Track[
 }
 
 function isMinorFlag(key: KeySignature): boolean {
-  return key.mode === 'minor' || key.mode === 'harmonic-minor' || key.mode === 'melodic-minor' || key.mode === 'dorian' || key.mode === 'phrygian' || key.mode === 'locrian';
+  return (
+    key.mode === 'minor' ||
+    key.mode === 'harmonic-minor' ||
+    key.mode === 'melodic-minor' ||
+    key.mode === 'dorian' ||
+    key.mode === 'phrygian' ||
+    key.mode === 'locrian'
+  );
 }
 
-function trackEvents(song: Song, track: Track, channel: number, opts: SongToMidiOptions, lookup: InstrumentLookupOptions): Ranked[] {
+function trackEvents(
+  song: Song,
+  track: Track,
+  channel: number,
+  opts: SongToMidiOptions,
+  lookup: InstrumentLookupOptions,
+): Ranked[] {
   const out: Ranked[] = [];
   const profile = lookupInstrument(track.instrumentId, lookup);
   const drums = channel === GM_DRUM_CHANNEL;
@@ -514,23 +642,59 @@ function trackEvents(song: Song, track: Track, channel: number, opts: SongToMidi
   out.push({ e: { tick: 0, type: 'text', metaType: META.INSTRUMENT, text: profile.name }, rank: RANK.meta });
   if (opts.includeSongDeckMeta !== false) {
     out.push({
-      e: songDeckMeta(0, { v: 1, instrumentId: track.instrumentId, role: track.role, stemGroup: track.stemGroup, color: track.color, function: track.constraints?.function ?? null }),
+      e: songDeckMeta(0, {
+        v: 1,
+        instrumentId: track.instrumentId,
+        role: track.role,
+        stemGroup: track.stemGroup,
+        color: track.color,
+        function: track.constraints?.function ?? null,
+      }),
       rank: RANK.meta,
     });
   }
-  if (!drums) out.push({ e: { tick: 0, type: 'programChange', channel, program: Math.max(0, Math.min(127, profile.gmProgram)) }, rank: RANK.control });
+  if (!drums)
+    out.push({
+      e: { tick: 0, type: 'programChange', channel, program: Math.max(0, Math.min(127, profile.gmProgram)) },
+      rank: RANK.control,
+    });
   const strip = song.mixer?.channels?.[track.id];
   if (opts.includeMixer !== false && strip) {
     const vol = Math.round(127 * Math.pow(10, Math.min(0, strip.volumeDb) / 40));
-    out.push({ e: { tick: 0, type: 'controller', channel, controller: 7, value: Math.max(0, Math.min(127, vol)) }, rank: RANK.control });
-    out.push({ e: { tick: 0, type: 'controller', channel, controller: 10, value: Math.max(0, Math.min(127, Math.round(64 + strip.pan * 63))) }, rank: RANK.control });
+    out.push({
+      e: { tick: 0, type: 'controller', channel, controller: 7, value: Math.max(0, Math.min(127, vol)) },
+      rank: RANK.control,
+    });
+    out.push({
+      e: {
+        tick: 0,
+        type: 'controller',
+        channel,
+        controller: 10,
+        value: Math.max(0, Math.min(127, Math.round(64 + strip.pan * 63))),
+      },
+      rank: RANK.control,
+    });
   }
   const withLyrics = opts.includeLyrics !== false && track.notes.some((n) => n.syllable);
   for (const { note, end } of notePairs(track.notes)) {
     const tick = Math.round(note.tick);
-    if (withLyrics && note.syllable) out.push({ e: { tick, type: 'text', metaType: META.LYRIC, text: note.syllable }, rank: RANK.lyric });
-    out.push({ e: { tick, type: 'noteOn', channel, note: clamp7(note.pitch), velocity: Math.max(1, clamp7(note.velocity)) }, rank: RANK.noteOn });
-    out.push({ e: { tick: Math.round(end), type: 'noteOff', channel, note: clamp7(note.pitch), velocity: 64 }, rank: RANK.noteOff });
+    if (withLyrics && note.syllable)
+      out.push({ e: { tick, type: 'text', metaType: META.LYRIC, text: note.syllable }, rank: RANK.lyric });
+    out.push({
+      e: {
+        tick,
+        type: 'noteOn',
+        channel,
+        note: clamp7(note.pitch),
+        velocity: Math.max(1, clamp7(note.velocity)),
+      },
+      rank: RANK.noteOn,
+    });
+    out.push({
+      e: { tick: Math.round(end), type: 'noteOff', channel, note: clamp7(note.pitch), velocity: 64 },
+      rank: RANK.noteOff,
+    });
   }
   return out;
 }
@@ -541,7 +705,10 @@ function exportTracks(song: Song, opts: SongToMidiOptions): Track[] {
 
 /** Multi-track Standard MIDI File (type 1, PPQ = song.ppq) with a conductor track. */
 export function songToMidi(song: Song, opts: SongToMidiOptions = {}): Uint8Array {
-  const lookup: InstrumentLookupOptions = { customInstruments: opts.customInstruments, resolveInstrument: opts.resolveInstrument };
+  const lookup: InstrumentLookupOptions = {
+    customInstruments: opts.customInstruments,
+    resolveInstrument: opts.resolveInstrument,
+  };
   const tracks = exportTracks(song, opts);
   const channels = assignChannels(tracks, lookup);
   const file: MidiFile = {
@@ -549,20 +716,31 @@ export function songToMidi(song: Song, opts: SongToMidiOptions = {}): Uint8Array
     ticksPerQuarter: song.ppq,
     tracks: [{ events: sortRanked(conductorEvents(song, opts, tracks)) }],
   };
-  for (const t of tracks) file.tracks.push({ events: sortRanked(trackEvents(song, t, channels.get(t.id)!, opts, lookup)) });
+  for (const t of tracks)
+    file.tracks.push({ events: sortRanked(trackEvents(song, t, channels.get(t.id)!, opts, lookup)) });
   return writeMidiFile(file);
 }
 
 /** Single-track Standard MIDI File (type 0) containing one track plus tempo/meter/key/markers. */
-export function trackToMidi(song: Song, trackId: string, opts: Omit<SongToMidiOptions, 'trackIds'> = {}): Uint8Array {
-  const lookup: InstrumentLookupOptions = { customInstruments: opts.customInstruments, resolveInstrument: opts.resolveInstrument };
+export function trackToMidi(
+  song: Song,
+  trackId: string,
+  opts: Omit<SongToMidiOptions, 'trackIds'> = {},
+): Uint8Array {
+  const lookup: InstrumentLookupOptions = {
+    customInstruments: opts.customInstruments,
+    resolveInstrument: opts.resolveInstrument,
+  };
   const track = song.tracks.find((t) => t.id === trackId);
   if (!track) throw new Error(`Unknown track "${trackId}".`);
   const channels = assignChannels([track], lookup);
   const conductor = conductorEvents(song, { ...opts, includeSongDeckMeta: false }, [track]).filter(
     (r) => !(r.e.type === 'text' && r.e.metaType === META.TRACK_NAME),
   );
-  const events = sortRanked([...trackEvents(song, track, channels.get(track.id)!, opts, lookup), ...conductor]);
+  const events = sortRanked([
+    ...trackEvents(song, track, channels.get(track.id)!, opts, lookup),
+    ...conductor,
+  ]);
   return writeMidiFile({ format: 0, ticksPerQuarter: song.ppq, tracks: [{ events }] });
 }
 
@@ -650,7 +828,13 @@ function cleanLyric(text: string): CleanLyric {
   const breakBefore = /^[/\\]|^[\r\n]/.test(text);
   const breakAfter = /[\r\n]\s*$/.test(text);
   const core = text.replace(/[\r\n]/g, '').replace(/^[/\\]+/, '');
-  return { text: core.trim(), breakBefore, breakAfter, spaceAfter: /\s$/.test(core), spaceBefore: /^\s/.test(core) };
+  return {
+    text: core.trim(),
+    breakBefore,
+    breakAfter,
+    spaceAfter: /\s$/.test(core),
+    spaceBefore: /^\s/.test(core),
+  };
 }
 
 /**
@@ -662,7 +846,14 @@ function normalizeSyllables(list: CleanLyric[]): CleanLyric[] {
   if (!spaced) return list;
   return list.map((l, i) => {
     const next = list[i + 1];
-    const continues = next && !l.spaceAfter && !l.breakAfter && !next.spaceBefore && !next.breakBefore && l.text !== '_' && next.text !== '_';
+    const continues =
+      next &&
+      !l.spaceAfter &&
+      !l.breakAfter &&
+      !next.spaceBefore &&
+      !next.breakBefore &&
+      l.text !== '_' &&
+      next.text !== '_';
     return continues ? { ...l, text: `${l.text}-` } : l;
   });
 }
@@ -712,7 +903,8 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
           break;
         case 'text':
           if (e.metaType === META.TRACK_NAME && name === undefined) name = e.text.trim();
-          else if (e.metaType === META.MARKER || (e.metaType === META.CUE && !markers.length)) markers.push({ tick: e.tick, text: e.text.trim() });
+          else if (e.metaType === META.MARKER || (e.metaType === META.CUE && !markers.length))
+            markers.push({ tick: e.tick, text: e.text.trim() });
           else if (e.metaType === META.LYRIC) lyrics.push({ tick: e.tick, text: e.text });
           break;
         case 'meta': {
@@ -738,7 +930,13 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
         case 'noteOff': {
           const key = `${e.channel}:${e.note}`;
           const on = open.get(key)?.shift();
-          if (on) get(e.channel).notes.push({ pitch: e.note, tick: on.tick, end: Math.max(e.tick, on.tick + 1), velocity: on.velocity });
+          if (on)
+            get(e.channel).notes.push({
+              pitch: e.note,
+              tick: on.tick,
+              end: Math.max(e.tick, on.tick + 1),
+              velocity: on.velocity,
+            });
           break;
         }
         default:
@@ -749,9 +947,17 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
     const trackEnd = Math.max(lastTick, mt.endTick ?? 0);
     for (const [key, list] of open) {
       const [channel, note] = key.split(':').map(Number);
-      for (const on of list) get(channel).notes.push({ pitch: note, tick: on.tick, end: Math.max(trackEnd, on.tick + file.ticksPerQuarter / 4), velocity: on.velocity });
+      for (const on of list)
+        get(channel).notes.push({
+          pitch: note,
+          tick: on.tick,
+          end: Math.max(trackEnd, on.tick + file.ticksPerQuarter / 4),
+          velocity: on.velocity,
+        });
     }
-    const withNotes = [...byChannel.values()].filter((r) => r.notes.length).sort((a, b) => a.channel - b.channel);
+    const withNotes = [...byChannel.values()]
+      .filter((r) => r.notes.length)
+      .sort((a, b) => a.channel - b.channel);
     if (!withNotes.length) {
       if (fileTrack === 0 && name) conductorName = name;
       orphanLyrics.push(...lyrics);
@@ -764,7 +970,8 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
       r.meta = trackMeta;
       r.name = withNotes.length > 1 ? (name ? `${name} (ch ${r.channel + 1})` : undefined) : name;
       // Lyrics belong to the channel whose notes they line up with.
-      r.lyrics = withNotes.length === 1 ? lyrics : lyrics.filter((l) => r.notes.some((n) => n.tick === l.tick));
+      r.lyrics =
+        withNotes.length === 1 ? lyrics : lyrics.filter((l) => r.notes.some((n) => n.tick === l.tick));
       raws.push(r);
     }
   });
@@ -784,14 +991,22 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
     best.lyrics = [...best.lyrics, ...orphanLyrics].sort((a, b) => a.tick - b.tick);
   }
 
-  const song = createEmptySong({ title: opts.title ?? (typeof songMeta?.title === 'string' ? songMeta.title : undefined) ?? conductorName ?? 'Imported MIDI', id: opts.id });
+  const song = createEmptySong({
+    title:
+      opts.title ??
+      (typeof songMeta?.title === 'string' ? songMeta.title : undefined) ??
+      conductorName ??
+      'Imported MIDI',
+    id: opts.id,
+  });
 
   // --- tempo -------------------------------------------------------------------
   const tempoMap: TempoEvent[] = [];
   for (const t of tempoEvents.sort((a, b) => a.tick - b.tick)) {
     const bpm = Math.round((60_000_000 / Math.max(1, t.us)) * 1000) / 1000;
     const tick = T(t.tick);
-    if (tempoMap.length && tempoMap[tempoMap.length - 1].tick === tick) tempoMap[tempoMap.length - 1].bpm = bpm;
+    if (tempoMap.length && tempoMap[tempoMap.length - 1].tick === tick)
+      tempoMap[tempoMap.length - 1].bpm = bpm;
     else tempoMap.push({ tick, bpm });
   }
   if (!tempoMap.length) tempoMap.push({ tick: 0, bpm: 120 });
@@ -834,15 +1049,22 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
     const meta = r.meta;
     const drums = r.channel === GM_DRUM_CHANNEL;
     const hasLyrics = r.lyrics.some((l) => cleanLyric(l.text).text);
-    const metaInstrument = typeof meta?.instrumentId === 'string' && /^[\w.-]{1,80}$/.test(meta.instrumentId) ? meta.instrumentId : undefined;
+    const metaInstrument =
+      typeof meta?.instrumentId === 'string' && /^[\w.-]{1,80}$/.test(meta.instrumentId)
+        ? meta.instrumentId
+        : undefined;
     let instrumentId = metaInstrument ?? (drums ? 'drum-kit' : instrumentIdForProgram(r.program ?? 0));
     const nameLooksVocal = /vocal|voice|vox|sing|melody|lyric/i.test(r.name ?? '');
-    if (!meta && !drums && (hasLyrics || nameLooksVocal) && !/vocal|choir/.test(instrumentId)) instrumentId = 'lead-vocal';
+    if (!meta && !drums && (hasLyrics || nameLooksVocal) && !/vocal|choir/.test(instrumentId))
+      instrumentId = 'lead-vocal';
     const profile = lookupInstrument(instrumentId);
-    const role = oneOf(meta?.role, TRACK_ROLES) ?? (hasLyrics || nameLooksVocal ? 'vocal' : profile.defaultRole);
+    const role =
+      oneOf(meta?.role, TRACK_ROLES) ?? (hasLyrics || nameLooksVocal ? 'vocal' : profile.defaultRole);
     const stemGroup = oneOf(meta?.stemGroup, STEM_GROUPS) ?? profile.stemGroup;
     const fn = oneOf(meta?.function, MUSICAL_FUNCTIONS);
-    const name = r.name || (drums ? 'Drums' : r.program !== undefined ? GM_PROGRAM_NAMES[r.program] : `Track ${index + 1}`);
+    const name =
+      r.name ||
+      (drums ? 'Drums' : r.program !== undefined ? GM_PROGRAM_NAMES[r.program] : `Track ${index + 1}`);
     const track: Track = {
       id: nextId('trk'),
       name,
@@ -852,7 +1074,10 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
       constraints: fn ? { function: fn } : {},
       notes: [],
       clips: [],
-      color: typeof meta?.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(meta.color) ? meta.color : colorForStemGroup(stemGroup),
+      color:
+        typeof meta?.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(meta.color)
+          ? meta.color
+          : colorForStemGroup(stemGroup),
       stemGroup,
       midiChannel: r.channel,
     };
@@ -861,25 +1086,41 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
       const duration = Math.max(1, T(n.end) - tick);
       maxTick = Math.max(maxTick, tick + duration);
       if (!drums) allNotes.push({ pitch: n.pitch, duration });
-      return { id: nextId('n'), pitch: n.pitch, tick, duration, velocity: Math.max(1, Math.min(127, n.velocity)) };
+      return {
+        id: nextId('n'),
+        pitch: n.pitch,
+        tick,
+        duration,
+        velocity: Math.max(1, Math.min(127, n.velocity)),
+      };
     });
     track.notes = sortNotes(notes);
     // Syllables: lyric events attach to the (highest) note starting at the same tick.
     const tol = Math.max(1, Math.round(PPQ / 32));
-    const cleaned = normalizeSyllables(r.lyrics.map((l) => ({ tick: T(l.tick), ...cleanLyric(l.text) })).filter((l) => l.text)) as (CleanLyric & { tick: number })[];
+    const cleaned = normalizeSyllables(
+      r.lyrics.map((l) => ({ tick: T(l.tick), ...cleanLyric(l.text) })).filter((l) => l.text),
+    ) as (CleanLyric & { tick: number })[];
     for (const l of cleaned) {
       let best: Note | undefined;
       for (const n of track.notes) {
         if (Math.abs(n.tick - l.tick) > tol || n.syllable) continue;
-        if (!best || Math.abs(n.tick - l.tick) < Math.abs(best.tick - l.tick) || (n.tick === best.tick && n.pitch > best.pitch)) best = n;
+        if (
+          !best ||
+          Math.abs(n.tick - l.tick) < Math.abs(best.tick - l.tick) ||
+          (n.tick === best.tick && n.pitch > best.pitch)
+        )
+          best = n;
       }
       if (best) best.syllable = l.text;
     }
     lyricByTrack.set(track.id, cleaned);
     song.tracks.push(track);
     const strip = defaultChannelStrip();
-    if (r.volume !== undefined) strip.volumeDb = r.volume > 0 ? Math.max(-60, Math.round(40 * Math.log10(r.volume / 127) * 10) / 10) : -60;
-    if (r.pan !== undefined) strip.pan = Math.max(-1, Math.min(1, Math.round(((r.pan - 64) / 63) * 100) / 100));
+    if (r.volume !== undefined)
+      strip.volumeDb =
+        r.volume > 0 ? Math.max(-60, Math.round(40 * Math.log10(r.volume / 127) * 10) / 10) : -60;
+    if (r.pan !== undefined)
+      strip.pan = Math.max(-1, Math.min(1, Math.round(((r.pan - 64) / 63) * 100) / 100));
     song.mixer.channels[track.id] = strip;
   });
 
@@ -887,9 +1128,17 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
   const metaKeys = Array.isArray(songMeta?.keys) ? (songMeta!.keys as unknown[]) : undefined;
   let keyMap: KeyEvent[] = [];
   const validKey = (k: unknown): k is { bar: number; tonic: number; mode: ModeName } =>
-    isRecord(k) && Number.isInteger(k.bar) && (k.bar as number) >= 0 && (k.bar as number) <= MAX_IMPORT_BARS && Number.isInteger(k.tonic) && !!oneOf(k.mode, MODE_NAMES);
+    isRecord(k) &&
+    Number.isInteger(k.bar) &&
+    (k.bar as number) >= 0 &&
+    (k.bar as number) <= MAX_IMPORT_BARS &&
+    Number.isInteger(k.tonic) &&
+    !!oneOf(k.mode, MODE_NAMES);
   if (metaKeys?.length && metaKeys.every(validKey)) {
-    keyMap = (metaKeys as { bar: number; tonic: number; mode: ModeName }[]).map((k) => ({ bar: k.bar, key: { tonic: mod12(k.tonic), mode: k.mode } }));
+    keyMap = (metaKeys as { bar: number; tonic: number; mode: ModeName }[]).map((k) => ({
+      bar: k.bar,
+      key: { tonic: mod12(k.tonic), mode: k.mode },
+    }));
   } else if (keySigs.length) {
     for (const ks of keySigs.sort((a, b) => a.tick - b.tick)) {
       const bar = tickToBar(song, T(ks.tick)).bar;
@@ -906,16 +1155,20 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
   // --- sections ------------------------------------------------------------------------
   const markerTicks = markers.map((m) => ({ ...m, tick: T(m.tick) })).filter((m) => m.text);
   for (const m of markerTicks) maxTick = Math.max(maxTick, m.tick + 1);
-  const totalBars = Math.max(1, Math.min(MAX_IMPORT_BARS, maxTick > 0 ? tickToBar(song, maxTick - 1).bar + 1 : 1));
+  const totalBars = Math.max(
+    1,
+    Math.min(MAX_IMPORT_BARS, maxTick > 0 ? tickToBar(song, maxTick - 1).bar + 1 : 1),
+  );
   const metaSections = Array.isArray(songMeta?.sections)
-    ? (songMeta!.sections as unknown[])
-        .filter(isRecord)
-        .map((x) => ({
-          name: typeof x.name === 'string' ? x.name.slice(0, 200) : '',
-          kind: oneOf(x.kind, SECTION_KINDS),
-          bars: Number.isInteger(x.bars) ? (x.bars as number) : 0,
-          energy: typeof x.energy === 'number' && Number.isFinite(x.energy) ? Math.max(0, Math.min(100, x.energy)) : undefined,
-        }))
+    ? (songMeta!.sections as unknown[]).filter(isRecord).map((x) => ({
+        name: typeof x.name === 'string' ? x.name.slice(0, 200) : '',
+        kind: oneOf(x.kind, SECTION_KINDS),
+        bars: Number.isInteger(x.bars) ? (x.bars as number) : 0,
+        energy:
+          typeof x.energy === 'number' && Number.isFinite(x.energy)
+            ? Math.max(0, Math.min(100, x.energy))
+            : undefined,
+      }))
     : undefined;
   // Sections from markers (rounded to the nearest bar line).
   let markerStarts: { bar: number; name: string }[] | undefined;
@@ -944,25 +1197,53 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
       bar += s.bars;
       return start;
     });
-    metaMatchesMarkers = metaStarts.length === markerStarts.length && metaStarts.every((m, i) => m.bar === markerStarts![i].bar && m.name === markerStarts![i].name);
+    metaMatchesMarkers =
+      metaStarts.length === markerStarts.length &&
+      metaStarts.every((m, i) => m.bar === markerStarts![i].bar && m.name === markerStarts![i].name);
   }
   const sections: Section[] = [];
   if (validMeta && metaMatchesMarkers) {
-    for (const s of metaSections!) sections.push({ id: nextId('sec'), name: s.name, kind: s.kind ?? inferSectionKind(s.name), bars: s.bars, energy: typeof s.energy === 'number' ? s.energy : 50 });
+    for (const s of metaSections!)
+      sections.push({
+        id: nextId('sec'),
+        name: s.name,
+        kind: s.kind ?? inferSectionKind(s.name),
+        bars: s.bars,
+        energy: typeof s.energy === 'number' ? s.energy : 50,
+      });
     const covered = sections.reduce((n, s) => n + s.bars, 0);
-    if (covered < totalBars) sections.push({ id: nextId('sec'), name: 'Coda', kind: 'outro', bars: totalBars - covered, energy: 50 });
+    if (covered < totalBars)
+      sections.push({
+        id: nextId('sec'),
+        name: 'Coda',
+        kind: 'outro',
+        bars: totalBars - covered,
+        energy: 50,
+      });
   } else if (markerStarts?.length) {
     if (markerStarts[0].bar > 0) markerStarts.unshift({ bar: 0, name: 'Intro' });
     const end = Math.max(totalBars, markerStarts[markerStarts.length - 1].bar + 1);
     markerStarts.forEach((s, i) => {
       const next = i + 1 < markerStarts!.length ? markerStarts![i + 1].bar : end;
       const known = validMeta ? metaSections!.find((m) => m.name === s.name) : undefined;
-      sections.push({ id: nextId('sec'), name: s.name, kind: known?.kind ?? inferSectionKind(s.name), bars: Math.max(1, next - s.bar), energy: typeof known?.energy === 'number' ? known.energy : 50 });
+      sections.push({
+        id: nextId('sec'),
+        name: s.name,
+        kind: known?.kind ?? inferSectionKind(s.name),
+        bars: Math.max(1, next - s.bar),
+        energy: typeof known?.energy === 'number' ? known.energy : 50,
+      });
     });
   } else {
     const size = Math.max(1, Math.round(opts.sectionBars ?? 8));
     for (let start = 0, i = 1; start < totalBars; start += size, i++) {
-      sections.push({ id: nextId('sec'), name: `Section ${i}`, kind: 'custom', bars: Math.min(size, totalBars - start), energy: 50 });
+      sections.push({
+        id: nextId('sec'),
+        name: `Section ${i}`,
+        kind: 'custom',
+        bars: Math.min(size, totalBars - start),
+        energy: 50,
+      });
     }
   }
   song.sections = sections;
@@ -970,24 +1251,52 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
   // --- chords (Song Deck metadata only) ----------------------------------------------------
   if (Array.isArray(songMeta?.chords)) {
     const chords: ChordEvent[] = [];
-    for (const c of (songMeta!.chords as unknown[]).filter(isRecord) as { tick: number; duration: number; symbol: string }[]) {
+    for (const c of (songMeta!.chords as unknown[]).filter(isRecord) as {
+      tick: number;
+      duration: number;
+      symbol: string;
+    }[]) {
       const spec = typeof c.symbol === 'string' ? parseChordSymbol(c.symbol) : null;
-      if (!spec || !Number.isFinite(c.tick) || c.tick < 0 || !Number.isFinite(c.duration) || !(c.duration > 0)) continue;
+      if (
+        !spec ||
+        !Number.isFinite(c.tick) ||
+        c.tick < 0 ||
+        !Number.isFinite(c.duration) ||
+        !(c.duration > 0)
+      )
+        continue;
       const tick = T(c.tick);
-      chords.push({ id: nextId('ch'), tick, duration: Math.max(1, T(c.tick + c.duration) - tick), ...spec, symbol: c.symbol, roman: chordToRoman(spec, keyAtTick(song, tick)) });
+      chords.push({
+        id: nextId('ch'),
+        tick,
+        duration: Math.max(1, T(c.tick + c.duration) - tick),
+        ...spec,
+        symbol: c.symbol,
+        roman: chordToRoman(spec, keyAtTick(song, tick)),
+      });
     }
     song.chords = chords.sort((a, b) => a.tick - b.tick);
   }
 
   // --- lyric lines -----------------------------------------------------------------------------
   const metaLyrics = Array.isArray(songMeta?.lyrics)
-    ? ((songMeta!.lyrics as unknown[]).filter(isRecord) as { section: number; text: string; track: number | null; ticks: [number, number] | null; author?: string | null }[])
+    ? ((songMeta!.lyrics as unknown[]).filter(isRecord) as {
+        section: number;
+        text: string;
+        track: number | null;
+        ticks: [number, number] | null;
+        author?: string | null;
+      }[])
     : undefined;
   if (metaLyrics?.length) {
     for (const l of metaLyrics) {
       const section = Number.isInteger(l.section) ? sections[l.section] : undefined;
       if (!section || typeof l.text !== 'string') continue;
-      if (l.ticks && !(Array.isArray(l.ticks) && l.ticks.length === 2 && l.ticks.every((t) => Number.isFinite(t)))) l.ticks = null;
+      if (
+        l.ticks &&
+        !(Array.isArray(l.ticks) && l.ticks.length === 2 && l.ticks.every((t) => Number.isFinite(t)))
+      )
+        l.ticks = null;
       if (l.author !== undefined && l.author !== null && typeof l.author !== 'string') l.author = null;
       const line: LyricLine = { id: nextId('ly'), sectionId: section.id, text: l.text };
       const track = Number.isInteger(l.track) ? song.tracks[l.track as number] : undefined;
@@ -1008,7 +1317,11 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
 }
 
 /** Group imported syllables into lyric lines per section (breaks at karaoke markers or long rests). */
-function buildLyricLines(song: Song, lyricByTrack: Map<string, (CleanLyric & { tick: number })[]>, nextId: (p: string) => string) {
+function buildLyricLines(
+  song: Song,
+  lyricByTrack: Map<string, (CleanLyric & { tick: number })[]>,
+  nextId: (p: string) => string,
+) {
   const spans = sectionLayout(song);
   for (const track of song.tracks) {
     const sung = track.notes.filter((n) => n.syllable);
@@ -1036,7 +1349,12 @@ function buildLyricLines(song: Song, lyricByTrack: Map<string, (CleanLyric & { t
         cont = s.endsWith('-');
       }
       if (word) words.push(word);
-      const line: LyricLine = { id: nextId('ly'), sectionId: currentSection, text: words.join(' '), trackId: track.id };
+      const line: LyricLine = {
+        id: nextId('ly'),
+        sectionId: currentSection,
+        text: words.join(' '),
+        trackId: track.id,
+      };
       for (const n of current) n.lyricLineId = line.id;
       song.lyrics.push(line);
       current = [];
@@ -1044,9 +1362,13 @@ function buildLyricLines(song: Song, lyricByTrack: Map<string, (CleanLyric & { t
     let prevEnd = -Infinity;
     let prevTick = -Infinity;
     for (const n of sung) {
-      const sid = spans.find((s) => n.tick >= s.startTick && n.tick < s.endTick)?.section.id ?? spans[spans.length - 1]?.section.id;
+      const sid =
+        spans.find((s) => n.tick >= s.startTick && n.tick < s.endTick)?.section.id ??
+        spans[spans.length - 1]?.section.id;
       const gap = n.tick - prevEnd;
-      const breakHere = sid !== currentSection || (hasMarkers ? breaksBefore.has(n.tick) || breaksAfter.has(prevTick) : gap >= 2 * PPQ);
+      const breakHere =
+        sid !== currentSection ||
+        (hasMarkers ? breaksBefore.has(n.tick) || breaksAfter.has(prevTick) : gap >= 2 * PPQ);
       if (breakHere) flush();
       currentSection = sid;
       current.push(n);

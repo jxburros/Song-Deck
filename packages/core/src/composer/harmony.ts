@@ -9,6 +9,7 @@ import { diatonicChord, formatChordSymbol, isDiatonic } from '../theory/chords';
 import { mod12 } from '../theory/pitch';
 import { MODE_INTERVALS, isMinorMode } from '../theory/scales';
 import type { Rng } from '../util/random';
+import { baseDrumStyle, drumStyleInfo } from './styles';
 import { clamp01, sameChord } from './util';
 
 const C_MAJOR: KeySignature = { tonic: 0, mode: 'major' };
@@ -17,20 +18,33 @@ const C_MINOR: KeySignature = { tonic: 0, mode: 'minor' };
 const MAJORISH: ModeName[] = ['major', 'lydian', 'mixolydian'];
 
 export function isModalKey(key: KeySignature): boolean {
-  return key.mode !== 'major' && key.mode !== 'minor' && key.mode !== 'harmonic-minor' && key.mode !== 'melodic-minor';
+  return (
+    key.mode !== 'major' &&
+    key.mode !== 'minor' &&
+    key.mode !== 'harmonic-minor' &&
+    key.mode !== 'melodic-minor'
+  );
 }
 
 function triadOf(c: ChordSpec): ChordSpec {
   const q = c.quality;
   const base: ChordQuality =
-    q === 'min' || q === 'min7' || q === 'min9' || q === 'min6' || q === 'minadd9' || q === 'min11' || q === 'minmaj7'
+    q === 'min' ||
+    q === 'min7' ||
+    q === 'min9' ||
+    q === 'min6' ||
+    q === 'minadd9' ||
+    q === 'min11' ||
+    q === 'minmaj7'
       ? 'min'
       : q === 'dim' || q === 'dim7' || q === 'm7b5'
         ? 'dim'
         : q === 'aug' || q === 'aug7'
           ? 'aug'
           : q === 'sus2' || q === 'sus4' || q === '7sus4'
-            ? q === 'sus2' ? 'sus2' : 'sus4'
+            ? q === 'sus2'
+              ? 'sus2'
+              : 'sus4'
             : q === '5'
               ? '5'
               : 'maj';
@@ -47,17 +61,40 @@ export function progressionFamily(roman: readonly string[]): 'major' | 'minor' {
     if (a && isDiatonic(triadOf(a), C_MAJOR)) maj++;
     if (b && isDiatonic(triadOf(b), C_MINOR)) min++;
   }
-  if (maj === min) return roman.some((r) => /^i(?![iv])|^i$/.test(r) || /^i[^iv]/.test(r)) ? 'minor' : 'major';
+  if (maj === min)
+    return roman.some((r) => /^i(?![iv])|^i$/.test(r) || /^i[^iv]/.test(r)) ? 'minor' : 'major';
   return maj > min ? 'major' : 'minor';
 }
 
 /** Characteristic progressions for modal keys, written relative to the mode's own scale. */
 export const MODAL_PROGRESSIONS: Partial<Record<ModeName, string[][]>> = {
-  dorian: [['i', 'IV'], ['i', 'IV', 'i', 'VII'], ['i', 'III', 'VII', 'IV'], ['i', 'ii', 'III', 'IV'], ['i', 'v', 'VII', 'IV']],
-  mixolydian: [['I', 'VII', 'IV', 'I'], ['I', 'v', 'VII', 'IV'], ['I', 'VII', 'I', 'IV'], ['IV', 'VII', 'I']],
-  phrygian: [['i', 'II', 'i', 'VII'], ['i', 'II', 'III', 'II'], ['i', 'vii', 'VI', 'II']],
-  lydian: [['I', 'II', 'I', 'II'], ['I', 'II', 'vi', 'V'], ['I', 'II', 'iii', 'II']],
-  locrian: [['i°', 'II', 'iii', 'II'], ['i°', 'II', 'i°', 'VII']],
+  dorian: [
+    ['i', 'IV'],
+    ['i', 'IV', 'i', 'VII'],
+    ['i', 'III', 'VII', 'IV'],
+    ['i', 'ii', 'III', 'IV'],
+    ['i', 'v', 'VII', 'IV'],
+  ],
+  mixolydian: [
+    ['I', 'VII', 'IV', 'I'],
+    ['I', 'v', 'VII', 'IV'],
+    ['I', 'VII', 'I', 'IV'],
+    ['IV', 'VII', 'I'],
+  ],
+  phrygian: [
+    ['i', 'II', 'i', 'VII'],
+    ['i', 'II', 'III', 'II'],
+    ['i', 'vii', 'VI', 'II'],
+  ],
+  lydian: [
+    ['I', 'II', 'I', 'II'],
+    ['I', 'II', 'vi', 'V'],
+    ['I', 'II', 'iii', 'II'],
+  ],
+  locrian: [
+    ['i°', 'II', 'iii', 'II'],
+    ['i°', 'II', 'i°', 'VII'],
+  ],
 };
 
 /**
@@ -71,8 +108,14 @@ export function realizeRomans(roman: readonly string[], key: KeySignature, direc
   if (!direct) {
     const fam = progressionFamily(roman);
     const keyMajorish = MAJORISH.includes(key.mode);
-    if (fam === 'major') realKey = keyMajorish ? { tonic: key.tonic, mode: 'major' } : { tonic: mod12(key.tonic + 3), mode: 'major' };
-    else realKey = keyMajorish ? { tonic: mod12(key.tonic + 9), mode: 'minor' } : { tonic: key.tonic, mode: 'minor' };
+    if (fam === 'major')
+      realKey = keyMajorish
+        ? { tonic: key.tonic, mode: 'major' }
+        : { tonic: mod12(key.tonic + 3), mode: 'major' };
+    else
+      realKey = keyMajorish
+        ? { tonic: mod12(key.tonic + 9), mode: 'minor' }
+        : { tonic: key.tonic, mode: 'minor' };
   }
   const out: ChordSpec[] = [];
   for (const r of roman) {
@@ -100,7 +143,11 @@ export interface ProgressionCandidate {
 }
 
 /** All progressions of a genre usable for a section kind in a key. */
-export function candidateProgressions(genre: GenreProfile, key: KeySignature, kind: SectionKind): ProgressionCandidate[] {
+export function candidateProgressions(
+  genre: GenreProfile,
+  key: KeySignature,
+  kind: SectionKind,
+): ProgressionCandidate[] {
   const out: ProgressionCandidate[] = [];
   const modal = isModalKey(key);
   for (const pr of genre.harmony.progressions) {
@@ -238,16 +285,22 @@ export function chooseProgression(
     add(c.chords, w);
   }
   // The classic lift: the verse progression rotated to start on the lift chord (Em–C–G–D → G–D–Em–C).
-  if ((kind === 'chorus' || kind === 'final-chorus' || kind === 'drop') && planned.verse && planned.verse.length >= 3) {
+  if (
+    (kind === 'chorus' || kind === 'final-chorus' || kind === 'drop') &&
+    planned.verse &&
+    planned.verse.length >= 3
+  ) {
     for (const rot of rotations(planned.verse)) {
       const lf = liftFactor(rot[0], key);
       if (lf >= 1.8) add(rot, 3.2 * lf);
     }
   }
-  return rng.weighted(
-    scored.map((x) => x.chords),
-    scored.map((x) => x.w),
-  ).map((c) => ({ ...c }));
+  return rng
+    .weighted(
+      scored.map((x) => x.chords),
+      scored.map((x) => x.w),
+    )
+    .map((c) => ({ ...c }));
 }
 
 // ---------------------------------------------------------------------------
@@ -279,8 +332,12 @@ function extendChord(c: ChordSpec, key: KeySignature, flavor: ColorOptions['flav
     if (degree >= 0) {
       const seventh = diatonicChord(key, degree, true).quality;
       const ninthOk = scale.includes(mod12(c.root + 2));
-      const wantsAdd9 = (flavor === 'pop' || flavor === 'rock' || flavor === 'ambient') && ninthOk && rng.chance(flavor === 'pop' ? 0.45 : 0.65);
-      if (wantsAdd9 && (c.quality === 'maj' || c.quality === 'min')) return { ...c, quality: c.quality === 'maj' ? 'add9' : 'minadd9' };
+      const wantsAdd9 =
+        (flavor === 'pop' || flavor === 'rock' || flavor === 'ambient') &&
+        ninthOk &&
+        rng.chance(flavor === 'pop' ? 0.45 : 0.65);
+      if (wantsAdd9 && (c.quality === 'maj' || c.quality === 'min'))
+        return { ...c, quality: c.quality === 'maj' ? 'add9' : 'minadd9' };
       if ((flavor === 'jazz' || flavor === 'soul') && ninthOk && rng.chance(0.3)) {
         if (seventh === 'maj7') return { ...c, quality: 'maj9' };
         if (seventh === 'min7') return { ...c, quality: 'min9' };
@@ -292,14 +349,18 @@ function extendChord(c: ChordSpec, key: KeySignature, flavor: ColorOptions['flav
   switch (c.quality) {
     case 'maj':
       if (dominant) return { ...c, quality: flavor === 'jazz' && rng.chance(0.3) ? '9' : '7' };
-      if (flavor === 'jazz') return { ...c, quality: rng.chance(0.3) ? 'maj9' : iv === 0 && rng.chance(0.25) ? '6' : 'maj7' };
+      if (flavor === 'jazz')
+        return { ...c, quality: rng.chance(0.3) ? 'maj9' : iv === 0 && rng.chance(0.25) ? '6' : 'maj7' };
       if (flavor === 'soul') return { ...c, quality: rng.chance(0.4) ? 'maj9' : 'maj7' };
-      if (flavor === 'ambient' || flavor === 'rock') return { ...c, quality: rng.chance(0.7) ? 'add9' : 'maj7' };
+      if (flavor === 'ambient' || flavor === 'rock')
+        return { ...c, quality: rng.chance(0.7) ? 'add9' : 'maj7' };
       if (flavor === 'classical') return c;
       return { ...c, quality: rng.chance(0.55) ? 'add9' : 'maj7' };
     case 'min':
-      if (flavor === 'jazz' || flavor === 'soul') return { ...c, quality: rng.chance(0.35) ? 'min9' : 'min7' };
-      if (flavor === 'ambient' || flavor === 'rock') return { ...c, quality: rng.chance(0.6) ? 'minadd9' : 'min7' };
+      if (flavor === 'jazz' || flavor === 'soul')
+        return { ...c, quality: rng.chance(0.35) ? 'min9' : 'min7' };
+      if (flavor === 'ambient' || flavor === 'rock')
+        return { ...c, quality: rng.chance(0.6) ? 'minadd9' : 'min7' };
       if (flavor === 'classical') return c;
       return { ...c, quality: rng.chance(0.6) ? 'min7' : 'minadd9' };
     case 'dim':
@@ -313,7 +374,12 @@ function extendChord(c: ChordSpec, key: KeySignature, flavor: ColorOptions['flav
  * Colour a progression by harmonic tension and mood. Decisions are made per distinct chord so a
  * repeating chord keeps the same colour every time it returns.
  */
-export function colorProgression(chords: readonly ChordSpec[], key: KeySignature, o: ColorOptions, rng: Rng): ChordSpec[] {
+export function colorProgression(
+  chords: readonly ChordSpec[],
+  key: KeySignature,
+  o: ColorOptions,
+  rng: Rng,
+): ChordSpec[] {
   const minorKey = isMinorMode(key.mode);
   const tension = clamp01(o.tension);
   let out = chords.map((c) => ({ ...c }));
@@ -327,19 +393,24 @@ export function colorProgression(chords: readonly ChordSpec[], key: KeySignature
   const pBorrow = clamp01(o.borrowedRate * (0.5 + Math.max(0, o.darkness)) + tension * 0.08);
   const borrowCache = new Map<string, ChordSpec>();
   out = out.map((c, i) =>
-    o.protectFirst && sameChord(c, chords[0]) ? c : pick(borrowCache, c, () => {
-      if (!rng.chance(pBorrow)) return c;
-      const iv = rootInterval(c, key);
-      if (!minorKey) {
-        if (iv === 5 && c.quality === 'maj') return { root: c.root, quality: 'min' }; // iv (minor plagal)
-        if (iv === 9 && c.quality === 'min' && o.darkness > 0) return { root: mod12(key.tonic + 8), quality: 'maj' }; // bVI
-        if (iv === 7 && c.quality === 'maj' && i < chords.length - 1 && o.darkness > 0) return { root: mod12(key.tonic + 10), quality: 'maj' }; // bVII
-      } else {
-        if (iv === 7 && c.quality === 'min') return { root: c.root, quality: tension > 0.5 ? '7' : 'maj' }; // harmonic-minor V
-        if (iv === 5 && c.quality === 'min' && o.darkness < 0.1) return { root: c.root, quality: 'maj' }; // dorian IV
-      }
-      return c;
-    }),
+    o.protectFirst && sameChord(c, chords[0])
+      ? c
+      : pick(borrowCache, c, () => {
+          if (!rng.chance(pBorrow)) return c;
+          const iv = rootInterval(c, key);
+          if (!minorKey) {
+            if (iv === 5 && c.quality === 'maj') return { root: c.root, quality: 'min' }; // iv (minor plagal)
+            if (iv === 9 && c.quality === 'min' && o.darkness > 0)
+              return { root: mod12(key.tonic + 8), quality: 'maj' }; // bVI
+            if (iv === 7 && c.quality === 'maj' && i < chords.length - 1 && o.darkness > 0)
+              return { root: mod12(key.tonic + 10), quality: 'maj' }; // bVII
+          } else {
+            if (iv === 7 && c.quality === 'min')
+              return { root: c.root, quality: tension > 0.5 ? '7' : 'maj' }; // harmonic-minor V
+            if (iv === 5 && c.quality === 'min' && o.darkness < 0.1) return { root: c.root, quality: 'maj' }; // dorian IV
+          }
+          return c;
+        }),
   );
 
   // 2. Secondary dominant: the chord before a non-tonic target becomes V(7)/target.
@@ -360,7 +431,9 @@ export function colorProgression(chords: readonly ChordSpec[], key: KeySignature
   if (!o.powerChords) {
     const pExt = clamp01(o.extensionRate * (0.55 + tension));
     const extCache = new Map<string, ChordSpec>();
-    out = out.map((c) => pick(extCache, c, () => (rng.chance(pExt) ? extendChord(c, key, o.flavor, rng) : c)));
+    out = out.map((c) =>
+      pick(extCache, c, () => (rng.chance(pExt) ? extendChord(c, key, o.flavor, rng) : c)),
+    );
   }
 
   // 4. Suspensions as colour (sus2 on tonic/subdominant, sus4 on dominant).
@@ -381,8 +454,16 @@ export function colorProgression(chords: readonly ChordSpec[], key: KeySignature
 
 export function flavorFor(genre: GenreProfile): ColorOptions['flavor'] {
   const d = genre.rhythm.drumStyle;
+  // Groove families added with the genre expansion declare their flavour.
+  if (baseDrumStyle(d) !== d) return drumStyleInfo(d).flavor;
   if (d === 'jazz-swing') return 'jazz';
-  if (d === 'rnb' || d === 'hip-hop' || d === 'trap' || (d === 'four-on-floor' && genre.harmony.extensionRate > 0.4)) return 'soul';
+  if (
+    d === 'rnb' ||
+    d === 'hip-hop' ||
+    d === 'trap' ||
+    (d === 'four-on-floor' && genre.harmony.extensionRate > 0.4)
+  )
+    return 'soul';
   if (d === 'orchestral') return 'classical';
   if (d === 'cinematic' || d === 'trance' || d === 'emo' || d === 'indie') return 'ambient';
   if (d === 'rock' || d === 'punk' || d === 'pop-punk' || d === 'metal') return 'rock';
@@ -414,8 +495,15 @@ export function snapHarmonicRhythm(hr: number): number {
  * fill the section), hr = 0.5 each chord doubled, hr = 2 enough entries for two chords per bar.
  * Optional `susResolve` turns the final chord into "Xsus4 → X" (two slots in the last bar).
  */
-export function expandHarmony(chords: readonly ChordSpec[], bars: number, hr: number, key: KeySignature, opts: { endOnTonic?: boolean; susResolve?: boolean } = {}): string[] {
-  if (!chords.length) return [formatChordSymbol({ root: key.tonic, quality: isMinorMode(key.mode) ? 'min' : 'maj' }, key)];
+export function expandHarmony(
+  chords: readonly ChordSpec[],
+  bars: number,
+  hr: number,
+  key: KeySignature,
+  opts: { endOnTonic?: boolean; susResolve?: boolean } = {},
+): string[] {
+  if (!chords.length)
+    return [formatChordSymbol({ root: key.tonic, quality: isMinorMode(key.mode) ? 'min' : 'maj' }, key)];
   const n = chords.length;
   const B = Math.max(1, Math.round(bars));
   let perBar: number;
@@ -463,20 +551,59 @@ export function slotsPerBarFor(harmonyLength: number, bars: number): number {
 
 /** Mood words → darkness −1 (bright) … +1 (dark). */
 export function moodDarkness(moods: readonly string[]): number {
-  const DARK = ['melancholy', 'melancholic', 'sad', 'dark', 'brooding', 'angry', 'aggressive', 'haunting', 'mysterious', 'somber', 'sombre', 'lonely', 'heartbroken', 'desperate', 'tense', 'eerie', 'moody', 'wistful', 'bittersweet', 'fierce', 'intense'];
-  const BRIGHT = ['happy', 'joyful', 'uplifting', 'hopeful', 'triumphant', 'playful', 'euphoric', 'bright', 'romantic', 'peaceful', 'anthemic', 'heroic', 'majestic', 'sunny'];
+  const DARK = [
+    'melancholy',
+    'melancholic',
+    'sad',
+    'dark',
+    'brooding',
+    'angry',
+    'aggressive',
+    'haunting',
+    'mysterious',
+    'somber',
+    'sombre',
+    'lonely',
+    'heartbroken',
+    'desperate',
+    'tense',
+    'eerie',
+    'moody',
+    'wistful',
+    'bittersweet',
+    'fierce',
+    'intense',
+  ];
+  const BRIGHT = [
+    'happy',
+    'joyful',
+    'uplifting',
+    'hopeful',
+    'triumphant',
+    'playful',
+    'euphoric',
+    'bright',
+    'romantic',
+    'peaceful',
+    'anthemic',
+    'heroic',
+    'majestic',
+    'sunny',
+  ];
   let d = 0;
   let n = 0;
   for (const m of moods) {
     const w = m.toLowerCase();
-    for (const x of DARK) if (w.includes(x)) {
-      d += 1;
-      n++;
-    }
-    for (const x of BRIGHT) if (w.includes(x)) {
-      d -= 1;
-      n++;
-    }
+    for (const x of DARK)
+      if (w.includes(x)) {
+        d += 1;
+        n++;
+      }
+    for (const x of BRIGHT)
+      if (w.includes(x)) {
+        d -= 1;
+        n++;
+      }
   }
   return n ? Math.max(-1, Math.min(1, d / n)) : 0;
 }

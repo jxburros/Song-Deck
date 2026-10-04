@@ -1,11 +1,31 @@
-import { defaultChannelStrip, defaultMasterBus, type CompressorSettings, type EqSettings, type MixerState, type ReverbSettings, type Song } from '@songdeck/core';
+import {
+  defaultChannelStrip,
+  defaultMasterBus,
+  type CompressorSettings,
+  type EqSettings,
+  type MixerState,
+  type ReverbSettings,
+  type Song,
+} from '@songdeck/core';
 import { Badge, Button, Select, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { CompressorEditor } from './CompressorEditor';
 import { EqEditor } from './EqEditor';
 import { Knob } from './controls';
 import { applyMixer, commitMixer, commitMixerSoon, previewMixer } from './mixDraft';
-import { DELAY_NOTES, FIELD_META, MASTER, fmtBeats, fmtDb, fmtPan, isStripLocked, setStripField, stripOf, withChannel, withMaster } from './mixModel';
+import {
+  DELAY_NOTES,
+  FIELD_META,
+  MASTER,
+  fmtBeats,
+  fmtDb,
+  fmtPan,
+  isStripLocked,
+  setStripField,
+  stripOf,
+  withChannel,
+  withMaster,
+} from './mixModel';
 
 /** Detailed editor for the selected strip: EQ curve, dynamics, character & sends (or master processing). */
 export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerState; target: string }) {
@@ -17,14 +37,28 @@ export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerSta
   const eq: EqSettings = isMaster ? mixer.master.eq : stripOf(mixer, target).eq;
   const comp: CompressorSettings = isMaster ? mixer.master.compressor : stripOf(mixer, target).compressor;
   const previewEq = (next: EqSettings) => previewMixer((m) => setStripField(m, target, 'eq', next));
-  const previewComp = (next: CompressorSettings) => previewMixer((m) => setStripField(m, target, 'compressor', next));
+  const previewComp = (next: CompressorSettings) =>
+    previewMixer((m) => setStripField(m, target, 'compressor', next));
   const commit = () => commitMixer();
   const commitSoon = () => commitMixerSoon();
 
-  const knob = (path: string, label: string, def: number, extra: { bipolar?: boolean; tone?: 'accent' | 'ai' | 'muted'; step?: number; format?: (v: number) => string; disabled?: boolean } = {}) => {
+  const knob = (
+    path: string,
+    label: string,
+    def: number,
+    extra: {
+      bipolar?: boolean;
+      tone?: 'accent' | 'secondary' | 'muted';
+      step?: number;
+      format?: (v: number) => string;
+      disabled?: boolean;
+    } = {},
+  ) => {
     const meta = FIELD_META[path];
     const strip = isMaster ? mixer.master : stripOf(mixer, target);
-    const value = path.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], strip) as number;
+    const value = path
+      .split('.')
+      .reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], strip) as number;
     return (
       <Knob
         value={value ?? def}
@@ -52,7 +86,10 @@ export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerSta
       <div className="panel-header">
         <span className="mx-color-dot" style={{ background: isMaster ? 'var(--accent)' : track!.color }} />
         <h3 className="grow">
-          {name} <span className="small dim">· {isMaster ? 'master bus' : track!.kind === 'audio' ? 'audio track' : 'MIDI track'}</span>
+          {name}{' '}
+          <span className="small dim">
+            · {isMaster ? 'master bus' : track!.kind === 'audio' ? 'audio track' : 'MIDI track'}
+          </span>
         </h3>
         {locked && (
           <Badge tone="warning">
@@ -70,7 +107,11 @@ export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerSta
               (m) =>
                 isMaster
                   ? withMaster(m, () => defaultMasterBus())
-                  : withChannel(m, target, (ch) => ({ ...defaultChannelStrip(), mute: ch.mute, solo: ch.solo })),
+                  : withChannel(m, target, (ch) => ({
+                      ...defaultChannelStrip(),
+                      mute: ch.mute,
+                      solo: ch.solo,
+                    })),
               `${name}: strip reset to defaults`,
             )
           }
@@ -92,25 +133,49 @@ export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerSta
               label={eq.enabled ? 'On' : 'Bypassed'}
             />
           </div>
-          <EqEditor eq={eq} onPreview={previewEq} onCommit={commit} onCommitSoon={commitSoon} disabled={locked} title={name} />
+          <EqEditor
+            eq={eq}
+            onPreview={previewEq}
+            onCommit={commit}
+            onCommitSoon={commitSoon}
+            disabled={locked}
+            title={name}
+          />
         </section>
         <section className="mx-section" aria-label={`${name} dynamics`}>
           <div className="mx-section-head">
             <h4>{isMaster ? 'Glue compressor' : 'Dynamics'}</h4>
           </div>
-          <CompressorEditor comp={comp} glue={isMaster} onPreview={previewComp} onCommit={commit} onCommitSoon={commitSoon} disabled={locked} title={name} />
+          <CompressorEditor
+            comp={comp}
+            glue={isMaster}
+            onPreview={previewComp}
+            onCommit={commit}
+            onCommitSoon={commitSoon}
+            disabled={locked}
+            title={name}
+          />
           {isMaster && (
             <div className="mx-limiter">
               <div className="row between" style={{ marginTop: 12 }}>
                 <Toggle
                   on={mixer.master.limiter.enabled}
-                  onChange={(v) => !locked && applyMixer((m) => setStripField(m, MASTER, 'limiter.enabled', v))}
+                  onChange={(v) =>
+                    !locked && applyMixer((m) => setStripField(m, MASTER, 'limiter.enabled', v))
+                  }
                   label="True-peak limiter"
                 />
               </div>
               <div className="mx-knob-line">
-                {knob('limiter.ceilingDb', 'Ceiling', -1, { step: 0.1, tone: 'ai', disabled: !mixer.master.limiter.enabled })}
-                {knob('limiter.releaseMs', 'Release', 80, { tone: 'muted', disabled: !mixer.master.limiter.enabled })}
+                {knob('limiter.ceilingDb', 'Ceiling', -1, {
+                  step: 0.1,
+                  tone: 'secondary',
+                  disabled: !mixer.master.limiter.enabled,
+                })}
+                {knob('limiter.releaseMs', 'Release', 80, {
+                  tone: 'muted',
+                  disabled: !mixer.master.limiter.enabled,
+                })}
               </div>
             </div>
           )}
@@ -121,10 +186,12 @@ export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerSta
           </div>
           {isMaster ? (
             <>
-              <div className="mx-knob-line">{knob('width', 'Width', 1, { bipolar: true, tone: 'muted' })}</div>
+              <div className="mx-knob-line">
+                {knob('width', 'Width', 1, { bipolar: true, tone: 'muted' })}
+              </div>
               <div className="small dim" style={{ marginTop: 10 }}>
-                Master level {fmtDb(mixer.master.volumeDb)} dB — use the master fader. Mastering (loudness targets, true-peak ceiling) lives in the
-                Mastering tab.
+                Master level {fmtDb(mixer.master.volumeDb)} dB — use the master fader. Mastering (loudness
+                targets, true-peak ceiling) lives in the Mastering tab.
               </div>
             </>
           ) : (
@@ -135,8 +202,8 @@ export function Inspector({ song, mixer, target }: { song: Song; mixer: MixerSta
                 {knob('drive', 'Drive', 0, { tone: 'muted' })}
               </div>
               <div className="mx-knob-line">
-                {knob('reverbSend', 'Reverb', 0.15, { tone: 'ai' })}
-                {knob('delaySend', 'Delay', 0, { tone: 'ai' })}
+                {knob('reverbSend', 'Reverb', 0.15, { tone: 'secondary' })}
+                {knob('delaySend', 'Delay', 0, { tone: 'secondary' })}
               </div>
               <div style={{ marginTop: 10 }}>
                 <Toggle
@@ -165,9 +232,17 @@ export function BusesPanel({ song, mixer }: { song: Song; mixer: MixerState }) {
   const locked = isStripLocked(song, MASTER);
   const rv = mixer.reverb;
   const dl = mixer.delay;
-  const setBus = (bus: 'reverb' | 'delay', key: string, v: unknown) => previewMixer((m) => ({ ...m, [bus]: { ...m[bus], [key]: v } }));
-  const applyBus = (bus: 'reverb' | 'delay', key: string, v: unknown) => applyMixer((m) => ({ ...m, [bus]: { ...m[bus], [key]: v } }));
-  const knob = (bus: 'reverb' | 'delay', key: string, label: string, def: number, extra: { step?: number; tone?: 'accent' | 'ai' | 'muted' } = {}) => {
+  const setBus = (bus: 'reverb' | 'delay', key: string, v: unknown) =>
+    previewMixer((m) => ({ ...m, [bus]: { ...m[bus], [key]: v } }));
+  const applyBus = (bus: 'reverb' | 'delay', key: string, v: unknown) =>
+    applyMixer((m) => ({ ...m, [bus]: { ...m[bus], [key]: v } }));
+  const knob = (
+    bus: 'reverb' | 'delay',
+    key: string,
+    label: string,
+    def: number,
+    extra: { step?: number; tone?: 'accent' | 'secondary' | 'muted' } = {},
+  ) => {
     const meta = FIELD_META[`${bus}.${key}`];
     const value = (mixer[bus] as unknown as Record<string, number>)[key];
     return (
@@ -178,7 +253,7 @@ export function BusesPanel({ song, mixer }: { song: Song; mixer: MixerState }) {
         log={meta.log}
         step={extra.step}
         defaultValue={def}
-        tone={extra.tone ?? 'ai'}
+        tone={extra.tone ?? 'secondary'}
         onPreview={(v) => setBus(bus, key, v)}
         onCommit={() => commitMixer()}
         onKeyCommit={() => commitMixerSoon()}
@@ -228,12 +303,19 @@ export function BusesPanel({ song, mixer }: { song: Song; mixer: MixerState }) {
                 size="sm"
                 value={noteMatch ? String(noteMatch.beats) : 'custom'}
                 onChange={(v) => !locked && v !== 'custom' && applyBus('delay', 'timeBeats', Number(v))}
-                options={[...DELAY_NOTES.map((d) => ({ value: String(d.beats), label: d.label })), ...(noteMatch ? [] : [{ value: 'custom', label: fmtBeats(dl.timeBeats) }])]}
+                options={[
+                  ...DELAY_NOTES.map((d) => ({ value: String(d.beats), label: d.label })),
+                  ...(noteMatch ? [] : [{ value: 'custom', label: fmtBeats(dl.timeBeats) }]),
+                ]}
                 aria-label="Delay time (note value)"
                 disabled={locked}
                 style={{ width: 120 }}
               />
-              <Toggle on={dl.pingPong} onChange={(v) => !locked && applyBus('delay', 'pingPong', v)} label="Ping-pong" />
+              <Toggle
+                on={dl.pingPong}
+                onChange={(v) => !locked && applyBus('delay', 'pingPong', v)}
+                label="Ping-pong"
+              />
             </div>
           </div>
           <div className="mx-knob-line">

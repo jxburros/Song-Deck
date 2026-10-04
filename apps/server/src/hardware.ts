@@ -8,7 +8,12 @@ import { execFile } from 'node:child_process';
 import { promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { AccelerationBackend, GpuInfo as AiGpuInfo, GpuVendor, HardwareInfo as AiHardwareInfo } from '@songdeck/ai';
+import type {
+  AccelerationBackend,
+  GpuInfo as AiGpuInfo,
+  GpuVendor,
+  HardwareInfo as AiHardwareInfo,
+} from '@songdeck/ai';
 import type { Router } from './router';
 import { sendJson } from './http-util';
 
@@ -46,24 +51,42 @@ export interface CommandResult {
   code: number;
 }
 
-export type CommandRunner = (command: string, args: string[], opts: { timeoutMs: number }) => Promise<CommandResult>;
+export type CommandRunner = (
+  command: string,
+  args: string[],
+  opts: { timeoutMs: number },
+) => Promise<CommandResult>;
 
 const GB = 1024 ** 3;
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 export const defaultRunner: CommandRunner = (command, args, opts) =>
   new Promise((resolve, reject) => {
-    execFile(command, args, { timeout: opts.timeoutMs, windowsHide: true, maxBuffer: 8 * 1024 * 1024, encoding: 'utf8' }, (err, stdout) => {
-      if (err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
-        reject(err);
-        return;
-      }
-      const code = err ? (typeof (err as { code?: unknown }).code === 'number' ? ((err as { code: number }).code as number) : 1) : 0;
-      resolve({ stdout: String(stdout ?? ''), code });
-    });
+    execFile(
+      command,
+      args,
+      { timeout: opts.timeoutMs, windowsHide: true, maxBuffer: 8 * 1024 * 1024, encoding: 'utf8' },
+      (err, stdout) => {
+        if (err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+          reject(err);
+          return;
+        }
+        const code = err
+          ? typeof (err as { code?: unknown }).code === 'number'
+            ? ((err as { code: number }).code as number)
+            : 1
+          : 0;
+        resolve({ stdout: String(stdout ?? ''), code });
+      },
+    );
   });
 
-async function tryRun(run: CommandRunner, command: string, args: string[], timeoutMs = 4000): Promise<string | undefined> {
+async function tryRun(
+  run: CommandRunner,
+  command: string,
+  args: string[],
+  timeoutMs = 4000,
+): Promise<string | undefined> {
   try {
     const { stdout, code } = await run(command, args, { timeoutMs });
     return code === 0 && stdout.trim() ? stdout : undefined;
@@ -121,11 +144,21 @@ export function parseRocmSmi(stdout: string): GpuInfo[] {
     const pick = (...names: string[]) => {
       for (const n of names) {
         const hit = Object.keys(card).find((k) => k.toLowerCase() === n.toLowerCase());
-        if (hit && typeof card[hit] === 'string' && (card[hit] as string).trim()) return (card[hit] as string).trim();
+        if (hit && typeof card[hit] === 'string' && (card[hit] as string).trim())
+          return (card[hit] as string).trim();
       }
       return undefined;
     };
-    const name = pick('Card Series', 'Card series', 'Marketing Name', 'Card Model', 'Card model', 'Device Name', 'Card SKU') ?? 'AMD GPU';
+    const name =
+      pick(
+        'Card Series',
+        'Card series',
+        'Marketing Name',
+        'Card Model',
+        'Card model',
+        'Device Name',
+        'Card SKU',
+      ) ?? 'AMD GPU';
     const totalBytes = Number(pick('VRAM Total Memory (B)', 'vram total memory (b)'));
     gpus.push({
       name,
@@ -169,7 +202,9 @@ export function parseSystemProfiler(stdout: string): GpuInfo[] {
       vendor,
       vramGb: apple ? 0 : (vram ?? 0),
       ...(metal ? { backend: 'metal' as const } : {}),
-      ...(apple || (!vram && parseSizeGb(d.spdisplays_vram_shared) !== undefined) ? { unifiedMemory: true } : {}),
+      ...(apple || (!vram && parseSizeGb(d.spdisplays_vram_shared) !== undefined)
+        ? { unifiedMemory: true }
+        : {}),
     });
   }
   return gpus;
@@ -220,11 +255,15 @@ export async function linuxSysfsGpus(root = '/sys/class/drm'): Promise<GpuInfo[]
   const gpus: GpuInfo[] = [];
   for (const card of names.filter((n) => /^card\d+$/.test(n)).sort()) {
     const dev = path.join(root, card, 'device');
-    const vendorId = (await fsp.readFile(path.join(dev, 'vendor'), 'utf8').catch(() => '')).trim().toLowerCase();
+    const vendorId = (await fsp.readFile(path.join(dev, 'vendor'), 'utf8').catch(() => ''))
+      .trim()
+      .toLowerCase();
     const info = PCI_VENDORS[vendorId];
     if (!info) continue;
     const deviceId = (await fsp.readFile(path.join(dev, 'device'), 'utf8').catch(() => '')).trim();
-    const vramBytes = Number((await fsp.readFile(path.join(dev, 'mem_info_vram_total'), 'utf8').catch(() => '')).trim());
+    const vramBytes = Number(
+      (await fsp.readFile(path.join(dev, 'mem_info_vram_total'), 'utf8').catch(() => '')).trim(),
+    );
     gpus.push({
       name: deviceId ? `${info.label} (${deviceId})` : info.label,
       vendor: info.vendor,
@@ -236,7 +275,11 @@ export async function linuxSysfsGpus(root = '/sys/class/drm'): Promise<GpuInfo[]
   return gpus;
 }
 
-async function physicalCores(run: CommandRunner, platform: NodeJS.Platform, threads: number): Promise<number> {
+async function physicalCores(
+  run: CommandRunner,
+  platform: NodeJS.Platform,
+  threads: number,
+): Promise<number> {
   try {
     if (platform === 'linux') {
       const text = await fsp.readFile('/proc/cpuinfo', 'utf8');
@@ -266,9 +309,16 @@ export interface DetectOptions {
   sysfsRoot?: string;
 }
 
-export async function detectGpus(run: CommandRunner, platform: NodeJS.Platform, sysfsRoot?: string): Promise<GpuInfo[]> {
+export async function detectGpus(
+  run: CommandRunner,
+  platform: NodeJS.Platform,
+  sysfsRoot?: string,
+): Promise<GpuInfo[]> {
   const gpus: GpuInfo[] = [];
-  const nvidia = await tryRun(run, 'nvidia-smi', ['--query-gpu=name,memory.total,driver_version', '--format=csv,noheader,nounits']);
+  const nvidia = await tryRun(run, 'nvidia-smi', [
+    '--query-gpu=name,memory.total,driver_version',
+    '--format=csv,noheader,nounits',
+  ]);
   if (nvidia) gpus.push(...parseNvidiaSmi(nvidia));
   if (platform === 'linux') {
     const rocm = await tryRun(run, 'rocm-smi', ['--showproductname', '--showmeminfo', 'vram', '--json']);
@@ -341,7 +391,12 @@ export class HardwareService {
   private inflight?: Promise<HardwareInfo>;
 
   constructor(
-    private readonly opts: { dataDir: string; detect?: () => Promise<HardwareInfo>; run?: CommandRunner; cacheMs: number },
+    private readonly opts: {
+      dataDir: string;
+      detect?: () => Promise<HardwareInfo>;
+      run?: CommandRunner;
+      cacheMs: number;
+    },
   ) {}
 
   async get(force = false): Promise<HardwareInfo> {
@@ -352,7 +407,9 @@ export class HardwareService {
     if (this.inflight) return this.inflight;
     this.inflight = (async () => {
       try {
-        const info = this.opts.detect ? await this.opts.detect() : await detectHardware({ dataDir: this.opts.dataDir, run: this.opts.run });
+        const info = this.opts.detect
+          ? await this.opts.detect()
+          : await detectHardware({ dataDir: this.opts.dataDir, run: this.opts.run });
         this.cached = { at: Date.now(), info };
         return info;
       } finally {

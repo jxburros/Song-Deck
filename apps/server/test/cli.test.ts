@@ -14,7 +14,26 @@ describe('CLI argument parsing', () => {
 
   it('parses all flags, both "--flag value" and "--flag=value"', () => {
     const { options } = parseArgs(
-      ['--port', '9000', '--host=0.0.0.0', '--data-dir', 'data', '--token', 's3cret', '--allow-origin', 'http://a.test', '--allow-origin=http://b.test', '--no-persist', '--workers', '2', '--node-name', 'studio-pc', '--no-static', '--log-level', 'debug'],
+      [
+        '--port',
+        '9000',
+        '--host=0.0.0.0',
+        '--data-dir',
+        'data',
+        '--token',
+        's3cret',
+        '--allow-origin',
+        'http://a.test',
+        '--allow-origin=http://b.test',
+        '--no-persist',
+        '--workers',
+        '2',
+        '--node-name',
+        'studio-pc',
+        '--no-static',
+        '--log-level',
+        'debug',
+      ],
       {},
     );
     expect(options).toMatchObject({
@@ -32,7 +51,9 @@ describe('CLI argument parsing', () => {
 
   it('requires a token for non-loopback hosts (flag or SONGDECK_TOKEN)', () => {
     expect(() => parseArgs(['--host', '0.0.0.0', '--no-static'], {})).toThrow(/--token is required/);
-    expect(parseArgs(['--host', '0.0.0.0', '--no-static'], { SONGDECK_TOKEN: 'abc' }).options.token).toBe('abc');
+    expect(parseArgs(['--host', '0.0.0.0', '--no-static'], { SONGDECK_TOKEN: 'abc' }).options.token).toBe(
+      'abc',
+    );
     expect(() => parseArgs(['--host', '127.0.0.1', '--no-static'], {})).not.toThrow();
     expect(() => parseArgs(['--host', '::1', '--no-static'], {})).not.toThrow();
   });

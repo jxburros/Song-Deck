@@ -33,6 +33,7 @@ In Song Deck: Settings → Providers → Add provider → Transcription → "Bas
 This is REFERENCE code (not exercised in Song Deck's CI), written against the basic-pitch 0.3/0.4
 API. ``load_engine()`` and ``run_basic_pitch()`` are the functions to adapt for other versions.
 """
+
 from __future__ import annotations
 
 import os
@@ -116,13 +117,15 @@ def events_to_notes(events: List[NoteEvent]) -> List[Dict[str, Any]]:
         if not end > start:
             continue
         amp = max(0.0, min(1.0, amplitude))
-        notes.append({
-            "pitch": max(0, min(127, pitch)),
-            "start": round(start, 4),
-            "end": round(end, 4),
-            "velocity": max(1, min(127, int(round(127 * amp)))),
-            "confidence": round(amp, 3),
-        })
+        notes.append(
+            {
+                "pitch": max(0, min(127, pitch)),
+                "start": round(start, 4),
+                "end": round(end, 4),
+                "velocity": max(1, min(127, int(round(127 * amp)))),
+                "confidence": round(amp, 3),
+            }
+        )
     notes.sort(key=lambda n: (n["start"], n["pitch"]))
     return notes
 
@@ -133,15 +136,17 @@ def build_app(args: Any) -> BridgeApp:
 
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
-        return json_response({
-            "name": app.name,
-            "version": __version__,
-            "models": [{"id": "basic-pitch-icassp-2022", "name": "Basic Pitch (ICASSP 2022)"}],
-            "capabilities": ["AUDIO_TRANSCRIPTION", "AUDIO_TO_MIDI", "PITCH_TRACKING"],
-            "sources": sorted(SOURCE_SETTINGS),
-            "status": loader.state,
-            "hardware": {"min_vram_gb": 0},
-        })
+        return json_response(
+            {
+                "name": app.name,
+                "version": __version__,
+                "models": [{"id": "basic-pitch-icassp-2022", "name": "Basic Pitch (ICASSP 2022)"}],
+                "capabilities": ["AUDIO_TRANSCRIPTION", "AUDIO_TO_MIDI", "PITCH_TRACKING"],
+                "sources": sorted(SOURCE_SETTINGS),
+                "status": loader.state,
+                "hardware": {"min_vram_gb": 0},
+            }
+        )
 
     @app.job("POST", "/transcribe")
     def transcribe(ctx: RequestContext):
@@ -153,10 +158,14 @@ def build_app(args: Any) -> BridgeApp:
             raise BadRequest(f"audio_base64: {e}") from None
         source = (req_str(body, "source", required=False, default="mix") or "mix").strip().lower()
         if source == "drums":
-            raise NotSupported("Basic Pitch transcribes pitched notes; drums are unpitched (use a drum-transcription engine or Song Deck's built-in analysis)")
+            raise NotSupported(
+                "Basic Pitch transcribes pitched notes; drums are unpitched (use a drum-transcription engine or Song Deck's built-in analysis)"
+            )
         settings = SOURCE_SETTINGS.get(source, SOURCE_SETTINGS["other"])
         if meta["duration"] > args.max_duration:
-            raise BadRequest(f"the audio is {meta['duration']:.0f} s long; this bridge accepts at most {args.max_duration:.0f} s (--max-duration)")
+            raise BadRequest(
+                f"the audio is {meta['duration']:.0f} s long; this bridge accepts at most {args.max_duration:.0f} s (--max-duration)"
+            )
         engine = loader.get()  # 503 while the model is loading
 
         def work():
@@ -182,14 +191,22 @@ def build_app(args: Any) -> BridgeApp:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    p = build_parser("Song Deck transcription bridge for Spotify Basic Pitch (reference implementation).", DEFAULT_PORT, prog="basic_pitch_bridge.py")
+    p = build_parser(
+        "Song Deck transcription bridge for Spotify Basic Pitch (reference implementation).",
+        DEFAULT_PORT,
+        prog="basic_pitch_bridge.py",
+    )
     b = p.add_argument_group("basic pitch")
-    b.add_argument("--model-path", default=None, help="model file/folder (default: the ICASSP 2022 model shipped with basic-pitch)")
+    b.add_argument(
+        "--model-path", default=None, help="model file/folder (default: the ICASSP 2022 model shipped with basic-pitch)"
+    )
     b.add_argument("--onset-threshold", type=float, default=0.5, help="onset posterior threshold (default 0.5)")
     b.add_argument("--frame-threshold", type=float, default=0.3, help="frame posterior threshold (default 0.3)")
     b.add_argument("--min-note-ms", type=float, default=127.7, help="minimum note length in ms (default 127.7)")
     b.add_argument("--no-melodia-trick", action="store_true", help="disable Basic Pitch's melodia post-processing")
-    b.add_argument("--max-duration", type=float, default=1800.0, help="longest accepted input in seconds (default 1800)")
+    b.add_argument(
+        "--max-duration", type=float, default=1800.0, help="longest accepted input in seconds (default 1800)"
+    )
     args = p.parse_args(argv)
     setup_logging(args)
     check_bind(args)

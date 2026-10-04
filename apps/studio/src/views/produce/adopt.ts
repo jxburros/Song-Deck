@@ -1,8 +1,24 @@
-import { defaultChannelStrip, randomId, type AudioAssetMeta, type AudioClip, type ChannelStrip, type ProductionCandidate, type Song, type Track } from '@songdeck/core';
+import {
+  TRACK_PALETTE,
+  defaultChannelStrip,
+  randomId,
+  type AudioAssetMeta,
+  type AudioClip,
+  type ChannelStrip,
+  type ProductionCandidate,
+  type Song,
+  type Track,
+} from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { assetStore } from '../../state/assets';
 import { player } from '../../engine/player';
-import { PRODUCED_MIX_GENERATOR, PRODUCED_STEM_GENERATOR, isProducedTrack, productionSourceSong, type ProducedTrackParams } from '../../engine/produce-model';
+import {
+  PRODUCED_MIX_GENERATOR,
+  PRODUCED_STEM_GENERATOR,
+  isProducedTrack,
+  productionSourceSong,
+  type ProducedTrackParams,
+} from '../../engine/produce-model';
 
 /**
  * "Use produced stems in the mix" (spec §38/§54 → §40): a candidate's stems become ordinary audio
@@ -16,7 +32,17 @@ import { PRODUCED_MIX_GENERATOR, PRODUCED_STEM_GENERATOR, isProducedTrack, produ
 const unityStrip = (): ChannelStrip => defaultChannelStrip({ volumeDb: 0, reverbSend: 0, delaySend: 0 });
 
 function clipFor(meta: AudioAssetMeta, name: string): AudioClip {
-  return { id: randomId('clip'), assetId: meta.id, tick: 0, offsetSeconds: 0, durationSeconds: meta.durationSeconds, gainDb: 0, fadeInSeconds: 0, fadeOutSeconds: 0, name };
+  return {
+    id: randomId('clip'),
+    assetId: meta.id,
+    tick: 0,
+    offsetSeconds: 0,
+    durationSeconds: meta.durationSeconds,
+    gainDb: 0,
+    fadeInSeconds: 0,
+    fadeOutSeconds: 0,
+    name,
+  };
 }
 
 const params = (t: Track) => (t.generator?.params ?? {}) as ProducedTrackParams;
@@ -30,7 +56,12 @@ function removeProduced(tracks: Track[], channels: Record<string, ChannelStrip>,
       continue;
     }
     const p = params(t);
-    const restore = generator === PRODUCED_STEM_GENERATOR ? (t.sourceTrackId && p.sourceMuted === false ? [t.sourceTrackId] : []) : (p.mutedTrackIds ?? []);
+    const restore =
+      generator === PRODUCED_STEM_GENERATOR
+        ? t.sourceTrackId && p.sourceMuted === false
+          ? [t.sourceTrackId]
+          : []
+        : (p.mutedTrackIds ?? []);
     for (const id of restore) if (channels[id]?.mute) channels[id] = { ...channels[id], mute: false };
     delete channels[t.id];
   }
@@ -44,14 +75,20 @@ export interface AdoptResult {
   kind: 'stems' | 'mix';
 }
 
-export function adoptCandidate(song: Song, candidate: ProductionCandidate, assets: AudioAssetMeta[]): AdoptResult {
+export function adoptCandidate(
+  song: Song,
+  candidate: ProductionCandidate,
+  assets: AudioAssetMeta[],
+): AdoptResult {
   const channels: Record<string, ChannelStrip> = { ...song.mixer.channels };
   let tracks = [...song.tracks];
   let added = 0;
   let updated = 0;
   const label = candidate.label;
   const meta = (id: string | undefined) => (id ? assets.find((a) => a.id === id) : undefined);
-  const stems = Object.entries(candidate.stemAssetIds).filter(([tid]) => tracks.some((t) => t.id === tid && t.kind === 'midi'));
+  const stems = Object.entries(candidate.stemAssetIds).filter(([tid]) =>
+    tracks.some((t) => t.id === tid && t.kind === 'midi'),
+  );
 
   if (stems.length) {
     tracks = removeProduced(tracks, channels, PRODUCED_MIX_GENERATOR);
@@ -61,11 +98,26 @@ export function adoptCandidate(song: Song, candidate: ProductionCandidate, asset
       const m = meta(assetId);
       if (!m) continue;
       const name = `${src.name} · ${label}`;
-      const generatorParams = (prev?: ProducedTrackParams): ProducedTrackParams => ({ ...prev, candidateId: candidate.id, candidateLabel: label });
-      const idx = tracks.findIndex((t) => t.kind === 'audio' && t.generator?.id === PRODUCED_STEM_GENERATOR && t.sourceTrackId === tid);
+      const generatorParams = (prev?: ProducedTrackParams): ProducedTrackParams => ({
+        ...prev,
+        candidateId: candidate.id,
+        candidateLabel: label,
+      });
+      const idx = tracks.findIndex(
+        (t) => t.kind === 'audio' && t.generator?.id === PRODUCED_STEM_GENERATOR && t.sourceTrackId === tid,
+      );
       if (idx >= 0) {
         const t = tracks[idx];
-        tracks[idx] = { ...t, name, clips: [clipFor(m, m.name)], generator: { id: PRODUCED_STEM_GENERATOR, seed: candidate.seed, params: { ...generatorParams(params(t)) } } };
+        tracks[idx] = {
+          ...t,
+          name,
+          clips: [clipFor(m, m.name)],
+          generator: {
+            id: PRODUCED_STEM_GENERATOR,
+            seed: candidate.seed,
+            params: { ...generatorParams(params(t)) },
+          },
+        };
         updated++;
       } else {
         const id = randomId('trk');
@@ -81,7 +133,11 @@ export function adoptCandidate(song: Song, candidate: ProductionCandidate, asset
           color: src.color,
           stemGroup: src.stemGroup,
           sourceTrackId: src.id,
-          generator: { id: PRODUCED_STEM_GENERATOR, seed: candidate.seed, params: { ...generatorParams(), sourceMuted: !!channels[src.id]?.mute } },
+          generator: {
+            id: PRODUCED_STEM_GENERATOR,
+            seed: candidate.seed,
+            params: { ...generatorParams(), sourceMuted: !!channels[src.id]?.mute },
+          },
         };
         const at = tracks.findIndex((x) => x.id === src.id);
         tracks.splice(at + 1, 0, t);
@@ -92,7 +148,13 @@ export function adoptCandidate(song: Song, candidate: ProductionCandidate, asset
       adopted.add(tid);
     }
     // Produced stems of sources this candidate does not cover go away (their MIDI plays again).
-    const stale = tracks.filter((t) => t.kind === 'audio' && t.generator?.id === PRODUCED_STEM_GENERATOR && t.sourceTrackId && !adopted.has(t.sourceTrackId));
+    const stale = tracks.filter(
+      (t) =>
+        t.kind === 'audio' &&
+        t.generator?.id === PRODUCED_STEM_GENERATOR &&
+        t.sourceTrackId &&
+        !adopted.has(t.sourceTrackId),
+    );
     if (stale.length) {
       const keep = removeProduced(stale, channels, PRODUCED_STEM_GENERATOR);
       void keep;
@@ -115,7 +177,16 @@ export function adoptCandidate(song: Song, candidate: ProductionCandidate, asset
   }
   const name = `Production ${label} (full mix)`;
   if (idx >= 0) {
-    tracks[idx] = { ...tracks[idx], name, clips: [clipFor(m, m.name)], generator: { id: PRODUCED_MIX_GENERATOR, seed: candidate.seed, params: { candidateId: candidate.id, candidateLabel: label, mutedTrackIds: muted } } };
+    tracks[idx] = {
+      ...tracks[idx],
+      name,
+      clips: [clipFor(m, m.name)],
+      generator: {
+        id: PRODUCED_MIX_GENERATOR,
+        seed: candidate.seed,
+        params: { candidateId: candidate.id, candidateLabel: label, mutedTrackIds: muted },
+      },
+    };
     updated++;
   } else {
     const id = randomId('trk');
@@ -128,9 +199,14 @@ export function adoptCandidate(song: Song, candidate: ProductionCandidate, asset
       constraints: {},
       notes: [],
       clips: [clipFor(m, m.name)],
-      color: '#46c2cb',
+      // Blue: the track-safe sibling of the AI colour, for the AI-produced mix.
+      color: TRACK_PALETTE[8],
       stemGroup: 'others',
-      generator: { id: PRODUCED_MIX_GENERATOR, seed: candidate.seed, params: { candidateId: candidate.id, candidateLabel: label, mutedTrackIds: muted } },
+      generator: {
+        id: PRODUCED_MIX_GENERATOR,
+        seed: candidate.seed,
+        params: { candidateId: candidate.id, candidateLabel: label, mutedTrackIds: muted },
+      },
     });
     channels[id] = unityStrip();
     added++;
@@ -138,12 +214,20 @@ export function adoptCandidate(song: Song, candidate: ProductionCandidate, asset
   return { song: finish(song, tracks, channels, candidate), added, updated, kind: 'mix' };
 }
 
-function finish(song: Song, tracks: Track[], channels: Record<string, ChannelStrip>, candidate: ProductionCandidate): Song {
+function finish(
+  song: Song,
+  tracks: Track[],
+  channels: Record<string, ChannelStrip>,
+  candidate: ProductionCandidate,
+): Song {
   const ids = new Set(tracks.map((t) => t.id));
   return {
     ...song,
     tracks,
-    mixer: { ...song.mixer, channels: Object.fromEntries(Object.entries(channels).filter(([id]) => ids.has(id))) },
+    mixer: {
+      ...song.mixer,
+      channels: Object.fromEntries(Object.entries(channels).filter(([id]) => ids.has(id))),
+    },
     automation: song.automation.filter((l) => l.target === 'master' || ids.has(l.target)),
     production: { ...song.production, selectedCandidateId: candidate.id },
   };

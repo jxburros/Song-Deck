@@ -48,7 +48,9 @@ class ABPlayer {
 
   private ensure(): AudioContext {
     if (!this.ctx) {
-      const Ctor: typeof AudioContext = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const Ctor: typeof AudioContext =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctor({ latencyHint: 'interactive' });
       for (const s of ['A', 'B'] as Side[]) {
         const g = this.ctx.createGain();

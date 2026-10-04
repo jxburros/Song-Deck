@@ -11,7 +11,10 @@ export interface LoadedSfz {
  * relative to the SFZ file (spec §57 "Instruments: Soundfonts"). `fetchBytes` reads a file by
  * its path inside the plugin, so this works for any file source.
  */
-export async function loadSfzInstrument(sfzPath: string, fetchBytes: (path: string) => Promise<Uint8Array>): Promise<LoadedSfz> {
+export async function loadSfzInstrument(
+  sfzPath: string,
+  fetchBytes: (path: string) => Promise<Uint8Array>,
+): Promise<LoadedSfz> {
   const text = new TextDecoder().decode(await fetchBytes(sfzPath));
   const dir = sfzPath.includes('/') ? sfzPath.slice(0, sfzPath.lastIndexOf('/') + 1) : '';
   // First pass: collect the sample paths the regions reference (unresolved regions are skipped).

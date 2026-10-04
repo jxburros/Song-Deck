@@ -70,7 +70,9 @@ export interface EventBuildContext {
 export function buildNoteEvents(track: Track, patch: PatchDefinition, ctx: EventBuildContext): NoteEvent[] {
   const sr = ctx.sampleRate;
   const tm = ctx.timeMap;
-  const notes = [...track.notes].filter((n) => Number.isFinite(n.tick) && Number.isFinite(n.pitch) && n.duration > 0).sort((a, b) => a.tick - b.tick || a.pitch - b.pitch);
+  const notes = [...track.notes]
+    .filter((n) => Number.isFinite(n.tick) && Number.isFinite(n.pitch) && n.duration > 0)
+    .sort((a, b) => a.tick - b.tick || a.pitch - b.pitch);
   const events: NoteEvent[] = [];
   const pluckLike = patch.engine === 'pluck';
   const drums = patch.engine === 'drums';
@@ -112,7 +114,8 @@ export function buildNoteEvents(track: Track, patch: PatchDefinition, ctx: Event
     const strum = strumOffset.get(n.id) ?? 0;
     const start = Math.round((s0 + strum - ctx.startSec) * sr);
     const end = start + Math.max(1, Math.round(dur * sr));
-    const pitchPan = patch.stereo && patch.pitchPan ? clampNum(((n.pitch - 60) / 40) * patch.pitchPan, -0.9, 0.9) : 0;
+    const pitchPan =
+      patch.stereo && patch.pitchPan ? clampNum(((n.pitch - 60) / 40) * patch.pitchPan, -0.9, 0.9) : 0;
     events.push({
       id: n.id,
       index: k,
@@ -137,7 +140,11 @@ export function buildNoteEvents(track: Track, patch: PatchDefinition, ctx: Event
     if (prev.start === e.start) continue;
     const touching = prev.end >= e.start - legatoTol;
     if (e.art & ART_SLIDE) e.fromPitch = e.start - prev.end < 0.5 * sr ? prev.pitch : e.pitch - 2;
-    if (patch.mono && touching && (patch.autoLegato || e.art & (ART_LEGATO | ART_SLIDE) || prev.art & ART_LEGATO)) {
+    if (
+      patch.mono &&
+      touching &&
+      (patch.autoLegato || e.art & (ART_LEGATO | ART_SLIDE) || prev.art & ART_LEGATO)
+    ) {
       e.legato = true;
       e.fromPitch = prev.pitch;
     }
@@ -147,7 +154,8 @@ export function buildNoteEvents(track: Track, patch: PatchDefinition, ctx: Event
       const e = events[k];
       if (!(e.art & ART_LEGATO)) continue;
       const next = events.find((x, j) => j > k && x.start > e.start);
-      if (next && next.start - e.end < 0.25 * sr && next.start > e.start) e.end = Math.max(e.end, next.start + Math.round(0.02 * sr));
+      if (next && next.start - e.end < 0.25 * sr && next.start > e.start)
+        e.end = Math.max(e.end, next.start + Math.round(0.02 * sr));
     }
   }
   return events;
@@ -169,7 +177,11 @@ class FxChain {
   private readonly items: FxProc[] = [];
   /** DC / sub-sonic blocker on every instrument output (kick bursts, asymmetric strings). */
   private readonly dc = new DcBlocker();
-  constructor(specs: InstrumentFxSpec[] | undefined, sr: number, private readonly dcBlock: boolean) {
+  constructor(
+    specs: InstrumentFxSpec[] | undefined,
+    sr: number,
+    private readonly dcBlock: boolean,
+  ) {
     this.dc.set(12, sr);
     for (const s of specs ?? []) {
       switch (s.type) {
@@ -180,7 +192,11 @@ class FxChain {
           break;
         }
         case 'eq':
-          this.items.push({ kind: 'eq', p: s.bands.map((b) => new Biquad().design(b.type, b.f, b.q, b.db, sr)), mono: false });
+          this.items.push({
+            kind: 'eq',
+            p: s.bands.map((b) => new Biquad().design(b.type, b.f, b.q, b.db, sr)),
+            mono: false,
+          });
           break;
         case 'chorus': {
           const c = new Chorus(sr);
@@ -251,7 +267,8 @@ class FxChain {
       if (mono) for (let i = 0; i < n; i++) R[i] = L[i];
     } else {
       const r = dc.r;
-      let x1 = dc.x1L, y1 = dc.y1L;
+      let x1 = dc.x1L,
+        y1 = dc.y1L;
       if (mono) {
         for (let i = 0; i < n; i++) {
           const x = L[i];
@@ -262,7 +279,8 @@ class FxChain {
           R[i] = y;
         }
       } else {
-        let u1 = dc.x1R, v1 = dc.y1R;
+        let u1 = dc.x1R,
+          v1 = dc.y1R;
         for (let i = 0; i < n; i++) {
           const x = L[i];
           const y = x - x1 + r * y1;
@@ -323,12 +341,31 @@ export class PolyInstrument implements TrackSource {
     this.maxPoly = Math.max(1, patch.polyphony);
     const pool = patch.mono ? 3 : this.maxPoly + Math.min(8, Math.max(2, Math.ceil(this.maxPoly / 4)));
     for (let i = 0; i < pool; i++) this.voices.push(this.createVoice());
-    const dcBlock = patch.engine === 'drums' || patch.engine === 'pluck' || patch.engine === 'modal' || patch.engine === 'sampler' || patch.engine === 'piano';
+    const dcBlock =
+      patch.engine === 'drums' ||
+      patch.engine === 'pluck' ||
+      patch.engine === 'modal' ||
+      patch.engine === 'sampler' ||
+      patch.engine === 'piano';
     this.fx = new FxChain(patch.fx, sampleRate, dcBlock);
     this.gain = dbToGain(num(patch.gainDb, 0));
-    if (patch.engine === 'sampler' && opts.sampleInstrument) this.matcher = new ZoneMatcher(opts.sampleInstrument);
+    if (patch.engine === 'sampler' && opts.sampleInstrument)
+      this.matcher = new ZoneMatcher(opts.sampleInstrument);
     for (let i = 0; i < CHASE_POOL; i++) {
-      this.chasePool.push({ id: '', index: 0, start: 0, end: 0, pitch: 60, velocity: 100, art: 0, seed: 1, bpm: 120, fromPitch: -1, legato: false, pan: 0 });
+      this.chasePool.push({
+        id: '',
+        index: 0,
+        start: 0,
+        end: 0,
+        pitch: 60,
+        velocity: 100,
+        art: 0,
+        seed: 1,
+        bpm: 120,
+        fromPitch: -1,
+        legato: false,
+        pan: 0,
+      });
     }
     if (opts.pizzPatch) this.sub = new PolyInstrument(opts.pizzPatch, sampleRate);
     // FX tails (chorus/rotary buffers, amp & EQ filters) are flushed well within 250 ms
@@ -495,14 +532,22 @@ export class PolyInstrument implements TrackSource {
       case 'drums': {
         const piece: DrumPiece = drumPiece(p.kit ?? 'acoustic', ev.pitch);
         if (piece.chokes !== undefined) {
-          for (const v of this.voices) if (v.active && !v.killed && (v as DrumVoice).piece?.group === piece.chokes) v.kill();
+          for (const v of this.voices)
+            if (v.active && !v.killed && (v as DrumVoice).piece?.group === piece.chokes) v.kill();
         }
         const limit = piece.maxVoices ?? 3;
         let count = 0;
         for (const v of this.voices) if (v.active && !v.killed && (v as DrumVoice).piece === piece) count++;
         while (count >= limit) {
           let oldest: Voice | null = null;
-          for (const v of this.voices) if (v.active && !v.killed && (v as DrumVoice).piece === piece && (!oldest || v.startFrame < oldest.startFrame)) oldest = v;
+          for (const v of this.voices)
+            if (
+              v.active &&
+              !v.killed &&
+              (v as DrumVoice).piece === piece &&
+              (!oldest || v.startFrame < oldest.startFrame)
+            )
+              oldest = v;
           if (!oldest) break;
           oldest.kill();
           count--;
@@ -531,7 +576,8 @@ export class PolyInstrument implements TrackSource {
           const zi = this.zoneIdx[k];
           const z = inst.zones[zi];
           if (z.group !== undefined) {
-            for (const v of this.voices) if (v.active && !v.killed && (v as SamplerVoice).zone?.offBy === z.group) v.kill();
+            for (const v of this.voices)
+              if (v.active && !v.killed && (v as SamplerVoice).zone?.offBy === z.group) v.kill();
           }
           const v = this.allocate() as SamplerVoice;
           v.startZone(ev, z, zi, 0);
@@ -544,7 +590,8 @@ export class PolyInstrument implements TrackSource {
     }
     if (p.mono) {
       let cur: Voice | null = null;
-      for (const v of this.voices) if (v.active && !v.killed && !v.released && (!cur || v.startFrame >= cur.startFrame)) cur = v;
+      for (const v of this.voices)
+        if (v.active && !v.killed && !v.released && (!cur || v.startFrame >= cur.startFrame)) cur = v;
       if (cur && ev.legato && cur.glideTo(ev)) return;
       for (const v of this.voices) if (v.active && !v.killed) v.kill();
     } else {
@@ -596,7 +643,11 @@ export class PolyInstrument implements TrackSource {
       if (this.sub) this.renderSub(L, R, blockStart, n);
       return;
     }
-    const stereo = this.patch.stereo || this.patch.engine === 'drums' || this.patch.engine === 'piano' || this.patch.engine === 'sampler';
+    const stereo =
+      this.patch.stereo ||
+      this.patch.engine === 'drums' ||
+      this.patch.engine === 'piano' ||
+      this.patch.engine === 'sampler';
     let anyActive = false;
     for (let vi = 0; vi < this.voices.length; vi++) {
       const v = this.voices[vi];
@@ -628,7 +679,8 @@ export class PolyInstrument implements TrackSource {
 
   private renderSub(L: Float64Array, R: Float64Array, blockStart: number, n: number): void {
     const sub = this.sub!;
-    const sL = this.host.scratch, sR = this.host.scratch2;
+    const sL = this.host.scratch,
+      sR = this.host.scratch2;
     sL.fill(0, 0, n);
     sR.fill(0, 0, n);
     sub.render(sL, sR, blockStart, n);
@@ -657,7 +709,8 @@ export class PolyInstrument implements TrackSource {
 }
 
 function lowerBound(events: NoteEvent[], frame: number): number {
-  let lo = 0, hi = events.length;
+  let lo = 0,
+    hi = events.length;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
     if (events[mid].start < frame) lo = mid + 1;
@@ -781,7 +834,10 @@ export class ClipPlayer implements TrackSource {
       const assetLen = asset.channels[0].length;
       const srcOffset = Math.max(0, num(c.offsetSeconds, 0)) * asset.sampleRate;
       const maxDur = (assetLen - srcOffset) / asset.sampleRate;
-      const durSec = Math.min(num(c.durationSeconds, maxDur) > 0 ? num(c.durationSeconds, maxDur) : maxDur, maxDur);
+      const durSec = Math.min(
+        num(c.durationSeconds, maxDur) > 0 ? num(c.durationSeconds, maxDur) : maxDur,
+        maxDur,
+      );
       if (!(durSec > 0)) continue;
       const startFrame = Math.round((tm.tickToSeconds(c.tick) - startSec) * sr);
       this.clips.push({
@@ -822,7 +878,8 @@ export class ClipPlayer implements TrackSource {
       idle = false;
       const i0 = Math.max(blockStart, c.start) - blockStart;
       const i1 = Math.min(end, c.start + c.len) - blockStart;
-      const c0 = c.ch0, c1 = c.ch1;
+      const c0 = c.ch0,
+        c1 = c.ch1;
       for (let i = i0; i < i1; i++) {
         const t = blockStart + i - c.start;
         let g = c.gain;

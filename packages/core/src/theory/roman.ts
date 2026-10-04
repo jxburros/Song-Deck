@@ -44,7 +44,12 @@ export function parseRoman(text: string): ParsedRoman | null {
   return parsed;
 }
 
-function qualityFor(p: ParsedRoman, key: KeySignature, rootInterval: number, diatonicContext: boolean): ChordQuality {
+function qualityFor(
+  p: ParsedRoman,
+  key: KeySignature,
+  rootInterval: number,
+  diatonicContext: boolean,
+): ChordQuality {
   const ext = p.ext;
   if (ext === '5') return '5';
   if (ext === 'sus2') return 'sus2';
@@ -104,7 +109,6 @@ function diatonicSeventhQuality(key: KeySignature, degree: number, fallback: Cho
   return diatonicChord(key, degree, true).quality ?? fallback;
 }
 
-
 /** Convert a roman numeral to a chord in the key. Returns null if unparseable. */
 export function romanToChord(roman: string, key: KeySignature): ChordSpec | null {
   const p = parseRoman(roman);
@@ -127,10 +131,12 @@ export function romanToChord(roman: string, key: KeySignature): ChordSpec | null
   const diatonicContext =
     p.accidental === 0 &&
     !p.target &&
-    ((p.upper && scaleTriad.quality === 'maj') || (!p.upper && (scaleTriad.quality === 'min' || scaleTriad.quality === 'dim')));
+    ((p.upper && scaleTriad.quality === 'maj') ||
+      (!p.upper && (scaleTriad.quality === 'min' || scaleTriad.quality === 'dim')));
   let quality = qualityFor(p, localKey, rootInterval, diatonicContext);
   // Lowercase numeral on a diminished scale triad without explicit ° (e.g. "vii" in major) → diminished.
-  if (!p.upper && p.modifier === '' && p.ext === '' && diatonicContext && scaleTriad.quality === 'dim') quality = 'dim';
+  if (!p.upper && p.modifier === '' && p.ext === '' && diatonicContext && scaleTriad.quality === 'dim')
+    quality = 'dim';
   const chord: ChordSpec = { root, quality };
   const inv = inversionFromFigures(p.ext, quality);
   if (inv > 0) {
@@ -248,7 +254,11 @@ export function chordToRoman(chord: ChordSpec, key: KeySignature): string {
   // Secondary dominant: non-diatonic dominant-7th (or major triad not explained by the parallel
   // key's modal interchange) resolving down a fifth to a diatonic, non-tonic chord.
   const explainedByParallel = chord.quality === 'maj' && isDiatonic(chord, parallelKey(key));
-  if (!isDiatonic(chord, key) && !explainedByParallel && (chord.quality === 'maj' || isDominantQuality(chord.quality))) {
+  if (
+    !isDiatonic(chord, key) &&
+    !explainedByParallel &&
+    (chord.quality === 'maj' || isDominantQuality(chord.quality))
+  ) {
     const targetInterval = mod12(interval + 5);
     const iv = MODE_INTERVALS[key.mode];
     const td = iv.indexOf(targetInterval);
@@ -284,7 +294,15 @@ export function chordDegree(chord: ChordSpec, key: KeySignature): number {
   return MODE_INTERVALS[key.mode].indexOf(mod12(chord.root - key.tonic));
 }
 
-const BORROW_SOURCES: ModeName[] = ['minor', 'major', 'dorian', 'mixolydian', 'phrygian', 'lydian', 'harmonic-minor'];
+const BORROW_SOURCES: ModeName[] = [
+  'minor',
+  'major',
+  'dorian',
+  'mixolydian',
+  'phrygian',
+  'lydian',
+  'harmonic-minor',
+];
 
 /** If the chord is not diatonic but belongs to a parallel mode, return that mode (modal interchange). */
 export function borrowedFrom(chord: ChordSpec, key: KeySignature): ModeName | null {

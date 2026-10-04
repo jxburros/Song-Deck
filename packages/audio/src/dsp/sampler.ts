@@ -68,7 +68,13 @@ export class ZoneMatcher {
     this.counters.fill(0);
   }
   /** Collect matching zone indices into `out` (returns count). */
-  match(pitch: number, velocity: number, rand: number, trigger: 'attack' | 'release', out: Int32Array): number {
+  match(
+    pitch: number,
+    velocity: number,
+    rand: number,
+    trigger: 'attack' | 'release',
+    out: Int32Array,
+  ): number {
     const zones = this.inst.zones;
     const key = Math.round(pitch);
     const vel = Math.round(clampNum(velocity, 1, 127));
@@ -90,7 +96,12 @@ export class ZoneMatcher {
   }
 }
 
-const ST_ATTACK = 1, ST_HOLD = 2, ST_DECAY = 3, ST_SUSTAIN = 4, ST_RELEASE = 5, ST_IDLE = 0;
+const ST_ATTACK = 1,
+  ST_HOLD = 2,
+  ST_DECAY = 3,
+  ST_SUSTAIN = 4,
+  ST_RELEASE = 5,
+  ST_IDLE = 0;
 
 export class SamplerVoice extends Voice {
   zone: SampleZone | null = null;
@@ -140,14 +151,20 @@ export class SamplerVoice extends Voice {
     this.ch0 = s.channels[0];
     this.ch1 = s.channels.length > 1 ? s.channels[1] : null;
     this.len = this.ch0.length;
-    const semis = ((ev.pitch - zone.pitchKeycenter) * (zone.pitchKeytrack ?? 100)) / 100 + (zone.transpose ?? 0) + (zone.tune ?? 0) / 100;
+    const semis =
+      ((ev.pitch - zone.pitchKeycenter) * (zone.pitchKeytrack ?? 100)) / 100 +
+      (zone.transpose ?? 0) +
+      (zone.tune ?? 0) / 100;
     this.rate = Math.pow(2, semis / 12) * (s.sampleRate / this.sr);
     this.pos = clampNum(zone.offset ?? 0, 0, Math.max(0, this.len - 1));
     this.endPos = Math.min(this.len, zone.end !== undefined ? zone.end + 1 : this.len);
-    this.loopMode = zone.loopMode ?? (zone.loopStart !== undefined && zone.loopEnd !== undefined ? 'loop_continuous' : 'no_loop');
+    this.loopMode =
+      zone.loopMode ??
+      (zone.loopStart !== undefined && zone.loopEnd !== undefined ? 'loop_continuous' : 'no_loop');
     this.ls = clampNum(zone.loopStart ?? 0, 0, this.len - 1);
     this.le = clampNum(zone.loopEnd ?? this.len - 1, this.ls, this.len - 1);
-    if ((this.loopMode === 'loop_continuous' || this.loopMode === 'loop_sustain') && this.le - this.ls < 2) this.loopMode = 'no_loop';
+    if ((this.loopMode === 'loop_continuous' || this.loopMode === 'loop_sustain') && this.le - this.ls < 2)
+      this.loopMode = 'no_loop';
     const vt = (zone.ampVeltrack ?? 100) / 100;
     const v = clampNum(ev.velocity / 127, 0, 1);
     this.gain = (1 - vt * (1 - v * v)) * Math.pow(10, (zone.volume ?? 0) / 20);
@@ -160,7 +177,8 @@ export class SamplerVoice extends Voice {
     this.rCoef = Math.exp(-6.9 / (Math.max(0.006, zone.ampegRelease ?? 0.03) * sr));
     this.st = ST_ATTACK;
     this.ev = 0;
-    this.lpA = this.lowpassHz > 0 ? 1 - Math.exp((-2 * Math.PI * Math.min(this.lowpassHz, sr * 0.45)) / sr) : 1;
+    this.lpA =
+      this.lowpassHz > 0 ? 1 - Math.exp((-2 * Math.PI * Math.min(this.lowpassHz, sr * 0.45)) / sr) : 1;
     this.lpL = this.lpR = 0;
   }
 
@@ -191,7 +209,8 @@ export class SamplerVoice extends Voice {
   render(L: Float64Array, R: Float64Array, start: number, end: number): void {
     // ---- envelope pass (AHDSR) into scratch ----
     const env = this.host.scratch;
-    let st = this.st, e = this.ev;
+    let st = this.st,
+      e = this.ev;
     let last = end;
     for (let i = start; i < end; i++) {
       if (st === ST_SUSTAIN) {
@@ -225,24 +244,33 @@ export class SamplerVoice extends Voice {
     this.st = st;
     this.ev = e;
     // ---- sample pass ----
-    const c0 = this.ch0, c1 = this.ch1;
+    const c0 = this.ch0,
+      c1 = this.ch1;
     const len = this.len;
     let pos = this.pos;
     const rate = this.rate;
-    const looping = this.loopMode === 'loop_continuous' || (this.loopMode === 'loop_sustain' && !this.released);
-    const ls = this.ls, le = this.le, loopLen = le - ls + 1;
+    const looping =
+      this.loopMode === 'loop_continuous' || (this.loopMode === 'loop_sustain' && !this.released);
+    const ls = this.ls,
+      le = this.le,
+      loopLen = le - ls + 1;
     const endPos = this.endPos;
     const g = this.gain;
-    const gl = this.pg[0] * g, gr = this.pg[1] * g;
+    const gl = this.pg[0] * g,
+      gr = this.pg[1] * g;
     const lpA = this.lpA;
-    let lpL = this.lpL, lpR = this.lpR;
+    let lpL = this.lpL,
+      lpR = this.lpR;
     const n = last - start;
     const fast = !looping && lpA >= 1 && pos >= 1 && pos + rate * n + 3 < Math.min(len, endPos);
     if (fast && !c1) {
       for (let i = start; i < last; i++) {
         const ip = pos | 0;
         const f = pos - ip;
-        const xm1 = c0[ip - 1], x0 = c0[ip], x1 = c0[ip + 1], x2 = c0[ip + 2];
+        const xm1 = c0[ip - 1],
+          x0 = c0[ip],
+          x1 = c0[ip + 1],
+          x2 = c0[ip + 2];
         const k1 = 0.5 * (x1 - xm1);
         const k2 = xm1 - 2.5 * x0 + 2 * x1 - 0.5 * x2;
         const k3 = 0.5 * (x2 - xm1) + 1.5 * (x0 - x1);
@@ -260,7 +288,10 @@ export class SamplerVoice extends Voice {
         }
         const f = pos - ip;
         let xm1: number, x0: number, x1: number, x2: number;
-        let ym1 = 0, y0 = 0, y1 = 0, y2 = 0;
+        let ym1 = 0,
+          y0 = 0,
+          y1 = 0,
+          y2 = 0;
         if (looping) {
           const i1 = ip + 1 > le ? ip + 1 - loopLen : ip + 1;
           const i2 = ip + 2 > le ? ip + 2 - loopLen : ip + 2;

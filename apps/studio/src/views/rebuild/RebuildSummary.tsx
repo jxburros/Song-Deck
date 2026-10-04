@@ -10,10 +10,23 @@ import { confidenceTone, pct } from '../transcribe/widgets';
 
 export function ConfidenceBar({ value, width = 120 }: { value: number | undefined; width?: number }) {
   const tone = confidenceTone(value);
-  const color = tone === 'success' ? 'var(--success)' : tone === 'warning' ? 'var(--warning)' : tone === 'danger' ? 'var(--danger)' : 'var(--text-dim)';
+  const color =
+    tone === 'success'
+      ? 'var(--success)'
+      : tone === 'warning'
+        ? 'var(--warning)'
+        : tone === 'danger'
+          ? 'var(--danger)'
+          : 'var(--text-dim)';
   return (
     <div className="row" style={{ gap: 6 }} title={`Confidence ${pct(value)}`}>
-      <div style={{ width, height: 6, borderRadius: 3, background: 'var(--bg-elev-3)', overflow: 'hidden' }} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((value ?? 0) * 100)}>
+      <div
+        style={{ width, height: 6, borderRadius: 3, background: 'var(--bg-elev-3)', overflow: 'hidden' }}
+        role="meter"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round((value ?? 0) * 100)}
+      >
         <div style={{ width: `${Math.round((value ?? 0) * 100)}%`, height: '100%', background: color }} />
       </div>
       <span className="mono small" style={{ color }}>
@@ -55,14 +68,18 @@ export function RebuildSummary({ song, report }: { song: Song; report: RebuildRe
                 'Tempo',
                 <span key="t" className="row">
                   <strong>{Math.round(report.bpm * 10) / 10} BPM</strong>
-                  <Badge tone={confidenceTone(stage('tempo')?.confidence)}>{pct(stage('tempo')?.confidence)}</Badge>
+                  <Badge tone={confidenceTone(stage('tempo')?.confidence)}>
+                    {pct(stage('tempo')?.confidence)}
+                  </Badge>
                 </span>,
               ],
               [
                 'Key',
                 <span key="k" className="row">
                   <strong>{keyName(report.key)}</strong>
-                  <Badge tone={confidenceTone(stage('key')?.confidence)}>{pct(stage('key')?.confidence)}</Badge>
+                  <Badge tone={confidenceTone(stage('key')?.confidence)}>
+                    {pct(stage('key')?.confidence)}
+                  </Badge>
                 </span>,
               ],
               [
@@ -71,7 +88,10 @@ export function RebuildSummary({ song, report }: { song: Song; report: RebuildRe
                   <strong>
                     {meter.numerator}/{meter.denominator}
                   </strong>
-                  <Badge tone={confidenceTone(stage('tempo')?.confidence)} title="Meter is estimated from beat accents (tempo stage)">
+                  <Badge
+                    tone={confidenceTone(stage('tempo')?.confidence)}
+                    title="Meter is estimated from beat accents (tempo stage)"
+                  >
                     {pct(stage('tempo')?.confidence)}
                   </Badge>
                 </span>,
@@ -96,11 +116,18 @@ export function RebuildSummary({ song, report }: { song: Song; report: RebuildRe
       <div>
         <div className="section-title">
           <h3>Sections</h3>
-          <Badge tone={confidenceTone(stage('structure')?.confidence)}>structure {pct(stage('structure')?.confidence)}</Badge>
+          <Badge tone={confidenceTone(stage('structure')?.confidence)}>
+            structure {pct(stage('structure')?.confidence)}
+          </Badge>
         </div>
         <div className="chip-list" data-testid="rebuild-sections">
           {layout.map((s) => (
-            <span key={s.section.id} className="chip" style={{ cursor: 'default' }} title={`Bars ${s.startBar + 1}–${s.endBar}`}>
+            <span
+              key={s.section.id}
+              className="chip"
+              style={{ cursor: 'default' }}
+              title={`Bars ${s.startBar + 1}–${s.endBar}`}
+            >
               <strong>{s.section.name}</strong>
               <span className="muted">
                 {s.endBar - s.startBar} bars · {s.startBar + 1}
@@ -113,11 +140,20 @@ export function RebuildSummary({ song, report }: { song: Song; report: RebuildRe
       <div>
         <div className="section-title">
           <h3>Chords</h3>
-          <Badge tone={confidenceTone(stage('chords')?.confidence)}>chords {pct(stage('chords')?.confidence)}</Badge>
-          {song.chords.length > chords.length && <span className="small dim">first {chords.length} of {song.chords.length}</span>}
+          <Badge tone={confidenceTone(stage('chords')?.confidence)}>
+            chords {pct(stage('chords')?.confidence)}
+          </Badge>
+          {song.chords.length > chords.length && (
+            <span className="small dim">
+              first {chords.length} of {song.chords.length}
+            </span>
+          )}
         </div>
         {chords.length ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(74px, 1fr))', gap: 4 }} data-testid="rebuild-chords">
+          <div
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(74px, 1fr))', gap: 4 }}
+            data-testid="rebuild-chords"
+          >
             {chords.map((c) => {
               const pos = tickToMusical(song, c.tick);
               return (
@@ -141,8 +177,12 @@ export function RebuildSummary({ song, report }: { song: Song; report: RebuildRe
       <div>
         <div className="section-title">
           <h3>Tracks</h3>
-          <Badge tone={confidenceTone(stage('pitch')?.confidence)}>pitch {pct(stage('pitch')?.confidence)}</Badge>
-          <Badge tone={confidenceTone(stage('instruments')?.confidence)}>instruments {pct(stage('instruments')?.confidence)}</Badge>
+          <Badge tone={confidenceTone(stage('pitch')?.confidence)}>
+            pitch {pct(stage('pitch')?.confidence)}
+          </Badge>
+          <Badge tone={confidenceTone(stage('instruments')?.confidence)}>
+            instruments {pct(stage('instruments')?.confidence)}
+          </Badge>
         </div>
         <table className="table" data-testid="rebuild-tracks">
           <thead>
@@ -155,7 +195,11 @@ export function RebuildSummary({ song, report }: { song: Song; report: RebuildRe
           </thead>
           <tbody>
             {midiTracks.map((t) => (
-              <tr key={t.id} onClick={() => setSelected(t.id)} style={{ cursor: 'pointer', background: t.id === track?.id ? 'var(--bg-elev-3)' : undefined }}>
+              <tr
+                key={t.id}
+                onClick={() => setSelected(t.id)}
+                style={{ cursor: 'pointer', background: t.id === track?.id ? 'var(--bg-elev-3)' : undefined }}
+              >
                 <td>
                   <span className="row">
                     <span style={{ width: 4, height: 16, borderRadius: 2, background: t.color }} />
@@ -195,14 +239,19 @@ export function RebuildSummary({ song, report }: { song: Song; report: RebuildRe
       <div>
         <div className="section-title">
           <h3>Low-confidence regions</h3>
-          <span className="small muted">Listen to these first — they are outlined in the piano roll after opening.</span>
+          <span className="small muted">
+            Listen to these first — they are outlined in the piano roll after opening.
+          </span>
         </div>
         {regions.length ? (
           <ul className="small" style={{ margin: 0, paddingLeft: 18 }} data-testid="rebuild-low-confidence">
             {regions.slice(0, 12).map((r, i) => (
               <li key={i}>
                 <strong>{r.name}</strong> · bar{r.to > r.from ? 's' : ''} {r.from}
-                {r.to > r.from ? `–${r.to}` : ''} · <span style={{ color: r.confidence < 0.4 ? 'var(--danger)' : 'var(--warning)' }}>{pct(r.confidence)}</span>
+                {r.to > r.from ? `–${r.to}` : ''} ·{' '}
+                <span style={{ color: r.confidence < 0.4 ? 'var(--danger)' : 'var(--warning)' }}>
+                  {pct(r.confidence)}
+                </span>
               </li>
             ))}
             {regions.length > 12 && <li className="muted">…and {regions.length - 12} more</li>}

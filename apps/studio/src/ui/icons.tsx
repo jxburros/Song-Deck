@@ -18,7 +18,8 @@ const PATHS: Record<string, string> = {
   mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3',
   mixer: 'M6 3v18M12 3v18M18 3v18M4 15h4M10 8h4M16 13h4',
   export: 'M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3',
-  settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+  settings:
+    'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
   home: 'M3 11 12 4l9 7M5 10v10h14V10',
   lock: 'M6 11h12v10H6zM8 11V7a4 4 0 0 1 8 0v4',
   unlock: 'M6 11h12v10H6zM8 11V7a4 4 0 0 1 7.5-2',
@@ -26,7 +27,8 @@ const PATHS: Record<string, string> = {
   minus: 'M5 12h14',
   close: 'M6 6l12 12M18 6 6 18',
   check: 'M5 12l5 5L20 7',
-  sparkles: 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2L16 18l2.2-.8zM5 3l.6 1.4L7 5l-1.4.6L5 7l-.6-1.4L3 5l1.4-.6z',
+  sparkles:
+    'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2L16 18l2.2-.8zM5 3l.6 1.4L7 5l-1.4.6L5 7l-.6-1.4L3 5l1.4-.6z',
   dice: 'M4 4h16v16H4zM8.5 8.5h.01M15.5 15.5h.01M15.5 8.5h.01M8.5 15.5h.01M12 12h.01',
   branch: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
   history: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 3',
@@ -45,7 +47,8 @@ const PATHS: Record<string, string> = {
   cloud: 'M17.5 19a4.5 4.5 0 1 0-1.4-8.8A6 6 0 1 0 6 17.5 4 4 0 0 0 7 19z',
   cpu: 'M6 6h12v12H6zM9 9h6v6H9zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4',
   server: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01',
-  users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+  users:
+    'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
   plug: 'M9 2v6M15 2v6M7 8h10v4a5 5 0 0 1-10 0zM12 17v5',
   tasks: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
   eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
@@ -61,13 +64,18 @@ const PATHS: Record<string, string> = {
   zoomOut: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3M8 11h6',
   pencil: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
   pointer: 'M4 4l7 17 2.5-7.5L21 11z',
-  scissors: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12',
+  scissors:
+    'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12',
   waveform: 'M3 12h1M6 8v8M9 5v14M12 9v6M15 6v12M18 10v4M21 12h0',
 };
 
 export type IconName = keyof typeof PATHS | string;
 
-export function Icon({ name, size = 16, ...rest }: { name: IconName; size?: number } & SVGProps<SVGSVGElement>) {
+export function Icon({
+  name,
+  size = 16,
+  ...rest
+}: { name: IconName; size?: number } & SVGProps<SVGSVGElement>) {
   const d = PATHS[name] ?? PATHS.info;
   const filled = name === 'play' || name === 'pause' || name === 'stop' || name === 'record';
   return (
@@ -89,14 +97,34 @@ export function Icon({ name, size = 16, ...rest }: { name: IconName; size?: numb
   );
 }
 
+/**
+ * The Song Deck mark: a fanned deck of cards in the brand colours, the front card carrying a
+ * waveform (docs/brand/logo-a.svg; keep public/favicon.svg in step). The brand colours are fixed
+ * here, not themed: the ink tile keeps them legible on light and dark surfaces alike.
+ */
 export function BrandMark() {
   return (
     <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" rx="14" fill="#1c2029" />
-      <rect x="12" y="34" width="6" height="18" rx="2" fill="#ff8a3d" />
-      <rect x="22" y="22" width="6" height="30" rx="2" fill="#ffb27a" />
-      <rect x="32" y="12" width="6" height="40" rx="2" fill="#46c2cb" />
-      <rect x="42" y="26" width="6" height="26" rx="2" fill="#7fdbe2" />
+      <rect width="64" height="64" rx="14" fill="#121212" />
+      <rect x="20" y="11" width="28" height="38" rx="5" fill="#fdca40" transform="rotate(-20 34 61)" />
+      <rect
+        x="20"
+        y="11"
+        width="28"
+        height="38"
+        rx="5"
+        fill="#32cbff"
+        stroke="#121212"
+        strokeWidth="2"
+        transform="rotate(-5 34 61)"
+      />
+      <g transform="rotate(11 34 61) translate(2 -1)">
+        <rect x="18" y="12" width="28" height="38" rx="5" fill="#ff299c" stroke="#121212" strokeWidth="2" />
+        <rect x="20.5" y="27" width="4" height="10" rx="2" fill="#121212" />
+        <rect x="26.5" y="21" width="4" height="22" rx="2" fill="#121212" />
+        <rect x="32.5" y="24" width="4" height="16" rx="2" fill="#121212" />
+        <rect x="38.5" y="28" width="4" height="8" rx="2" fill="#121212" />
+      </g>
     </svg>
   );
 }

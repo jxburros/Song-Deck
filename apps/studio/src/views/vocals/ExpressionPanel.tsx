@@ -1,5 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { applyOperations, type MusicOperation, type Project, type Song, type Track, type VocalExpression } from '@songdeck/core';
+import {
+  applyOperations,
+  type MusicOperation,
+  type Project,
+  type Song,
+  type Track,
+  type VocalExpression,
+} from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { useSettings } from '../../state/settings';
 import {
@@ -27,7 +34,12 @@ import { useResolvedProvider } from './shared';
  * unsupported parameters are kept in the project and simply ignored by that provider.
  */
 
-type Values = Required<Pick<VocalExpression, 'breathiness' | 'tension' | 'vibrato' | 'vibratoRate' | 'energy' | 'onset' | 'release'>>;
+type Values = Required<
+  Pick<
+    VocalExpression,
+    'breathiness' | 'tension' | 'vibrato' | 'vibratoRate' | 'energy' | 'onset' | 'release'
+  >
+>;
 
 function fmt(key: ExpressionKey, v: number | string | undefined): string {
   if (v === undefined) return '—';
@@ -40,7 +52,11 @@ function summarize(song: Song, notes: Track['notes']): { values: Values; mixed: 
   const mixed = new Set<ExpressionKey>();
   if (!notes.length) return { values, mixed };
   for (const f of EXPRESSION_FIELDS) {
-    const vals = notes.map((n) => (effectiveExpression(song, n) as Record<string, unknown>)[f.key] ?? (EXPRESSION_FALLBACK as Record<string, unknown>)[f.key]);
+    const vals = notes.map(
+      (n) =>
+        (effectiveExpression(song, n) as Record<string, unknown>)[f.key] ??
+        (EXPRESSION_FALLBACK as Record<string, unknown>)[f.key],
+    );
     if (f.kind === 'choice') {
       const counts = new Map<string, number>();
       for (const v of vals) counts.set(String(v), (counts.get(String(v)) ?? 0) + 1);
@@ -77,7 +93,9 @@ function ExpressionControls({
   return (
     <div className="vx-expr-grid">
       {EXPRESSION_FIELDS.map((f) => {
-        const v = (draft as Record<string, number | string | undefined>)[f.key] ?? (values as Record<string, number | string>)[f.key];
+        const v =
+          (draft as Record<string, number | string | undefined>)[f.key] ??
+          (values as Record<string, number | string>)[f.key];
         const ignored = !support.unknown && !support.supported.includes(f.key);
         const edited = (draft as Record<string, unknown>)[f.key] !== undefined;
         const label = (
@@ -137,20 +155,29 @@ function SupportChips({ support, providerName }: { support: ExpressionSupport; p
     <div className="card col" style={{ gap: 6 }} data-testid="expression-support">
       <div className="row between">
         <strong className="small">What {providerName} does with expression</strong>
-        <Badge tone={support.unknown ? 'warning' : 'ai'}>{support.unknown ? 'not declared' : `${support.supported.length}/${EXPRESSION_FIELDS.length} supported`}</Badge>
+        <Badge tone={support.unknown ? 'warning' : 'ai'}>
+          {support.unknown
+            ? 'not declared'
+            : `${support.supported.length}/${EXPRESSION_FIELDS.length} supported`}
+        </Badge>
       </div>
       <div className="chip-list">
         {EXPRESSION_FIELDS.map((f) => {
           const ok = support.unknown || support.supported.includes(f.key);
           return (
-            <span key={f.key} className={`vx-param ${ok ? 'ok' : 'off'}`} title={ok ? 'Sent and honored' : 'Ignored by this provider'}>
+            <span
+              key={f.key}
+              className={`vx-param ${ok ? 'ok' : 'off'}`}
+              title={ok ? 'Sent and honored' : 'Ignored by this provider'}
+            >
               {ok ? '✓' : '–'} {f.label}
             </span>
           );
         })}
       </div>
       <div className="small muted">
-        {support.note} Unsupported parameters are ignored (spec §35) — they stay in the project, so a singer that supports them will use them later.
+        {support.note} Unsupported parameters are ignored (spec §35) — they stay in the project, so a singer
+        that supports them will use them later.
       </div>
     </div>
   );
@@ -183,14 +210,26 @@ export function ExpressionPanel({ project, track }: { project: Project; track: T
   const defaults: Values = { ...EXPRESSION_FALLBACK, ...(song.vocals.defaultExpression as Partial<Values>) };
   const [defDraft, setDefDraft] = useState<Partial<Values>>({});
   const render = activeRender(project, track.id);
-  const scopeLabel = scope === 'selection' && selNotes.length ? `${selNotes.length} selected note${selNotes.length === 1 ? '' : 's'}` : (phrase?.label ?? '—');
-  const range = notes.length ? { startTick: Math.min(...notes.map((n) => n.tick)), endTick: Math.max(...notes.map((n) => n.tick + n.duration)) } : null;
+  const scopeLabel =
+    scope === 'selection' && selNotes.length
+      ? `${selNotes.length} selected note${selNotes.length === 1 ? '' : 's'}`
+      : (phrase?.label ?? '—');
+  const range = notes.length
+    ? {
+        startTick: Math.min(...notes.map((n) => n.tick)),
+        endTick: Math.max(...notes.map((n) => n.tick + n.duration)),
+      }
+    : null;
 
   const commitDefault = (key: ExpressionKey, v: number | string) => {
     const cur = useStudio.getState().project?.song;
     if (!cur) return;
     if ((cur.vocals.defaultExpression as Record<string, unknown>)[key] === v) return;
-    st.commit({ ...cur, vocals: { ...cur.vocals, defaultExpression: { ...cur.vocals.defaultExpression, [key]: v } } }, `Default vocal expression: ${key} ${fmt(key, v)}`, 'vocals');
+    st.commit(
+      { ...cur, vocals: { ...cur.vocals, defaultExpression: { ...cur.vocals.defaultExpression, [key]: v } } },
+      `Default vocal expression: ${key} ${fmt(key, v)}`,
+      'vocals',
+    );
     setDefDraft({});
     logVocalActivity('expression', `Default ${key} → ${fmt(key, v)}`);
   };
@@ -198,7 +237,15 @@ export function ExpressionPanel({ project, track }: { project: Project; track: T
   const apply = () => {
     const cur = useStudio.getState().project?.song;
     if (!cur || !noteIds.length || !Object.keys(draft).length) return;
-    const ops: MusicOperation[] = [{ op: 'set_expression', track: track.id, note_ids: noteIds, expression: draft as VocalExpression, reason: `Vocal expression on ${scopeLabel}` }];
+    const ops: MusicOperation[] = [
+      {
+        op: 'set_expression',
+        track: track.id,
+        note_ids: noteIds,
+        expression: draft as VocalExpression,
+        reason: `Vocal expression on ${scopeLabel}`,
+      },
+    ];
     const r = applyOperations(cur, ops, { customInstruments });
     const errors = r.report.issues.filter((i) => i.severity === 'error' && !i.fixed);
     if (!r.applied || errors.length) {
@@ -212,8 +259,16 @@ export function ExpressionPanel({ project, track }: { project: Project; track: T
     logVocalActivity('expression', `${scopeLabel}: ${what}`);
     setDraft({});
     if (render && autoResing && range) {
-      const label = scope === 'phrase' && phrase ? phrase.label : `${formatBars(cur, range.startTick, range.endTick)}`;
-      requestResing({ projectId: project.meta.id, trackId: track.id, startTick: range.startTick, endTick: range.endTick, label, reason: `expression: ${what}` });
+      const label =
+        scope === 'phrase' && phrase ? phrase.label : `${formatBars(cur, range.startTick, range.endTick)}`;
+      requestResing({
+        projectId: project.meta.id,
+        trackId: track.id,
+        startTick: range.startTick,
+        endTick: range.endTick,
+        label,
+        reason: `expression: ${what}`,
+      });
     }
   };
 
@@ -248,24 +303,53 @@ export function ExpressionPanel({ project, track }: { project: Project; track: T
               onChange={setScope}
               options={[
                 { value: 'phrase', label: 'Selected phrase' },
-                { value: 'selection', label: `Piano-roll selection (${selNotes.length})`, disabled: !selNotes.length },
+                {
+                  value: 'selection',
+                  label: `Piano-roll selection (${selNotes.length})`,
+                  disabled: !selNotes.length,
+                },
               ]}
               aria-label="Expression scope"
               style={{ width: 'auto' }}
             />
           </div>
           <div className="panel-body col">
-            {scope === 'phrase' && <PhrasePicker song={song} phrases={phrases} value={phrase?.id ?? null} onChange={(id) => session.set({ phraseId: id })} height={180} />}
+            {scope === 'phrase' && (
+              <PhrasePicker
+                song={song}
+                phrases={phrases}
+                value={phrase?.id ?? null}
+                onChange={(id) => session.set({ phraseId: id })}
+                height={180}
+              />
+            )}
             <div className="row between">
               <strong className="small">{scopeLabel}</strong>
               <span className="small dim">{notes.length} notes</span>
             </div>
-            <ExpressionControls values={values} draft={draft} mixed={mixed} support={support} idPrefix="Phrase" onChange={(k, v) => setDraft((d) => ({ ...d, [k]: v }))} />
+            <ExpressionControls
+              values={values}
+              draft={draft}
+              mixed={mixed}
+              support={support}
+              idPrefix="Phrase"
+              onChange={(k, v) => setDraft((d) => ({ ...d, [k]: v }))}
+            />
             <div className="row wrap">
-              <Button variant="primary" icon="check" onClick={apply} disabled={!Object.keys(draft).length || !notes.length}>
+              <Button
+                variant="primary"
+                icon="check"
+                onClick={apply}
+                disabled={!Object.keys(draft).length || !notes.length}
+              >
                 Apply to {notes.length} note{notes.length === 1 ? '' : 's'}
               </Button>
-              <Button variant="ghost" onClick={() => setDraft({ ...defaults })} disabled={!notes.length} title="Set every parameter to the default expression">
+              <Button
+                variant="ghost"
+                onClick={() => setDraft({ ...defaults })}
+                disabled={!notes.length}
+                title="Set every parameter to the default expression"
+              >
                 Match defaults
               </Button>
               {Object.keys(draft).length > 0 && (
@@ -290,7 +374,11 @@ export function ExpressionPanel({ project, track }: { project: Project; track: T
             </div>
             <div className="small dim">
               Applied as a validated <code>set_expression</code> operation — locked notes are never touched.
-              {render ? (autoResing ? ' The render is re-sung for this phrase only.' : ' Re-sing the phrase from the Render tab.') : ''}
+              {render
+                ? autoResing
+                  ? ' The render is re-sung for this phrase only.'
+                  : ' Re-sing the phrase from the Render tab.'
+                : ''}
             </div>
           </div>
         </div>

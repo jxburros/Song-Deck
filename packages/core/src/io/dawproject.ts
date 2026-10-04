@@ -26,7 +26,9 @@ export interface DawProjectOptions extends InstrumentLookupOptions {
 }
 
 /** Sample rate / channels / duration from a RIFF WAVE header (undefined if not a WAV). */
-export function wavInfo(data: Uint8Array): { sampleRate: number; channels: number; durationSeconds: number } | undefined {
+export function wavInfo(
+  data: Uint8Array,
+): { sampleRate: number; channels: number; durationSeconds: number } | undefined {
   if (data.length < 44) return undefined;
   const str = (o: number) => String.fromCharCode(data[o], data[o + 1], data[o + 2], data[o + 3]);
   if (str(0) !== 'RIFF' || str(8) !== 'WAVE') return undefined;
@@ -66,7 +68,10 @@ const num = (v: number) => {
 export function songToDawProject(song: Song, opts: DawProjectOptions = {}): Uint8Array {
   let nextId = 0;
   const id = () => `id${nextId++}`;
-  const lookup: InstrumentLookupOptions = { customInstruments: opts.customInstruments, resolveInstrument: opts.resolveInstrument };
+  const lookup: InstrumentLookupOptions = {
+    customInstruments: opts.customInstruments,
+    resolveInstrument: opts.resolveInstrument,
+  };
   const ppq = song.ppq;
   const beats = (ticks: number) => ticks / ppq;
   const tm = createTimeMap(song);
@@ -132,7 +137,13 @@ export function songToDawProject(song: Song, opts: DawProjectOptions = {}): Uint
     );
   };
 
-  const addTrack = (name: string, color: string, contentType: 'notes' | 'audio', track: Track | undefined, clips: string) => {
+  const addTrack = (
+    name: string,
+    color: string,
+    contentType: 'notes' | 'audio',
+    track: Track | undefined,
+    clips: string,
+  ) => {
     const trackId = id();
     const chId = id();
     structure.push(
@@ -155,7 +166,8 @@ export function songToDawProject(song: Song, opts: DawProjectOptions = {}): Uint
         `            <Notes id="${id()}">\n${notes}            </Notes>\n` +
         `          </Clip>\n`;
       addTrack(track.name, track.color, 'notes', track, clip);
-      for (const a of audioFiles.filter((x) => x.trackId === track.id)) addTrack(`${track.name} (audio)`, track.color, 'audio', track, audioClip(a, `${track.name} (audio)`));
+      for (const a of audioFiles.filter((x) => x.trackId === track.id))
+        addTrack(`${track.name} (audio)`, track.color, 'audio', track, audioClip(a, `${track.name} (audio)`));
     } else {
       const clips = audioFiles
         .filter((x) => x.trackId === track.id)
@@ -173,24 +185,37 @@ export function songToDawProject(song: Song, opts: DawProjectOptions = {}): Uint
   arr.push(`  <Arrangement id="${arrangementId}">\n`);
   const meters = [...song.meterMap].sort((a, b) => a.bar - b.bar);
   if (meters.length > 1) {
-    arr.push(`    <TimeSignatureAutomation timeUnit="beats" id="${id()}">\n      <Target parameter="${timeSigParamId}"/>\n`);
-    for (const m of meters) arr.push(`      <TimeSignaturePoint time="${num(beats(barToTick(song, m.bar)))}" numerator="${m.numerator}" denominator="${m.denominator}"/>\n`);
+    arr.push(
+      `    <TimeSignatureAutomation timeUnit="beats" id="${id()}">\n      <Target parameter="${timeSigParamId}"/>\n`,
+    );
+    for (const m of meters)
+      arr.push(
+        `      <TimeSignaturePoint time="${num(beats(barToTick(song, m.bar)))}" numerator="${m.numerator}" denominator="${m.denominator}"/>\n`,
+      );
     arr.push('    </TimeSignatureAutomation>\n');
   }
   if (tempos.length > 1) {
-    arr.push(`    <TempoAutomation timeUnit="beats" unit="bpm" id="${id()}">\n      <Target parameter="${tempoParamId}"/>\n`);
-    for (const t of tempos) arr.push(`      <RealPoint time="${num(beats(t.tick))}" value="${num(t.bpm)}" interpolation="hold"/>\n`);
+    arr.push(
+      `    <TempoAutomation timeUnit="beats" unit="bpm" id="${id()}">\n      <Target parameter="${tempoParamId}"/>\n`,
+    );
+    for (const t of tempos)
+      arr.push(
+        `      <RealPoint time="${num(beats(t.tick))}" value="${num(t.bpm)}" interpolation="hold"/>\n`,
+      );
     arr.push('    </TempoAutomation>\n');
   }
   const spans = sectionLayout(song).filter((s) => s.endBar > s.startBar);
   if (spans.length) {
     arr.push(`    <Markers timeUnit="beats" id="${id()}">\n`);
-    for (const s of spans) arr.push(`      <Marker time="${num(beats(s.startTick))}" name="${xmlEscape(s.section.name)}"/>\n`);
+    for (const s of spans)
+      arr.push(`      <Marker time="${num(beats(s.startTick))}" name="${xmlEscape(s.section.name)}"/>\n`);
     arr.push('    </Markers>\n');
   }
   arr.push(`    <Lanes timeUnit="beats" id="${id()}">\n`);
   for (const lane of lanes) {
-    arr.push(`      <Lanes track="${lane.trackId}" id="${id()}">\n        <Clips id="${id()}">\n${lane.clips}        </Clips>\n      </Lanes>\n`);
+    arr.push(
+      `      <Lanes track="${lane.trackId}" id="${id()}">\n        <Clips id="${id()}">\n${lane.clips}        </Clips>\n      </Lanes>\n`,
+    );
   }
   arr.push('    </Lanes>\n  </Arrangement>\n');
 

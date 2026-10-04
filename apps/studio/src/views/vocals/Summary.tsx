@@ -1,7 +1,15 @@
 import { useMemo } from 'react';
 import { midiToNoteName, validateLyricAlignment, type Project, type Track } from '@songdeck/core';
 import { useTask } from '../../engine/capture-tasks';
-import { activeRender, lyricsOfTrack, modeInfo, resolveVoice, staleSections, takesTrackFor, VOICE_KIND_LABEL } from '../../engine/vocal-model';
+import {
+  activeRender,
+  lyricsOfTrack,
+  modeInfo,
+  resolveVoice,
+  staleSections,
+  takesTrackFor,
+  VOICE_KIND_LABEL,
+} from '../../engine/vocal-model';
 import { useVocalJobs, type VocalActivity } from '../../engine/vocal-sync';
 import { Badge, Kv } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
@@ -15,7 +23,23 @@ function ActivityRow({ a }: { a: VocalActivity }) {
     <li>
       <span className="dim mono">{time}</span>
       <span>{a.text}</span>
-      {task ? <Badge tone={task.status === 'succeeded' ? 'success' : task.status === 'failed' ? 'danger' : task.status === 'running' ? 'ai' : undefined}>{task.status}</Badge> : <span />}
+      {task ? (
+        <Badge
+          tone={
+            task.status === 'succeeded'
+              ? 'success'
+              : task.status === 'failed'
+                ? 'danger'
+                : task.status === 'running'
+                  ? 'ai'
+                  : undefined
+          }
+        >
+          {task.status}
+        </Badge>
+      ) : (
+        <span />
+      )}
     </li>
   );
 }
@@ -30,7 +54,9 @@ export function VocalSummary({ project, track }: { project: Project; track: Trac
   const validation = useMemo(() => validateLyricAlignment(song, track.id), [song, track.id]);
   const lines = lyricsOfTrack(song, track.id).length;
   const pitches = track.notes.map((n) => n.pitch);
-  const range = pitches.length ? `${midiToNoteName(Math.min(...pitches))}–${midiToNoteName(Math.max(...pitches))}` : '—';
+  const range = pitches.length
+    ? `${midiToNoteName(Math.min(...pitches))}–${midiToNoteName(Math.max(...pitches))}`
+    : '—';
   const renderVoice = render?.render?.voiceId ?? render?.rendered?.voiceKey;
   const stale = render ? staleSections(song, track, render.rendered, renderVoice ?? voice.key) : null;
   const takes = song.vocals.takes.filter((t) => t.trackId === takesTrackFor(song, track.id)?.id);
@@ -65,14 +91,30 @@ export function VocalSummary({ project, track }: { project: Project; track: Trac
                   'none yet'
                 ),
               ],
-              ['Voice', `${voice.name} · ${voice.source === 'built-in' ? 'built-in' : VOICE_KIND_LABEL[voice.kind]}`],
-              ['Render', render ? <span key="r" className="mono small">{render.asset?.name ?? 'render'}</span> : 'none'],
-              ['Takes', takes.length ? `${takes.length} · ${takes.filter((t) => t.active).length} active` : 'none'],
+              [
+                'Voice',
+                `${voice.name} · ${voice.source === 'built-in' ? 'built-in' : VOICE_KIND_LABEL[voice.kind]}`,
+              ],
+              [
+                'Render',
+                render ? (
+                  <span key="r" className="mono small">
+                    {render.asset?.name ?? 'render'}
+                  </span>
+                ) : (
+                  'none'
+                ),
+              ],
+              [
+                'Takes',
+                takes.length ? `${takes.length} · ${takes.filter((t) => t.active).length} active` : 'none',
+              ],
             ]}
           />
           {stale && stale.sections.length > 0 && (
             <div className="small" style={{ color: 'var(--warning)' }}>
-              <Icon name="alert" size={12} /> Render out of date: {stale.sections.map((s) => s.section.name).join(', ')}
+              <Icon name="alert" size={12} /> Render out of date:{' '}
+              {stale.sections.map((s) => s.section.name).join(', ')}
               {session.tab !== 'render' && (
                 <>
                   {' '}
@@ -98,7 +140,9 @@ export function VocalSummary({ project, track }: { project: Project; track: Trac
         </div>
       </div>
       {/* The Regenerate and Record tabs show their proposals inline. */}
-      {session.tab !== 'regenerate' && session.tab !== 'recording' && <PendingVocalProposals project={project} compact />}
+      {session.tab !== 'regenerate' && session.tab !== 'recording' && (
+        <PendingVocalProposals project={project} compact />
+      )}
       {activity.length > 0 && (
         <div className="panel">
           <div className="panel-header">

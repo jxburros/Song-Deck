@@ -16,7 +16,12 @@ export interface DirectTransportOptions {
 }
 
 /** Apply an auth spec + secret to a URL and headers (shared by DirectTransport and server proxies). */
-export function applyAuth(url: string, headers: Headers, auth: TransportAuth | undefined, secret: string | undefined): string {
+export function applyAuth(
+  url: string,
+  headers: Headers,
+  auth: TransportAuth | undefined,
+  secret: string | undefined,
+): string {
   if (!auth || auth.type === 'none' || secret === undefined) return url;
   switch (auth.type) {
     case 'bearer':
@@ -51,7 +56,10 @@ export class DirectTransport implements Transport {
     let finalUrl = url;
     if (auth && auth.type !== 'none') {
       if (!auth.credentialRef) {
-        throw new ProviderError('auth', 'No credential configured for this provider (add an API key in Settings → Providers)');
+        throw new ProviderError(
+          'auth',
+          'No credential configured for this provider (add an API key in Settings → Providers)',
+        );
       }
       const secret = this.credentials ? await this.credentials.get(auth.credentialRef) : undefined;
       if (secret === undefined || secret === '') {

@@ -120,7 +120,8 @@ export class Reverb {
     while (p2 < maxLine) p2 *= 2;
     for (let i = 0; i < 8; i++) this.lines.push(new Float64Array(p2));
     this.mask = p2 - 1;
-    for (let i = 0; i < 4; i++) this.diff.push(new Float64Array(Math.ceil((14 * MAX_SIZE_SCALE * hr) / 1000) + 8));
+    for (let i = 0; i < 4; i++)
+      this.diff.push(new Float64Array(Math.ceil((14 * MAX_SIZE_SCALE * hr) / 1000) + 8));
     let pp = 1;
     while (pp < ((MAX_PREDELAY_MS + 80) * hr) / 1000) pp *= 2;
     this.pre = new Float64Array(pp);
@@ -147,7 +148,10 @@ export class Reverb {
     }
     this.modDepth = (type === 'room' ? 0.0004 : 0.00095) * hr;
     for (let i = 0; i < 4; i++) {
-      this.diffLen[i] = Math.max(1, Math.min(this.diff[i].length - 1, nearestPrime((DIFF_MS[i] * (0.6 + 0.6 * size) * hr) / 1000)));
+      this.diffLen[i] = Math.max(
+        1,
+        Math.min(this.diff[i].length - 1, nearestPrime((DIFF_MS[i] * (0.6 + 0.6 * size) * hr) / 1000)),
+      );
       this.diffPos[i] = 0;
     }
     this.diffG = DIFF_G[type];
@@ -186,7 +190,14 @@ export class Reverb {
   }
 
   /** Wet output for inputs [start, end) → outL/outR (overwritten). */
-  process(inL: Float64Array, inR: Float64Array, outL: Float64Array, outR: Float64Array, start: number, end: number): void {
+  process(
+    inL: Float64Array,
+    inR: Float64Array,
+    outL: Float64Array,
+    outR: Float64Array,
+    start: number,
+    end: number,
+  ): void {
     const lines = this.lines;
     const m0 = this.mask;
     const lens = this.lineLen;
@@ -198,7 +209,9 @@ export class Reverb {
     const dg = this.diffG;
     const og = this.outGain;
     const erl = this.erLevel * 0.5;
-    const erD = this.erD, erGL = this.erGL, erGR = this.erGR;
+    const erD = this.erD,
+      erGL = this.erGL,
+      erGR = this.erGR;
     const nTaps = erD.length;
     const preDelay = this.preDelay;
     // control-rate modulation offsets (per block) for lines 0 and 5
@@ -209,21 +222,49 @@ export class Reverb {
       if (this.modPhase[k] > 1) this.modPhase[k] -= 1;
       mo[k] = lens[k] + this.modDepth * Math.sin(2 * Math.PI * this.modPhase[k]) * (k & 1 ? 1 : -1);
     }
-    const i1 = lens[1] | 0, i2 = lens[2] | 0, i3 = lens[3] | 0, i4 = lens[4] | 0, i6 = lens[6] | 0, i7 = lens[7] | 0;
-    const mo0 = mo[0], mo5 = mo[5];
-    const l0 = lines[0], l1 = lines[1], l2 = lines[2], l3 = lines[3], l4 = lines[4], l5 = lines[5], l6 = lines[6], l7 = lines[7];
-    const df0 = this.diff[0], df1 = this.diff[1], df2 = this.diff[2], df3 = this.diff[3];
-    const dl0 = this.diffLen[0], dl1 = this.diffLen[1], dl2 = this.diffLen[2], dl3 = this.diffLen[3];
-    let dp0 = this.diffPos[0], dp1 = this.diffPos[1], dp2 = this.diffPos[2], dp3 = this.diffPos[3];
+    const i1 = lens[1] | 0,
+      i2 = lens[2] | 0,
+      i3 = lens[3] | 0,
+      i4 = lens[4] | 0,
+      i6 = lens[6] | 0,
+      i7 = lens[7] | 0;
+    const mo0 = mo[0],
+      mo5 = mo[5];
+    const l0 = lines[0],
+      l1 = lines[1],
+      l2 = lines[2],
+      l3 = lines[3],
+      l4 = lines[4],
+      l5 = lines[5],
+      l6 = lines[6],
+      l7 = lines[7];
+    const df0 = this.diff[0],
+      df1 = this.diff[1],
+      df2 = this.diff[2],
+      df3 = this.diff[3];
+    const dl0 = this.diffLen[0],
+      dl1 = this.diffLen[1],
+      dl2 = this.diffLen[2],
+      dl3 = this.diffLen[3];
+    let dp0 = this.diffPos[0],
+      dp1 = this.diffPos[1],
+      dp2 = this.diffPos[2],
+      dp3 = this.diffPos[3];
     let w = this.wpos;
     let pp = this.prePos;
     let phase = this.phase;
-    let x1L = this.x1L, x1R = this.x1R, x2L = this.x2L, x2R = this.x2R;
-    let accL = this.accL, accR = this.accR;
-    let yL = this.yL, yR = this.yR;
+    let x1L = this.x1L,
+      x1R = this.x1R,
+      x2L = this.x2L,
+      x2R = this.x2R;
+    let accL = this.accL,
+      accR = this.accR;
+    let yL = this.yL,
+      yR = this.yR;
     for (let i = start; i < end; i++) {
       // [1 2 1]/4 anti-alias pre-filter, then decimate by 2
-      const iL = inL[i], iR = inR[i];
+      const iL = inL[i],
+        iR = inR[i];
       const fl = 0.25 * (iL + 2 * x1L + x2L);
       const fr = 0.25 * (iR + 2 * x1R + x2R);
       x2L = x1L;
@@ -244,7 +285,8 @@ export class Reverb {
       // ---- one half-rate step ----
       pre[pp] = (xl + xr) * 0.5;
       let x = pre[(pp - preDelay) & pm];
-      let erL = 0, erR = 0;
+      let erL = 0,
+        erR = 0;
       for (let t = 0; t < nTaps; t++) {
         const v = pre[(pp - erD[t]) & pm];
         erL += v * erGL[t];
@@ -273,21 +315,47 @@ export class Reverb {
       if (++dp3 >= dl3) dp3 = 0;
       const wp = w + m0 + 1;
       let y0 = readFrac(l0, wp - mo0, m0);
-      let y1 = l1[(w - i1) & m0], y2 = l2[(w - i2) & m0], y3 = l3[(w - i3) & m0], y4 = l4[(w - i4) & m0];
+      let y1 = l1[(w - i1) & m0],
+        y2 = l2[(w - i2) & m0],
+        y3 = l3[(w - i3) & m0],
+        y4 = l4[(w - i4) & m0];
       let y5 = readFrac(l5, wp - mo5, m0);
-      let y6 = l6[(w - i6) & m0], y7 = l7[(w - i7) & m0];
-      damp[0] += da * (y0 - damp[0]); y0 = damp[0] * gains[0];
-      damp[1] += da * (y1 - damp[1]); y1 = damp[1] * gains[1];
-      damp[2] += da * (y2 - damp[2]); y2 = damp[2] * gains[2];
-      damp[3] += da * (y3 - damp[3]); y3 = damp[3] * gains[3];
-      damp[4] += da * (y4 - damp[4]); y4 = damp[4] * gains[4];
-      damp[5] += da * (y5 - damp[5]); y5 = damp[5] * gains[5];
-      damp[6] += da * (y6 - damp[6]); y6 = damp[6] * gains[6];
-      damp[7] += da * (y7 - damp[7]); y7 = damp[7] * gains[7];
+      let y6 = l6[(w - i6) & m0],
+        y7 = l7[(w - i7) & m0];
+      damp[0] += da * (y0 - damp[0]);
+      y0 = damp[0] * gains[0];
+      damp[1] += da * (y1 - damp[1]);
+      y1 = damp[1] * gains[1];
+      damp[2] += da * (y2 - damp[2]);
+      y2 = damp[2] * gains[2];
+      damp[3] += da * (y3 - damp[3]);
+      y3 = damp[3] * gains[3];
+      damp[4] += da * (y4 - damp[4]);
+      y4 = damp[4] * gains[4];
+      damp[5] += da * (y5 - damp[5]);
+      y5 = damp[5] * gains[5];
+      damp[6] += da * (y6 - damp[6]);
+      y6 = damp[6] * gains[6];
+      damp[7] += da * (y7 - damp[7]);
+      y7 = damp[7] * gains[7];
       const oL = y0 - y1 + y2 - y3 + y4 - y5 + y6 - y7;
       const oR = y0 + y1 - y2 - y3 + y4 + y5 - y6 - y7;
-      const b0 = y0 + y1, b1 = y0 - y1, b2 = y2 + y3, b3 = y2 - y3, b4 = y4 + y5, b5 = y4 - y5, b6 = y6 + y7, b7 = y6 - y7;
-      const c0 = b0 + b2, c2 = b0 - b2, c1 = b1 + b3, c3 = b1 - b3, c4 = b4 + b6, c6 = b4 - b6, c5 = b5 + b7, c7 = b5 - b7;
+      const b0 = y0 + y1,
+        b1 = y0 - y1,
+        b2 = y2 + y3,
+        b3 = y2 - y3,
+        b4 = y4 + y5,
+        b5 = y4 - y5,
+        b6 = y6 + y7,
+        b7 = y6 - y7;
+      const c0 = b0 + b2,
+        c2 = b0 - b2,
+        c1 = b1 + b3,
+        c3 = b1 - b3,
+        c4 = b4 + b6,
+        c6 = b4 - b6,
+        c5 = b5 + b7,
+        c7 = b5 - b7;
       const k = 0.35355339059327373;
       const sd = (xl - xr) * 0.15; // keep a little of the stereo image
       const inA = x + sd;

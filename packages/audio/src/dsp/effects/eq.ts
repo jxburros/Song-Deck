@@ -24,10 +24,22 @@ export type EqParams = Pick<
   | 'lowpassHz'
 >;
 
-const HP = 0, LS = 1, LM = 2, HM = 3, HS = 4, LP = 5;
+const HP = 0,
+  LS = 1,
+  LM = 2,
+  HM = 3,
+  HS = 4,
+  LP = 5;
 
 export class ChannelEq {
-  private readonly bands = [new Biquad(), new Biquad(), new Biquad(), new Biquad(), new Biquad(), new Biquad()];
+  private readonly bands = [
+    new Biquad(),
+    new Biquad(),
+    new Biquad(),
+    new Biquad(),
+    new Biquad(),
+    new Biquad(),
+  ];
   private readonly active = [false, false, false, false, false, false];
   /** Cached parameter tuples per band (freq, gain, q) to detect changes. */
   private readonly cache = new Float64Array(18).fill(NaN);
@@ -47,13 +59,34 @@ export class ChannelEq {
     const nyq = sr * 0.49;
     this.setBand(HP, p.highpassHz > 10 && p.highpassHz < nyq, 'highpass', p.highpassHz, 0, 0.7071);
     this.setBand(LS, Math.abs(p.lowShelfDb) > 0.01, 'lowshelf', p.lowShelfHz, p.lowShelfDb, 1);
-    this.setBand(LM, Math.abs(p.lowMidDb) > 0.01, 'peak', p.lowMidHz, p.lowMidDb, clampNum(p.lowMidQ || 1, 0.1, 18));
-    this.setBand(HM, Math.abs(p.highMidDb) > 0.01, 'peak', p.highMidHz, p.highMidDb, clampNum(p.highMidQ || 1, 0.1, 18));
+    this.setBand(
+      LM,
+      Math.abs(p.lowMidDb) > 0.01,
+      'peak',
+      p.lowMidHz,
+      p.lowMidDb,
+      clampNum(p.lowMidQ || 1, 0.1, 18),
+    );
+    this.setBand(
+      HM,
+      Math.abs(p.highMidDb) > 0.01,
+      'peak',
+      p.highMidHz,
+      p.highMidDb,
+      clampNum(p.highMidQ || 1, 0.1, 18),
+    );
     this.setBand(HS, Math.abs(p.highShelfDb) > 0.01, 'highshelf', p.highShelfHz, p.highShelfDb, 1);
     this.setBand(LP, p.lowpassHz > 10 && p.lowpassHz < nyq, 'lowpass', p.lowpassHz, 0, 0.7071);
   }
 
-  private setBand(i: number, on: boolean, type: 'highpass' | 'lowpass' | 'peak' | 'lowshelf' | 'highshelf', f: number, db: number, q: number): void {
+  private setBand(
+    i: number,
+    on: boolean,
+    type: 'highpass' | 'lowpass' | 'peak' | 'lowshelf' | 'highshelf',
+    f: number,
+    db: number,
+    q: number,
+  ): void {
     if (!on) {
       if (this.active[i]) {
         this.active[i] = false;

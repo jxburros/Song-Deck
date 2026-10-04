@@ -40,9 +40,16 @@ export function linesFor(song: Song, sectionId: string, trackId: string): LyricL
   return song.lyrics.filter((l) => l.sectionId === sectionId && (!l.trackId || l.trackId === trackId));
 }
 
-function replaceSectionLines(song: Song, sectionId: string, trackId: string, lines: LyricLine[]): LyricLine[] {
+function replaceSectionLines(
+  song: Song,
+  sectionId: string,
+  trackId: string,
+  lines: LyricLine[],
+): LyricLine[] {
   const order = new Map(song.sections.map((s, i) => [s.id, i] as const));
-  const kept = song.lyrics.filter((l) => !(l.sectionId === sectionId && (!l.trackId || l.trackId === trackId)));
+  const kept = song.lyrics.filter(
+    (l) => !(l.sectionId === sectionId && (!l.trackId || l.trackId === trackId)),
+  );
   const idx = order.get(sectionId) ?? Infinity;
   let at = kept.findIndex((l) => (order.get(l.sectionId) ?? Infinity) > idx);
   if (at < 0) at = kept.length;
@@ -50,11 +57,19 @@ function replaceSectionLines(song: Song, sectionId: string, trackId: string, lin
 }
 
 /** Attach lyric syllables to the vocal notes (alignLyrics 'assign'), validated and lock-safe. */
-export function alignInto(song: Song, trackId: string, sectionIds?: string[]): { song: Song; report: LyricAlignmentEntry[]; warnings: string[]; errors: string[] } {
+export function alignInto(
+  song: Song,
+  trackId: string,
+  sectionIds?: string[],
+): { song: Song; report: LyricAlignmentEntry[]; warnings: string[]; errors: string[] } {
   const r = alignLyrics(song, trackId, { mode: 'assign', sectionIds });
   if (!r.operations.length) return { song, report: r.report, warnings: r.warnings, errors: [] };
-  const applied = applyOperations(song, r.operations, { customInstruments: useSettings.getState().customInstruments });
-  const errors = applied.report.issues.filter((i) => i.severity === 'error' && !i.fixed).map((i) => i.message);
+  const applied = applyOperations(song, r.operations, {
+    customInstruments: useSettings.getState().customInstruments,
+  });
+  const errors = applied.report.issues
+    .filter((i) => i.severity === 'error' && !i.fixed)
+    .map((i) => i.message);
   return { song: applied.song, report: r.report, warnings: r.warnings, errors };
 }
 
@@ -72,14 +87,18 @@ function lineStats(song: Song, track: Track, sectionId: string, texts: string[])
   });
   let report: LyricAlignmentEntry[] = [];
   try {
-    report = alignLyrics({ ...song, lyrics: replaceSectionLines(song, sectionId, track.id, tmp) }, track.id, { sectionIds: [sectionId] }).report;
+    report = alignLyrics({ ...song, lyrics: replaceSectionLines(song, sectionId, track.id, tmp) }, track.id, {
+      sectionIds: [sectionId],
+    }).report;
   } catch {
     report = [];
   }
   return texts.map((t, i) => {
     if (!t.trim()) return { syllables: 0, notes: 0, status: 'empty' as const };
     const e = report.find((r) => r.lineId === `__draft${i}`);
-    return e ? { syllables: e.syllables, notes: e.notes, status: e.status } : { syllables: lyricTokens(t).length, notes: 0, status: 'too-many-syllables' as const };
+    return e
+      ? { syllables: e.syllables, notes: e.notes, status: e.status }
+      : { syllables: lyricTokens(t).length, notes: 0, status: 'too-many-syllables' as const };
   });
 }
 
@@ -125,33 +144,61 @@ function SectionLyrics({
   const [caret, setCaret] = useState<number | null>(null);
   const locked = isLyricsSectionLocked(song, span.section.id);
   const texts = draft.split('\n');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stats = useMemo(() => lineStats(song, track, span.section.id, texts), [song, track, span.section.id, draft]);
+  const stats = useMemo(
+    () => lineStats(song, track, span.section.id, texts),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [song, track, span.section.id, draft],
+  );
   const syl = stats.reduce((a, s) => a + s.syllables, 0);
-  const mismatched = stats.filter((s) => s.status === 'too-many-syllables' || s.status === 'too-few-syllables').length;
-  const focusLine = caret !== null && texts[caret]?.trim() ? texts[caret] : texts.find((t) => t.trim()) ?? '';
+  const mismatched = stats.filter(
+    (s) => s.status === 'too-many-syllables' || s.status === 'too-few-syllables',
+  ).length;
+  const focusLine =
+    caret !== null && texts[caret]?.trim() ? texts[caret] : (texts.find((t) => t.trim()) ?? '');
   const focusIndex = caret !== null && texts[caret]?.trim() ? caret : texts.findIndex((t) => t.trim());
   const st = useStudio.getState();
-  const updateCaret = (el: HTMLTextAreaElement) => setCaret(el.value.slice(0, el.selectionStart).split('\n').length - 1);
+  const updateCaret = (el: HTMLTextAreaElement) =>
+    setCaret(el.value.slice(0, el.selectionStart).split('\n').length - 1);
   const bars = `${span.startBar + 1}–${span.endBar}`;
 
   return (
-    <div className={`vx-lyric-section ${locked ? 'locked' : ''}`} data-testid="lyric-section" data-section={span.section.name}>
+    <div
+      className={`vx-lyric-section ${locked ? 'locked' : ''}`}
+      data-testid="lyric-section"
+      data-section={span.section.name}
+    >
       <div className="vx-lyric-head">
         <strong>{span.section.name}</strong>
         <span className="small dim">bars {bars}</span>
         <Badge title="Vocal notes in this section">{noteCount} notes</Badge>
         {lines.length > 0 && (
-          <Badge tone={mismatched ? 'warning' : syl === noteCount ? 'success' : undefined} title="Lyric syllables vs vocal notes">
+          <Badge
+            tone={mismatched ? 'warning' : syl === noteCount ? 'success' : undefined}
+            title="Lyric syllables vs vocal notes"
+          >
             {syl} syl / {noteCount} notes
           </Badge>
         )}
         <div className="spacer" />
-        <Button size="sm" variant="ghost" icon="play" title={`Play from ${span.section.name}`} onClick={() => playFrom(createTimeMap(song).tickToSeconds(span.startTick))} aria-label={`Play ${span.section.name}`} />
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="play"
+          title={`Play from ${span.section.name}`}
+          onClick={() => playFrom(createTimeMap(song).tickToSeconds(span.startTick))}
+          aria-label={`Play ${span.section.name}`}
+        />
         <LockButton
           locked={locked}
-          onToggle={() => st.toggleLock(LockKeys.sectionLyrics(span.section.id), `${locked ? 'Unlocked' : 'Locked'} lyrics of ${span.section.name}`)}
-          title={locked ? `Lyrics of ${span.section.name} are locked` : `Lock the lyrics of ${span.section.name}`}
+          onToggle={() =>
+            st.toggleLock(
+              LockKeys.sectionLyrics(span.section.id),
+              `${locked ? 'Unlocked' : 'Locked'} lyrics of ${span.section.name}`,
+            )
+          }
+          title={
+            locked ? `Lyrics of ${span.section.name} are locked` : `Lock the lyrics of ${span.section.name}`
+          }
         />
       </div>
       <div className="vx-lyric-body">
@@ -162,7 +209,9 @@ function SectionLyrics({
           rows={Math.max(2, texts.length + (locked ? 0 : 1))}
           value={draft}
           readOnly={locked}
-          placeholder={noteCount ? `Write the lines for ${span.section.name} — one line per row` : 'No vocal notes here'}
+          placeholder={
+            noteCount ? `Write the lines for ${span.section.name} — one line per row` : 'No vocal notes here'
+          }
           aria-label={`Lyrics for ${span.section.name}`}
           onChange={(e) => {
             setDraft(e.target.value);
@@ -178,7 +227,7 @@ function SectionLyrics({
             if (e.key === 'Escape') setDraft(original);
           }}
         />
-        <div className="vx-gutter" aria-label={`Syllable counts for ${span.section.name}`}>
+        <div className="vx-gutter" role="group" aria-label={`Syllable counts for ${span.section.name}`}>
           {texts.map((t, i) => {
             const s = stats[i];
             const line = lines[i];
@@ -196,7 +245,9 @@ function SectionLyrics({
                 <span className="mono">
                   {s.syllables}/{s.notes}
                 </span>
-                <span className="vx-gutter-diff">{s.status === 'aligned' ? '✓' : diff > 0 ? `+${diff} syl` : `${diff} syl`}</span>
+                <span className="vx-gutter-diff">
+                  {s.status === 'aligned' ? '✓' : diff > 0 ? `+${diff} syl` : `${diff} syl`}
+                </span>
                 <span className={`vx-author ${author.tone ?? ''}`}>{author.label}</span>
               </div>
             );
@@ -206,7 +257,12 @@ function SectionLyrics({
       {focusLine && (
         <div className="vx-phonemes small" aria-label="Phoneme preview" data-testid="phoneme-preview">
           <span className="dim">Line {focusIndex + 1}:</span>{' '}
-          <span className="mono">{lyricTokens(focusLine).map((t) => t.text.replace(/-$/, '·')).join(' ').replace(/· /g, '·')}</span>
+          <span className="mono">
+            {lyricTokens(focusLine)
+              .map((t) => t.text.replace(/-$/, '·'))
+              .join(' ')
+              .replace(/· /g, '·')}
+          </span>
           <span className="dim"> → </span>
           {wordsToPhonemes(focusLine).map((w, i) => (
             <span key={i} className="vx-ph" title={w.word}>
@@ -223,20 +279,29 @@ function AlignmentReport({ song, track }: { song: Song; track: Track }) {
   const alignment = useVocalSession((s) => s.alignment);
   const validation = useMemo(() => validateLyricAlignment(song, track.id), [song, track.id]);
   // The table always describes the current song (e.g. after a fit-rhythm proposal was accepted).
-  const liveReport = useMemo(() => (alignment ? alignLyrics(song, track.id).report : []), [song, track.id, alignment]);
+  const liveReport = useMemo(
+    () => (alignment ? alignLyrics(song, track.id).report : []),
+    [song, track.id, alignment],
+  );
   const hasLyrics = song.lyrics.some((l) => !l.trackId || l.trackId === track.id);
   if (!alignment && !hasLyrics) {
     return (
       <div className="callout small" data-testid="lyric-validation">
-        No lyrics yet — write them below (or let the lyricist draft them); their syllables are attached to the vocal notes so the singer knows what to sing.
+        No lyrics yet — write them below (or let the lyricist draft them); their syllables are attached to the
+        vocal notes so the singer knows what to sing.
       </div>
     );
   }
   if (!alignment) {
     return (
-      <div className={`callout ${validation.ok ? 'success' : 'warning'} small`} data-testid="lyric-validation">
+      <div
+        className={`callout ${validation.ok ? 'success' : 'warning'} small`}
+        data-testid="lyric-validation"
+      >
         <strong>Lyrics ↔ vocal events (spec §48): </strong>
-        {validation.ok ? 'every syllable sits on a vocal note.' : `${validation.issues.length} issue${validation.issues.length === 1 ? '' : 's'} — ${validation.issues[0]}`}
+        {validation.ok
+          ? 'every syllable sits on a vocal note.'
+          : `${validation.issues.length} issue${validation.issues.length === 1 ? '' : 's'} — ${validation.issues[0]}`}
       </div>
     );
   }
@@ -249,7 +314,12 @@ function AlignmentReport({ song, track }: { song: Song; track: Track }) {
       <div className="row between" style={{ marginBottom: 6 }}>
         <strong>Alignment report</strong>
         <span className="small muted">
-          {alignment.mode === 'fit-rhythm' ? 'Fit rhythm proposed' : alignment.applied ? 'Syllables attached' : 'Syllables already attached'} · {aligned}/{liveReport.length} lines one-syllable-per-note
+          {alignment.mode === 'fit-rhythm'
+            ? 'Fit rhythm proposed'
+            : alignment.applied
+              ? 'Syllables attached'
+              : 'Syllables already attached'}{' '}
+          · {aligned}/{liveReport.length} lines one-syllable-per-note
         </span>
       </div>
       <table className="table" aria-label="Lyric alignment report">
@@ -279,7 +349,16 @@ function AlignmentReport({ song, track }: { song: Song; track: Track }) {
                     <Badge tone="success">aligned</Badge>
                   ) : (
                     <>
-                      {many > 0 && <Badge tone="danger">{many} line{many > 1 ? 's' : ''}: syllables merged</Badge>} {few > 0 && <Badge tone="warning">{few} line{few > 1 ? 's' : ''}: melismas</Badge>}
+                      {many > 0 && (
+                        <Badge tone="danger">
+                          {many} line{many > 1 ? 's' : ''}: syllables merged
+                        </Badge>
+                      )}{' '}
+                      {few > 0 && (
+                        <Badge tone="warning">
+                          {few} line{few > 1 ? 's' : ''}: melismas
+                        </Badge>
+                      )}
                     </>
                   )}
                 </td>
@@ -293,9 +372,15 @@ function AlignmentReport({ song, track }: { song: Song; track: Track }) {
           ⚠ {w}
         </div>
       ))}
-      <div className={`small ${validation.ok ? '' : 'muted'}`} style={{ marginTop: 6 }} data-testid="lyric-validation">
+      <div
+        className={`small ${validation.ok ? '' : 'muted'}`}
+        style={{ marginTop: 6 }}
+        data-testid="lyric-validation"
+      >
         <Icon name={validation.ok ? 'check' : 'alert'} size={12} /> Validation (spec §48):{' '}
-        {validation.ok ? 'lyrics align with the vocal events.' : `${validation.issues.length} issue${validation.issues.length === 1 ? '' : 's'}: ${validation.issues.slice(0, 2).join(' ')}`}
+        {validation.ok
+          ? 'lyrics align with the vocal events.'
+          : `${validation.issues.length} issue${validation.issues.length === 1 ? '' : 's'}: ${validation.issues.slice(0, 2).join(' ')}`}
       </div>
     </div>
   );
@@ -309,7 +394,8 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
   const [busy, setBusy] = useState<string | null>(null);
   const st = useStudio.getState();
   const spans = sectionLayout(song);
-  const countIn = (span: SectionSpan) => track.notes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick).length;
+  const countIn = (span: SectionSpan) =>
+    track.notes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick).length;
   const shown = spans.filter((s) => countIn(s) > 0 || linesFor(song, s.section.id, track.id).length > 0);
   const hidden = spans.length - shown.length;
   const allLocked = isLocked(song.locks, LockKeys.lyrics);
@@ -327,7 +413,10 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
     const used = new Set<string>();
     const clean = texts.map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
     const next: LyricLine[] = clean.map((text, i) => {
-      const same = old[i] && old[i].text === text && !used.has(old[i].id) ? old[i] : old.find((o) => o.text === text && !used.has(o.id));
+      const same =
+        old[i] && old[i].text === text && !used.has(old[i].id)
+          ? old[i]
+          : old.find((o) => o.text === text && !used.has(o.id));
       if (same) {
         used.add(same.id);
         return same;
@@ -336,16 +425,31 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
     });
     let song2: Song = { ...cur, lyrics: replaceSectionLines(cur, span.section.id, track.id, next) };
     if (session.autoAlign) song2 = alignInto(song2, track.id, [span.section.id]).song;
-    st.commit(song2, `Lyrics: ${span.section.name}${session.autoAlign ? ' (syllables re-attached)' : ''}`, 'lyrics');
-    if (next.some((l) => l.author === 'human' && !old.includes(l))) st.updateProject((p) => withRights(p, { lyricWriters: [userName || 'Me'] }));
+    st.commit(
+      song2,
+      `Lyrics: ${span.section.name}${session.autoAlign ? ' (syllables re-attached)' : ''}`,
+      'lyrics',
+    );
+    if (next.some((l) => l.author === 'human' && !old.includes(l)))
+      st.updateProject((p) => withRights(p, { lyricWriters: [userName || 'Me'] }));
     logVocalActivity('lyrics', `Edited the lyrics of ${span.section.name}`);
   };
 
   const write = async () => {
     const cur = latest();
-    const targets = sectionLayout(cur).filter((s) => countIn(s) > 0 && !isLyricsSectionLocked(cur, s.section.id) && (session.lyricsScope === 'all' || linesFor(cur, s.section.id, track.id).length === 0));
+    const targets = sectionLayout(cur).filter(
+      (s) =>
+        countIn(s) > 0 &&
+        !isLyricsSectionLocked(cur, s.section.id) &&
+        (session.lyricsScope === 'all' || linesFor(cur, s.section.id, track.id).length === 0),
+    );
     if (!targets.length) {
-      st.toast('info', session.lyricsScope === 'empty' ? 'Every sung section already has lyrics — choose “All unlocked sections” to rewrite them.' : 'Every sung section has locked lyrics.');
+      st.toast(
+        'info',
+        session.lyricsScope === 'empty'
+          ? 'Every sung section already has lyrics — choose “All unlocked sections” to rewrite them.'
+          : 'Every sung section has locked lyrics.',
+      );
       return;
     }
     const phrases = vocalPhrases(cur, track);
@@ -364,7 +468,11 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
     });
     setBusy('Writing lyrics…');
     try {
-      const res = await aiLyrics(cur, req, { providerChoice: session.lyricsProvider, theme: theme || undefined, style: cur.blueprint?.moods.join(', ') });
+      const res = await aiLyrics(cur, req, {
+        providerChoice: session.lyricsProvider,
+        theme: theme || undefined,
+        style: cur.blueprint?.moods.join(', '),
+      });
       const placeholder = res.provenance.location === 'internal';
       const author = placeholder ? 'placeholder' : res.provenance.providerId;
       let song2 = latest();
@@ -373,7 +481,13 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
         const texts = out.lines.map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
         if (!texts.length || isLyricsSectionLocked(song2, out.sectionId)) continue;
         lines += texts.length;
-        const fresh: LyricLine[] = texts.map((text) => ({ id: randomId('ly'), sectionId: out.sectionId, text, trackId: track.id, author }));
+        const fresh: LyricLine[] = texts.map((text) => ({
+          id: randomId('ly'),
+          sectionId: out.sectionId,
+          text,
+          trackId: track.id,
+          author,
+        }));
         song2 = { ...song2, lyrics: replaceSectionLines(song2, out.sectionId, track.id, fresh) };
       }
       if (!lines) {
@@ -382,7 +496,11 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
       }
       const sectionIds = res.sections.map((s) => s.sectionId);
       if (session.autoAlign) song2 = alignInto(song2, track.id, sectionIds).song;
-      st.commit(song2, `Lyrics written by ${placeholder ? 'the on-device placeholder engine' : res.provenance.providerName} (${sectionIds.length} sections${session.autoAlign ? ', syllables attached' : ''})`, 'lyrics');
+      st.commit(
+        song2,
+        `Lyrics written by ${placeholder ? 'the on-device placeholder engine' : res.provenance.providerName} (${sectionIds.length} sections${session.autoAlign ? ', syllables attached' : ''})`,
+        'lyrics',
+      );
       const project2 = useStudio.getState().project!;
       const v = artifactVersions(project2, track.id);
       recordProvenance(res.provenance, {
@@ -390,14 +508,44 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
         artifactName: 'lyrics.txt',
         artifactKind: 'lyrics',
         sources: [{ kind: 'midi', ref: vocalMidiName(project2.song, track.id), revision: v.midi }],
-        parameters: { version: v.lyrics, sections: targets.map((s) => s.section.name), lines, theme: theme || undefined, placeholder, notes: res.notes },
+        parameters: {
+          version: v.lyrics,
+          sections: targets.map((s) => s.section.name),
+          lines,
+          theme: theme || undefined,
+          placeholder,
+          notes: res.notes,
+        },
       });
-      st.updateProject((p) => withRights(p, { lyricWriters: [placeholder ? 'Placeholder lyrics (Song Deck on-device engine)' : `${res.provenance.providerName} (AI)`] }));
-      session.set({ lastLyrics: { source: sourceLabel(res.provenance), placeholder, notes: res.notes, sections: sectionIds.length, lines } });
-      logVocalActivity('lyrics', `${placeholder ? 'Placeholder lyrics' : 'Lyrics'} for ${sectionIds.length} sections (${res.provenance.providerName})`);
-      st.toast(placeholder ? 'info' : 'success', `${lines} lines written into ${sectionIds.length} sections${placeholder ? ' — placeholder quality' : ''}.`);
+      st.updateProject((p) =>
+        withRights(p, {
+          lyricWriters: [
+            placeholder
+              ? 'Placeholder lyrics (Song Deck on-device engine)'
+              : `${res.provenance.providerName} (AI)`,
+          ],
+        }),
+      );
+      session.set({
+        lastLyrics: {
+          source: sourceLabel(res.provenance),
+          placeholder,
+          notes: res.notes,
+          sections: sectionIds.length,
+          lines,
+        },
+      });
+      logVocalActivity(
+        'lyrics',
+        `${placeholder ? 'Placeholder lyrics' : 'Lyrics'} for ${sectionIds.length} sections (${res.provenance.providerName})`,
+      );
+      st.toast(
+        placeholder ? 'info' : 'success',
+        `${lines} lines written into ${sectionIds.length} sections${placeholder ? ' — placeholder quality' : ''}.`,
+      );
     } catch (err) {
-      if (!(err instanceof Error && err.name === 'AbortError')) st.toast('error', `Lyrics failed: ${errorText(err)}`);
+      if (!(err instanceof Error && err.name === 'AbortError'))
+        st.toast('error', `Lyrics failed: ${errorText(err)}`);
     } finally {
       setBusy(null);
     }
@@ -407,19 +555,47 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
     const cur = latest();
     const r = alignInto(cur, track.id);
     const applied = r.song !== cur;
-    if (applied) st.commit(r.song, 'Aligned the lyrics to the vocal melody (syllables attached to notes)', 'lyrics');
+    if (applied)
+      st.commit(r.song, 'Aligned the lyrics to the vocal melody (syllables attached to notes)', 'lyrics');
     const issues = validateLyricAlignment(r.song, track.id).issues;
-    session.set({ alignment: { at: new Date().toISOString(), mode: 'assign', report: r.report, warnings: [...r.warnings, ...r.errors], issues, applied } });
+    session.set({
+      alignment: {
+        at: new Date().toISOString(),
+        mode: 'assign',
+        report: r.report,
+        warnings: [...r.warnings, ...r.errors],
+        issues,
+        applied,
+      },
+    });
     if (!r.report.length) st.toast('info', 'There are no lyric lines to align yet — write lyrics first.');
-    else st.toast(applied ? 'success' : 'info', applied ? `Aligned ${r.report.length} lyric lines to the melody.` : 'The lyrics were already aligned.');
-    logVocalActivity('lyrics', `Aligned lyrics (${r.report.filter((e) => e.status === 'aligned').length}/${r.report.length} lines exact)`);
+    else
+      st.toast(
+        applied ? 'success' : 'info',
+        applied
+          ? `Aligned ${r.report.length} lyric lines to the melody.`
+          : 'The lyrics were already aligned.',
+      );
+    logVocalActivity(
+      'lyrics',
+      `Aligned lyrics (${r.report.filter((e) => e.status === 'aligned').length}/${r.report.length} lines exact)`,
+    );
   };
 
   const fitRhythm = () => {
     const cur = latest();
     const r = alignLyrics(cur, track.id, { mode: 'fit-rhythm' });
     const issues = validateLyricAlignment(cur, track.id).issues;
-    session.set({ alignment: { at: new Date().toISOString(), mode: 'fit-rhythm', report: r.report, warnings: r.warnings, issues, applied: false } });
+    session.set({
+      alignment: {
+        at: new Date().toISOString(),
+        mode: 'fit-rhythm',
+        report: r.report,
+        warnings: r.warnings,
+        issues,
+        applied: false,
+      },
+    });
     if (!r.operations.length) {
       st.toast('info', r.report.length ? 'The melody already fits the lyrics.' : 'Write lyrics first.');
       return;
@@ -433,7 +609,13 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
         instruction: 'Fit melody rhythm to lyrics',
         explanation: 'Notes are split or merged (contour kept) so every lyric syllable gets its own note.',
       },
-      { projectId: project.meta.id, trackId: track.id, kind: 'fit-rhythm', title: 'Fit the vocal rhythm to the lyrics', reason: 'fit rhythm to lyrics' },
+      {
+        projectId: project.meta.id,
+        trackId: track.id,
+        kind: 'fit-rhythm',
+        title: 'Fit the vocal rhythm to the lyrics',
+        reason: 'fit rhythm to lyrics',
+      },
     );
     if ('error' in p) st.toast('info', p.error);
     else st.toast('success', 'Proposal ready — review it in the panel on the right.');
@@ -450,17 +632,33 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
         <div className="panel-body col">
           <div className="vx-write-grid">
             <Field label="Lyricist">
-              <ProviderPicker role="lyrics" value={session.lyricsProvider} onChange={(v) => session.set({ lyricsProvider: v })} />
+              <ProviderPicker
+                role="lyrics"
+                value={session.lyricsProvider}
+                onChange={(v) => session.set({ lyricsProvider: v })}
+              />
             </Field>
             <Field label="Theme">
-              <TextInput value={session.lyricsTheme} onChange={(v) => session.set({ lyricsTheme: v })} placeholder={song.blueprint?.lyricsTheme || song.blueprint?.moods.join(', ') || 'e.g. leaving home'} aria-label="Lyrics theme" />
+              <TextInput
+                value={session.lyricsTheme}
+                onChange={(v) => session.set({ lyricsTheme: v })}
+                placeholder={
+                  song.blueprint?.lyricsTheme || song.blueprint?.moods.join(', ') || 'e.g. leaving home'
+                }
+                aria-label="Lyrics theme"
+              />
             </Field>
             <Field label="Language">
               <Select
                 value={LANGUAGES.some((l) => l.value === song.vocals.language) ? song.vocals.language : 'en'}
                 onChange={(language) => {
                   const cur = useStudio.getState().project?.song;
-                  if (cur && cur.vocals.language !== language) st.commit({ ...cur, vocals: { ...cur.vocals, language } }, `Vocal language → ${language}`, 'vocals');
+                  if (cur && cur.vocals.language !== language)
+                    st.commit(
+                      { ...cur, vocals: { ...cur.vocals, language } },
+                      `Vocal language → ${language}`,
+                      'vocals',
+                    );
                 }}
                 options={LANGUAGES}
                 aria-label="Vocal language"
@@ -478,32 +676,50 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
               />
             </Field>
             <div className="field" style={{ justifyContent: 'flex-end' }}>
-              <Button variant="ai" icon="sparkles" onClick={() => void write()} disabled={!!busy || allLocked}>
+              <Button
+                variant="ai"
+                icon="sparkles"
+                onClick={() => void write()}
+                disabled={!!busy || allLocked}
+              >
                 {busy ? <Spinner /> : 'Write lyrics'}
               </Button>
             </div>
           </div>
           {lyricist?.providerId === 'internal-composer' && !session.lastLyrics ? (
             <div className="small muted">
-              No language model is configured for lyrics, so the on-device engine will write <strong>placeholder</strong> lyrics — rhymed and fitted to each phrase&apos;s
-              syllable count so you can hear the melody sung, but generic.
+              No language model is configured for lyrics, so the on-device engine will write{' '}
+              <strong>placeholder</strong> lyrics — rhymed and fitted to each phrase&apos;s syllable count so
+              you can hear the melody sung, but generic.
             </div>
           ) : (
-            !session.lastLyrics && <div className="small dim">Auto follows your routing rules; the on-device engine always works offline.</div>
+            !session.lastLyrics && (
+              <div className="small dim">
+                Auto follows your routing rules; the on-device engine always works offline.
+              </div>
+            )
           )}
           {song.vocals.language !== 'en' && (
             <div className="small" style={{ color: 'var(--warning)' }}>
-              The built-in syllable counter, phonemes, placeholder lyricist and formant singer are English-only — {LANGUAGES.find((l) => l.value === song.vocals.language)?.label ?? song.vocals.language}{' '}
-              needs a lyricist and singing provider that support it (the language is sent with every request).
+              The built-in syllable counter, phonemes, placeholder lyricist and formant singer are
+              English-only —{' '}
+              {LANGUAGES.find((l) => l.value === song.vocals.language)?.label ?? song.vocals.language} needs a
+              lyricist and singing provider that support it (the language is sent with every request).
             </div>
           )}
           {session.lastLyrics && (
-            <div className={`callout ${session.lastLyrics.placeholder ? 'warning' : 'success'} small`} data-testid="lyrics-source">
-              <strong>{session.lastLyrics.placeholder ? 'Placeholder lyrics' : 'Lyrics written'}</strong> · {session.lastLyrics.source} · {session.lastLyrics.lines} lines in {session.lastLyrics.sections} sections.
+            <div
+              className={`callout ${session.lastLyrics.placeholder ? 'warning' : 'success'} small`}
+              data-testid="lyrics-source"
+            >
+              <strong>{session.lastLyrics.placeholder ? 'Placeholder lyrics' : 'Lyrics written'}</strong> ·{' '}
+              {session.lastLyrics.source} · {session.lastLyrics.lines} lines in {session.lastLyrics.sections}{' '}
+              sections.
               {session.lastLyrics.placeholder ? (
                 <div>
-                  These are stock phrases from the on-device engine, not real lyric writing — configure a language model in Settings → AI providers, or write your own
-                  below. Lines are marked <em>placeholder</em> until you edit them.
+                  These are stock phrases from the on-device engine, not real lyric writing — configure a
+                  language model in Settings → AI providers, or write your own below. Lines are marked{' '}
+                  <em>placeholder</em> until you edit them.
                 </div>
               ) : (
                 session.lastLyrics.notes && <div>{session.lastLyrics.notes}</div>
@@ -517,19 +733,38 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
         <div className="panel-header">
           <Icon name="book" />
           <h3 className="grow">Lyrics ↔ vocal melody</h3>
-          <Toggle on={session.autoAlign} onChange={(v) => session.set({ autoAlign: v })} label="Re-attach syllables after edits" title="After writing or editing a section, attach its syllables to the vocal notes" />
-          <LockButton locked={allLocked} onToggle={() => st.toggleLock(LockKeys.lyrics, `${allLocked ? 'Unlocked' : 'Locked'} all lyrics`)} title={allLocked ? 'All lyrics are locked' : 'Lock all lyrics'} />
+          <Toggle
+            on={session.autoAlign}
+            onChange={(v) => session.set({ autoAlign: v })}
+            label="Re-attach syllables after edits"
+            title="After writing or editing a section, attach its syllables to the vocal notes"
+          />
+          <LockButton
+            locked={allLocked}
+            onToggle={() => st.toggleLock(LockKeys.lyrics, `${allLocked ? 'Unlocked' : 'Locked'} all lyrics`)}
+            title={allLocked ? 'All lyrics are locked' : 'Lock all lyrics'}
+          />
         </div>
         <div className="panel-body col">
           <div className="row wrap">
-            <Button variant="primary" icon="music" onClick={align} title="Attach one syllable per note (melismas “_” for extra notes, merged syllables for missing notes)">
+            <Button
+              variant="primary"
+              icon="music"
+              onClick={align}
+              title="Attach one syllable per note (melismas “_” for extra notes, merged syllables for missing notes)"
+            >
               Align lyrics to melody
             </Button>
-            <Button icon="midi" onClick={fitRhythm} title="Split / merge notes so every syllable has a note — as a proposal">
+            <Button
+              icon="midi"
+              onClick={fitRhythm}
+              title="Split / merge notes so every syllable has a note — as a proposal"
+            >
               Fit melody rhythm to lyrics
             </Button>
             <span className="small dim">
-              {track.name} · {vocalMidiName(song, track.id)} · {song.lyrics.filter((l) => !l.trackId || l.trackId === track.id).length} lines
+              {track.name} · {vocalMidiName(song, track.id)} ·{' '}
+              {song.lyrics.filter((l) => !l.trackId || l.trackId === track.id).length} lines
             </span>
           </div>
           <AlignmentReport song={song} track={track} />
@@ -538,14 +773,30 @@ export function LyricsPanel({ project, track }: { project: Project; track: Track
 
       <div className="col" style={{ gap: 10 }}>
         {shown.map((span) => (
-          <SectionLyrics key={span.section.id} song={song} track={track} span={span} noteCount={countIn(span)} onCommit={commitSection} />
+          <SectionLyrics
+            key={span.section.id}
+            song={song}
+            track={track}
+            span={span}
+            noteCount={countIn(span)}
+            onCommit={commitSection}
+          />
         ))}
         {hidden > 0 && (
           <div className="small dim">
-            {hidden} section{hidden === 1 ? '' : 's'} without vocal notes ({spans.filter((s) => !shown.includes(s)).map((s) => s.section.name).join(', ')}).
+            {hidden} section{hidden === 1 ? '' : 's'} without vocal notes (
+            {spans
+              .filter((s) => !shown.includes(s))
+              .map((s) => s.section.name)
+              .join(', ')}
+            ).
           </div>
         )}
-        {!shown.length && <div className="small muted">The vocal track has no notes yet — generate a vocal melody in the Melody tab.</div>}
+        {!shown.length && (
+          <div className="small muted">
+            The vocal track has no notes yet — generate a vocal melody in the Melody tab.
+          </div>
+        )}
       </div>
     </div>
   );

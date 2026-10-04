@@ -22,10 +22,18 @@ import type {
   VoiceType,
 } from '../ir/types';
 import { PPQ } from '../ir/types';
-import { bpmAtTick, keyAtBar, meterAtBar, sectionLayout, tickToBar, barToTick, type SectionSpan } from '../timing';
+import {
+  bpmAtTick,
+  keyAtBar,
+  meterAtBar,
+  sectionLayout,
+  tickToBar,
+  barToTick,
+  type SectionSpan,
+} from '../timing';
 import { deriveRng, type Rng } from '../util/random';
 import { arrangementFor, isLeadVocal, resolveFunction } from './arrangement';
-import { genreForBlend } from './genres';
+import { genreForSong } from './tags';
 import { getInstrument, instrumentRange } from './instruments';
 import {
   barsOfSpan,
@@ -97,7 +105,7 @@ function resolveDrumStyle(genre: GenreProfile, song: Song): DrumStyle {
 }
 
 export function buildSongGen(song: Song, settings: GenSettings): SongGen {
-  const genre = genreForBlend(song.genreBlend, settings.customGenres);
+  const genre = genreForSong(song, settings.customGenres);
   const cache = new Map<string, InstrumentProfile>();
   const instrumentOf = (t: Track): InstrumentProfile => {
     let p = cache.get(t.instrumentId);
@@ -116,7 +124,9 @@ export function buildSongGen(song: Song, settings: GenSettings): SongGen {
   });
   const sets = new Map(Object.entries(arrangement).map(([k, v]) => [k, new Set(v)]));
   const midi = song.tracks.filter((t) => t.kind === 'midi');
-  const lead = midi.find((t) => isLeadVocal(t, instrumentOf(t))) ?? midi.find((t) => resolveFunction(t, instrumentOf(t)) === 'melody');
+  const lead =
+    midi.find((t) => isLeadVocal(t, instrumentOf(t))) ??
+    midi.find((t) => resolveFunction(t, instrumentOf(t)) === 'melody');
   return {
     song,
     settings,
@@ -189,13 +199,20 @@ function trackRange(track: Track, inst: InstrumentProfile, voiceType?: VoiceType
     const v = VOICE_RANGES[voiceType ?? 'tenor'] ?? ir;
     const low = Math.max(v.low, ir.low);
     const high = Math.min(v.high, ir.high);
-    if (high - low >= 12) base = { low, high, comfortableLow: clamp(v.comfortableLow, low, high), comfortableHigh: clamp(v.comfortableHigh, low, high) };
+    if (high - low >= 12)
+      base = {
+        low,
+        high,
+        comfortableLow: clamp(v.comfortableLow, low, high),
+        comfortableHigh: clamp(v.comfortableHigh, low, high),
+      };
   }
   const r: PitchRange = { ...base };
   const c = track.constraints ?? {};
   if (c.lowest !== undefined && c.lowest > r.low) r.low = Math.min(c.lowest, r.high);
   if (c.highest !== undefined && c.highest < r.high) r.high = Math.max(c.highest, r.low);
-  if (c.avoid?.includes('high-register')) r.high = Math.max(r.low + 12, Math.min(r.high, r.comfortableHigh - 3));
+  if (c.avoid?.includes('high-register'))
+    r.high = Math.max(r.low + 12, Math.min(r.high, r.comfortableHigh - 3));
   if (c.avoid?.includes('low-register')) r.low = Math.min(r.high - 12, Math.max(r.low, r.comfortableLow + 3));
   r.comfortableLow = clamp(r.comfortableLow, r.low, r.high);
   r.comfortableHigh = clamp(r.comfortableHigh, r.comfortableLow, r.high);
@@ -223,10 +240,15 @@ export function makeCell(g: SongGen, track: Track, spanIndex: number, seed: numb
   const e1 = clamp01((section.energyEnd ?? section.energy ?? 50) / 100 + shift);
   const groupId = sectionGroupId(song, section);
   const root = song.sections.find((s) => s.id === groupId);
-  const sameRole = song.tracks.filter((t) => t.kind === 'midi' && t.role === track.role && t.instrumentId === track.instrumentId);
-  const roleIndex = Math.max(0, sameRole.findIndex((t) => t.id === track.id));
+  const sameRole = song.tracks.filter(
+    (t) => t.kind === 'midi' && t.role === track.role && t.instrumentId === track.instrumentId,
+  );
+  const roleIndex = Math.max(
+    0,
+    sameRole.findIndex((t) => t.id === track.id),
+  );
   const half = g.settings.overrides?.halfTime?.has(section.id);
-  const feel: SectionFeel = half ? 'half-time' : section.feel ?? 'normal';
+  const feel: SectionFeel = half ? 'half-time' : (section.feel ?? 'normal');
   const swing = clamp01(g.genre.rhythm.swing);
   const sub = g.genre.rhythm.subdivision;
   const len = Math.max(1, span.endTick - span.startTick);
@@ -284,11 +306,14 @@ export function makeCell(g: SongGen, track: Track, spanIndex: number, seed: numb
       const out = new Set<number>();
       for (const t of song.tracks) {
         if (t.kind !== 'midi' || t.role !== 'drums' || !g.plays(t.id, section.id)) continue;
-        for (const n of t.notes) if ((n.pitch === 36 || n.pitch === 35) && n.tick >= span.startTick && n.tick < span.endTick) out.add(n.tick);
+        for (const n of t.notes)
+          if ((n.pitch === 36 || n.pitch === 35) && n.tick >= span.startTick && n.tick < span.endTick)
+            out.add(n.tick);
       }
       return [...out].sort((a, b) => a - b);
     },
-    rolePlays: (role) => song.tracks.some((t) => t.kind === 'midi' && t.role === role && g.plays(t.id, section.id)),
+    rolePlays: (role) =>
+      song.tracks.some((t) => t.kind === 'midi' && t.role === role && g.plays(t.id, section.id)),
     isLast: spanIndex === g.spans.length - 1,
   };
   return cell;

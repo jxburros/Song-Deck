@@ -62,10 +62,17 @@ function NavMeta({ tab }: { tab: SettingsTab }): ReactNode {
   }, [tab, version]);
   switch (tab) {
     case 'providers': {
-      const errors = summaries.filter((p) => p.config && p.enabled && (p.status === 'error' || p.status === 'offline')).length;
+      const errors = summaries.filter(
+        (p) => p.config && p.enabled && (p.status === 'error' || p.status === 'offline'),
+      ).length;
       return (
         <span className="st-nav-meta">
-          {errors > 0 && <span className="status-dot err" title={`${errors} provider${errors > 1 ? 's' : ''} with errors`} />}
+          {errors > 0 && (
+            <span
+              className="status-dot err"
+              title={`${errors} provider${errors > 1 ? 's' : ''} with errors`}
+            />
+          )}
           {providers.length || ''}
         </span>
       );
@@ -77,11 +84,28 @@ function NavMeta({ tab }: { tab: SettingsTab }): ReactNode {
     case 'budget':
       return today > 0 ? <span className="st-nav-meta">{usd(today)}</span> : null;
     case 'models':
-      return <span className={`status-dot ${server === 'online' ? 'ok' : ''}`} title={server === 'online' ? 'Hardware detection available' : 'Start the local server for hardware detection'} />;
+      return (
+        <span
+          className={`status-dot ${server === 'online' ? 'ok' : ''}`}
+          title={
+            server === 'online'
+              ? 'Hardware detection available'
+              : 'Start the local server for hardware detection'
+          }
+        />
+      );
     case 'nodes':
-      return renderNodes.length ? <span className={`st-nav-meta ${useNodes ? 'on' : ''}`}>{renderNodes.filter((n) => n.enabled).length}</span> : null;
+      return renderNodes.length ? (
+        <span className={`st-nav-meta ${useNodes ? 'on' : ''}`}>
+          {renderNodes.filter((n) => n.enabled).length}
+        </span>
+      ) : null;
     case 'plugins':
-      return enabledPlugins.length ? <span className="st-nav-meta">{loaded}/{enabledPlugins.length}</span> : null;
+      return enabledPlugins.length ? (
+        <span className="st-nav-meta">
+          {loaded}/{enabledPlugins.length}
+        </span>
+      ) : null;
     case 'collab':
       return collab === 'disconnected' ? null : (
         <span className="st-nav-meta">
@@ -90,7 +114,12 @@ function NavMeta({ tab }: { tab: SettingsTab }): ReactNode {
         </span>
       );
     case 'general':
-      return <span className={`status-dot ${server === 'online' ? 'ok' : server === 'offline' ? 'warn' : ''}`} title={`Local server: ${server}`} />;
+      return (
+        <span
+          className={`status-dot ${server === 'online' ? 'ok' : server === 'offline' ? 'warn' : ''}`}
+          title={`Local server: ${server}`}
+        />
+      );
     default:
       return null;
   }
@@ -134,8 +163,14 @@ export default function SettingsMode() {
           <p>Use whichever AI you want — or none.</p>
           <div className="st-nav-status">
             <span>
-              <span className={`status-dot ${server.status === 'online' ? 'ok' : server.status === 'offline' ? 'warn' : ''}`} />
-              {server.status === 'online' ? `Server online${server.info?.vault ? ` · ${server.info.vault.backend}` : ''}` : server.status === 'offline' ? 'Browser-only mode' : 'Checking server…'}
+              <span
+                className={`status-dot ${server.status === 'online' ? 'ok' : server.status === 'offline' ? 'warn' : ''}`}
+              />
+              {server.status === 'online'
+                ? `Server online${server.info?.vault ? ` · ${server.info.vault.backend}` : ''}`
+                : server.status === 'offline'
+                  ? 'Browser-only mode'
+                  : 'Checking server…'}
             </span>
             <span>
               <Icon name={offline ? 'shield' : 'cloud'} size={12} />
@@ -143,7 +178,12 @@ export default function SettingsMode() {
             </span>
           </div>
         </div>
-        <nav className="st-nav-list" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+        <nav
+          className="st-nav-list"
+          role="tablist"
+          aria-label="Settings sections"
+          aria-orientation="vertical"
+        >
           {NAV.map((n) => (
             <button
               key={n.tab}
@@ -164,7 +204,12 @@ export default function SettingsMode() {
           ))}
         </nav>
       </aside>
-      <section className="st-content" role="tabpanel" aria-label={NAV.find((n) => n.tab === tab)?.label} ref={content}>
+      <section
+        className="st-content"
+        role="tabpanel"
+        aria-label={NAV.find((n) => n.tab === tab)?.label}
+        ref={content}
+      >
         <div className="st-inner" key={tab}>
           {VIEWS[tab]()}
         </div>

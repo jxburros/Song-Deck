@@ -1,4 +1,10 @@
-import { stableStringify, type GenreProfile, type InstrumentProfile, type Project, type Song } from '@songdeck/core';
+import {
+  stableStringify,
+  type GenreProfile,
+  type InstrumentProfile,
+  type Project,
+  type Song,
+} from '@songdeck/core';
 
 /** Merge profile lists by id; later lists win (plugin < Settings < project). */
 export function mergeById<T extends { id: string }>(...lists: T[][]): T[] {
@@ -12,7 +18,12 @@ export function mergeById<T extends { id: string }>(...lists: T[][]): T[] {
  * `.songproject` stays portable (it opens with the same profiles on a machine that lacks the
  * plugin or Settings entry that supplied them).
  */
-export function bundleCustomProfiles(project: Project, song: Song, genres: GenreProfile[], instruments: InstrumentProfile[]): Project {
+export function bundleCustomProfiles(
+  project: Project,
+  song: Song,
+  genres: GenreProfile[],
+  instruments: InstrumentProfile[],
+): Project {
   const genreIds = new Set(song.genreBlend.map((g) => g.genreId));
   const instrumentIds = new Set(song.tracks.map((t) => t.instrumentId));
   // Only profiles that are missing from the project or changed since they were bundled.
@@ -21,7 +32,9 @@ export function bundleCustomProfiles(project: Project, song: Song, genres: Genre
     return !have || stableStringify(have) !== stableStringify(p);
   };
   const usedGenres = genres.filter((g) => genreIds.has(g.id) && stale(g, project.meta.customGenres));
-  const usedInstruments = instruments.filter((i) => instrumentIds.has(i.id) && stale(i, project.meta.customInstruments));
+  const usedInstruments = instruments.filter(
+    (i) => instrumentIds.has(i.id) && stale(i, project.meta.customInstruments),
+  );
   if (!usedGenres.length && !usedInstruments.length) return project;
   return {
     ...project,

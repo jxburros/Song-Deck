@@ -4,9 +4,19 @@ import { useStudio } from '../../state/store';
 import { decodeAudioBytes, guessMime } from '../../state/assets';
 import { taskQueue } from '../../engine/runtime';
 import { enqueueTask, isActive, useTask } from '../../engine/capture-tasks';
-import { previewPlayer, usePreviewId, usePreviewPosition, useStopPreviewOnUnmount } from '../../engine/capture-playback';
+import {
+  previewPlayer,
+  usePreviewId,
+  usePreviewPosition,
+  useStopPreviewOnUnmount,
+} from '../../engine/capture-playback';
 import { AUDIO_ACCEPT, baseName, readFileBytes } from '../../engine/capture-files';
-import { externalProvider, type RebuildTaskInput, type RebuildTaskOutput } from '../../engine/handlers/analysis';
+import { requestAttestation } from '../../engine/rights';
+import {
+  externalProvider,
+  type RebuildTaskInput,
+  type RebuildTaskOutput,
+} from '../../engine/handlers/analysis';
 import { ProviderPicker } from '../shared/ProviderPicker';
 import { Badge, Button, Field, FileButton, Progress, Spinner, TextInput, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
@@ -42,9 +52,25 @@ export default function RebuildMode() {
       const audio = await decodeAudioBytes(bytes);
       const durationSeconds = (audio.channels[0]?.length ?? 0) / audio.sampleRate;
       if (durationSeconds < 1) throw new Error('The recording is shorter than a second.');
+      // Rights attestation before the recording is used (docs/RIGHTS.md): warn, never block.
+      const attested = await requestAttestation([{ name: f.name, bytes, audio }], {
+        context: 'rebuild',
+        purpose: 'Rebuild a recording into an editable project',
+      });
+      if (!attested) {
+        st.toast('info', `Upload of “${f.name}” cancelled.`);
+        return;
+      }
       previewPlayer.stop();
       s.set({
-        source: { name: f.name, bytes, mimeType: guessMime(f.name, bytes), audio, durationSeconds },
+        source: {
+          name: f.name,
+          bytes,
+          mimeType: guessMime(f.name, bytes),
+          audio,
+          durationSeconds,
+          attestation: attested[0],
+        },
         title: baseName(f.name),
         taskId: null,
         runId: null,
@@ -61,9 +87,20 @@ export default function RebuildMode() {
   const start = () => {
     if (!s.source) return;
     const runId = randomId('run');
-    const input: RebuildTaskInput = { runId, audio: s.source.audio, title: s.title.trim() || baseName(s.source.name), separationProvider: s.separationProvider };
+    const input: RebuildTaskInput = {
+      runId,
+      audio: s.source.audio,
+      title: s.title.trim() || baseName(s.source.name),
+      separationProvider: s.separationProvider,
+    };
     const ext = externalProvider('separation', s.separationProvider);
-    const rec = enqueueTask({ type: 'analysis.rebuild', title: `Rebuild “${input.title}”`, input, runner: ext ? `local + ${ext.name}` : 'local', providerId: ext ? ext.providerId : 'internal-analysis' });
+    const rec = enqueueTask({
+      type: 'analysis.rebuild',
+      title: `Rebuild “${input.title}”`,
+      input,
+      runner: ext ? `local + ${ext.name}` : 'local',
+      providerId: ext ? ext.providerId : 'internal-analysis',
+    });
     s.set({ taskId: rec.id, runId, opened: null, stemsTaskId: null });
   };
 
@@ -86,10 +123,15 @@ export default function RebuildMode() {
       });
       s.set({ opened: { projectId: project.meta.id, name: project.meta.name } });
       st.setWorkbenchView('arrangement');
-      st.toast('success', `Opened “${project.meta.name}” — ${result.song.tracks.length} rebuilt tracks${s.keepStems ? ' plus separated stems (muted) for A/B' : ''}`);
+      st.toast(
+        'success',
+        `Opened “${project.meta.name}” — ${result.song.tracks.length} rebuilt tracks${s.keepStems ? ' plus separated stems (muted) for A/B' : ''}`,
+      );
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') st.toast('info', 'Stem separation was cancelled — the project was not created.');
-      else st.toast('error', `Could not open the project: ${err instanceof Error ? err.message : String(err)}`);
+      if (err instanceof Error && err.name === 'AbortError')
+        st.toast('info', 'Stem separation was cancelled — the project was not created.');
+      else
+        st.toast('error', `Could not open the project: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setOpening(null);
     }
@@ -101,8 +143,9 @@ export default function RebuildMode() {
         <div className="grow">
           <h1>Rebuild</h1>
           <div className="lede">
-            Attempt to reconstruct an existing recording as an <strong>editable project</strong>: stems, tempo and beats, key, chords, notes, instruments and song
-            structure — each with an honest confidence, so you know what to check.
+            Attempt to reconstruct an existing recording as an <strong>editable project</strong>: stems, tempo
+            and beats, key, chords, notes, instruments and song structure — each with an honest confidence, so
+            you know what to check.
           </div>
         </div>
       </div>
@@ -138,7 +181,11 @@ export default function RebuildMode() {
                 data-testid="rebuild-drop"
               >
                 <div className="small muted">Drop a song (WAV, FLAC, MP3, OGG, M4A)</div>
-                <FileButton accept={AUDIO_ACCEPT} onFile={(f) => void onFiles(f)} variant={s.source ? 'default' : 'primary'}>
+                <FileButton
+                  accept={AUDIO_ACCEPT}
+                  onFile={(f) => void onFiles(f)}
+                  variant={s.source ? 'default' : 'primary'}
+                >
                   {loading ? 'Reading…' : s.source ? 'Choose another recording' : 'Upload a recording'}
                 </FileButton>
               </div>
@@ -152,12 +199,24 @@ export default function RebuildMode() {
                   </div>
                   <Waveform audio={s.source.audio} height={44} position={pos} />
                   <div className="row">
-                    <Button size="sm" icon={playing === SOURCE_ID ? 'stop' : 'play'} onClick={() => (playing === SOURCE_ID ? previewPlayer.stop() : void previewPlayer.play(SOURCE_ID, s.source!.audio))}>
+                    <Button
+                      size="sm"
+                      icon={playing === SOURCE_ID ? 'stop' : 'play'}
+                      onClick={() =>
+                        playing === SOURCE_ID
+                          ? previewPlayer.stop()
+                          : void previewPlayer.play(SOURCE_ID, s.source!.audio)
+                      }
+                    >
                       {playing === SOURCE_ID ? 'Stop' : 'Play'}
                     </Button>
                   </div>
                   <Field label="Project title">
-                    <TextInput value={s.title} onChange={(title) => s.set({ title })} aria-label="Project title" />
+                    <TextInput
+                      value={s.title}
+                      onChange={(title) => s.set({ title })}
+                      aria-label="Project title"
+                    />
                   </Field>
                 </div>
               )}
@@ -165,26 +224,53 @@ export default function RebuildMode() {
           </div>
 
           <div className="callout small" data-testid="rebuild-honesty">
-            <strong>How the built-in rebuild works.</strong> Everything runs on this device with classic signal processing — harmonic/percussive separation and
-            spectral masks, onset-based beat tracking, chroma key/chord estimation, YIN and harmonic-salience pitch tracking, heuristic instrument classification.
-            It is fast, private and works offline, but expect <em>lower confidence than neural separators and transcribers</em> (e.g. Demucs, Basic Pitch): dense mixes,
-            distorted guitars and reverb-heavy vocals are hard. A local or cloud provider can replace individual stages (Settings → Providers); the confidence shown
-            for every stage tells you where to listen.
+            <strong>How the built-in rebuild works.</strong> Everything runs on this device with classic
+            signal processing — harmonic/percussive separation and spectral masks, onset-based beat tracking,
+            chroma key/chord estimation, YIN and harmonic-salience pitch tracking, heuristic instrument
+            classification. It is fast, private and works offline, but expect{' '}
+            <em>lower confidence than neural separators and transcribers</em> (e.g. Demucs, Basic Pitch):
+            dense mixes, distorted guitars and reverb-heavy vocals are hard. A local or cloud provider can
+            replace individual stages (Settings → Providers); the confidence shown for every stage tells you
+            where to listen.
           </div>
 
           <div className="panel">
             <div className="panel-body col" style={{ gap: 10 }}>
-              <Field label="Source separation" hint="Auto follows your routing rules. Other stages always run on this device.">
-                <ProviderPicker role="separation" value={s.separationProvider} onChange={(separationProvider) => s.set({ separationProvider })} />
+              <Field
+                label="Source separation"
+                hint="Auto follows your routing rules. Other stages always run on this device."
+              >
+                <ProviderPicker
+                  role="separation"
+                  value={s.separationProvider}
+                  onChange={(separationProvider) => s.set({ separationProvider })}
+                />
               </Field>
-              <Toggle on={s.keepStems} onChange={(keepStems) => s.set({ keepStems })} label="Also keep separated stems as audio tracks (A/B against the rebuilt MIDI)" />
+              <Toggle
+                on={s.keepStems}
+                onChange={(keepStems) => s.set({ keepStems })}
+                label="Also keep separated stems as audio tracks (A/B against the rebuilt MIDI)"
+              />
               <div className="row">
                 {!running ? (
-                  <Button variant="primary" size="lg" icon="rebuild" disabled={!s.source} onClick={start} data-testid="start-rebuild">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    icon="rebuild"
+                    disabled={!s.source}
+                    onClick={start}
+                    data-testid="start-rebuild"
+                  >
                     {result ? 'Rebuild again' : 'Rebuild'}
                   </Button>
                 ) : (
-                  <Button variant="danger" size="lg" icon="close" onClick={() => task && taskQueue.cancel(task.id)} data-testid="cancel-rebuild">
+                  <Button
+                    variant="danger"
+                    size="lg"
+                    icon="close"
+                    onClick={() => task && taskQueue.cancel(task.id)}
+                    data-testid="cancel-rebuild"
+                  >
                     Cancel
                   </Button>
                 )}
@@ -212,7 +298,21 @@ export default function RebuildMode() {
           <div className="panel">
             <div className="panel-header">
               <h3 className="grow">Pipeline</h3>
-              {task && <Badge tone={task.status === 'succeeded' ? 'success' : task.status === 'failed' ? 'danger' : running ? 'ai' : undefined}>{task.status}</Badge>}
+              {task && (
+                <Badge
+                  tone={
+                    task.status === 'succeeded'
+                      ? 'success'
+                      : task.status === 'failed'
+                        ? 'danger'
+                        : running
+                          ? 'ai'
+                          : undefined
+                  }
+                >
+                  {task.status}
+                </Badge>
+              )}
             </div>
             <div className="panel-body">
               <Pipeline runId={s.runId} task={task} hasAudio={!!s.source} opened={!!s.opened} />
@@ -230,7 +330,9 @@ export default function RebuildMode() {
                   {opening && (
                     <span className="row small muted">
                       <Spinner /> {opening}
-                      {stemsTask && isActive(stemsTask) && <span className="mono">{Math.round(stemsTask.progress * 100)}%</span>}
+                      {stemsTask && isActive(stemsTask) && (
+                        <span className="mono">{Math.round(stemsTask.progress * 100)}%</span>
+                      )}
                     </span>
                   )}
                   {s.opened ? (
@@ -238,7 +340,13 @@ export default function RebuildMode() {
                       Opened — go to workbench
                     </Button>
                   ) : (
-                    <Button variant="primary" icon="folder" disabled={!!opening} onClick={() => void open()} data-testid="open-rebuild-project">
+                    <Button
+                      variant="primary"
+                      icon="folder"
+                      disabled={!!opening}
+                      onClick={() => void open()}
+                      data-testid="open-rebuild-project"
+                    >
                       Open as project
                     </Button>
                   )}
@@ -251,10 +359,16 @@ export default function RebuildMode() {
               ) : running ? (
                 <div className="empty-state">
                   <Spinner />
-                  <div>Reconstructing… follow the pipeline on the left. You can keep working in other modes; the task continues in the queue.</div>
+                  <div>
+                    Reconstructing… follow the pipeline on the left. You can keep working in other modes; the
+                    task continues in the queue.
+                  </div>
                 </div>
               ) : (
-                <div className="muted small">Upload a recording and press Rebuild. The result — tempo, key, meter, sections, chords and tracks with confidence — appears here.</div>
+                <div className="muted small">
+                  Upload a recording and press Rebuild. The result — tempo, key, meter, sections, chords and
+                  tracks with confidence — appears here.
+                </div>
               )}
             </div>
           </div>

@@ -19,7 +19,12 @@ export const systemClock: Clock = {
 /** Counting semaphore with abortable waits (FIFO). */
 export class Semaphore {
   private active = 0;
-  private readonly queue: { resolve: () => void; reject: (e: unknown) => void; signal?: AbortSignal; onAbort?: () => void }[] = [];
+  private readonly queue: {
+    resolve: () => void;
+    reject: (e: unknown) => void;
+    signal?: AbortSignal;
+    onAbort?: () => void;
+  }[] = [];
 
   constructor(private max: number) {
     if (!(max >= 1)) this.max = 1;
@@ -124,7 +129,8 @@ export class RequestGate {
 
   constructor(opts: RequestGateOptions = {}) {
     this.semaphore = new Semaphore(opts.concurrency ?? 4);
-    if (opts.requestsPerMinute && opts.requestsPerMinute > 0) this.limiter = new RateLimiter(opts.requestsPerMinute, opts.clock);
+    if (opts.requestsPerMinute && opts.requestsPerMinute > 0)
+      this.limiter = new RateLimiter(opts.requestsPerMinute, opts.clock);
   }
 
   async run<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -151,7 +157,12 @@ export interface RetryOptions {
 }
 
 /** Run `fn` with retry + exponential backoff (honors Retry-After). Errors are normalized to ProviderError. */
-export async function withRetry<T>(fn: (attempt: number) => Promise<T>, opts: RetryOptions = {}, signal?: AbortSignal, providerId?: string): Promise<T> {
+export async function withRetry<T>(
+  fn: (attempt: number) => Promise<T>,
+  opts: RetryOptions = {},
+  signal?: AbortSignal,
+  providerId?: string,
+): Promise<T> {
   const retries = opts.retries ?? 2;
   const base = opts.baseDelayMs ?? 500;
   const maxDelay = opts.maxDelayMs ?? 20_000;
@@ -161,7 +172,10 @@ export async function withRetry<T>(fn: (attempt: number) => Promise<T>, opts: Re
       return await fn(attempt);
     } catch (raw) {
       const err = toProviderError(raw, providerId);
-      if (signal?.aborted) throw err.kind === 'cancelled' || err.kind === 'timeout' ? err : toProviderError(abortReason(signal), providerId);
+      if (signal?.aborted)
+        throw err.kind === 'cancelled' || err.kind === 'timeout'
+          ? err
+          : toProviderError(abortReason(signal), providerId);
       const retryable = opts.isRetryable ? opts.isRetryable(err) : err.retryable;
       if (!retryable || attempt >= retries) throw err;
       const backoff = Math.min(maxDelay, base * 2 ** attempt);
@@ -231,6 +245,7 @@ export function raceAbort<T>(promise: Promise<T>, signal: AbortSignal | undefine
 
 /** Normalize an abort caused by a timeout handle into the right ProviderError kind. */
 export function abortError(handle: TimeoutHandle, providerId?: string, timeoutMs?: number): ProviderError {
-  if (handle.timedOut()) return new ProviderError('timeout', `Request timed out after ${timeoutMs ?? '?'} ms`, { providerId });
+  if (handle.timedOut())
+    return new ProviderError('timeout', `Request timed out after ${timeoutMs ?? '?'} ms`, { providerId });
   return new ProviderError('cancelled', 'Request cancelled', { providerId });
 }

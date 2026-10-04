@@ -6,7 +6,17 @@ import { useRoleOptions } from '../../engine/ai';
  * Choose who performs a task: "Auto" (routing rules decide by capability), the on-device
  * engine, or any configured provider whose capabilities fit the role (spec §49, §59).
  */
-export function ProviderPicker({ role, value, onChange, size }: { role: TaskRole; value: string; onChange: (v: string) => void; size?: 'sm' }) {
+export function ProviderPicker({
+  role,
+  value,
+  onChange,
+  size,
+}: {
+  role: TaskRole;
+  value: string;
+  onChange: (v: string) => void;
+  size?: 'sm';
+}) {
   const options = useRoleOptions(role);
   return (
     <Select

@@ -24,7 +24,14 @@ export type RoutingMode = 'manual' | 'automatic' | 'rules';
 
 export type RoutingRule =
   | { kind: 'prefer-local'; enabled?: boolean }
-  | { kind: 'fallback-if-low-confidence'; threshold: number; fallbackProviderId: string; fallbackModelId?: string; roles?: TaskRole[]; enabled?: boolean }
+  | {
+      kind: 'fallback-if-low-confidence';
+      threshold: number;
+      fallbackProviderId: string;
+      fallbackModelId?: string;
+      roles?: TaskRole[];
+      enabled?: boolean;
+    }
   | { kind: 'cloud-only-for-final'; roles: TaskRole[]; enabled?: boolean }
   | { kind: 'never-upload'; dataKinds: DataKind[]; enabled?: boolean }
   | { kind: 'prefer-provider'; role: TaskRole; providerId: string; modelId?: string; enabled?: boolean }
@@ -119,7 +126,13 @@ const isActive = (r: RoutingRule) => r.enabled !== false;
 
 function mergeSettings(base: RoutingSettings, over?: Partial<RoutingSettings>): RoutingSettings {
   if (!over) return base;
-  return { ...base, ...over, priorities: { ...base.priorities, ...(over.priorities ?? {}) }, rules: over.rules ?? base.rules, neverUpload: over.neverUpload ?? base.neverUpload };
+  return {
+    ...base,
+    ...over,
+    priorities: { ...base.priorities, ...(over.priorities ?? {}) },
+    rules: over.rules ?? base.rules,
+    neverUpload: over.neverUpload ?? base.neverUpload,
+  };
 }
 
 export class CapabilityRouter {
@@ -145,12 +158,19 @@ export class CapabilityRouter {
   /** Effective never-upload kinds (settings + rules + request). */
   neverUpload(settings: RoutingSettings, req?: RouteRequest): DataKind[] {
     const set = new Set<DataKind>(settings.neverUpload);
-    for (const r of settings.rules) if (r.kind === 'never-upload' && isActive(r)) for (const k of r.dataKinds) set.add(k);
+    for (const r of settings.rules)
+      if (r.kind === 'never-upload' && isActive(r)) for (const k of r.dataKinds) set.add(k);
     for (const k of req?.neverUpload ?? []) set.add(k);
     return [...set];
   }
 
-  private scoreCandidate(entry: RegistryEntry, modelTier: number | undefined, estimate: CostEstimate, settings: RoutingSettings, quality: QualityLevel | undefined): number {
+  private scoreCandidate(
+    entry: RegistryEntry,
+    modelTier: number | undefined,
+    estimate: CostEstimate,
+    settings: RoutingSettings,
+    quality: QualityLevel | undefined,
+  ): number {
     const d = entry.instance.descriptor;
     let { quality: wq, cost: wc, latency: wl } = settings.priorities;
     if (quality === 'final') wq *= 2;
@@ -161,13 +181,28 @@ export class CapabilityRouter {
     const total = wq + wc + wl || 1;
     const q = (modelTier ?? d.qualityTier ?? 3) / 5;
     const c = d.location !== 'cloud' ? 1 : !estimate.known ? 0.4 : 1 / (1 + estimate.maxUsd * 20);
-    const l = entry.latencyMs !== undefined ? 1 / (1 + entry.latencyMs / 10_000) : d.location === 'internal' ? 1 : d.location === 'local' ? 0.6 : 0.7;
+    const l =
+      entry.latencyMs !== undefined
+        ? 1 / (1 + entry.latencyMs / 10_000)
+        : d.location === 'internal'
+          ? 1
+          : d.location === 'local'
+            ? 0.6
+            : 0.7;
     return (wq * q + wc * c + wl * l) / total;
   }
 
   private estimateFor(entry: RegistryEntry, req: RouteRequest, modelId: string | undefined): CostEstimate {
     const d = entry.instance.descriptor;
-    return estimateCost({ location: d.location, pricing: entry.config?.pricing ?? d.pricing, defaultModel: entry.config?.defaultModel ?? d.defaultModel }, req.estimateInput, modelId);
+    return estimateCost(
+      {
+        location: d.location,
+        pricing: entry.config?.pricing ?? d.pricing,
+        defaultModel: entry.config?.defaultModel ?? d.defaultModel,
+      },
+      req.estimateInput,
+      modelId,
+    );
   }
 
   /** Evaluate every registered provider for a request: eligible candidates and exclusion reasons. */
@@ -188,14 +223,27 @@ export class CapabilityRouter {
       const d = entry.instance.descriptor;
       const reasons: string[] = [];
       if (forced && d.id !== forced) continue;
-      if (req.excludeProviderIds?.some((x) => x === d.id || x === d.presetId)) reasons.push('excluded for this request');
-      if (!entry.instance[iface]) reasons.push(`does not provide ${iface === 'audioGeneration' ? 'audio generation' : iface === 'voiceConversion' ? 'voice conversion' : iface}`);
-      if (entry.status !== 'ready') reasons.push(`status: ${entry.status}${entry.error ? ` (${entry.error})` : ''}`);
-      if (d.location === 'cloud' && settings.offline) reasons.push('offline mode: cloud providers are disabled');
-      if (d.location === 'cloud' && blocked.length) reasons.push(`never upload: ${blocked.map((k) => DATA_KIND_INFO[k].label.toLowerCase()).join(', ')}`);
+      if (req.excludeProviderIds?.some((x) => x === d.id || x === d.presetId))
+        reasons.push('excluded for this request');
+      if (!entry.instance[iface])
+        reasons.push(
+          `does not provide ${iface === 'audioGeneration' ? 'audio generation' : iface === 'voiceConversion' ? 'voice conversion' : iface}`,
+        );
+      if (entry.status !== 'ready')
+        reasons.push(`status: ${entry.status}${entry.error ? ` (${entry.error})` : ''}`);
+      if (d.location === 'cloud' && settings.offline)
+        reasons.push('offline mode: cloud providers are disabled');
+      if (d.location === 'cloud' && blocked.length)
+        reasons.push(`never upload: ${blocked.map((k) => DATA_KIND_INFO[k].label.toLowerCase()).join(', ')}`);
       if (rulesMode && d.location === 'cloud') {
         for (const r of settings.rules) {
-          if (r.kind === 'cloud-only-for-final' && isActive(r) && r.roles.includes(req.role) && req.quality !== 'final') reasons.push('rule: cloud production only for final renders');
+          if (
+            r.kind === 'cloud-only-for-final' &&
+            isActive(r) &&
+            r.roles.includes(req.role) &&
+            req.quality !== 'final'
+          )
+            reasons.push('rule: cloud production only for final renders');
         }
       }
 
@@ -208,13 +256,19 @@ export class CapabilityRouter {
       let modelNote: string | undefined;
       const providerMissing = () => missingCapabilities(this.registry.capabilitiesOf(d.id), requirements);
       if (models.length) {
-        const compatible = models.filter((m) => missingCapabilities(this.registry.capabilitiesOf(d.id, m.id), requirements).length === 0);
+        const compatible = models.filter(
+          (m) => missingCapabilities(this.registry.capabilitiesOf(d.id, m.id), requirements).length === 0,
+        );
         const known = (id: string | undefined) => (id ? models.find((m) => m.id === id) : undefined);
         if (requestedModel) {
           // An explicitly requested model is never silently replaced.
           const m = known(requestedModel);
-          if (m && !compatible.includes(m)) reasons.push(`model ${requestedModel} lacks ${missingCapabilities(this.registry.capabilitiesOf(d.id, m.id), requirements).map(capabilityLabel).join(', ')}`);
-          else if (!m && providerMissing().length) reasons.push(`missing ${providerMissing().map(capabilityLabel).join(', ')}`);
+          if (m && !compatible.includes(m))
+            reasons.push(
+              `model ${requestedModel} lacks ${missingCapabilities(this.registry.capabilitiesOf(d.id, m.id), requirements).map(capabilityLabel).join(', ')}`,
+            );
+          else if (!m && providerMissing().length)
+            reasons.push(`missing ${providerMissing().map(capabilityLabel).join(', ')}`);
           modelId = requestedModel;
           modelTier = m?.qualityTier;
         } else {
@@ -222,15 +276,23 @@ export class CapabilityRouter {
           if (defaultModel && (!dm || compatible.includes(dm))) {
             modelId = defaultModel;
             modelTier = dm?.qualityTier;
-            if (!dm && providerMissing().length) reasons.push(`missing ${providerMissing().map(capabilityLabel).join(', ')}`);
+            if (!dm && providerMissing().length)
+              reasons.push(`missing ${providerMissing().map(capabilityLabel).join(', ')}`);
           } else if (compatible.length) {
-            const best = [...compatible].sort((a, b) => (b.qualityTier ?? 0) - (a.qualityTier ?? 0) || a.id.localeCompare(b.id))[0];
+            const best = [...compatible].sort(
+              (a, b) => (b.qualityTier ?? 0) - (a.qualityTier ?? 0) || a.id.localeCompare(b.id),
+            )[0];
             modelId = best.id;
             modelTier = best.qualityTier;
-            if (dm) modelNote = `default model ${defaultModel} lacks ${missingCapabilities(this.registry.capabilitiesOf(d.id, dm.id), requirements).map(capabilityLabel).join(', ')}`;
+            if (dm)
+              modelNote = `default model ${defaultModel} lacks ${missingCapabilities(this.registry.capabilitiesOf(d.id, dm.id), requirements).map(capabilityLabel).join(', ')}`;
           } else {
             const missing = providerMissing();
-            reasons.push(missing.length ? `missing ${missing.map(capabilityLabel).join(', ')}` : `no model supports ${requirements.map(capabilityLabel).join(' + ')}`);
+            reasons.push(
+              missing.length
+                ? `missing ${missing.map(capabilityLabel).join(', ')}`
+                : `no model supports ${requirements.map(capabilityLabel).join(' + ')}`,
+            );
           }
         }
       } else {
@@ -238,7 +300,13 @@ export class CapabilityRouter {
         if (missing.length) reasons.push(`missing ${missing.map(capabilityLabel).join(', ')}`);
         modelId = requestedModel ?? defaultModel;
         // An LLM endpoint that was discovered and reported no usable model (e.g. nothing pulled in Ollama).
-        if (iface !== 'audioGeneration' && entry.instance.llm && entry.modelsUpdatedAt !== undefined && !modelId && !entry.config?.models?.length) {
+        if (
+          iface !== 'audioGeneration' &&
+          entry.instance.llm &&
+          entry.modelsUpdatedAt !== undefined &&
+          !modelId &&
+          !entry.config?.models?.length
+        ) {
           reasons.push('no models available');
         }
       }
@@ -246,8 +314,16 @@ export class CapabilityRouter {
       const estimate = this.estimateFor(entry, req, modelId);
       if (rulesMode) {
         for (const r of settings.rules) {
-          if (r.kind === 'max-cost' && isActive(r) && (!r.roles || r.roles.includes(req.role)) && estimate.known && estimate.maxUsd > r.usd) {
-            reasons.push(`rule: estimated ${formatCostRange(estimate)} exceeds max cost $${r.usd.toFixed(2)}`);
+          if (
+            r.kind === 'max-cost' &&
+            isActive(r) &&
+            (!r.roles || r.roles.includes(req.role)) &&
+            estimate.known &&
+            estimate.maxUsd > r.usd
+          ) {
+            reasons.push(
+              `rule: estimated ${formatCostRange(estimate)} exceeds max cost $${r.usd.toFixed(2)}`,
+            );
           }
         }
       }
@@ -259,9 +335,18 @@ export class CapabilityRouter {
       if (modelId) why.push(`model ${modelId}`);
       if (modelNote) why.push(modelNote);
       why.push(`${d.location}`, `cost ${formatCostRange(estimate)}`);
-      eligible.push({ providerId: d.id, providerName: d.name, modelId, location: d.location, score: this.scoreCandidate(entry, modelTier, estimate, settings, req.quality), reasons: why, estimate });
+      eligible.push({
+        providerId: d.id,
+        providerName: d.name,
+        modelId,
+        location: d.location,
+        score: this.scoreCandidate(entry, modelTier, estimate, settings, req.quality),
+        reasons: why,
+        estimate,
+      });
     }
-    if (forced && !eligible.length && !excluded.length) excluded.push({ providerId: forced, providerName: forced, reasons: ['not installed'] });
+    if (forced && !eligible.length && !excluded.length)
+      excluded.push({ providerId: forced, providerName: forced, reasons: ['not installed'] });
     return { settings, requirements, dataKinds, eligible, excluded };
   }
 
@@ -274,10 +359,12 @@ export class CapabilityRouter {
     const fail = (message?: string): never => {
       throw new NoCompatibleProviderError(req.role, requirements, ev.excluded, message);
     };
-    if (!req.providerId && assignment === 'disabled') fail(`The role "${req.role}" is disabled in profile "${profile!.name}"`);
+    if (!req.providerId && assignment === 'disabled')
+      fail(`The role "${req.role}" is disabled in profile "${profile!.name}"`);
     if (!ev.eligible.length) fail();
 
-    const byScore = (list: RouteCandidate[]) => [...list].sort((a, b) => b.score - a.score || a.providerId.localeCompare(b.providerId));
+    const byScore = (list: RouteCandidate[]) =>
+      [...list].sort((a, b) => b.score - a.score || a.providerId.localeCompare(b.providerId));
     const decide = (chosen: RouteCandidate, reasons: string[]): RouteDecision => {
       const alternatives = byScore(ev.eligible.filter((c) => c.providerId !== chosen.providerId));
       return {
@@ -301,14 +388,24 @@ export class CapabilityRouter {
       const entry = this.registry.getEntry(c.providerId);
       if (!entry) return;
       const knownModel = entry.models?.find((m) => m.id === modelId);
-      const missing = knownModel ? missingCapabilities(this.registry.capabilitiesOf(c.providerId, modelId), requirements) : [];
+      const missing = knownModel
+        ? missingCapabilities(this.registry.capabilitiesOf(c.providerId, modelId), requirements)
+        : [];
       if (missing.length) {
-        c.reasons.push(`model ${modelId} lacks ${missing.map(capabilityLabel).join(', ')} — using ${c.modelId ?? 'the default model'}`);
+        c.reasons.push(
+          `model ${modelId} lacks ${missing.map(capabilityLabel).join(', ')} — using ${c.modelId ?? 'the default model'}`,
+        );
         return;
       }
       c.modelId = modelId;
       c.estimate = this.estimateFor(entry, req, modelId);
-      c.reasons = c.reasons.map((r) => (r.startsWith('model ') ? `model ${modelId}` : r.startsWith('cost ') ? `cost ${formatCostRange(c.estimate)}` : r));
+      c.reasons = c.reasons.map((r) =>
+        r.startsWith('model ')
+          ? `model ${modelId}`
+          : r.startsWith('cost ')
+            ? `cost ${formatCostRange(c.estimate)}`
+            : r,
+      );
     };
 
     // Explicit provider for this request.
@@ -317,7 +414,10 @@ export class CapabilityRouter {
     if (settings.mode === 'manual') {
       if (assignment === 'internal') {
         const c = internalBest();
-        if (!c) fail(`Profile "${profile!.name}" assigns ${req.role} to the internal engine, but no internal provider can do it`);
+        if (!c)
+          fail(
+            `Profile "${profile!.name}" assigns ${req.role} to the internal engine, but no internal provider can do it`,
+          );
         return decide(c!, [`Assigned to the internal engine in profile "${profile!.name}"`]);
       }
       if (assignment && typeof assignment === 'object') {
@@ -329,12 +429,19 @@ export class CapabilityRouter {
         }
         const why = ev.excluded.find((x) => x.providerId === id)?.reasons.join('; ') ?? 'not installed';
         const fallback = settings.fallbackToInternal !== false ? internalBest() : undefined;
-        if (fallback) return decide(fallback, [`Assigned provider ${describeAssignment(assignment)} unavailable (${why}) — using the internal engine`]);
+        if (fallback)
+          return decide(fallback, [
+            `Assigned provider ${describeAssignment(assignment)} unavailable (${why}) — using the internal engine`,
+          ]);
         fail(`Assigned provider ${describeAssignment(assignment)} for ${req.role} is unavailable: ${why}`);
       }
       // No assignment for this role: prefer the internal engine, else the best candidate.
       const c = internalBest() ?? byScore(ev.eligible)[0];
-      return decide(c, [profile ? `No assignment for ${req.role} in profile "${profile.name}"` : 'Manual mode without a profile']);
+      return decide(c, [
+        profile
+          ? `No assignment for ${req.role} in profile "${profile.name}"`
+          : 'Manual mode without a profile',
+      ]);
     }
 
     // automatic / rules: score with bonuses.
@@ -347,14 +454,19 @@ export class CapabilityRouter {
     };
     if (assignment && typeof assignment === 'object') {
       const id = this.registry.resolveId(assignment.providerId) ?? assignment.providerId;
-      if (ev.eligible.some((c) => c.providerId === id)) addBonus(id, 0.5, `preferred by profile "${profile!.name}"`);
+      if (ev.eligible.some((c) => c.providerId === id))
+        addBonus(id, 0.5, `preferred by profile "${profile!.name}"`);
     } else if (assignment === 'internal') {
-      for (const c of ev.eligible) if (c.location === 'internal') addBonus(c.providerId, 0.5, `profile "${profile!.name}" prefers the internal engine`);
+      for (const c of ev.eligible)
+        if (c.location === 'internal')
+          addBonus(c.providerId, 0.5, `profile "${profile!.name}" prefers the internal engine`);
     }
     if (settings.mode === 'rules') {
       for (const r of settings.rules) {
         if (!isActive(r)) continue;
-        if (r.kind === 'prefer-local') for (const c of ev.eligible) if (c.location !== 'cloud') addBonus(c.providerId, 1, 'rule: use local models whenever possible');
+        if (r.kind === 'prefer-local')
+          for (const c of ev.eligible)
+            if (c.location !== 'cloud') addBonus(c.providerId, 1, 'rule: use local models whenever possible');
         if (r.kind === 'prefer-provider' && r.role === req.role) {
           const id = this.registry.resolveId(r.providerId) ?? r.providerId;
           const c = ev.eligible.find((x) => x.providerId === id);
@@ -369,14 +481,22 @@ export class CapabilityRouter {
     ev.eligible.splice(0, ev.eligible.length, ...scored);
     const best = byScore(scored)[0];
     const why = bonus.get(best.providerId)?.reasons ?? [];
-    return decide(best, [settings.mode === 'rules' ? 'Rules routing' : 'Automatic routing', ...why, `score ${best.score.toFixed(2)}`]);
+    return decide(best, [
+      settings.mode === 'rules' ? 'Rules routing' : 'Automatic routing',
+      ...why,
+      `score ${best.score.toFixed(2)}`,
+    ]);
   }
 
   /**
    * The fallback-if-low-confidence rule (rules mode): when a result's confidence is below the
    * threshold, route to the fallback provider — if privacy/offline settings allow it.
    */
-  lowConfidenceFallback(req: RouteRequest, decision: RouteDecision, confidence: number | undefined): { decision: RouteDecision; reason: string } | undefined {
+  lowConfidenceFallback(
+    req: RouteRequest,
+    decision: RouteDecision,
+    confidence: number | undefined,
+  ): { decision: RouteDecision; reason: string } | undefined {
     if (confidence === undefined || !Number.isFinite(confidence)) return undefined;
     const settings = mergeSettings(this.settings(), req.settings);
     if (settings.mode !== 'rules') return undefined;
@@ -388,7 +508,10 @@ export class CapabilityRouter {
       if (target === decision.providerId) continue;
       try {
         const d = this.select({ ...req, providerId: target, modelId: r.fallbackModelId });
-        return { decision: d, reason: `confidence ${(confidence * 100).toFixed(0)}% < ${(r.threshold * 100).toFixed(0)}% — falling back to ${d.providerName}` };
+        return {
+          decision: d,
+          reason: `confidence ${(confidence * 100).toFixed(0)}% < ${(r.threshold * 100).toFixed(0)}% — falling back to ${d.providerName}`,
+        };
       } catch {
         return undefined;
       }

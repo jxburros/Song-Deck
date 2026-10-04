@@ -24,6 +24,7 @@ import { useStudio } from '../../state/store';
 import { usePlayhead } from '../../hooks';
 import { Badge, Button, Select } from '../../ui/kit';
 import { colorForRole } from './SidePanel';
+import { alpha, useThemeName } from '../../ui/theme';
 import { auditionNote } from '../../engine/audition';
 import { useLoopSync } from './useLoopSync';
 import { useMidiRecorder } from './useMidiRecorder';
@@ -36,7 +37,16 @@ const BLACK = new Set([1, 3, 6, 8, 10]);
 type Tool = 'pointer' | 'pencil';
 type LaneParam = 'velocity' | 'breathiness' | 'tension' | 'vibrato';
 type Drag =
-  | { kind: 'move'; startTick: number; startPitch: number; ids: Set<string>; dTick: number; dPitch: number; clientX: number; clientY: number }
+  | {
+      kind: 'move';
+      startTick: number;
+      startPitch: number;
+      ids: Set<string>;
+      dTick: number;
+      dPitch: number;
+      clientX: number;
+      clientY: number;
+    }
   | { kind: 'resize'; startTick: number; ids: Set<string>; dTick: number }
   | { kind: 'marquee'; x0: number; y0: number; x1: number; y1: number; additive: boolean }
   | { kind: 'create'; note: Note }
@@ -61,18 +71,22 @@ function expressionValue(n: Note, param: LaneParam): number {
 
 export default function PianoRoll() {
   const project = useStudio((s) => s.project);
+  useThemeName(); // canvases redraw on theme switch
   const selectedTrackId = useStudio((s) => s.selectedTrackId);
   const selection = useStudio((s) => s.selection);
   const view = useStudio((s) => s.view);
   const follow = useStudio((s) => s.transport.follow);
-  const proposal = useStudio((s) => s.proposals.find((p) => p.id === s.activeProposalId && p.status === 'pending') ?? null);
+  const proposal = useStudio(
+    (s) => s.proposals.find((p) => p.id === s.activeProposalId && p.status === 'pending') ?? null,
+  );
   const st = useStudio.getState();
   useLoopSync();
 
   const baseSong = project?.song ?? null;
   // When an AI proposal is pending, the roll shows (and edits) the proposed song — "Modify" (spec §21).
   const song: Song | null = proposal ? proposal.after : baseSong;
-  const track: Track | undefined = song?.tracks.find((t) => t.id === selectedTrackId) ?? song?.tracks.find((t) => t.kind === 'midi');
+  const track: Track | undefined =
+    song?.tracks.find((t) => t.id === selectedTrackId) ?? song?.tracks.find((t) => t.kind === 'midi');
 
   const [tool, setTool] = useState<Tool>('pointer');
   const [snap, setSnap] = useState('1/16');
@@ -101,7 +115,10 @@ export default function PianoRoll() {
   const selected = useMemo(() => new Set(selection.noteIds), [selection.noteIds]);
   const isVocal = track?.role === 'vocal';
   const snapLabel = (SNAPS.find((s) => s.value === snap) ?? SNAPS[3]).label;
-  const recorder = useMidiRecorder(track?.kind === 'midi' ? track.id : undefined, { ticks: snapTicks, label: snapLabel });
+  const recorder = useMidiRecorder(track?.kind === 'midi' ? track.id : undefined, {
+    ticks: snapTicks,
+    label: snapLabel,
+  });
 
   const diffForTrack = useMemo(() => {
     if (!proposal || !track) return null;
@@ -207,7 +224,7 @@ export default function PianoRoll() {
       g.fillStyle = BLACK.has(pc) ? col('--bg') : col('--bg-elev-1');
       g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
       if (scale.has(pc)) {
-        g.fillStyle = 'rgba(70,194,203,0.035)';
+        g.fillStyle = alpha(col('--ai-fill'), 0.035);
         g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
       }
       g.fillStyle = col('--grid-line');
@@ -223,7 +240,7 @@ export default function PianoRoll() {
         const x1 = tickToX(c.tick + c.duration);
         for (let p = bottomPitch; p <= topPitch; p++) {
           if (!pcs.has(p % 12)) continue;
-          g.fillStyle = p % 12 === c.root ? 'rgba(255,138,61,0.09)' : 'rgba(255,138,61,0.045)';
+          g.fillStyle = alpha(col('--accent'), p % 12 === c.root ? 0.09 : 0.045);
           g.fillRect(Math.max(KEY_W, x0), pitchToY(p), x1 - Math.max(KEY_W, x0), keyH - 1);
         }
       }
@@ -233,11 +250,13 @@ export default function PianoRoll() {
     const bars = songLengthBars(song);
     if (snapTicks * pxPerTick >= 6) {
       g.fillStyle = col('--grid-line');
-      for (let t = Math.floor(viewStartTick / snapTicks) * snapTicks; t <= viewEndTick; t += snapTicks) g.fillRect(Math.round(tickToX(t)), RULER_H, 1, size.h);
+      for (let t = Math.floor(viewStartTick / snapTicks) * snapTicks; t <= viewEndTick; t += snapTicks)
+        g.fillRect(Math.round(tickToX(t)), RULER_H, 1, size.h);
     }
     if (ppq * pxPerTick >= 5) {
       g.fillStyle = col('--grid-beat');
-      for (let t = Math.floor(viewStartTick / ppq) * ppq; t <= viewEndTick; t += ppq) g.fillRect(Math.round(tickToX(t)), RULER_H, 1, size.h);
+      for (let t = Math.floor(viewStartTick / ppq) * ppq; t <= viewEndTick; t += ppq)
+        g.fillRect(Math.round(tickToX(t)), RULER_H, 1, size.h);
     }
     g.fillStyle = col('--grid-bar');
     for (let b = 0; b <= bars; b++) {
@@ -247,8 +266,12 @@ export default function PianoRoll() {
     }
 
     // Selection range shading
-    if (selection.startTick !== undefined && selection.endTick !== undefined && selection.endTick > selection.startTick) {
-      g.fillStyle = 'rgba(255,138,61,0.06)';
+    if (
+      selection.startTick !== undefined &&
+      selection.endTick !== undefined &&
+      selection.endTick > selection.startTick
+    ) {
+      g.fillStyle = alpha(col('--accent'), 0.06);
       const x0 = Math.max(KEY_W, tickToX(selection.startTick));
       g.fillRect(x0, RULER_H, tickToX(selection.endTick) - x0, size.h - RULER_H);
     }
@@ -257,12 +280,14 @@ export default function PianoRoll() {
     if (track) {
       for (const span of layout) {
         const locked =
-          song.locks[LockKeys.track(track.id)] || song.locks[LockKeys.section(span.section.id)] || song.locks[LockKeys.trackSection(track.id, span.section.id)];
+          song.locks[LockKeys.track(track.id)] ||
+          song.locks[LockKeys.section(span.section.id)] ||
+          song.locks[LockKeys.trackSection(track.id, span.section.id)];
         if (!locked) continue;
         const x0 = Math.max(KEY_W, tickToX(span.startTick));
         const x1 = tickToX(span.endTick);
         if (x1 < KEY_W || x0 > size.w) continue;
-        g.fillStyle = 'rgba(245,196,81,0.05)';
+        g.fillStyle = alpha(col('--warning-fill'), 0.06);
         g.fillRect(x0, RULER_H, x1 - x0, size.h - RULER_H);
       }
     }
@@ -270,7 +295,7 @@ export default function PianoRoll() {
     // Ghost track
     const ghost = song.tracks.find((t) => t.id === ghostId);
     if (ghost) {
-      g.fillStyle = 'rgba(160,170,190,0.25)';
+      g.fillStyle = alpha(col('--text-dim'), 0.3);
       for (const n of ghost.notes) {
         if (n.tick + n.duration < viewStartTick || n.tick > viewEndTick) continue;
         g.fillRect(tickToX(n.tick), pitchToY(n.pitch) + 1, Math.max(2, n.duration * pxPerTick), keyH - 2);
@@ -283,7 +308,12 @@ export default function PianoRoll() {
       g.strokeStyle = col('--diff-removed');
       g.lineWidth = 1.5;
       for (const n of diffForTrack.removed) {
-        g.strokeRect(tickToX(n.tick) + 0.5, pitchToY(n.pitch) + 1.5, Math.max(3, n.duration * pxPerTick) - 1, keyH - 3);
+        g.strokeRect(
+          tickToX(n.tick) + 0.5,
+          pitchToY(n.pitch) + 1.5,
+          Math.max(3, n.duration * pxPerTick) - 1,
+          keyH - 3,
+        );
       }
       g.setLineDash([]);
     }
@@ -303,7 +333,13 @@ export default function PianoRoll() {
           pitch += moving.dPitch;
         }
         if (resizing && resizing.ids.has(n.id)) dur = Math.max(snapTicks, dur + resizing.dTick);
-        if (tick + dur < viewStartTick || tick > viewEndTick || pitch < bottomPitch - 1 || pitch > topPitch + 1) continue;
+        if (
+          tick + dur < viewStartTick ||
+          tick > viewEndTick ||
+          pitch < bottomPitch - 1 ||
+          pitch > topPitch + 1
+        )
+          continue;
         const x = tickToX(tick);
         const y = pitchToY(pitch);
         const w = Math.max(3, dur * pxPerTick - 1);
@@ -313,7 +349,7 @@ export default function PianoRoll() {
         g.fillRect(x, y + 1, w, keyH - 2);
         g.globalAlpha = 1;
         let stroke: string | null = null;
-        if (selected.has(n.id)) stroke = '#ffffff';
+        if (selected.has(n.id)) stroke = col('--text');
         else if (diffForTrack?.added.has(n.id)) stroke = col('--diff-added');
         else if (diffForTrack?.modified.has(n.id)) stroke = col('--diff-modified');
         else if (n.locked) stroke = col('--lock');
@@ -329,7 +365,7 @@ export default function PianoRoll() {
           g.setLineDash([]);
         }
         if (isVocal && n.syllable && w > 12) {
-          g.fillStyle = '#0b0d11';
+          g.fillStyle = col('--on-track');
           g.fillText(n.syllable, x + 3, y + keyH - 3, w - 4);
         }
       }
@@ -338,7 +374,7 @@ export default function PianoRoll() {
     // Marquee
     if (drag?.kind === 'marquee') {
       g.strokeStyle = col('--accent');
-      g.fillStyle = 'rgba(255,138,61,0.08)';
+      g.fillStyle = alpha(col('--accent'), 0.08);
       const x = Math.min(drag.x0, drag.x1);
       const y = Math.min(drag.y0, drag.y1);
       g.fillRect(x, y, Math.abs(drag.x1 - drag.x0), Math.abs(drag.y1 - drag.y0));
@@ -352,7 +388,7 @@ export default function PianoRoll() {
       const x0 = tickToX(span.startTick);
       const x1 = tickToX(span.endTick);
       if (x1 < KEY_W || x0 > size.w) continue;
-      g.fillStyle = 'rgba(255,255,255,0.05)';
+      g.fillStyle = col('--row-hover');
       g.fillRect(Math.max(KEY_W, x0), 0, x1 - Math.max(KEY_W, x0), 14);
       g.fillStyle = col('--text-muted');
       g.font = `600 10px ${col('--font-ui')}`;
@@ -381,10 +417,10 @@ export default function PianoRoll() {
     for (let p = bottomPitch; p <= topPitch; p++) {
       const y = pitchToY(p);
       const pc = p % 12;
-      g.fillStyle = BLACK.has(pc) ? '#1b1f27' : '#d9dde5';
+      g.fillStyle = BLACK.has(pc) ? col('--key-black') : col('--key-white');
       g.fillRect(0, y, KEY_W - 1, keyH - (BLACK.has(pc) ? 0 : 1));
       if (pc === 0 && keyH >= 9) {
-        g.fillStyle = '#3a404c';
+        g.fillStyle = col('--key-label');
         g.font = `${Math.min(10, keyH - 2)}px ${col('--font-mono')}`;
         g.fillText(midiToNoteName(p), 4, y + keyH - 2);
       }
@@ -412,10 +448,11 @@ export default function PianoRoll() {
     const g = canvas.getContext('2d')!;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(document.documentElement);
-    g.fillStyle = css.getPropertyValue('--bg-elev-1').trim();
+    const col = (v: string) => css.getPropertyValue(v).trim();
+    g.fillStyle = col('--bg-elev-1');
     g.fillRect(0, 0, size.laneW, LANE_H);
-    g.fillStyle = css.getPropertyValue('--text-dim').trim();
-    g.font = '10px sans-serif';
+    g.fillStyle = col('--text-dim');
+    g.font = `10px ${col('--font-ui')}`;
     g.fillText(laneParam, 4, 12);
     const color = track.color || colorForRole(track.role);
     const laneDrag = drag?.kind === 'lane' ? drag : null;
@@ -424,7 +461,7 @@ export default function PianoRoll() {
       if (x < KEY_W - 4 || x > size.laneW) continue;
       const v = laneDrag?.values.get(n.id) ?? expressionValue(n, laneParam);
       const h = v * (LANE_H - 16);
-      g.fillStyle = selected.has(n.id) ? '#ffffff' : color;
+      g.fillStyle = selected.has(n.id) ? col('--text') : color;
       g.fillRect(x, LANE_H - 4 - h, 3, h);
       g.beginPath();
       g.arc(x + 1.5, LANE_H - 4 - h, 2.5, 0, Math.PI * 2);
@@ -453,16 +490,39 @@ export default function PianoRoll() {
     const hit = noteAt(x, y);
     if (hit) {
       const n = hit.note;
-      if (!selected.has(n.id)) st.setSelection({ noteIds: e.shiftKey ? [...selection.noteIds, n.id] : [n.id], trackIds: [track.id] });
-      const ids = new Set(selected.has(n.id) ? selection.noteIds : e.shiftKey ? [...selection.noteIds, n.id] : [n.id]);
+      if (!selected.has(n.id))
+        st.setSelection({
+          noteIds: e.shiftKey ? [...selection.noteIds, n.id] : [n.id],
+          trackIds: [track.id],
+        });
+      const ids = new Set(
+        selected.has(n.id) ? selection.noteIds : e.shiftKey ? [...selection.noteIds, n.id] : [n.id],
+      );
       auditionNote(n.pitch, n.velocity, track.role === 'drums');
       if (hit.edge) setDrag({ kind: 'resize', startTick: xToTick(x), ids, dTick: 0 });
-      else setDrag({ kind: 'move', startTick: xToTick(x), startPitch: yToPitch(y), ids, dTick: 0, dPitch: 0, clientX: e.clientX, clientY: e.clientY });
+      else
+        setDrag({
+          kind: 'move',
+          startTick: xToTick(x),
+          startPitch: yToPitch(y),
+          ids,
+          dTick: 0,
+          dPitch: 0,
+          clientX: e.clientX,
+          clientY: e.clientY,
+        });
       return;
     }
     if (tool === 'pencil' || e.detail >= 2) {
       const tick = Math.max(0, Math.floor(xToTick(x) / snapTicks) * snapTicks);
-      const note: Note = { id: randomId('n'), pitch: yToPitch(y), tick, duration: Math.max(snapTicks, lastLen.current), velocity: 96, origin: 'user' };
+      const note: Note = {
+        id: randomId('n'),
+        pitch: yToPitch(y),
+        tick,
+        duration: Math.max(snapTicks, lastLen.current),
+        velocity: 96,
+        origin: 'user',
+      };
       auditionNote(note.pitch, 96, track.role === 'drums');
       setDrag({ kind: 'create', note });
       return;
@@ -476,7 +536,13 @@ export default function PianoRoll() {
       if (el && track) {
         const { x, y } = localXY(e);
         const hit = x > KEY_W && y > RULER_H ? noteAt(x, y) : null;
-        el.style.cursor = hit ? (hit.edge ? 'ew-resize' : 'grab') : tool === 'pencil' ? 'crosshair' : 'default';
+        el.style.cursor = hit
+          ? hit.edge
+            ? 'ew-resize'
+            : 'grab'
+          : tool === 'pencil'
+            ? 'crosshair'
+            : 'default';
       }
       return;
     }
@@ -516,11 +582,18 @@ export default function PianoRoll() {
       if (d.dTick === 0 && d.dPitch === 0) return;
       const blocked = track.notes.filter((n) => d.ids.has(n.id) && isNoteLocked(song, track, n));
       if (blocked.length) {
-        st.toast('warning', `${blocked.length} locked note${blocked.length > 1 ? 's' : ''} not moved — unlock first.`);
+        st.toast(
+          'warning',
+          `${blocked.length} locked note${blocked.length > 1 ? 's' : ''} not moved — unlock first.`,
+        );
       }
       const notes = track.notes.map((n) =>
         d.ids.has(n.id) && !isNoteLocked(song, track, n)
-          ? { ...n, tick: Math.max(0, n.tick + d.dTick), pitch: Math.max(0, Math.min(127, n.pitch + d.dPitch)) }
+          ? {
+              ...n,
+              tick: Math.max(0, n.tick + d.dTick),
+              pitch: Math.max(0, Math.min(127, n.pitch + d.dPitch)),
+            }
           : n,
       );
       commitTrackNotes(notes, `Moved ${d.ids.size} note${d.ids.size > 1 ? 's' : ''} in ${track.name}`);
@@ -542,12 +615,17 @@ export default function PianoRoll() {
       const t1 = xToTick(Math.max(d.x0, d.x1));
       const p0 = yToPitch(Math.max(d.y0, d.y1));
       const p1 = yToPitch(Math.min(d.y0, d.y1));
-      const ids = track.notes.filter((n) => n.tick + n.duration >= t0 && n.tick <= t1 && n.pitch >= p0 && n.pitch <= p1).map((n) => n.id);
+      const ids = track.notes
+        .filter((n) => n.tick + n.duration >= t0 && n.tick <= t1 && n.pitch >= p0 && n.pitch <= p1)
+        .map((n) => n.id);
       if (Math.abs(d.x1 - d.x0) < 3 && Math.abs(d.y1 - d.y0) < 3) {
         st.setSelection({ noteIds: [] });
         st.seek(tm.tickToSeconds(Math.max(0, xToTick(d.x0))));
       } else {
-        st.setSelection({ noteIds: d.additive ? Array.from(new Set([...selection.noteIds, ...ids])) : ids, trackIds: [track.id] });
+        st.setSelection({
+          noteIds: d.additive ? Array.from(new Set([...selection.noteIds, ...ids])) : ids,
+          trackIds: [track.id],
+        });
       }
     }
     void e;
@@ -603,16 +681,27 @@ export default function PianoRoll() {
       const editable = (n: Note) => sel.has(n.id) && !isNoteLocked(song, track, n);
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        commitTrackNotes(track.notes.filter((n) => !editable(n)), `Deleted ${sel.size} note${sel.size > 1 ? 's' : ''}`);
+        commitTrackNotes(
+          track.notes.filter((n) => !editable(n)),
+          `Deleted ${sel.size} note${sel.size > 1 ? 's' : ''}`,
+        );
         st.setSelection({ noteIds: [] });
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
         const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1);
-        commitTrackNotes(track.notes.map((n) => (editable(n) ? { ...n, pitch: Math.max(0, Math.min(127, n.pitch + d)) } : n)), `Transposed ${d > 0 ? '+' : ''}${d}`);
+        commitTrackNotes(
+          track.notes.map((n) =>
+            editable(n) ? { ...n, pitch: Math.max(0, Math.min(127, n.pitch + d)) } : n,
+          ),
+          `Transposed ${d > 0 ? '+' : ''}${d}`,
+        );
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
         const d = (e.key === 'ArrowRight' ? 1 : -1) * snapTicks;
-        commitTrackNotes(track.notes.map((n) => (editable(n) ? { ...n, tick: Math.max(0, n.tick + d) } : n)), 'Nudged notes');
+        commitTrackNotes(
+          track.notes.map((n) => (editable(n) ? { ...n, tick: Math.max(0, n.tick + d) } : n)),
+          'Nudged notes',
+        );
       } else if (mod && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         const chosen = track.notes.filter((n) => sel.has(n.id));
@@ -623,10 +712,16 @@ export default function PianoRoll() {
         commitTrackNotes([...track.notes, ...copies], `Duplicated ${copies.length} notes`);
         st.setSelection({ noteIds: copies.map((c) => c.id) });
       } else if (e.key.toLowerCase() === 'q' && !mod) {
-        commitTrackNotes(track.notes.map((n) => (editable(n) ? { ...n, tick: quantizeTick(n.tick, snapTicks) } : n)), `Quantized to ${snap}`);
+        commitTrackNotes(
+          track.notes.map((n) => (editable(n) ? { ...n, tick: quantizeTick(n.tick, snapTicks) } : n)),
+          `Quantized to ${snap}`,
+        );
       } else if (e.key.toLowerCase() === 'l' && !mod) {
         const allLocked = track.notes.filter((n) => sel.has(n.id)).every((n) => n.locked);
-        commitTrackNotes(track.notes.map((n) => (sel.has(n.id) ? { ...n, locked: !allLocked } : n)), `${allLocked ? 'Unlocked' : 'Locked'} ${sel.size} notes`);
+        commitTrackNotes(
+          track.notes.map((n) => (sel.has(n.id) ? { ...n, locked: !allLocked } : n)),
+          `${allLocked ? 'Unlocked' : 'Locked'} ${sel.size} notes`,
+        );
       } else if (e.key === 'Escape') {
         st.setSelection({ noteIds: [] });
       }
@@ -638,8 +733,14 @@ export default function PianoRoll() {
   if (!song || !track) return <div className="empty-state">Select a MIDI track to edit.</div>;
 
   return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }} data-testid="piano-roll">
-      <div className="row wrap" style={{ padding: '6px 10px', borderBottom: '1px solid var(--border)', gap: 8 }}>
+    <div
+      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}
+      data-testid="piano-roll"
+    >
+      <div
+        className="row wrap"
+        style={{ padding: '6px 10px', borderBottom: '1px solid var(--border)', gap: 8 }}
+      >
         <Select
           size="sm"
           value={track.id}
@@ -648,14 +749,28 @@ export default function PianoRoll() {
           style={{ width: 170 }}
         />
         <div className="tabs">
-          <button className={`tab ${tool === 'pointer' ? 'active' : ''}`} onClick={() => setTool('pointer')} title="Select / move / resize (double-click to add)">
+          <button
+            className={`tab ${tool === 'pointer' ? 'active' : ''}`}
+            onClick={() => setTool('pointer')}
+            title="Select / move / resize (double-click to add)"
+          >
             Select
           </button>
-          <button className={`tab ${tool === 'pencil' ? 'active' : ''}`} onClick={() => setTool('pencil')} title="Draw notes">
+          <button
+            className={`tab ${tool === 'pencil' ? 'active' : ''}`}
+            onClick={() => setTool('pencil')}
+            title="Draw notes"
+          >
             Draw
           </button>
         </div>
-        <Select size="sm" value={snap} onChange={setSnap} options={SNAPS.map((s) => ({ value: s.value, label: `Snap ${s.label}` }))} style={{ width: 130 }} />
+        <Select
+          size="sm"
+          value={snap}
+          onChange={setSnap}
+          options={SNAPS.map((s) => ({ value: s.value, label: `Snap ${s.label}` }))}
+          style={{ width: 130 }}
+        />
         <Button
           size="sm"
           variant={recorder.recording ? 'danger' : 'ghost'}
@@ -689,25 +804,52 @@ export default function PianoRoll() {
           size="sm"
           value={ghostId}
           onChange={setGhostId}
-          options={[{ value: '', label: 'No ghost track' }, ...song.tracks.filter((t) => t.id !== track.id && t.kind === 'midi').map((t) => ({ value: t.id, label: `Ghost: ${t.name}` }))]}
+          options={[
+            { value: '', label: 'No ghost track' },
+            ...song.tracks
+              .filter((t) => t.id !== track.id && t.kind === 'midi')
+              .map((t) => ({ value: t.id, label: `Ghost: ${t.name}` })),
+          ]}
           style={{ width: 160 }}
         />
-        <Button size="sm" variant={showChordTones ? 'ai' : 'ghost'} onClick={() => setShowChordTones(!showChordTones)} title="Highlight chord tones under the harmony">
+        <Button
+          size="sm"
+          variant="ghost"
+          active={showChordTones}
+          onClick={() => setShowChordTones(!showChordTones)}
+          title="Highlight chord tones under the harmony"
+        >
           Chord tones
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => st.setView({ keyHeight: Math.max(6, keyH - 2) })} title="Shorter rows">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => st.setView({ keyHeight: Math.max(6, keyH - 2) })}
+          title="Shorter rows"
+        >
           −
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => st.setView({ keyHeight: Math.min(24, keyH + 2) })} title="Taller rows">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => st.setView({ keyHeight: Math.min(24, keyH + 2) })}
+          title="Taller rows"
+        >
           +
         </Button>
         <div className="spacer" />
         {proposal && (
           <>
             <Badge tone="ai">Proposal: {proposal.title}</Badge>
-            <span className="small" style={{ color: 'var(--diff-added)' }}>■ added</span>
-            <span className="small" style={{ color: 'var(--diff-modified)' }}>■ changed</span>
-            <span className="small" style={{ color: 'var(--diff-removed)' }}>▢ removed</span>
+            <span className="small" style={{ color: 'var(--diff-added)' }}>
+              ■ added
+            </span>
+            <span className="small" style={{ color: 'var(--diff-modified)' }}>
+              ■ changed
+            </span>
+            <span className="small" style={{ color: 'var(--diff-removed)' }}>
+              ▢ removed
+            </span>
             <Button size="sm" variant="success" icon="check" onClick={() => st.acceptProposal(proposal.id)}>
               Accept
             </Button>
@@ -718,18 +860,26 @@ export default function PianoRoll() {
         )}
       </div>
       <div ref={wrapRef} style={{ position: 'relative', flex: 1, minHeight: 0 }}>
-        <canvas ref={canvasRef} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }} aria-label={`Piano roll for ${track.name}`} />
+        <canvas
+          ref={canvasRef}
+          style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
+          aria-label={`Piano roll for ${track.name}`}
+        />
         <div
           ref={scrollRef}
           style={{ position: 'absolute', inset: 0, overflow: 'auto' }}
-          onScroll={(e) => setScroll({ x: (e.target as HTMLElement).scrollLeft, y: (e.target as HTMLElement).scrollTop })}
+          onScroll={(e) =>
+            setScroll({ x: (e.target as HTMLElement).scrollLeft, y: (e.target as HTMLElement).scrollTop })
+          }
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onWheel={(e) => {
             if (e.ctrlKey || e.metaKey) {
               e.preventDefault();
-              st.setView({ pxPerBeat: Math.max(4, Math.min(240, view.pxPerBeat * (e.deltaY < 0 ? 1.15 : 1 / 1.15))) });
+              st.setView({
+                pxPerBeat: Math.max(4, Math.min(240, view.pxPerBeat * (e.deltaY < 0 ? 1.15 : 1 / 1.15))),
+              });
             }
           }}
           tabIndex={0}

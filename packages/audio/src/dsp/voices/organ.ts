@@ -53,7 +53,11 @@ export class OrganVoice extends Voice {
   private readonly pg = new Float64Array(2);
   private readonly sr: number;
 
-  constructor(host: VoiceHost, private readonly p: OrganParams, private readonly stereo: boolean) {
+  constructor(
+    host: VoiceHost,
+    private readonly p: OrganParams,
+    private readonly stereo: boolean,
+  ) {
     super(host);
     this.sr = host.sampleRate;
     this.table = organTable(p.drawbars);
@@ -102,10 +106,13 @@ export class OrganVoice extends Voice {
     const t = this.level0;
     let ph = this.phase;
     const inc = this.inc;
-    let pp = this.pPhase, pa = this.pAmp;
-    const pi = this.pInc, pc = this.pCoef;
+    let pp = this.pPhase,
+      pa = this.pAmp;
+    const pi = this.pInc,
+      pc = this.pCoef;
     const vg = this.vg;
-    const gl = this.stereo ? this.pg[0] : 1, gr = this.pg[1];
+    const gl = this.stereo ? this.pg[0] : 1,
+      gr = this.pg[1];
     const click = this.p.click;
     let ns = this.noise;
     for (let i = start; i < end; i++) {

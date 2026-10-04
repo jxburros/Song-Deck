@@ -1,6 +1,7 @@
 import { PPQ, randomId, type KeySignature, type Note, type TrackRole } from '@songdeck/core';
 import type { AudioData } from '@songdeck/audio';
 import type { RunProvenance } from '@songdeck/ai';
+import type { PendingAttestation } from '../../engine/rights';
 import type { TranscribeSource } from '../../engine/handlers/analysis';
 
 /** View model shared by the Transcribe panels. */
@@ -21,6 +22,8 @@ export interface Capture {
   /** Tempo of the count-in the take was recorded against. */
   countInBpm?: number;
   createdAt: string;
+  /** Rights attestation of an uploaded file (uploads only; docs/RIGHTS.md). */
+  attestation?: PendingAttestation;
 }
 
 export type TempoMode = 'detect' | 'project' | 'manual';
@@ -72,8 +75,16 @@ export const SOURCES: { value: TranscribeSource; label: string; hint: string }[]
   { value: 'bass', label: 'Bass', hint: 'Monophonic, low register.' },
   { value: 'piano', label: 'Piano', hint: 'Polyphonic — chords, both hands.' },
   { value: 'drums', label: 'Drums', hint: 'Drum hits → kick / snare / hats / toms / cymbals.' },
-  { value: 'isolated', label: 'Isolated instrument', hint: 'A single instrument recorded on its own — it is classified first.' },
-  { value: 'full-mix', label: 'Full mix', hint: 'Whole song: the lead melody is extracted after separation — expect lower confidence; consider Rebuild.' },
+  {
+    value: 'isolated',
+    label: 'Isolated instrument',
+    hint: 'A single instrument recorded on its own — it is classified first.',
+  },
+  {
+    value: 'full-mix',
+    label: 'Full mix',
+    hint: 'Whole song: the lead melody is extracted after separation — expect lower confidence; consider Rebuild.',
+  },
 ];
 
 export const DEFAULT_INSTRUMENT: Record<TranscribeSource, string> = {
@@ -103,7 +114,8 @@ const num = (v: unknown): number | undefined => (typeof v === 'number' && Number
 function pickKey(v: unknown): KeySignature | undefined {
   if (!v || typeof v !== 'object') return undefined;
   const k = v as Record<string, unknown>;
-  if (typeof k.tonic === 'number' && typeof k.mode === 'string') return { tonic: k.tonic, mode: k.mode as KeySignature['mode'] };
+  if (typeof k.tonic === 'number' && typeof k.mode === 'string')
+    return { tonic: k.tonic, mode: k.mode as KeySignature['mode'] };
   if (k.key && typeof k.key === 'object') return pickKey(k.key);
   return undefined;
 }
@@ -120,7 +132,14 @@ function quantize(tick: number, gridTicks: number): number {
 /** Convert seconds-based notes / drum hits to IR notes (fallback when the job returned seconds). */
 export function secondsNotesToTicks(
   items: { pitch: number; start: number; end: number; velocity: number; confidence?: number }[],
-  o: { bpm: number; offset: number; gridBeats: number; ppq?: number; minDurationTicks?: number; origin: string },
+  o: {
+    bpm: number;
+    offset: number;
+    gridBeats: number;
+    ppq?: number;
+    minDurationTicks?: number;
+    origin: string;
+  },
 ): Note[] {
   const ppq = o.ppq ?? PPQ;
   const grid = o.gridBeats > 0 ? Math.round(o.gridBeats * ppq) : 0;
@@ -175,11 +194,21 @@ export function normalizeTranscription(
   const bpmConfidence = num(r.bpmConfidence) ?? num(r.tempoConfidence) ?? num(tempo.confidence);
   const keyObj = r.key ?? r.keySignature;
   const key = pickKey(keyObj) ?? ctx.requestedKey;
-  const keyConfidence = num(r.keyConfidence) ?? (keyObj && typeof keyObj === 'object' ? num((keyObj as Record<string, unknown>).confidence) : undefined);
+  const keyConfidence =
+    num(r.keyConfidence) ??
+    (keyObj && typeof keyObj === 'object' ? num((keyObj as Record<string, unknown>).confidence) : undefined);
   const offset = num(r.offsetSeconds) ?? num(r.startOffsetSeconds) ?? num(r.downbeatSeconds) ?? 0;
   const meterRaw = (r.meter ?? {}) as Record<string, unknown>;
-  const meter = { numerator: num(meterRaw.numerator) ?? ctx.meter?.numerator ?? 4, denominator: num(meterRaw.denominator) ?? ctx.meter?.denominator ?? 4 };
-  const drums = ctx.source === 'drums' || r.suggestedRole === 'drums' || r.suggestedInstrumentId === 'drum-kit' || Array.isArray(r.hits) || r.kind === 'drums';
+  const meter = {
+    numerator: num(meterRaw.numerator) ?? ctx.meter?.numerator ?? 4,
+    denominator: num(meterRaw.denominator) ?? ctx.meter?.denominator ?? 4,
+  };
+  const drums =
+    ctx.source === 'drums' ||
+    r.suggestedRole === 'drums' ||
+    r.suggestedInstrumentId === 'drum-kit' ||
+    Array.isArray(r.hits) ||
+    r.kind === 'drums';
 
   let notes: Note[] = [];
   const list = Array.isArray(r.notes) ? (r.notes as unknown[]) : [];
@@ -199,25 +228,52 @@ export function normalizeTranscription(
   }
   if (!notes.length && Array.isArray(r.hits)) {
     notes = secondsNotesToTicks(
-      (r.hits as Record<string, number>[]).map((h) => ({ pitch: h.drum ?? h.pitch ?? 38, start: h.time ?? h.startSeconds ?? 0, end: (h.time ?? 0) + 0.05, velocity: h.velocity ?? 100, confidence: h.confidence })),
+      (r.hits as Record<string, number>[]).map((h) => ({
+        pitch: h.drum ?? h.pitch ?? 38,
+        start: h.time ?? h.startSeconds ?? 0,
+        end: (h.time ?? 0) + 0.05,
+        velocity: h.velocity ?? 100,
+        confidence: h.confidence,
+      })),
       { bpm, offset, gridBeats: ctx.gridBeats || 0.25, origin, minDurationTicks: PPQ / 4 },
     ).map((n) => ({ ...n, duration: Math.min(n.duration, PPQ / 4) }));
   }
   const confidence =
     num(r.confidence) ??
-    (typeof r.confidence === 'object' && r.confidence ? num((r.confidence as Record<string, unknown>).overall) : undefined) ??
+    (typeof r.confidence === 'object' && r.confidence
+      ? num((r.confidence as Record<string, unknown>).overall)
+      : undefined) ??
     (notes.length ? notes.reduce((a, n) => a + (n.confidence ?? 0.7), 0) / notes.length : 0);
   const warnings = Array.isArray(r.warnings) ? (r.warnings as unknown[]).map(String) : [];
   const barTicks = (meter.numerator * 4 * PPQ) / meter.denominator;
   const last = notes.reduce((m, n) => Math.max(m, n.tick + n.duration), 0);
-  const audioBars = Math.ceil((((ctx.durationSeconds - offset) * bpm) / 60 / (meter.numerator * (4 / meter.denominator))) - 1e-6);
-  const bars = Math.max(1, Math.ceil(last / barTicks - 1e-9), Math.min(audioBars, Math.ceil(last / barTicks) + 1));
-  const suggested = typeof r.suggestedInstrumentId === 'string' ? r.suggestedInstrumentId : typeof r.instrumentId === 'string' ? r.instrumentId : DEFAULT_INSTRUMENT[ctx.source];
-  const role = (typeof r.suggestedRole === 'string' ? r.suggestedRole : typeof r.role === 'string' ? r.role : DEFAULT_ROLE[ctx.source]) as TrackRole;
+  const audioBars = Math.ceil(
+    ((ctx.durationSeconds - offset) * bpm) / 60 / (meter.numerator * (4 / meter.denominator)) - 1e-6,
+  );
+  const bars = Math.max(
+    1,
+    Math.ceil(last / barTicks - 1e-9),
+    Math.min(audioBars, Math.ceil(last / barTicks) + 1),
+  );
+  const suggested =
+    typeof r.suggestedInstrumentId === 'string'
+      ? r.suggestedInstrumentId
+      : typeof r.instrumentId === 'string'
+        ? r.instrumentId
+        : DEFAULT_INSTRUMENT[ctx.source];
+  const role = (
+    typeof r.suggestedRole === 'string'
+      ? r.suggestedRole
+      : typeof r.role === 'string'
+        ? r.role
+        : DEFAULT_ROLE[ctx.source]
+  ) as TrackRole;
   if (!notes.length) {
     const i = warnings.findIndex((w) => /no notes/i.test(w));
     if (i >= 0) warnings.splice(i, 1);
-    warnings.push('No notes were detected. Try a louder, cleaner take, a different source type, or turn quantization off.');
+    warnings.push(
+      'No notes were detected. Try a louder, cleaner take, a different source type, or turn quantization off.',
+    );
   }
   return {
     notes,
@@ -231,14 +287,20 @@ export function normalizeTranscription(
     keySource: drums ? 'none' : ctx.requestedKey ? 'project' : key ? 'detected' : 'none',
     meter,
     confidence: Math.max(0, Math.min(1, confidence)),
-    method: typeof r.method === 'string' ? r.method : drums ? 'On-device drum transcription' : 'On-device pitch tracking',
+    method:
+      typeof r.method === 'string'
+        ? r.method
+        : drums
+          ? 'On-device drum transcription'
+          : 'On-device pitch tracking',
     warnings,
     suggestedInstrumentId: suggested,
     role,
     bars,
     offsetSeconds: offset,
     raw,
-    provenance: r.provenance && typeof r.provenance === 'object' ? (r.provenance as RunProvenance) : undefined,
+    provenance:
+      r.provenance && typeof r.provenance === 'object' ? (r.provenance as RunProvenance) : undefined,
   };
 }
 
@@ -257,7 +319,11 @@ export function tapTempo(taps: number[]): number | null {
 }
 
 /** Contiguous bar ranges (1-based, inclusive) where low-confidence notes cluster ("check these bars"). */
-export function lowConfidenceRegions(notes: Note[], barTicks: number, threshold = 0.6): { from: number; to: number; count: number }[] {
+export function lowConfidenceRegions(
+  notes: Note[],
+  barTicks: number,
+  threshold = 0.6,
+): { from: number; to: number; count: number }[] {
   const perBar = new Map<number, number>();
   for (const n of notes) {
     if (n.confidence === undefined || n.confidence >= threshold) continue;

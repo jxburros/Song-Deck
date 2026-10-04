@@ -82,7 +82,20 @@ const MODE_PARENT_OFFSET: Record<ModeName, number> = {
   'melodic-minor': 9,
   locrian: 11,
 };
-const FIFTHS_BY_PC: Record<number, number> = { 0: 0, 7: 1, 2: 2, 9: 3, 4: 4, 11: 5, 6: 6, 1: -5, 8: -4, 3: -3, 10: -2, 5: -1 };
+const FIFTHS_BY_PC: Record<number, number> = {
+  0: 0,
+  7: 1,
+  2: 2,
+  9: 3,
+  4: 4,
+  11: 5,
+  6: 6,
+  1: -5,
+  8: -4,
+  3: -3,
+  10: -2,
+  5: -1,
+};
 const SHARP_ORDER = [3, 0, 4, 1, 5, 2, 6]; // F C G D A E B (letter indices)
 const FLAT_ORDER = [6, 2, 5, 1, 4, 0, 3]; // B E A D G C F
 
@@ -125,7 +138,12 @@ class Speller {
     if (pcs.length === 7) pcs.forEach((pc, i) => set(pc, (l0 + i) % 7, true));
     // Conventional chromatic spellings relative to the tonic (raised 6/7 in minor, b7/#4 in major…).
     const t = mod12(key.tonic);
-    const minorish = key.mode === 'minor' || key.mode === 'dorian' || key.mode === 'phrygian' || key.mode.includes('minor') || key.mode === 'locrian';
+    const minorish =
+      key.mode === 'minor' ||
+      key.mode === 'dorian' ||
+      key.mode === 'phrygian' ||
+      key.mode.includes('minor') ||
+      key.mode === 'locrian';
     const extras: [number, number][] = minorish
       ? [
           [11, 6],
@@ -253,7 +271,14 @@ function allowed(m: MeterInfo, pos: number, v: DurValue, rest: boolean): boolean
   return true;
 }
 
-function splitDuration(m: MeterInfo, values: DurValue[], pos: number, len: number, rest: boolean, depth = 0): Piece[] {
+function splitDuration(
+  m: MeterInfo,
+  values: DurValue[],
+  pos: number,
+  len: number,
+  rest: boolean,
+  depth = 0,
+): Piece[] {
   if (len <= 0) return [];
   if (depth > 24) return [{ pos, t: len, base: 16, dots: 0 }];
   for (const v of values) if (v.t === len && allowed(m, pos, v, rest)) return [{ pos, ...v }];
@@ -269,10 +294,19 @@ function splitDuration(m: MeterInfo, values: DurValue[], pos: number, len: numbe
   }
   for (const level of levels) {
     const b = level(pos);
-    if (b !== null) return [...splitDuration(m, values, pos, b - pos, rest, depth + 1), ...splitDuration(m, values, b, end - b, rest, depth + 1)];
+    if (b !== null)
+      return [
+        ...splitDuration(m, values, pos, b - pos, rest, depth + 1),
+        ...splitDuration(m, values, b, end - b, rest, depth + 1),
+      ];
   }
-  for (const v of values) if (v.t < len && allowed(m, pos, v, rest)) return [{ pos, ...v }, ...splitDuration(m, values, pos + v.t, len - v.t, rest, depth + 1)];
-  return [{ pos, t: m.grid, base: 16, dots: 0 }, ...splitDuration(m, values, pos + m.grid, len - m.grid, rest, depth + 1)];
+  for (const v of values)
+    if (v.t < len && allowed(m, pos, v, rest))
+      return [{ pos, ...v }, ...splitDuration(m, values, pos + v.t, len - v.t, rest, depth + 1)];
+  return [
+    { pos, t: m.grid, base: 16, dots: 0 },
+    ...splitDuration(m, values, pos + m.grid, len - m.grid, rest, depth + 1),
+  ];
 }
 
 interface Head extends Spelled {
@@ -348,7 +382,12 @@ function buildBar(m: MeterInfo, values: DurValue[], evs: Ev[], barIdx: number, s
       els.push({
         ...p,
         rest: false,
-        heads: ev.pitches.map((midi) => ({ ...speller.spell(midi), showAcc: null, accCol: 0, displaced: false })),
+        heads: ev.pitches.map((midi) => ({
+          ...speller.spell(midi),
+          showAcc: null,
+          accCol: 0,
+          displaced: false,
+        })),
         tieIn: i > 0 || ev.s < b0,
         tieOut: i < pieces.length - 1 || ev.e > b1,
         conf: ev.conf,
@@ -359,7 +398,22 @@ function buildBar(m: MeterInfo, values: DurValue[], evs: Ev[], barIdx: number, s
     cursor = e;
   }
   if (cursor < b1) pushRest(cursor, b1);
-  if (els.every((e) => e.rest)) return [{ pos: 0, t: m.barLen, base: 1, dots: 0, rest: true, fullBar: true, heads: [], tieIn: false, tieOut: false, stemUp: true, beam: -1 }];
+  if (els.every((e) => e.rest))
+    return [
+      {
+        pos: 0,
+        t: m.barLen,
+        base: 1,
+        dots: 0,
+        rest: true,
+        fullBar: true,
+        heads: [],
+        tieIn: false,
+        tieOut: false,
+        stemUp: true,
+        beam: -1,
+      },
+    ];
   return els;
 }
 
@@ -432,9 +486,11 @@ function assignStemsAndBeams(els: El[], m: MeterInfo, middle: number) {
     if (el.heads.length < 2) continue;
     const sorted = [...el.heads].sort((a, b) => a.pos - b.pos);
     if (el.stemUp) {
-      for (let i = 1; i < sorted.length; i++) if (sorted[i].pos - sorted[i - 1].pos === 1 && !sorted[i - 1].displaced) sorted[i].displaced = true;
+      for (let i = 1; i < sorted.length; i++)
+        if (sorted[i].pos - sorted[i - 1].pos === 1 && !sorted[i - 1].displaced) sorted[i].displaced = true;
     } else {
-      for (let i = sorted.length - 2; i >= 0; i--) if (sorted[i + 1].pos - sorted[i].pos === 1 && !sorted[i + 1].displaced) sorted[i].displaced = true;
+      for (let i = sorted.length - 2; i >= 0; i--)
+        if (sorted[i + 1].pos - sorted[i].pos === 1 && !sorted[i + 1].displaced) sorted[i].displaced = true;
     }
   }
 }
@@ -458,7 +514,8 @@ const TREBLE_CLEF_PATH =
 const BASS_CLEF_PATH = 'M3.2 9C3 2.6 9.6 -0.8 15 1.4C21.2 4.2 21.8 13 17.2 20C13.4 25.8 7.6 30.6 1.4 33.6';
 
 function sharpPath(cx: number, cy: number, k: number) {
-  const v = (x: number, y1: number, y2: number) => `M${cx + x * k} ${cy + y1 * k}L${cx + x * k} ${cy + y2 * k}`;
+  const v = (x: number, y1: number, y2: number) =>
+    `M${cx + x * k} ${cy + y1 * k}L${cx + x * k} ${cy + y2 * k}`;
   const bar = (c: number) =>
     `M${cx - 4.6 * k} ${cy + (c + 1.1) * k}L${cx + 4.6 * k} ${cy + (c - 1.1) * k}L${cx + 4.6 * k} ${cy + (c + 1.3) * k}L${cx - 4.6 * k} ${cy + (c + 3.5) * k}Z`;
   return { lines: `${v(-2.1, -10.5, 9.5)}${v(2.1, -11.5, 8.5)}`, fill: `${bar(-4.2)}${bar(2.6)}` };
@@ -475,11 +532,22 @@ function flatPath(cx: number, cy: number, k: number) {
 function naturalPath(cx: number, cy: number, k: number) {
   const l = cx - 2.3 * k;
   const r = cx + 2.3 * k;
-  const bar = (c: number) => `M${l} ${cy + (c + 1) * k}L${r} ${cy + (c - 1) * k}L${r} ${cy + (c + 1.4) * k}L${l} ${cy + (c + 3.4) * k}Z`;
-  return { lines: `M${l} ${cy - 11 * k}L${l} ${cy + 5 * k}M${r} ${cy - 5 * k}L${r} ${cy + 11 * k}`, fill: `${bar(-4.4)}${bar(1.6)}` };
+  const bar = (c: number) =>
+    `M${l} ${cy + (c + 1) * k}L${r} ${cy + (c - 1) * k}L${r} ${cy + (c + 1.4) * k}L${l} ${cy + (c + 3.4) * k}Z`;
+  return {
+    lines: `M${l} ${cy - 11 * k}L${l} ${cy + 5 * k}M${r} ${cy - 5 * k}L${r} ${cy + 11 * k}`,
+    fill: `${bar(-4.4)}${bar(1.6)}`,
+  };
 }
 
-function accidentalGlyph(acc: number, cx: number, cy: number, k: number, key: string, color?: string): ReactNode {
+function accidentalGlyph(
+  acc: number,
+  cx: number,
+  cy: number,
+  k: number,
+  key: string,
+  color?: string,
+): ReactNode {
   const stroke = 1.15 * k;
   if (acc === 2) {
     const s = 2.6 * k;
@@ -524,7 +592,14 @@ function rotatedEllipsePath(cx: number, cy: number, rx: number, ry: number, deg:
   return `M${cx + dx} ${cy + dy}A${rx} ${ry} ${deg} 1 0 ${cx - dx} ${cy - dy}A${rx} ${ry} ${deg} 1 0 ${cx + dx} ${cy + dy}Z`;
 }
 
-function noteheadGlyph(base: number, cx: number, cy: number, S: number, key: string, color?: string): ReactNode {
+function noteheadGlyph(
+  base: number,
+  cx: number,
+  cy: number,
+  S: number,
+  key: string,
+  color?: string,
+): ReactNode {
   const fill = color ?? 'currentColor';
   if (base === 1) {
     return (
@@ -541,7 +616,11 @@ function noteheadGlyph(base: number, cx: number, cy: number, S: number, key: str
   if (base === 2) {
     return (
       <g key={key} transform={`translate(${cx} ${cy}) rotate(-22)`}>
-        <path d={`${ellipsePath(0, 0, rx, ry)}${ellipsePath(0, 0, 0.5 * S, 0.2 * S)}`} fill={fill} fillRule="evenodd" />
+        <path
+          d={`${ellipsePath(0, 0, rx, ry)}${ellipsePath(0, 0, 0.5 * S, 0.2 * S)}`}
+          fill={fill}
+          fillRule="evenodd"
+        />
       </g>
     );
   }
@@ -555,8 +634,21 @@ function noteheadGlyph(base: number, cx: number, cy: number, S: number, key: str
 function restGlyph(base: number, x: number, staffTop: number, S: number, key: string): ReactNode {
   const k = S / 10;
   const mid = staffTop + 2 * S;
-  if (base <= 1) return <rect key={key} x={x - 0.6 * S} y={staffTop + S} width={1.2 * S} height={0.5 * S} fill="currentColor" />;
-  if (base === 2) return <rect key={key} x={x - 0.6 * S} y={mid - 0.5 * S} width={1.2 * S} height={0.5 * S} fill="currentColor" />;
+  if (base <= 1)
+    return (
+      <rect key={key} x={x - 0.6 * S} y={staffTop + S} width={1.2 * S} height={0.5 * S} fill="currentColor" />
+    );
+  if (base === 2)
+    return (
+      <rect
+        key={key}
+        x={x - 0.6 * S}
+        y={mid - 0.5 * S}
+        width={1.2 * S}
+        height={0.5 * S}
+        fill="currentColor"
+      />
+    );
   if (base === 4) {
     const p = (dx: number, dy: number) => `${x + dx * k} ${mid + dy * k}`;
     return (
@@ -599,7 +691,15 @@ function restGlyph(base: number, x: number, staffTop: number, S: number, key: st
   return <g key={key}>{parts}</g>;
 }
 
-function flagGlyph(x: number, y: number, up: boolean, count: number, S: number, key: string, color?: string): ReactNode {
+function flagGlyph(
+  x: number,
+  y: number,
+  up: boolean,
+  count: number,
+  S: number,
+  key: string,
+  color?: string,
+): ReactNode {
   const k = S / 10;
   const d = up ? 1 : -1;
   const parts: string[] = [];
@@ -670,7 +770,11 @@ export function NotationPreview(props: NotationPreviewProps) {
   const [ref, size] = useElementSize<HTMLDivElement>();
   const width = props.width ?? Math.max(240, size.width || 560);
   return (
-    <div ref={ref} className="notation-preview" style={{ width: props.width ? props.width : '100%', overflow: 'hidden' }}>
+    <div
+      ref={ref}
+      className="notation-preview"
+      style={{ width: props.width ? props.width : '100%', overflow: 'hidden' }}
+    >
       {props.drums ? <DrumGrid {...props} width={width} /> : <Staves {...props} width={width} />}
     </div>
   );
@@ -694,14 +798,19 @@ function Staves(props: NotationPreviewProps & { width: number }) {
     const speller = new Speller(key);
     const rel = props.notes
       .filter((n) => n.tick + n.duration > startTick)
-      .map((n) => ({ ...n, tick: Math.max(0, n.tick - startTick), pitch: Math.max(0, Math.min(127, n.pitch + transpose)) }));
+      .map((n) => ({
+        ...n,
+        tick: Math.max(0, n.tick - startTick),
+        pitch: Math.max(0, Math.min(127, n.pitch + transpose)),
+      }));
     const lastEnd = rel.reduce((mx, n) => Math.max(mx, n.tick + n.duration), 0);
     const neededBars = Math.max(1, Math.ceil(lastEnd / m.barLen - 1e-9));
     const totalBars = props.bars ?? neededBars;
     const shownBars = Math.max(1, Math.min(totalBars, props.maxBars ?? totalBars));
     const total = shownBars * m.barLen;
 
-    let clef: NotationClef = props.clef && props.clef !== 'auto' ? props.clef : chooseClef(props.notes, transpose);
+    let clef: NotationClef =
+      props.clef && props.clef !== 'auto' ? props.clef : chooseClef(props.notes, transpose);
     if (clef === 'percussion') clef = 'treble';
     if (clef === 'bass' && rel.length) {
       const high = rel.filter((n) => n.pitch >= 64).length / rel.length;
@@ -710,9 +819,19 @@ function Staves(props: NotationPreviewProps & { width: number }) {
       const low = rel.filter((n) => n.pitch < 55).length / rel.length;
       if (low > 0.6) clef = 'bass';
     }
-    const staffDefs: StaffDef[] = clef === 'grand' ? [TREBLE, BASS] : clef === 'bass' ? [BASS] : clef === 'treble-8vb' ? [TREBLE_8VB] : [TREBLE];
+    const staffDefs: StaffDef[] =
+      clef === 'grand'
+        ? [TREBLE, BASS]
+        : clef === 'bass'
+          ? [BASS]
+          : clef === 'treble-8vb'
+            ? [TREBLE_8VB]
+            : [TREBLE];
     const split = staffDefs.length === 2 ? handSplit(rel) : 60;
-    const parts: NotationNote[][] = staffDefs.length === 2 ? [rel.filter((n) => n.pitch >= split), rel.filter((n) => n.pitch < split)] : [rel];
+    const parts: NotationNote[][] =
+      staffDefs.length === 2
+        ? [rel.filter((n) => n.pitch >= split), rel.filter((n) => n.pitch < split)]
+        : [rel];
 
     const bars: BarLayout[] = [];
     const evsPerStaff = parts.map((p) => buildEvents(p, m.grid, total));
@@ -742,11 +861,30 @@ function Staves(props: NotationPreviewProps & { width: number }) {
         space.push(S * (1.45 + 1.3 * Math.log2(1 + (next - pos) / m.grid)) + (dotted ? 0.4 * S : 0));
       });
       const content = accRoom.reduce((a, v) => a + v, 0) + space.reduce((a, v) => a + v, 0);
-      bars.push({ index: b, staves, cols, accRoom, space, minWidth: Math.max(6 * S, 1.1 * S + content + 0.4 * S) });
+      bars.push({
+        index: b,
+        staves,
+        cols,
+        accRoom,
+        space,
+        minWidth: Math.max(6 * S, 1.1 * S + content + 0.4 * S),
+      });
     }
     return { m, bars, staffDefs, clef, totalBars, shownBars };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.notes, ppq, meter.numerator, meter.denominator, key.tonic, key.mode, transpose, startTick, props.bars, props.maxBars, props.clef]);
+  }, [
+    props.notes,
+    ppq,
+    meter.numerator,
+    meter.denominator,
+    key.tonic,
+    key.mode,
+    transpose,
+    startTick,
+    props.bars,
+    props.maxBars,
+    props.clef,
+  ]);
 
   const { m, bars, staffDefs } = model;
   const fifths = keySignatureFifths(key);
@@ -788,7 +926,8 @@ function Staves(props: NotationPreviewProps & { width: number }) {
     const b = Math.floor(rel / m.barLen);
     if (b >= bars.length) continue;
     const list = chordsByBar.get(b) ?? [];
-    if (!list.length || list[list.length - 1].symbol !== c.symbol) list.push({ pos: rel - b * m.barLen, symbol: c.symbol });
+    if (!list.length || list[list.length - 1].symbol !== c.symbol)
+      list.push({ pos: rel - b * m.barLen, symbol: c.symbol });
     chordsByBar.set(b, list);
   }
   const hasChords = chordsByBar.size > 0;
@@ -808,7 +947,10 @@ function Staves(props: NotationPreviewProps & { width: number }) {
       const inner = staffDefs.length > 1;
       return {
         above: Math.max(inner && si > 0 ? 2.4 * S : 3.4 * S, (hi - def.topPos) * (S / 2) + 3.8 * S),
-        below: Math.max(inner && si < staffDefs.length - 1 ? 2.4 * S : 3.4 * S, (def.topPos - 8 - lo) * (S / 2) + 3.8 * S),
+        below: Math.max(
+          inner && si < staffDefs.length - 1 ? 2.4 * S : 3.4 * S,
+          (def.topPos - 8 - lo) * (S / 2) + 3.8 * S,
+        ),
       };
     });
     const offsets: number[] = [];
@@ -823,12 +965,19 @@ function Staves(props: NotationPreviewProps & { width: number }) {
 
   const out: ReactNode[] = [];
   const beamsOut: ReactNode[] = [];
-  const tieAnchors: { from: HeadAnchor; staff: number; nextEl: El | undefined; nextBar: number; midi: number }[] = [];
+  const tieAnchors: {
+    from: HeadAnchor;
+    staff: number;
+    nextEl: El | undefined;
+    nextBar: number;
+    midi: number;
+  }[] = [];
   const anchorByEl = new Map<El, HeadAnchor[]>();
   const elSystem = new Map<El, number>();
   const systemEdges: { x0: number; x1: number; y: number }[] = [];
   const flat: { el: El; staff: number }[][] = staffDefs.map(() => []);
-  for (const bar of bars) bar.staves.forEach((els, si) => els.forEach((el) => flat[si].push({ el, staff: si })));
+  for (const bar of bars)
+    bar.staves.forEach((els, si) => els.forEach((el) => flat[si].push({ el, staff: si })));
 
   let sysY = 0;
   systems.forEach((sys, sysIdx) => {
@@ -842,14 +991,30 @@ function Staves(props: NotationPreviewProps & { width: number }) {
     staffDefs.forEach((def, si) => {
       const top = staffTops[si];
       for (let l = 0; l < 5; l++)
-        out.push(<line key={`sl${sysIdx}-${si}-${l}`} x1={x0} x2={x1} y1={top + l * S} y2={top + l * S} stroke={lineColor} strokeWidth={0.09 * S} />);
+        out.push(
+          <line
+            key={`sl${sysIdx}-${si}-${l}`}
+            x1={x0}
+            x2={x1}
+            y1={top + l * S}
+            y2={top + l * S}
+            stroke={lineColor}
+            strokeWidth={0.09 * S}
+          />,
+        );
       // Clef
       const cx = x0 + 0.4 * S;
       if (def.clef === 'bass') {
         out.push(
           <g key={`clef${sysIdx}-${si}`} transform={`translate(${cx} ${top}) scale(${k})`}>
             <circle cx={5} cy={10} r={3.3} fill="currentColor" />
-            <path d={BASS_CLEF_PATH} fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" />
+            <path
+              d={BASS_CLEF_PATH}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.6}
+              strokeLinecap="round"
+            />
             <circle cx={24.5} cy={5} r={1.8} fill="currentColor" />
             <circle cx={24.5} cy={15} r={1.8} fill="currentColor" />
           </g>,
@@ -857,10 +1022,24 @@ function Staves(props: NotationPreviewProps & { width: number }) {
       } else {
         out.push(
           <g key={`clef${sysIdx}-${si}`} transform={`translate(${cx} ${top}) scale(${k})`}>
-            <path d={TREBLE_CLEF_PATH} fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d={TREBLE_CLEF_PATH}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
             <circle cx={9.2} cy={49.4} r={3} fill="currentColor" />
             {def.clef === 'treble-8vb' && (
-              <text x={13} y={66} fontSize={12} textAnchor="middle" fill="currentColor" fontFamily="Georgia, 'Times New Roman', serif">
+              <text
+                x={13}
+                y={66}
+                fontSize={12}
+                textAnchor="middle"
+                fill="currentColor"
+                fontFamily="Georgia, 'Times New Roman', serif"
+              >
                 8
               </text>
             )}
@@ -874,12 +1053,26 @@ function Staves(props: NotationPreviewProps & { width: number }) {
       for (let i = 0; i < ks; i++) {
         const pos = order[i] + shift;
         const ky = top + (def.topPos - pos) * (S / 2);
-        out.push(accidentalGlyph(fifths > 0 ? 1 : -1, cx + clefW + 0.1 * S + i * S + 0.45 * S, ky, k, `ks${sysIdx}-${si}-${i}`));
+        out.push(
+          accidentalGlyph(
+            fifths > 0 ? 1 : -1,
+            cx + clefW + 0.1 * S + i * S + 0.45 * S,
+            ky,
+            k,
+            `ks${sysIdx}-${si}-${i}`,
+          ),
+        );
       }
       // Time signature (first system)
       if (sysIdx === 0) {
         const tx = cx + clefW + keyW + 1.1 * S;
-        const font = { fontSize: 2.35 * S, fontWeight: 700, textAnchor: 'middle' as const, fontFamily: "Georgia, 'Times New Roman', serif", fill: 'currentColor' };
+        const font = {
+          fontSize: 2.35 * S,
+          fontWeight: 700,
+          textAnchor: 'middle' as const,
+          fontFamily: "Georgia, 'Times New Roman', serif",
+          fill: 'currentColor',
+        };
         out.push(
           <text key={`tsn${si}`} x={tx} y={top + 1.85 * S} {...font}>
             {m.num}
@@ -894,7 +1087,17 @@ function Staves(props: NotationPreviewProps & { width: number }) {
     // Left edge: system line (and brace for grand staff).
     const firstTop = staffTops[0];
     const lastBottom = staffTops[staffTops.length - 1] + 4 * S;
-    out.push(<line key={`sys${sysIdx}`} x1={x0} x2={x0} y1={firstTop} y2={lastBottom} stroke={lineColor} strokeWidth={0.12 * S} />);
+    out.push(
+      <line
+        key={`sys${sysIdx}`}
+        x1={x0}
+        x2={x0}
+        y1={firstTop}
+        y2={lastBottom}
+        stroke={lineColor}
+        strokeWidth={0.12 * S}
+      />,
+    );
     if (staffDefs.length > 1) {
       const bx = x0 - 0.35 * S;
       const midY = (firstTop + lastBottom) / 2;
@@ -911,7 +1114,13 @@ function Staves(props: NotationPreviewProps & { width: number }) {
     }
     // Bar number
     out.push(
-      <text key={`bn${sysIdx}`} x={x0 + 0.1 * S} y={firstTop - 1.2 * S - (hasChords ? 0.2 * S : 0)} fontSize={1.05 * S} fill="var(--text-dim)">
+      <text
+        key={`bn${sysIdx}`}
+        x={x0 + 0.1 * S}
+        y={firstTop - 1.2 * S - (hasChords ? 0.2 * S : 0)}
+        fontSize={1.05 * S}
+        fill="var(--text-dim)"
+      >
         {(props.firstBarNumber ?? 1) + sys.bars[0].index}
       </text>,
     );
@@ -949,7 +1158,14 @@ function Staves(props: NotationPreviewProps & { width: number }) {
           }
           x = Math.max(x, lastRight + 0.5 * S);
           out.push(
-            <text key={`ch${bar.index}-${c.pos}`} x={x} y={sysY + 1.5 * S} fontSize={1.3 * S} fontWeight={600} fill="var(--ai)">
+            <text
+              key={`ch${bar.index}-${c.pos}`}
+              x={x}
+              y={sysY + 1.5 * S}
+              fontSize={1.3 * S}
+              fontWeight={600}
+              fill="var(--accent-text)"
+            >
               {c.symbol}
             </text>,
           );
@@ -976,7 +1192,16 @@ function Staves(props: NotationPreviewProps & { width: number }) {
           const x = headX(el.pos);
           if (el.rest) {
             out.push(restGlyph(el.base, x, top, S, `r${bar.index}-${si}-${el.pos}`));
-            if (el.dots) out.push(<circle key={`rd${bar.index}-${si}-${el.pos}`} cx={x + 1.1 * S} cy={top + 1.5 * S} r={0.18 * S} fill="currentColor" />);
+            if (el.dots)
+              out.push(
+                <circle
+                  key={`rd${bar.index}-${si}-${el.pos}`}
+                  cx={x + 1.1 * S}
+                  cy={top + 1.5 * S}
+                  r={0.18 * S}
+                  fill="currentColor"
+                />,
+              );
             continue;
           }
           const low = el.conf !== undefined && el.conf < lowConf;
@@ -993,25 +1218,62 @@ function Staves(props: NotationPreviewProps & { width: number }) {
             // Ledger lines
             if (h.pos >= def.topPos + 2) {
               for (let p = def.topPos + 2; p <= h.pos; p += 2)
-                out.push(<line key={`lg${bar.index}-${si}-${el.pos}-${h.midi}-${p}`} x1={hx - rx - 0.4 * S} x2={hx + rx + 0.4 * S} y1={yOf(p)} y2={yOf(p)} stroke={lineColor} strokeWidth={0.1 * S} />);
+                out.push(
+                  <line
+                    key={`lg${bar.index}-${si}-${el.pos}-${h.midi}-${p}`}
+                    x1={hx - rx - 0.4 * S}
+                    x2={hx + rx + 0.4 * S}
+                    y1={yOf(p)}
+                    y2={yOf(p)}
+                    stroke={lineColor}
+                    strokeWidth={0.1 * S}
+                  />,
+                );
             }
             if (h.pos <= bottomPos - 2) {
               for (let p = bottomPos - 2; p >= h.pos; p -= 2)
-                out.push(<line key={`lg${bar.index}-${si}-${el.pos}-${h.midi}-${p}`} x1={hx - rx - 0.4 * S} x2={hx + rx + 0.4 * S} y1={yOf(p)} y2={yOf(p)} stroke={lineColor} strokeWidth={0.1 * S} />);
+                out.push(
+                  <line
+                    key={`lg${bar.index}-${si}-${el.pos}-${h.midi}-${p}`}
+                    x1={hx - rx - 0.4 * S}
+                    x2={hx + rx + 0.4 * S}
+                    y1={yOf(p)}
+                    y2={yOf(p)}
+                    stroke={lineColor}
+                    strokeWidth={0.1 * S}
+                  />,
+                );
             }
-            if (h.showAcc !== null) out.push(accidentalGlyph(h.showAcc, x - rx - 0.75 * S - h.accCol * 0.95 * S, hy, k, `ac${bar.index}-${si}-${el.pos}-${h.midi}`, color));
+            if (h.showAcc !== null)
+              out.push(
+                accidentalGlyph(
+                  h.showAcc,
+                  x - rx - 0.75 * S - h.accCol * 0.95 * S,
+                  hy,
+                  k,
+                  `ac${bar.index}-${si}-${el.pos}-${h.midi}`,
+                  color,
+                ),
+              );
             out.push(noteheadGlyph(el.base, hx, hy, S, `nh${bar.index}-${si}-${el.pos}-${h.midi}`, color));
             if (el.dots) {
               // Lines sit on even offsets from the top line: dots of line notes move into the space above.
               const onLine = (def.topPos - h.pos) % 2 === 0;
               out.push(
-                <circle key={`dt${bar.index}-${si}-${el.pos}-${h.midi}`} cx={hx + rx + 0.55 * S} cy={hy - (onLine ? S / 2 : 0)} r={0.18 * S} fill={color ?? 'currentColor'} />,
+                <circle
+                  key={`dt${bar.index}-${si}-${el.pos}-${h.midi}`}
+                  cx={hx + rx + 0.55 * S}
+                  cy={hy - (onLine ? S / 2 : 0)}
+                  r={0.18 * S}
+                  fill={color ?? 'currentColor'}
+                />,
               );
             }
             anchors.push({ x: hx, y: hy, midi: h.midi, stemUp: up, system: sysIdx, rx });
           }
           anchorByEl.set(el, anchors);
-          if (el.base >= 2) geo.set(el, { stemX: up ? x + rx - 0.06 * S : x - rx + 0.06 * S, yTop, yBot, up });
+          if (el.base >= 2)
+            geo.set(el, { stemX: up ? x + rx - 0.06 * S : x - rx + 0.06 * S, yTop, yBot, up });
           if (el.tieOut)
             for (const a of anchors) {
               const seq = flat[si];
@@ -1024,10 +1286,23 @@ function Staves(props: NotationPreviewProps & { width: number }) {
             const g = geo.get(el)!;
             const flags = el.base >= 32 ? 3 : el.base >= 16 ? 2 : el.base >= 8 ? 1 : 0;
             const extra = flags > 1 ? (flags - 1) * 0.7 * S : 0;
-            const end = up ? Math.min(g.yTop - 3.4 * S - extra, midY) : Math.max(g.yBot + 3.4 * S + extra, midY);
+            const end = up
+              ? Math.min(g.yTop - 3.4 * S - extra, midY)
+              : Math.max(g.yBot + 3.4 * S + extra, midY);
             const startY = up ? g.yBot : g.yTop;
-            out.push(<line key={`st${bar.index}-${si}-${el.pos}`} x1={g.stemX} x2={g.stemX} y1={startY} y2={end} stroke={color ?? 'currentColor'} strokeWidth={0.13 * S} />);
-            if (flags) out.push(flagGlyph(g.stemX, end, up, flags, S, `fl${bar.index}-${si}-${el.pos}`, color));
+            out.push(
+              <line
+                key={`st${bar.index}-${si}-${el.pos}`}
+                x1={g.stemX}
+                x2={g.stemX}
+                y1={startY}
+                y2={end}
+                stroke={color ?? 'currentColor'}
+                strokeWidth={0.13 * S}
+              />,
+            );
+            if (flags)
+              out.push(flagGlyph(g.stemX, end, up, flags, S, `fl${bar.index}-${si}-${el.pos}`, color));
           }
         }
 
@@ -1040,14 +1315,23 @@ function Staves(props: NotationPreviewProps & { width: number }) {
           const d = up ? 1 : -1; // beams stack toward the noteheads
           const levels = Math.max(...g.map((e) => (e.base >= 32 ? 3 : e.base >= 16 ? 2 : 1)));
           const minStem = 2.6 * S + (levels - 1) * 0.75 * S;
-          const ideal = gs.map((q) => (up ? Math.min(q.yTop - 3.4 * S, midY) : Math.max(q.yBot + 3.4 * S, midY)));
+          const ideal = gs.map((q) =>
+            up ? Math.min(q.yTop - 3.4 * S, midY) : Math.max(q.yBot + 3.4 * S, midY),
+          );
           const xFirst = gs[0].stemX;
           const xLast = gs[gs.length - 1].stemX;
           const span = Math.max(1, xLast - xFirst);
           const first = gs[0].e.heads.reduce((a, h) => a + h.pos, 0) / gs[0].e.heads.length;
-          const last = gs[gs.length - 1].e.heads.reduce((a, h) => a + h.pos, 0) / gs[gs.length - 1].e.heads.length;
-          const inner = gs.slice(1, -1).map((q) => q.e.heads.reduce((a, h) => a + h.pos, 0) / q.e.heads.length);
-          const monotonic = inner.every((p) => (last >= first ? p >= Math.min(first, last) && p <= Math.max(first, last) : p <= Math.max(first, last) && p >= Math.min(first, last)));
+          const last =
+            gs[gs.length - 1].e.heads.reduce((a, h) => a + h.pos, 0) / gs[gs.length - 1].e.heads.length;
+          const inner = gs
+            .slice(1, -1)
+            .map((q) => q.e.heads.reduce((a, h) => a + h.pos, 0) / q.e.heads.length);
+          const monotonic = inner.every((p) =>
+            last >= first
+              ? p >= Math.min(first, last) && p <= Math.max(first, last)
+              : p <= Math.max(first, last) && p >= Math.min(first, last),
+          );
           let slope = monotonic ? (ideal[ideal.length - 1] - ideal[0]) / span : 0;
           slope = Math.max(-S / span, Math.min(S / span, slope));
           let b0 = ideal[0];
@@ -1063,13 +1347,29 @@ function Staves(props: NotationPreviewProps & { width: number }) {
           const beamColor = anyLow ? 'var(--warning)' : 'currentColor';
           for (const q of gs) {
             const startY = up ? q.yBot : q.yTop;
-            beamsOut.push(<line key={`bst${bar.index}-${si}-${gid}-${q.e.pos}`} x1={q.stemX} x2={q.stemX} y1={startY} y2={at(q.stemX)} stroke={beamColor} strokeWidth={0.13 * S} />);
+            beamsOut.push(
+              <line
+                key={`bst${bar.index}-${si}-${gid}-${q.e.pos}`}
+                x1={q.stemX}
+                x2={q.stemX}
+                y1={startY}
+                y2={at(q.stemX)}
+                stroke={beamColor}
+                strokeWidth={0.13 * S}
+              />,
+            );
           }
           const thick = 0.5 * S;
           const beamPoly = (xa: number, xb: number, off: number, key2: string) => {
             const ya = at(xa) + d * off;
             const yb = at(xb) + d * off;
-            beamsOut.push(<path key={key2} d={`M${xa} ${ya}L${xb} ${yb}L${xb} ${yb + d * thick}L${xa} ${ya + d * thick}Z`} fill={beamColor} />);
+            beamsOut.push(
+              <path
+                key={key2}
+                d={`M${xa} ${ya}L${xb} ${yb}L${xb} ${yb + d * thick}L${xa} ${ya + d * thick}Z`}
+                fill={beamColor}
+              />,
+            );
           };
           beamPoly(xFirst - 0.06 * S, xLast + 0.06 * S, 0, `bm${bar.index}-${si}-${gid}`);
           for (let lv = 2; lv <= levels; lv++) {
@@ -1083,11 +1383,22 @@ function Staves(props: NotationPreviewProps & { width: number }) {
               let j = i;
               while (j + 1 < gs.length && gs[j + 1].e.base >= need) j++;
               const off = (lv - 1) * 0.75 * S;
-              if (j > i) beamPoly(gs[i].stemX - 0.06 * S, gs[j].stemX + 0.06 * S, off, `bm${bar.index}-${si}-${gid}-${lv}-${i}`);
+              if (j > i)
+                beamPoly(
+                  gs[i].stemX - 0.06 * S,
+                  gs[j].stemX + 0.06 * S,
+                  off,
+                  `bm${bar.index}-${si}-${gid}-${lv}-${i}`,
+                );
               else {
                 const stub = 1.1 * S;
                 const left = i === gs.length - 1 || (i > 0 && gs[i - 1].e.t > gs[i].e.t);
-                beamPoly(left ? gs[i].stemX - stub : gs[i].stemX, left ? gs[i].stemX : gs[i].stemX + stub, off, `bm${bar.index}-${si}-${gid}-${lv}-${i}s`);
+                beamPoly(
+                  left ? gs[i].stemX - stub : gs[i].stemX,
+                  left ? gs[i].stemX : gs[i].stemX + stub,
+                  off,
+                  `bm${bar.index}-${si}-${gid}-${lv}-${i}s`,
+                );
               }
               i = j + 1;
             }
@@ -1101,10 +1412,39 @@ function Staves(props: NotationPreviewProps & { width: number }) {
       const by1 = staffTops[staffTops.length - 1] + 4 * S;
       bx += bw;
       if (isLast && model.shownBars >= model.totalBars) {
-        out.push(<line key={`blt${bar.index}`} x1={bx - 0.55 * S} x2={bx - 0.55 * S} y1={by0} y2={by1} stroke="currentColor" strokeWidth={0.13 * S} />);
-        out.push(<rect key={`blk${bar.index}`} x={bx - 0.45 * S} y={by0} width={0.45 * S} height={by1 - by0} fill="currentColor" />);
+        out.push(
+          <line
+            key={`blt${bar.index}`}
+            x1={bx - 0.55 * S}
+            x2={bx - 0.55 * S}
+            y1={by0}
+            y2={by1}
+            stroke="currentColor"
+            strokeWidth={0.13 * S}
+          />,
+        );
+        out.push(
+          <rect
+            key={`blk${bar.index}`}
+            x={bx - 0.45 * S}
+            y={by0}
+            width={0.45 * S}
+            height={by1 - by0}
+            fill="currentColor"
+          />,
+        );
       } else {
-        out.push(<line key={`bl${bar.index}`} x1={bx} x2={bx} y1={by0} y2={by1} stroke={lineColor} strokeWidth={0.13 * S} />);
+        out.push(
+          <line
+            key={`bl${bar.index}`}
+            x1={bx}
+            x2={bx}
+            y1={by0}
+            y2={by1}
+            stroke={lineColor}
+            strokeWidth={0.13 * S}
+          />,
+        );
       }
     });
     sysY += vert.height;
@@ -1129,11 +1469,19 @@ function Staves(props: NotationPreviewProps & { width: number }) {
       );
     };
     const ya = t.from.y + dir * 0.55 * S;
-    if (target && target.system === t.from.system) arc(t.from.x + t.from.rx * 0.6, ya, target.x - target.rx * 0.6, target.y + dir * 0.55 * S, `tie${i}`);
+    if (target && target.system === t.from.system)
+      arc(t.from.x + t.from.rx * 0.6, ya, target.x - target.rx * 0.6, target.y + dir * 0.55 * S, `tie${i}`);
     else {
       const edge = systemEdges[t.from.system];
       arc(t.from.x + t.from.rx * 0.6, ya, Math.min(edge.x1 - 0.2 * S, t.from.x + 3 * S), ya, `tie${i}a`);
-      if (target) arc(Math.max(target.x - 3 * S, leftMargin + header(false) - 0.6 * S), target.y + dir * 0.55 * S, target.x - target.rx * 0.6, target.y + dir * 0.55 * S, `tie${i}b`);
+      if (target)
+        arc(
+          Math.max(target.x - 3 * S, leftMargin + header(false) - 0.6 * S),
+          target.y + dir * 0.55 * S,
+          target.x - target.rx * 0.6,
+          target.y + dir * 0.55 * S,
+          `tie${i}b`,
+        );
     }
   });
 
@@ -1224,7 +1572,14 @@ function DrumGrid(props: NotationPreviewProps & { width: number }) {
     const nBars = Math.min(barsPerLine, shown - firstBar);
     rows.forEach((r, ri) => {
       out.push(
-        <text key={`lbl${line}-${r}`} x={labelW - 8} y={y0 + ri * rowH + rowH * 0.7} fontSize={11} textAnchor="end" fill="var(--text-muted)">
+        <text
+          key={`lbl${line}-${r}`}
+          x={labelW - 8}
+          y={y0 + ri * rowH + rowH * 0.7}
+          fontSize={11}
+          textAnchor="end"
+          fill="var(--text-muted)"
+        >
           {DRUM_ROWS[r].label}
         </text>,
       );
@@ -1258,15 +1613,43 @@ function DrumGrid(props: NotationPreviewProps & { width: number }) {
               />,
             );
           } else {
-            out.push(<rect key={`e${bar}-${s}-${r}`} x={x + 1} y={y + 1} width={Math.max(2, cell - 2)} height={rowH - 2} rx={2} fill={onBeat ? 'var(--bg-elev-3)' : 'var(--bg-input)'} />);
+            out.push(
+              <rect
+                key={`e${bar}-${s}-${r}`}
+                x={x + 1}
+                y={y + 1}
+                width={Math.max(2, cell - 2)}
+                height={rowH - 2}
+                rx={2}
+                fill={onBeat ? 'var(--bg-elev-3)' : 'var(--bg-input)'}
+              />,
+            );
           }
         });
       }
-      out.push(<line key={`bl${bar}`} x1={bx} x2={bx} y1={y0 - 2} y2={y0 + rows.length * rowH + 2} stroke="var(--grid-bar)" strokeWidth={1.2} />);
+      out.push(
+        <line
+          key={`bl${bar}`}
+          x1={bx}
+          x2={bx}
+          y1={y0 - 2}
+          y2={y0 + rows.length * rowH + 2}
+          stroke="var(--grid-bar)"
+          strokeWidth={1.2}
+        />,
+      );
     }
   }
   return (
-    <svg width={W} height={height} viewBox={`0 0 ${W} ${height}`} role="img" aria-label={props.ariaLabel ?? `Drum pattern, ${shown} bars`} data-testid="drum-grid" style={{ display: 'block' }}>
+    <svg
+      width={W}
+      height={height}
+      viewBox={`0 0 ${W} ${height}`}
+      role="img"
+      aria-label={props.ariaLabel ?? `Drum pattern, ${shown} bars`}
+      data-testid="drum-grid"
+      style={{ display: 'block' }}
+    >
       {out}
       {totalBars > shown && (
         <text x={W - 4} y={height - 2} textAnchor="end" fontSize={10} fill="var(--text-dim)">

@@ -19,7 +19,8 @@ export interface RouteContext {
 
 export type Handler = (ctx: RouteContext) => Promise<void> | void;
 
-type Segment = { kind: 'static'; value: string } | { kind: 'param'; name: string } | { kind: 'rest'; name: string };
+type Segment =
+  { kind: 'static'; value: string } | { kind: 'param'; name: string } | { kind: 'rest'; name: string };
 
 interface Route {
   method: string;
@@ -111,7 +112,8 @@ export class Router {
     for (const route of this.routes) {
       const params = matchSegments(route.segments, parts);
       if (!params) continue;
-      if (route.method === method.toUpperCase()) return { kind: 'found', handler: route.handler, params, pattern: route.pattern };
+      if (route.method === method.toUpperCase())
+        return { kind: 'found', handler: route.handler, params, pattern: route.pattern };
       allowed.add(route.method);
     }
     if (allowed.size) return { kind: 'method-not-allowed', allowed: [...allowed] };

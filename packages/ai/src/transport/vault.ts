@@ -21,7 +21,8 @@ export class MemoryCredentialStore implements CredentialStore {
   private readonly secrets = new Map<string, { secret: string; label?: string; updatedAt: string }>();
 
   constructor(initial?: Record<string, string>) {
-    for (const [ref, secret] of Object.entries(initial ?? {})) this.secrets.set(ref, { secret, updatedAt: new Date().toISOString() });
+    for (const [ref, secret] of Object.entries(initial ?? {}))
+      this.secrets.set(ref, { secret, updatedAt: new Date().toISOString() });
   }
 
   async get(ref: string): Promise<string | undefined> {
@@ -78,9 +79,16 @@ export class ServerVaultClient {
   private async call(path: string, init: RequestInit): Promise<Response> {
     let res: Response;
     try {
-      res = await this.fetchImpl(this.url(path), { ...init, headers: { ...(this.opts.headers ?? {}), ...((init.headers as Record<string, string>) ?? {}) } });
+      res = await this.fetchImpl(this.url(path), {
+        ...init,
+        headers: { ...(this.opts.headers ?? {}), ...((init.headers as Record<string, string>) ?? {}) },
+      });
     } catch (err) {
-      throw new ProviderError('network', `Song Deck server unreachable: ${(err as Error)?.message ?? String(err)}`, { cause: err });
+      throw new ProviderError(
+        'network',
+        `Song Deck server unreachable: ${(err as Error)?.message ?? String(err)}`,
+        { cause: err },
+      );
     }
     if (!res.ok) {
       let body: unknown;

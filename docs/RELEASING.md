@@ -19,17 +19,17 @@ GitHub release, so a failed step publishes nothing.
 
 2. **Publish** in one of two ways:
 
-   * push a tag: `git tag v0.2.0 origin/main && git push origin v0.2.0`, or
-   * run **Actions → Release → Run workflow** on `main` with the version `0.2.0`; the workflow
+   - push a tag: `git tag v0.2.0 origin/main && git push origin v0.2.0`, or
+   - run **Actions → Release → Run workflow** on `main` with the version `0.2.0`; the workflow
      tags that commit when it publishes.
 
    A version with a pre-release suffix (`0.2.0-beta.1`) is published as a pre-release.
 
 3. **Watch the run.** The `Test and package` job:
-   * checks that the tag, every package version and CHANGELOG.md agree (and, for a manual run,
+   - checks that the tag, every package version and CHANGELOG.md agree (and, for a manual run,
      that the tag does not exist yet);
-   * runs the typecheck, the unit and integration tests and the Playwright end-to-end tests;
-   * builds the studio, packages the downloads (`scripts/release/package.mjs`), unpacks both
+   - runs the typecheck, the unit and integration tests and the Playwright end-to-end tests;
+   - builds the studio, packages the downloads (`scripts/release/package.mjs`), unpacks both
      archives and checks that the bundled server starts and serves the studio, the API, the
      plugins and a render job (`scripts/release/smoke.mjs`), then runs browser tests against it.
 
@@ -45,11 +45,11 @@ replaced — release the next patch version instead.
 
 ## The downloads
 
-| File | Contents |
-| --- | --- |
+| File                                 | Contents                                                                                                                                                                                                                                                      |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `song-deck-<version>.zip`, `.tar.gz` | `server/` (the local server and its render worker, bundled by esbuild into plain JavaScript for Node.js 20.19+), `studio/` (the production build without source maps), `plugins/`, `bridges/`, `docs/`, a README, the changelog and `THIRD_PARTY_NOTICES.txt` |
-| `song-deck-studio-<version>.zip` | The studio alone, for static hosting at the root of a site |
-| `SHA256SUMS.txt` | Checksums of the archives |
+| `song-deck-studio-<version>.zip`     | The studio alone, for static hosting at the root of a site                                                                                                                                                                                                    |
+| `SHA256SUMS.txt`                     | Checksums of the archives                                                                                                                                                                                                                                     |
 
 The bundled server finds `studio/` and `plugins/` next to its `server/` folder (`APP_PATHS` in
 `apps/server/src/config.ts`), and loads the optional OS-keychain module from a `node_modules`

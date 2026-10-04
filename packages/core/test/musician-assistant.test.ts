@@ -17,7 +17,9 @@ describe('answerQuestion (§44 project-aware assistant)', () => {
     expect(r.answer).toMatch(/jumps to 90 in Chorus 1/);
     expect(r.answer).toMatch(/no fuller than Verse 1/);
     const ops = r.operations!;
-    expect(opsOfType(ops, 'update_section')).toEqual([expect.objectContaining({ section: 'sec-pre', changes: { energyEnd: 82 } })]);
+    expect(opsOfType(ops, 'update_section')).toEqual([
+      expect.objectContaining({ section: 'sec-pre', changes: { energyEnd: 82 } }),
+    ]);
     const drums = opsOfType(ops, 'replace_notes').find((o) => o.track === 't-drums')!;
     expect(drums.region).toEqual({ start_bar: 11, end_bar: 12 });
     // The build ends with a snare run that grows louder.
@@ -29,7 +31,10 @@ describe('answerQuestion (§44 project-aware assistant)', () => {
 
   it('proposes a dominant when the pre-chorus resolves to the tonic before the chorus', () => {
     const s = makeSong();
-    Object.assign(s.chords.find((c) => c.id === 'c8')!, { root: 7, quality: 'maj', symbol: 'G' });
+    Object.assign(
+      s.chords.find((c) => c.id === 'c8')!,
+      { root: 7, quality: 'maj', symbol: 'G' },
+    );
     const r = answerQuestion(s, 'Why does the pre-chorus feel weak?');
     expect(r.answer).toMatch(/it ends on G \(I, tonic function\)/);
     const sc = opsOfType(r.operations!, 'set_chords');
@@ -50,11 +55,15 @@ describe('answerQuestion (§44 project-aware assistant)', () => {
   });
 
   it('"What would happen if this chorus were in half-time?" explains and prepares the change', () => {
-    const r = answerQuestion(song, 'What would happen if this chorus were in half-time?', { sectionIds: ['sec-chorus2'] });
+    const r = answerQuestion(song, 'What would happen if this chorus were in half-time?', {
+      sectionIds: ['sec-chorus2'],
+    });
     expect(r.intents).toEqual(['what-if', 'half-time']);
     expect(r.answer).toMatch(/^Chorus 2 runs at 120 BPM/);
     expect(r.answer).toMatch(/~60 BPM/);
-    expect(opsOfType(r.operations!, 'update_section')).toEqual([expect.objectContaining({ section: 'sec-chorus2', changes: { feel: 'half-time' } })]);
+    expect(opsOfType(r.operations!, 'update_section')).toEqual([
+      expect.objectContaining({ section: 'sec-chorus2', changes: { feel: 'half-time' } }),
+    ]);
     const drums = opsOfType(r.operations!, 'replace_notes').find((o) => o.track === 't-drums')!;
     expect(drums.region).toEqual({ start_bar: 29, end_bar: 36 });
     // Backbeat on 3: no snare on beats 2/4 any more.
@@ -65,7 +74,12 @@ describe('answerQuestion (§44 project-aware assistant)', () => {
   it('other "what if" ideas: darker, brighter and faster', () => {
     const dark = answerQuestion(song, 'what if the chorus were darker');
     expect(dark.intents).toEqual(['what-if', 'darker']);
-    expect(opsOfType(dark.operations!, 'set_chords')[0].chords.map((c) => c.symbol)).toEqual(['Gm', 'Dm', 'Eb', 'Cm']);
+    expect(opsOfType(dark.operations!, 'set_chords')[0].chords.map((c) => c.symbol)).toEqual([
+      'Gm',
+      'Dm',
+      'Eb',
+      'Cm',
+    ]);
     const fast = answerQuestion(song, 'what if the song was faster');
     expect(fast.intents).toEqual(['what-if', 'tempo']);
     expect(fast.operations).toEqual([expect.objectContaining({ op: 'set_tempo', bpm: 132 })]);
@@ -81,14 +95,23 @@ describe('answerQuestion (§44 project-aware assistant)', () => {
     expect(sc[0].region.end_bar).toBeLessThanOrEqual(28);
     // The bridge's closing D (V) still resolves to the chorus' G: it stays major.
     expect(sc[0].chords.map((c) => c.symbol)).not.toContain('Dm');
-    expect(opsOfType(r.operations!, 'update_section')).toEqual([expect.objectContaining({ section: 'sec-bridge', changes: { feel: 'half-time' } })]);
+    expect(opsOfType(r.operations!, 'update_section')).toEqual([
+      expect.objectContaining({ section: 'sec-bridge', changes: { feel: 'half-time' } }),
+    ]);
   });
 
   it('"Add strings without making the arrangement crowded" adds a pad only where there is room', () => {
     const r = answerQuestion(song, 'Add strings without making the arrangement crowded');
     expect(r.intents).toEqual(['add-instrument']);
     const add = opsOfType(r.operations!, 'add_track');
-    expect(add).toEqual([expect.objectContaining({ name: 'String Pad', instrument_id: 'string-ensemble', role: 'strings', function: 'pad' })]);
+    expect(add).toEqual([
+      expect.objectContaining({
+        name: 'String Pad',
+        instrument_id: 'string-ensemble',
+        role: 'strings',
+        function: 'pad',
+      }),
+    ]);
     const notes = opsOfType(r.operations!, 'add_notes')[0];
     expect(notes.track).toBe('String Pad');
     expect(notes.notes.length).toBeGreaterThan(10);
@@ -103,23 +126,35 @@ describe('answerQuestion (§44 project-aware assistant)', () => {
   });
 
   it('answers facts about the song', () => {
-    expect(answerQuestion(song, 'what key is this in').answer).toMatch(/^The song is in G major \(relative minor: E minor\)\./);
+    expect(answerQuestion(song, 'what key is this in').answer).toMatch(
+      /^The song is in G major \(relative minor: E minor\)\./,
+    );
     expect(answerQuestion(song, 'what are the chords in the chorus').answer).toBe(
       'Chorus 1 (bars 13–20) and Chorus 2 (bars 29–36): G – D – Em – C — I – V – vi – IV in G major.',
     );
-    expect(answerQuestion(song, 'how long is the song').answer).toBe('1:12 — 36 bars at 120 BPM in 4/4, across 5 sections.');
-    expect(answerQuestion(song, 'how many bars is the bridge').answer).toBe('Bridge: 8 bars (bars 21–28), 0:16 at 120 BPM.');
+    expect(answerQuestion(song, 'how long is the song').answer).toBe(
+      '1:12 — 36 bars at 120 BPM in 4/4, across 5 sections.',
+    );
+    expect(answerQuestion(song, 'how many bars is the bridge').answer).toBe(
+      'Bridge: 8 bars (bars 21–28), 0:16 at 120 BPM.',
+    );
     expect(answerQuestion(song, 'what tempo is it').answer).toBe('120 BPM in 4/4.');
     const meter = answerQuestion(song, 'what is the time signature?');
     expect(meter.intents).toEqual(['meter']);
     expect(meter.answer).toBe('4/4 throughout (common time), at 120 BPM.');
     expect(answerQuestion(song, 'what is the structure').answer.split('\n')).toHaveLength(5);
-    expect(answerQuestion(song, 'which instruments play in the verse').answer).toBe('In Verse 1 (bars 1–8): Drums, Bass, Lead Vocal, Violin and Piano.');
+    expect(answerQuestion(song, 'which instruments play in the verse').answer).toBe(
+      'In Verse 1 (bars 1–8): Drums, Bass, Lead Vocal, Violin and Piano.',
+    );
     const lyrics = answerQuestion(song, 'what are the lyrics of the chorus');
     expect(lyrics.intents).toEqual(['lyrics']);
     expect(lyrics.answer).toMatch(/Chorus 1:\n {2}Hold on to the night sky\n {2}Fire in my heart tonight/);
-    expect(answerQuestion(song, 'where is the energy highest').answer).toMatch(/The peak is Chorus 2 \(95\)\./);
-    expect(answerQuestion(song, 'what is the vocal range').answer).toMatch(/^Lead Vocal spans B3–E5 \(17 semitones\)/);
+    expect(answerQuestion(song, 'where is the energy highest').answer).toMatch(
+      /The peak is Chorus 2 \(95\)\./,
+    );
+    expect(answerQuestion(song, 'what is the vocal range').answer).toMatch(
+      /^Lead Vocal spans B3–E5 \(17 semitones\)/,
+    );
   });
 
   it('explains a section and analyses the melody', () => {
@@ -157,7 +192,8 @@ describe('answerQuestion (§44 project-aware assistant)', () => {
       'what if the chorus were in half-time',
       'is the melody too repetitive?',
     ];
-    for (const q of qs) expect(stableStringify(answerQuestion(frozen, q))).toBe(stableStringify(answerQuestion(frozen, q)));
+    for (const q of qs)
+      expect(stableStringify(answerQuestion(frozen, q))).toBe(stableStringify(answerQuestion(frozen, q)));
     expect(stableStringify(frozen)).toBe(before);
     const t0 = performance.now();
     for (const q of qs) answerQuestion(frozen, q);
@@ -175,7 +211,9 @@ describe('answerQuestion (§44 project-aware assistant)', () => {
 
   it('places proposals on real bars/beats (1-based)', () => {
     const r = answerQuestion(song, 'Add strings without making the arrangement crowded');
-    const notes = (r.operations!.find((o) => o.op === 'add_notes') as Extract<MusicOperation, { op: 'add_notes' }>).notes;
+    const notes = (
+      r.operations!.find((o) => o.op === 'add_notes') as Extract<MusicOperation, { op: 'add_notes' }>
+    ).notes;
     const first = notes.reduce((a, b) => (opTick(song, b) < opTick(song, a) ? b : a));
     expect(opTick(song, first)).toBe(8 * BAR); // Pre-Chorus starts at bar 9 (1-based)
   });
@@ -197,9 +235,23 @@ describe('parseAssetPrompt (§25 Generate MIDI)', () => {
       count: 1,
     });
     const drums = parseAssetPrompt('Make a pop-punk drum pattern at 176 BPM.');
-    expect(drums).toMatchObject({ instrumentId: 'drum-kit', role: 'drums', function: 'rhythm', tempo: 176, genreIds: ['pop-punk'], bars: 4, count: 1 });
+    expect(drums).toMatchObject({
+      instrumentId: 'drum-kit',
+      role: 'drums',
+      function: 'rhythm',
+      tempo: 176,
+      genreIds: ['pop-punk'],
+      bars: 4,
+      count: 1,
+    });
     const bass = parseAssetPrompt('Generate four alternative bass lines for this progression.');
-    expect(bass).toMatchObject({ instrumentId: 'electric-bass', role: 'bass', function: 'bass-line', count: 4, bars: 8 });
+    expect(bass).toMatchObject({
+      instrumentId: 'electric-bass',
+      role: 'bass',
+      function: 'bass-line',
+      count: 4,
+      bars: 8,
+    });
     expect(bass.progression).toBeUndefined();
   });
 
@@ -209,20 +261,56 @@ describe('parseAssetPrompt (§25 Generate MIDI)', () => {
     expect(am.key).toEqual({ tonic: 9, mode: 'minor' });
     expect(am.bars).toBe(4);
     const arp = parseAssetPrompt('Write a dreamy synth arpeggio in F# minor in 3/4');
-    expect(arp).toMatchObject({ instrumentId: 'synth-arp', role: 'synth-arp', key: { tonic: 6, mode: 'minor' }, meter: { numerator: 3, denominator: 4 }, moods: ['dreamy'] });
+    expect(arp).toMatchObject({
+      instrumentId: 'synth-arp',
+      role: 'synth-arp',
+      key: { tonic: 6, mode: 'minor' },
+      meter: { numerator: 3, denominator: 4 },
+      moods: ['dreamy'],
+    });
     const jazz = parseAssetPrompt('3 jazzy piano comping ideas over ii V I in Bb');
-    expect(jazz).toMatchObject({ instrumentId: 'piano', function: 'accompaniment', count: 3, key: { tonic: 10, mode: 'major' }, progression: ['ii', 'V', 'I'], genreIds: ['jazz'], tempo: 130 });
+    expect(jazz).toMatchObject({
+      instrumentId: 'piano',
+      function: 'accompaniment',
+      count: 3,
+      key: { tonic: 10, mode: 'major' },
+      progression: ['ii', 'V', 'I'],
+      genreIds: ['jazz'],
+      tempo: 130,
+    });
     const flute = parseAssetPrompt('a counter-melody for flute over Dm Bb F C, 6/8, seed 42');
-    expect(flute).toMatchObject({ instrumentId: 'flute', function: 'counter-melody', meter: { numerator: 6, denominator: 8 }, seed: 42, key: { tonic: 2, mode: 'minor' } });
-    expect(parseAssetPrompt('two dark ambient pad textures in C# minor')).toMatchObject({ instrumentId: 'synth-pad', function: 'pad', count: 2, key: { tonic: 1, mode: 'minor' } });
+    expect(flute).toMatchObject({
+      instrumentId: 'flute',
+      function: 'counter-melody',
+      meter: { numerator: 6, denominator: 8 },
+      seed: 42,
+      key: { tonic: 2, mode: 'minor' },
+    });
+    expect(parseAssetPrompt('two dark ambient pad textures in C# minor')).toMatchObject({
+      instrumentId: 'synth-pad',
+      function: 'pad',
+      count: 2,
+      key: { tonic: 1, mode: 'minor' },
+    });
     expect(parseAssetPrompt('a 4-bar drum fill').function).toBe('fills');
     expect(parseAssetPrompt('a 999 bar cello melody').bars).toBe(256);
   });
 
   it('uses defaults: minor for sad moods, the song tempo when given', () => {
     const sad = parseAssetPrompt('a sad piano melody', { defaultTempo: 92 });
-    expect(sad).toMatchObject({ instrumentId: 'piano', function: 'melody', tempo: 92, key: { tonic: 9, mode: 'minor' }, moods: ['sad'] });
+    expect(sad).toMatchObject({
+      instrumentId: 'piano',
+      function: 'melody',
+      tempo: 92,
+      key: { tonic: 9, mode: 'minor' },
+      moods: ['sad'],
+    });
     expect(parseAssetPrompt('something nice').instrumentId).toBe('piano');
-    expect(parseAssetPrompt('an uplifting 8 bar piano hook in E major at 128 bpm')).toMatchObject({ function: 'hook', bars: 8, key: { tonic: 4, mode: 'major' }, tempo: 128 });
+    expect(parseAssetPrompt('an uplifting 8 bar piano hook in E major at 128 bpm')).toMatchObject({
+      function: 'hook',
+      bars: 8,
+      key: { tonic: 4, mode: 'major' },
+      tempo: 128,
+    });
   });
 });

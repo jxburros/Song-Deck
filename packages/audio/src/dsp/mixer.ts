@@ -46,8 +46,10 @@ class MeterState {
     let pk = 0;
     let s = 0;
     for (let i = 0; i < n; i++) {
-      const a = L[i], b = R[i];
-      const aa = a < 0 ? -a : a, bb = b < 0 ? -b : b;
+      const a = L[i],
+        b = R[i];
+      const aa = a < 0 ? -a : a,
+        bb = b < 0 ? -b : b;
       if (aa > pk) pk = aa;
       if (bb > pk) pk = bb;
       s += a * a + b * b;
@@ -105,7 +107,12 @@ export class StripProcessor {
   private readonly width = new BlockSmoother(1);
   private readonly drive = new BlockSmoother(0);
   private readonly audible = new BlockSmoother(1);
-  private readonly eqGain = [new BlockSmoother(0), new BlockSmoother(0), new BlockSmoother(0), new BlockSmoother(0)];
+  private readonly eqGain = [
+    new BlockSmoother(0),
+    new BlockSmoother(0),
+    new BlockSmoother(0),
+    new BlockSmoother(0),
+  ];
   private strip: ChannelStrip | null = null;
   private compOn = false;
   private phase = false;
@@ -140,7 +147,8 @@ export class StripProcessor {
     this.drv = new Drive(sampleRate);
     this.meter = new MeterState(sampleRate);
     const bps = sampleRate / BLOCK;
-    for (const s of [this.vol, this.pan, this.rev, this.dly, this.width, this.drive, ...this.eqGain]) s.setTime(SMOOTH_S, bps);
+    for (const s of [this.vol, this.pan, this.rev, this.dly, this.width, this.drive, ...this.eqGain])
+      s.setTime(SMOOTH_S, bps);
     this.audible.setTime(0.008, bps);
   }
 
@@ -178,7 +186,17 @@ export class StripProcessor {
     this.comp.reset();
     this.drv.reset();
     this.meter.reset();
-    for (const s of [this.vol, this.pan, this.rev, this.dly, this.width, this.drive, this.audible, ...this.eqGain]) s.snap(s.target);
+    for (const s of [
+      this.vol,
+      this.pan,
+      this.rev,
+      this.dly,
+      this.width,
+      this.drive,
+      this.audible,
+      ...this.eqGain,
+    ])
+      s.snap(s.target);
     this.first = true;
     this.eqDirty = true;
   }
@@ -218,7 +236,15 @@ export class StripProcessor {
       this.drv.process(L, R, 0, n);
     }
     // EQ (parameters only re-evaluated while smoothing / automating / after a change)
-    if (s?.eq && (this.eqDirty || auto !== null || !this.eqGain[0].settled || !this.eqGain[1].settled || !this.eqGain[2].settled || !this.eqGain[3].settled)) {
+    if (
+      s?.eq &&
+      (this.eqDirty ||
+        auto !== null ||
+        !this.eqGain[0].settled ||
+        !this.eqGain[1].settled ||
+        !this.eqGain[2].settled ||
+        !this.eqGain[3].settled)
+    ) {
       this.eqDirty = false;
       const e = s.eq;
       const p = this.eqp;
@@ -255,15 +281,21 @@ export class StripProcessor {
     this.w0 = width;
     // pan + volume + mute/solo
     const g = dbToGain(volDb) * aud;
-    const gl1 = g * panL(pan), gr1 = g * panR(pan);
-    const gl0 = this.first ? gl1 : this.gl, gr0 = this.first ? gr1 : this.gr;
-    const r0 = this.first ? rev : this.sr0, d0 = this.first ? dly : this.sd0;
+    const gl1 = g * panL(pan),
+      gr1 = g * panR(pan);
+    const gl0 = this.first ? gl1 : this.gl,
+      gr0 = this.first ? gr1 : this.gr;
+    const r0 = this.first ? rev : this.sr0,
+      d0 = this.first ? dly : this.sd0;
     const inv = 1 / n;
     const doRev = !!(revL && revR && (rev > 0 || r0 > 0));
     const doDly = !!(dlyL && dlyR && (dly > 0 || d0 > 0));
-    let pk = 0, ms = 0;
-    const dgl = (gl1 - gl0) * inv, dgr = (gr1 - gr0) * inv;
-    let cl = gl0, cr = gr0;
+    let pk = 0,
+      ms = 0;
+    const dgl = (gl1 - gl0) * inv,
+      dgr = (gr1 - gr0) * inv;
+    let cl = gl0,
+      cr = gr0;
     for (let i = 0; i < n; i++) {
       cl += dgl;
       cr += dgr;
@@ -273,13 +305,15 @@ export class StripProcessor {
       R[i] = r;
       mL[i] += l;
       mR[i] += r;
-      const al = l < 0 ? -l : l, ar = r < 0 ? -r : r;
+      const al = l < 0 ? -l : l,
+        ar = r < 0 ? -r : r;
       if (al > pk) pk = al;
       if (ar > pk) pk = ar;
       ms += l * l + r * r;
     }
     if (doRev) {
-      const rl = revL!, rr = revR!;
+      const rl = revL!,
+        rr = revR!;
       const dk = (rev - r0) * inv;
       let k = r0;
       for (let i = 0; i < n; i++) {
@@ -289,7 +323,8 @@ export class StripProcessor {
       }
     }
     if (doDly) {
-      const dl = dlyL!, dr = dlyR!;
+      const dl = dlyL!,
+        dr = dlyR!;
       const dk = (dly - d0) * inv;
       let k = d0;
       for (let i = 0; i < n; i++) {
@@ -314,7 +349,12 @@ export class MasterProcessor {
   readonly limiter: LookaheadLimiter;
   private readonly vol = new BlockSmoother(0);
   private readonly width = new BlockSmoother(1);
-  private readonly eqGain = [new BlockSmoother(0), new BlockSmoother(0), new BlockSmoother(0), new BlockSmoother(0)];
+  private readonly eqGain = [
+    new BlockSmoother(0),
+    new BlockSmoother(0),
+    new BlockSmoother(0),
+    new BlockSmoother(0),
+  ];
   private master: MasterBus | null = null;
   private compOn = false;
   private g0 = 1;
@@ -410,7 +450,8 @@ export class MasterProcessor {
       const t = (i + 1) * inv;
       const w = w0 + (width - w0) * t;
       const g = g0 + (g1 - g0) * t;
-      let l = L[i], r = R[i];
+      let l = L[i],
+        r = R[i];
       if (w !== 1) {
         const mm = (l + r) * 0.5;
         const sd = (l - r) * 0.5 * w;

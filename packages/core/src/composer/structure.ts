@@ -3,7 +3,16 @@
  * `applyPlanToSong` applies a (possibly AI-produced or user-edited) plan to an existing song,
  * moving existing material with its sections and honouring structure/chord/tempo/key/meter locks.
  */
-import type { ChordEvent, ChordSpec, CompositionPlan, KeySignature, Note, PlanSection, Section, Song } from '../ir/types';
+import type {
+  ChordEvent,
+  ChordSpec,
+  CompositionPlan,
+  KeySignature,
+  Note,
+  PlanSection,
+  Section,
+  Song,
+} from '../ir/types';
 import { cloneSong, sortNotes } from '../ir/song-utils';
 import { IdFactory } from '../util/ids';
 import { barToTick, keyAtBar, meterAtBar, sectionLayout, type SectionSpan } from '../timing';
@@ -19,7 +28,12 @@ function harmonyToSpecs(harmony: readonly string[], key: KeySignature): ChordSpe
   const out: ChordSpec[] = [];
   for (const h of harmony) {
     const c = parseHarmonyToken(h, key);
-    if (c) out.push(c.bass !== undefined ? { root: c.root, quality: c.quality, bass: c.bass } : { root: c.root, quality: c.quality });
+    if (c)
+      out.push(
+        c.bass !== undefined
+          ? { root: c.root, quality: c.quality, bass: c.bass }
+          : { root: c.root, quality: c.quality },
+      );
   }
   return out;
 }
@@ -88,11 +102,23 @@ function harmonicRhythmOf(events: number, bars: number): number {
 }
 
 /** Build Section records from plan sections (ids from the factory; repeats point to their first occurrence). */
-export function sectionsFromPlan(planSections: readonly PlanSection[], nextId: () => string, existingIds?: (string | undefined)[], moods?: (string[] | undefined)[]): Section[] {
+export function sectionsFromPlan(
+  planSections: readonly PlanSection[],
+  nextId: () => string,
+  existingIds?: (string | undefined)[],
+  moods?: (string[] | undefined)[],
+): Section[] {
   const out: Section[] = [];
   planSections.forEach((ps, i) => {
     const id = existingIds?.[i] ?? nextId();
-    const s: Section = { id, name: ps.name, kind: ps.kind, bars: Math.max(1, Math.round(ps.bars)), energy: ps.energy, purpose: ps.purpose };
+    const s: Section = {
+      id,
+      name: ps.name,
+      kind: ps.kind,
+      bars: Math.max(1, Math.round(ps.bars)),
+      energy: ps.energy,
+      purpose: ps.purpose,
+    };
     if (ps.energyEnd !== undefined) s.energyEnd = ps.energyEnd;
     if (ps.feel) s.feel = ps.feel;
     if (moods?.[i]?.length) s.mood = [...moods[i]!];
@@ -112,7 +138,12 @@ export function sectionsFromPlan(planSections: readonly PlanSection[], nextId: (
 }
 
 /** Fill song.chords for the given sections from the plan harmony (other sections untouched). */
-export function writePlanChords(song: Song, plan: CompositionPlan, seed: number, onlySectionIds?: Set<string>): void {
+export function writePlanChords(
+  song: Song,
+  plan: CompositionPlan,
+  seed: number,
+  onlySectionIds?: Set<string>,
+): void {
   const spans = sectionLayout(song);
   const keep = song.chords.filter((c) => {
     const span = spans.find((s) => c.tick >= s.startTick && c.tick < s.endTick);
@@ -124,7 +155,13 @@ export function writePlanChords(song: Song, plan: CompositionPlan, seed: number,
     const ps = plan.sections[i];
     const key = keyAtBar(song, span.startBar);
     const harmony = ps?.harmony?.length ? ps.harmony : [formatChordSymbol(tonicChordSpec(key), key)];
-    const evs = chordsForPlanSection(song, span, harmony, key, new IdFactory(seed, `chords/${span.section.id}`));
+    const evs = chordsForPlanSection(
+      song,
+      span,
+      harmony,
+      key,
+      new IdFactory(seed, `chords/${span.section.id}`),
+    );
     fresh.push(...evs);
     span.section.progression = progressionRomans(harmony, key);
     span.section.harmonicRhythm = harmonicRhythmOf(evs.length, span.section.bars);
@@ -135,7 +172,13 @@ export function writePlanChords(song: Song, plan: CompositionPlan, seed: number,
 function shiftForStructure(song: Song, oldSpans: SectionSpan[], newSpans: SectionSpan[]): void {
   const byId = new Map(newSpans.map((s) => [s.section.id, s]));
   const unchanged =
-    oldSpans.length === newSpans.length && oldSpans.every((o, i) => o.section.id === newSpans[i].section.id && o.startTick === newSpans[i].startTick && o.endTick === newSpans[i].endTick);
+    oldSpans.length === newSpans.length &&
+    oldSpans.every(
+      (o, i) =>
+        o.section.id === newSpans[i].section.id &&
+        o.startTick === newSpans[i].startTick &&
+        o.endTick === newSpans[i].endTick,
+    );
   if (unchanged) return;
   const remap = (tick: number): number | null => {
     const os = oldSpans.find((s) => tick >= s.startTick && tick < s.endTick);
@@ -185,10 +228,13 @@ export function applyPlanToSong(song: Song, plan: CompositionPlan): Song {
   const seed = song.generation?.seed ?? 1;
   const locks = song.locks ?? {};
   if (!isLocked(locks, LockKeys.tempo) && plan.tempo > 0) {
-    next.tempoMap = next.tempoMap.length ? next.tempoMap.map((t, i) => (i === 0 ? { ...t, tick: 0, bpm: plan.tempo } : t)) : [{ tick: 0, bpm: plan.tempo }];
+    next.tempoMap = next.tempoMap.length
+      ? next.tempoMap.map((t, i) => (i === 0 ? { ...t, tick: 0, bpm: plan.tempo } : t))
+      : [{ tick: 0, bpm: plan.tempo }];
   }
   if (!isLocked(locks, LockKeys.key) && plan.key) next.keyMap = [{ bar: 0, key: { ...plan.key } }];
-  if (!isLocked(locks, LockKeys.meter) && plan.meter) next.meterMap = [{ bar: 0, numerator: plan.meter.numerator, denominator: plan.meter.denominator }];
+  if (!isLocked(locks, LockKeys.meter) && plan.meter)
+    next.meterMap = [{ bar: 0, numerator: plan.meter.numerator, denominator: plan.meter.denominator }];
 
   const oldSpans = sectionLayout(song);
   const structureLocked = isLocked(locks, LockKeys.structure);
@@ -199,7 +245,9 @@ export function applyPlanToSong(song: Song, plan: CompositionPlan): Song {
     // n-th occurrence of the same kind. Ids of removed sections are never handed out again.
     const taken = new Set<string>();
     const existing: (string | undefined)[] = planSections.map((ps) => {
-      const m = song.sections.find((s) => !taken.has(s.id) && s.name === ps.name && s.kind === ps.kind) ?? song.sections.find((s) => !taken.has(s.id) && s.name === ps.name);
+      const m =
+        song.sections.find((s) => !taken.has(s.id) && s.name === ps.name && s.kind === ps.kind) ??
+        song.sections.find((s) => !taken.has(s.id) && s.name === ps.name);
       if (m) taken.add(m.id);
       return m?.id;
     });
@@ -218,7 +266,12 @@ export function applyPlanToSong(song: Song, plan: CompositionPlan): Song {
       used.add(id);
       return id;
     };
-    const fresh = sectionsFromPlan(planSections, nextId, existing, existing.map((id) => song.sections.find((x) => x.id === id)?.mood));
+    const fresh = sectionsFromPlan(
+      planSections,
+      nextId,
+      existing,
+      existing.map((id) => song.sections.find((x) => x.id === id)?.mood),
+    );
     next.sections = fresh;
   } else {
     next.sections = next.sections.map((s, i) => {
@@ -235,12 +288,24 @@ export function applyPlanToSong(song: Song, plan: CompositionPlan): Song {
   shiftForStructure(next, oldSpans, newSpans);
 
   // Harmony: sections whose chords are locked keep their (moved) chords; the rest follow the plan.
-  const lockedChordSections = new Set(next.sections.filter((s) => isChordSectionLocked(next, s.id)).map((s) => s.id));
+  const lockedChordSections = new Set(
+    next.sections.filter((s) => isChordSectionLocked(next, s.id)).map((s) => s.id),
+  );
   const planIndexById = new Map(next.sections.map((s, i) => [s.id, i]));
   const unlocked = new Set(next.sections.filter((s) => !lockedChordSections.has(s.id)).map((s) => s.id));
   const alignedPlan: CompositionPlan = {
     ...plan,
-    sections: next.sections.map((s) => planSections[planIndexById.get(s.id) ?? -1] ?? { name: s.name, kind: s.kind, bars: s.bars, harmony: [], energy: s.energy, purpose: s.purpose ?? '' }),
+    sections: next.sections.map(
+      (s) =>
+        planSections[planIndexById.get(s.id) ?? -1] ?? {
+          name: s.name,
+          kind: s.kind,
+          bars: s.bars,
+          harmony: [],
+          energy: s.energy,
+          purpose: s.purpose ?? '',
+        },
+    ),
   };
   writePlanChords(next, alignedPlan, seed, unlocked);
   // Drop chord events that no longer fall inside the song (e.g. after shortening).
@@ -253,7 +318,10 @@ export function applyPlanToSong(song: Song, plan: CompositionPlan): Song {
 }
 
 /** Meter at a section's first bar (for generators that need it before a song exists). */
-export function meterOfSpan(song: Pick<Song, 'ppq' | 'meterMap' | 'tempoMap'>, span: SectionSpan): { numerator: number; denominator: number } {
+export function meterOfSpan(
+  song: Pick<Song, 'ppq' | 'meterMap' | 'tempoMap'>,
+  span: SectionSpan,
+): { numerator: number; denominator: number } {
   const m = meterAtBar(song, span.startBar);
   return { numerator: m.numerator, denominator: m.denominator };
 }

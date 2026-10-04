@@ -1,4 +1,13 @@
-import type { ChordSpec, EditSelection, KeySignature, MusicOperation, Note, NoteTransform, Song, Track } from '../ir/types';
+import type {
+  ChordSpec,
+  EditSelection,
+  KeySignature,
+  MusicOperation,
+  Note,
+  NoteTransform,
+  Song,
+  Track,
+} from '../ir/types';
 import { deriveRng, type Rng } from '../util/random';
 import { barToTick, musicalToTick, sectionLayout, type SectionSpan } from '../timing';
 import { LockKeys, isChordSectionLocked, isLocked } from '../locks';
@@ -48,7 +57,19 @@ import {
   chordSlots,
   barIndex,
 } from './op-helpers';
-import { ambiguousChord, brightenChord, chordChangeText, darkenChord, darkerMode, relaxChord, romanOf, sameChord, scaleMapFn, spellChord, tenseChord } from './harmony';
+import {
+  ambiguousChord,
+  brightenChord,
+  chordChangeText,
+  darkenChord,
+  darkerMode,
+  relaxChord,
+  romanOf,
+  sameChord,
+  scaleMapFn,
+  spellChord,
+  tenseChord,
+} from './harmony';
 import type { EditInterpretation } from './types';
 import { sectionAnalysisKey } from './theory-explain';
 
@@ -103,9 +124,18 @@ const INTENT_RULES: { id: EditIntentId; re: RegExp }[] = [
     id: 'repitch',
     re: /\bkeep (?:the )?(?:same )?rhythm\b.*?\b(?:change|new|different|other)\b.*?\b(?:pitch(?:es)?|notes|melody)\b|\bsame rhythm\b.*?\b(?:different|new|other)\b(?: (?:pitch(?:es)?|notes))?|\b(?:different|new) (?:pitches|notes)\b|\bchange (?:the )?(?:pitches|notes)\b|\bre-?pitch\b/,
   },
-  { id: 'rerhythm', re: /\bkeep (?:the )?(?:same )?(?:pitches|notes)\b.*?\bchange (?:the )?rhythm\b|\b(?:new|different) rhythm\b|\bchange the rhythm\b/ },
-  { id: 'answer', re: /\banswer(?:s|ing)?\b|\bcall-and-response\b|\brespond(?:s|ing)? to\b|\b(?:instead of|rather than|stop|without) doubl(?:e|es|ing)\b/ },
-  { id: 'double-octave', re: /\bdoubl(?:e|ed|ing)\b.*?\boctaves?(?: (?:higher|lower|up|down|above|below))?\b|\boctave doubl(?:e|ing)\b|\badd (?:an )?octave (?:above|below|higher|lower|up|down)\b/ },
+  {
+    id: 'rerhythm',
+    re: /\bkeep (?:the )?(?:same )?(?:pitches|notes)\b.*?\bchange (?:the )?rhythm\b|\b(?:new|different) rhythm\b|\bchange the rhythm\b/,
+  },
+  {
+    id: 'answer',
+    re: /\banswer(?:s|ing)?\b|\bcall-and-response\b|\brespond(?:s|ing)? to\b|\b(?:instead of|rather than|stop|without) doubl(?:e|es|ing)\b/,
+  },
+  {
+    id: 'double-octave',
+    re: /\bdoubl(?:e|ed|ing)\b.*?\boctaves?(?: (?:higher|lower|up|down|above|below))?\b|\boctave doubl(?:e|ing)\b|\badd (?:an )?octave (?:above|below|higher|lower|up|down)\b/,
+  },
   {
     id: 'harmonize',
     re: /\bharmoni[sz](?:e|ed|ation)\b(?:[^,]*?\b(?:thirds?|sixths?|tenths?)(?: (?:above|below|higher|lower|up|down))?\b)?|\badd (?:a )?harmony(?: line)?(?:[^,]*?\b(?:third|sixth|tenth)(?: (?:above|below|higher|lower|up|down))?\b)?|\bin (?:parallel )?(?:thirds|sixths|tenths)(?: (?:above|below))?\b/,
@@ -116,7 +146,10 @@ const INTENT_RULES: { id: EditIntentId; re: RegExp }[] = [
   },
   { id: 'half-time', re: /\bhalf[\s-]?time\b|\bhalf speed\b/ },
   { id: 'double-time', re: /\bdouble[\s-]?time\b|\btwice as fast\b|\bdouble speed\b/ },
-  { id: 'less-tension', re: /\bless (?:tension|tense|dissonant|dissonance)\b|\b(?:release|resolve|reduce) (?:the )?tension\b|\bmore (?:stable|consonant|resolved)\b|\brelax(?:ed)?\b/ },
+  {
+    id: 'less-tension',
+    re: /\bless (?:tension|tense|dissonant|dissonance)\b|\b(?:release|resolve|reduce) (?:the )?tension\b|\bmore (?:stable|consonant|resolved)\b|\brelax(?:ed)?\b/,
+  },
   {
     id: 'tension',
     re: /\b(?:add|more|build|increase|create|adding)\b[^,]*?\btension\b|\btense(?:r)?\b|\bsuspense(?:ful)?\b|\bmore dissonan(?:t|ce)\b|\bunresolved\b|\brestless\b|\bmore urgent\b|\bbuild(?:[\s-]?up| it up)\b|\btension\b/,
@@ -137,35 +170,86 @@ const INTENT_RULES: { id: EditIntentId; re: RegExp }[] = [
     id: 'brighter',
     re: /\bhapp(?:y|ier)\b|\bbright(?:er)?\b|\buplifting\b|\bcheerful\b|\bjoyful\b|\bmore (?:hopeful|positive|optimistic)\b|\bsunn(?:y|ier)\b|\bmore major\b|\bmajor (?:key|feel|mode)\b|\bin major\b|\bupbeat\b/,
   },
-  { id: 'expressive', re: /\bmore (?:emotional|expressive|dynamic|feeling|emotion|passionate|heartfelt|musical)\b|\bwith (?:more )?(?:feeling|emotion|expression)\b|\bemotional\b|\bexpressive\b/ },
-  { id: 'flatten-dynamics', re: /\bless dynamic\b|\beven out (?:the )?(?:velocit(?:y|ies)|dynamics)\b|\bmore (?:even|consistent)(?: velocit(?:y|ies)| dynamics)?\b|\bflatten (?:the )?dynamics\b|\bsame velocity\b/ },
-  { id: 'crescendo', re: /\bcrescendo\b|\bget(?:ting)? louder\b|\bswell\b|\bfade[\s-]?in\b|\bramp up\b|\bbuild in volume\b/ },
-  { id: 'decrescendo', re: /\bdecrescendo\b|\bdiminuendo\b|\bfade[\s-]?(?:out|away)\b|\bget(?:ting)? quieter\b|\bdie (?:down|away)\b/ },
-  { id: 'accent', re: /\baccent(?:uate)? (?:the )?(?:downbeats?|beats?|first beat|ones)\b|\bemphasi[sz]e the (?:downbeats?|beat)\b|\baccents\b/ },
+  {
+    id: 'expressive',
+    re: /\bmore (?:emotional|expressive|dynamic|feeling|emotion|passionate|heartfelt|musical)\b|\bwith (?:more )?(?:feeling|emotion|expression)\b|\bemotional\b|\bexpressive\b/,
+  },
+  {
+    id: 'flatten-dynamics',
+    re: /\bless dynamic\b|\beven out (?:the )?(?:velocit(?:y|ies)|dynamics)\b|\bmore (?:even|consistent)(?: velocit(?:y|ies)| dynamics)?\b|\bflatten (?:the )?dynamics\b|\bsame velocity\b/,
+  },
+  {
+    id: 'crescendo',
+    re: /\bcrescendo\b|\bget(?:ting)? louder\b|\bswell\b|\bfade[\s-]?in\b|\bramp up\b|\bbuild in volume\b/,
+  },
+  {
+    id: 'decrescendo',
+    re: /\bdecrescendo\b|\bdiminuendo\b|\bfade[\s-]?(?:out|away)\b|\bget(?:ting)? quieter\b|\bdie (?:down|away)\b/,
+  },
+  {
+    id: 'accent',
+    re: /\baccent(?:uate)? (?:the )?(?:downbeats?|beats?|first beat|ones)\b|\bemphasi[sz]e the (?:downbeats?|beat)\b|\baccents\b/,
+  },
   { id: 'double-octave', re: /\boctave (?:doubling|double)\b/ },
   {
     id: 'transpose',
     re: /\btranspose\b|\b(?:up|down|raise|lower|drop|shift|move)\b[^,]*?\b(?:\d+\s*)?(?:octaves?|semi-?tones?|half[\s-]?steps?|whole[\s-]?steps?|scale steps?|steps?|tones?|second|third|fourth|fifth|sixth|seventh)\b|\b(?:an? )?octave (?:up|down|higher|lower)\b|\ban octave\b/,
   },
-  { id: 'louder', re: /\blouder\b|\bmore (?:volume|forceful|powerful|aggressive|intense)\b|\bstronger\b|\bharder\b|\bincrease (?:the )?velocit(?:y|ies)\b|\bturn(?: it)? up\b|\bboost\b|\bforte\b|\baggressive\b|\bintense\b|\bpunch(?:y|ier)\b/ },
+  {
+    id: 'louder',
+    re: /\blouder\b|\bmore (?:volume|forceful|powerful|aggressive|intense)\b|\bstronger\b|\bharder\b|\bincrease (?:the )?velocit(?:y|ies)\b|\bturn(?: it)? up\b|\bboost\b|\bforte\b|\baggressive\b|\bintense\b|\bpunch(?:y|ier)\b/,
+  },
   {
     id: 'softer',
     re: /\bsofter\b|\bquieter\b|\bgentler\b|\bmore (?:gentle|gently|delicate|subtle)\b|\breduce (?:the )?velocit(?:y|ies)\b|\bdecrease (?:the )?velocit(?:y|ies)\b|\bless loud\b|\bturn(?: it)? down\b|\bpianissimo\b|\bsoft\b|\bquiet\b|\bgentle\b|\bgently\b/,
   },
   { id: 'staccato', re: /\bstaccato\b|\bdetached\b|\bchoppy\b|\bplucky\b|\bspiccato\b|\bshort and punchy\b/ },
-  { id: 'legato', re: /\blegato\b|\bsmooth(?:er)?\b|\bconnected\b|\bconnect the notes\b|\bflowing\b|\bslurred\b|\bsustain(?:ed)?\b|\btie the notes\b/ },
-  { id: 'quantize', re: /\bquanti[sz](?:e|ed|ation)\b|\btight(?:en|er)\b|\bon the grid\b|\bfix the timing\b|\bmore precise\b|\bless sloppy\b|\bstraighten (?:up )?the timing\b|\bin time\b/ },
-  { id: 'humanize', re: /\bhumani[sz](?:e|ed)\b|\bmore human\b|\bloos(?:e|en|er)\b|\bless (?:robotic|mechanical|quantized|stiff|rigid)\b|\bmore natural\b|\bsloppier\b|\blaid[\s-]?back\b/ },
-  { id: 'straighten', re: /\bstraighten\b|\bless swing(?:y)?\b|\bno swing\b|\bremove (?:the )?swing\b|\bunswing\b|\bstraight(?:er)? (?:eighths|8ths|feel|rhythm|time|sixteenths|16ths)\b|\bstraight\b/ },
+  {
+    id: 'legato',
+    re: /\blegato\b|\bsmooth(?:er)?\b|\bconnected\b|\bconnect the notes\b|\bflowing\b|\bslurred\b|\bsustain(?:ed)?\b|\btie the notes\b/,
+  },
+  {
+    id: 'quantize',
+    re: /\bquanti[sz](?:e|ed|ation)\b|\btight(?:en|er)\b|\bon the grid\b|\bfix the timing\b|\bmore precise\b|\bless sloppy\b|\bstraighten (?:up )?the timing\b|\bin time\b/,
+  },
+  {
+    id: 'humanize',
+    re: /\bhumani[sz](?:e|ed)\b|\bmore human\b|\bloos(?:e|en|er)\b|\bless (?:robotic|mechanical|quantized|stiff|rigid)\b|\bmore natural\b|\bsloppier\b|\blaid[\s-]?back\b/,
+  },
+  {
+    id: 'straighten',
+    re: /\bstraighten\b|\bless swing(?:y)?\b|\bno swing\b|\bremove (?:the )?swing\b|\bunswing\b|\bstraight(?:er)? (?:eighths|8ths|feel|rhythm|time|sixteenths|16ths)\b|\bstraight\b/,
+  },
   { id: 'swing', re: /\bswing(?:ing|y|ier)?\b|\bshuffle\b|\bswung\b|\btriplet feel\b/ },
-  { id: 'less-syncopation', re: /\bless syncopat(?:ed|ion)\b|\bon the beat\b|\bsquare(?:r)?\b|\bstraightforward rhythm\b|\bno syncopation\b/ },
-  { id: 'syncopate', re: /\bsyncopat(?:ed|e|ion)\b|\bfunk(?:y|ier)\b|\bpush(?:es|ed)? (?:the )?(?:beat|downbeats|chords)\b|\banticipat(?:e|ions?)\b|\boff[\s-]?beats?\b|\bgroov(?:y|ier)\b|\bmore groove\b/ },
-  { id: 'invert', re: /\binvert(?:ed)?\b|\bupside[\s-]?down\b|\bmirror(?:ed)?\b|\bflip the (?:melody|contour|line)\b|\bmelodic inversion\b/ },
+  {
+    id: 'less-syncopation',
+    re: /\bless syncopat(?:ed|ion)\b|\bon the beat\b|\bsquare(?:r)?\b|\bstraightforward rhythm\b|\bno syncopation\b/,
+  },
+  {
+    id: 'syncopate',
+    re: /\bsyncopat(?:ed|e|ion)\b|\bfunk(?:y|ier)\b|\bpush(?:es|ed)? (?:the )?(?:beat|downbeats|chords)\b|\banticipat(?:e|ions?)\b|\boff[\s-]?beats?\b|\bgroov(?:y|ier)\b|\bmore groove\b/,
+  },
+  {
+    id: 'invert',
+    re: /\binvert(?:ed)?\b|\bupside[\s-]?down\b|\bmirror(?:ed)?\b|\bflip the (?:melody|contour|line)\b|\bmelodic inversion\b/,
+  },
   { id: 'reverse', re: /\brevers(?:e|ed)\b|\bretrograde\b|\bbackwards?\b/ },
-  { id: 'fill', re: /\b(?:add|put|insert|more) (?:a |some )?(?:drum |tom )?fills?\b|\bfill at the end\b|\bfills?\b/ },
-  { id: 'delete', re: /\bremove\b|\bdelete\b|\bclear\b|\berase\b|\bget rid of\b|\bcut out\b|\btake out\b|\bdrop (?:the|these|all)\b|\bmute (?:these|the selected)\b/ },
-  { id: 'shorter', re: /\bshort(?:er)?(?: notes)?\b|\bclip (?:the )?notes\b|\bcut (?:the )?notes short\b|\btrim (?:the )?notes\b/ },
-  { id: 'longer', re: /\blong(?:er)?(?: notes)?\b|\bhold (?:the )?notes(?: longer)?\b|\blet (?:the )?notes ring\b/ },
+  {
+    id: 'fill',
+    re: /\b(?:add|put|insert|more) (?:a |some )?(?:drum |tom )?fills?\b|\bfill at the end\b|\bfills?\b/,
+  },
+  {
+    id: 'delete',
+    re: /\bremove\b|\bdelete\b|\bclear\b|\berase\b|\bget rid of\b|\bcut out\b|\btake out\b|\bdrop (?:the|these|all)\b|\bmute (?:these|the selected)\b/,
+  },
+  {
+    id: 'shorter',
+    re: /\bshort(?:er)?(?: notes)?\b|\bclip (?:the )?notes\b|\bcut (?:the )?notes short\b|\btrim (?:the )?notes\b/,
+  },
+  {
+    id: 'longer',
+    re: /\blong(?:er)?(?: notes)?\b|\bhold (?:the )?notes(?: longer)?\b|\blet (?:the )?notes ring\b/,
+  },
   { id: 'register-up', re: /\bhigher(?: register)?\b|\bup (?:higher|in register)\b/ },
   { id: 'register-down', re: /\blower(?: register)?\b/ },
 ];
@@ -217,7 +301,6 @@ export const EDIT_HELP =
 const NO_CHORDS_RE =
   /\b(?:do not|not|without|never|no) (?:change|changing|touch|touching|alter|altering|modify|modifying|messing with)\b[^,]*?\b(?:chords|harmony|progression)\b|\bkeep (?:the )?(?:same )?(?:chords|harmony|progression)\b|\bsame chords\b|\b(?:chords|harmony) (?:stay|stays|unchanged|the same)\b/;
 
-
 // ---------------------------------------------------------------------------
 // Parsing
 // ---------------------------------------------------------------------------
@@ -245,13 +328,19 @@ export function detectEditIntents(clause: string): ParsedIntent[] {
     work = work.slice(0, m.index) + ' '.repeat(m[0].length) + work.slice(m.index + m[0].length);
   }
   // Transposition implies no register intent from the same words.
-  if (found.some((f) => f.id === 'transpose')) return found.filter((f) => f.id !== 'register-up' && f.id !== 'register-down').sort((a, b) => a.index - b.index);
+  if (found.some((f) => f.id === 'transpose'))
+    return found
+      .filter((f) => f.id !== 'register-up' && f.id !== 'register-down')
+      .sort((a, b) => a.index - b.index);
   return found.sort((a, b) => a.index - b.index);
 }
 
 function parseClauses(text: string): ParsedClause[] {
   // Multi-clause idioms are detected on the whole text first, so "keep the rhythm but change the pitches" stays one intent.
-  const whole = /\bkeep (?:the )?(?:same )?rhythm\b.*?\b(?:change|new|different)\b.*?\b(?:pitch(?:es)?|notes|melody)\b|\bkeep (?:the )?(?:same )?(?:pitches|notes)\b.*?\bchange (?:the )?rhythm\b/.exec(text);
+  const whole =
+    /\bkeep (?:the )?(?:same )?rhythm\b.*?\b(?:change|new|different)\b.*?\b(?:pitch(?:es)?|notes|melody)\b|\bkeep (?:the )?(?:same )?(?:pitches|notes)\b.*?\bchange (?:the )?rhythm\b/.exec(
+      text,
+    );
   const clauses: ParsedClause[] = [];
   let rest = text;
   if (whole) {
@@ -320,7 +409,9 @@ function defaultTracksFor(song: Song, intent: EditIntentId, melody?: Track): Tra
 
 function buildRange(song: Song): TickRange[] {
   const layout = sectionLayout(song);
-  const pre = layout.find((s) => s.section.kind === 'pre-chorus' || s.section.kind === 'build') ?? layout.find((s) => s.section.kind === 'bridge');
+  const pre =
+    layout.find((s) => s.section.kind === 'pre-chorus' || s.section.kind === 'build') ??
+    layout.find((s) => s.section.kind === 'bridge');
   if (pre) return [{ startTick: pre.startTick, endTick: pre.endTick }];
   return [{ startTick: 0, endTick: songEndTick(song) }];
 }
@@ -336,7 +427,12 @@ function takeBars(song: Song, ranges: TickRange[], n: number, fromEnd: boolean):
   }
   const first = merged[0];
   const startBar = barIndex(song, first.startTick);
-  return [{ startTick: first.startTick, endTick: Math.min(barToTick(song, startBar + n), merged[merged.length - 1].endTick) }];
+  return [
+    {
+      startTick: first.startTick,
+      endTick: Math.min(barToTick(song, startBar + n), merged[merged.length - 1].endTick),
+    },
+  ];
 }
 
 function resolveScope(
@@ -375,7 +471,10 @@ function resolveScope(
     explicitTracks = true;
   } else {
     tracks = defaultTracksFor(song, primary, melody);
-    trackLabel = tracks.length === song.tracks.filter((t) => t.kind === 'midi').length && tracks.length > 1 ? 'all tracks' : tracks.map((t) => t.name).join(', ');
+    trackLabel =
+      tracks.length === song.tracks.filter((t) => t.kind === 'midi').length && tracks.length > 1
+        ? 'all tracks'
+        : tracks.map((t) => t.name).join(', ');
   }
 
   // Time ranges.
@@ -392,10 +491,15 @@ function resolveScope(
   let ranges: TickRange[];
   let fromSelection = false;
   if (bar?.kind === 'range') {
-    ranges = [{ startTick: musicalToTick(song, bar.startBar, 1), endTick: musicalToTick(song, bar.endBar + 1, 1) }];
+    ranges = [
+      { startTick: musicalToTick(song, bar.startBar, 1), endTick: musicalToTick(song, bar.endBar + 1, 1) },
+    ];
   } else if (bar && (bar.kind === 'last' || bar.kind === 'first' || bar.kind === 'count')) {
     const within =
-      base ?? selR ?? (prev && prev.rangeLabel !== 'the whole song' ? prev.ranges : null) ?? (bar.kind === 'count' && primary === 'tension' ? buildRange(song) : whole);
+      base ??
+      selR ??
+      (prev && prev.rangeLabel !== 'the whole song' ? prev.ranges : null) ??
+      (bar.kind === 'count' && primary === 'tension' ? buildRange(song) : whole);
     if (!base && selR && within === selR) fromSelection = true;
     ranges = takeBars(song, within, bar.bars, bar.kind !== 'first');
   } else if (base) ranges = base;
@@ -405,14 +509,24 @@ function resolveScope(
     fromSelection = true;
   } else ranges = whole;
   ranges = mergeRanges(ranges);
-  const wholeSong = ranges.length === 1 && ranges[0].startTick === 0 && ranges[0].endTick >= songEndTick(song);
+  const wholeSong =
+    ranges.length === 1 && ranges[0].startTick === 0 && ranges[0].endTick >= songEndTick(song);
   let rangeLabel = wholeSong ? 'the whole song' : describeRanges(song, ranges);
-  const named = sectionsOverlapping(song, ranges).filter((s) => ranges.some((r) => r.startTick <= s.startTick && r.endTick >= s.endTick));
-  if (!wholeSong && named.length && rangesLength(ranges) === named.reduce((n, s) => n + (s.endTick - s.startTick), 0)) {
+  const named = sectionsOverlapping(song, ranges).filter((s) =>
+    ranges.some((r) => r.startTick <= s.startTick && r.endTick >= s.endTick),
+  );
+  if (
+    !wholeSong &&
+    named.length &&
+    rangesLength(ranges) === named.reduce((n, s) => n + (s.endTick - s.startTick), 0)
+  ) {
     rangeLabel = `${named.map((s) => s.section.name).join(', ')} (${describeRanges(song, ranges)})`;
     if (!sectionIds.length) sectionIds = named.map((s) => s.section.id);
   }
-  const noteIds = !secMentions.length && !bar && selection.noteIds?.length && (fromSelection || !selR) ? new Set(selection.noteIds) : undefined;
+  const noteIds =
+    !secMentions.length && !bar && selection.noteIds?.length && (fromSelection || !selR)
+      ? new Set(selection.noteIds)
+      : undefined;
   return {
     tracks,
     trackLabel,
@@ -488,7 +602,11 @@ class EditState {
   /** Distinct harmonic keys of the sections a set of ranges touches (in order). */
   harmonicKeys(ranges: TickRange[]): KeySignature[] {
     const out: KeySignature[] = [];
-    const ticks = ranges.length ? this.layout.filter((sp) => ranges.some((r) => r.startTick < sp.endTick && r.endTick > sp.startTick)).map((sp) => Math.max(sp.startTick, ranges[0].startTick)) : [0];
+    const ticks = ranges.length
+      ? this.layout
+          .filter((sp) => ranges.some((r) => r.startTick < sp.endTick && r.endTick > sp.startTick))
+          .map((sp) => Math.max(sp.startTick, ranges[0].startTick))
+      : [0];
     for (const t of ticks.length ? ticks : [ranges[0]?.startTick ?? 0]) {
       const k = this.harmonicKey(t);
       if (!out.some((x) => x.tonic === k.tonic && x.mode === k.mode)) out.push(k);
@@ -518,7 +636,12 @@ class EditState {
   }
 }
 
-function scopeNotes(st: EditState, w: TrackWork, scope: ResolvedScope, opts: { drumPitches?: number[] } = {}): { notes: WorkNote[]; locked: number } {
+function scopeNotes(
+  st: EditState,
+  w: TrackWork,
+  scope: ResolvedScope,
+  opts: { drumPitches?: number[] } = {},
+): { notes: WorkNote[]; locked: number } {
   const out: WorkNote[] = [];
   let locked = 0;
   const drum = opts.drumPitches ?? (isDrumTrack(w.track) ? scope.drumPitches : undefined);
@@ -555,7 +678,13 @@ function commit(st: EditState, w: TrackWork, before: WorkNote[], after: WorkNote
   w.work = sortWork([...rest, ...accepted]);
 }
 
-function ctxFor(st: EditState, w: TrackWork, scope: ResolvedScope, key: string, amount: number): T.TransformContext {
+function ctxFor(
+  st: EditState,
+  w: TrackWork,
+  scope: ResolvedScope,
+  key: string,
+  amount: number,
+): T.TransformContext {
   const { low, high } = trackPitchRange(w.track);
   return {
     song: st.song,
@@ -603,10 +732,20 @@ function perTrack(
     const { notes, locked } = scopeNotes(st, w, scope);
     if (locked) {
       const secs = lockedSectionNames(st.song, track, scope.ranges);
-      st.lockNotes.add(`${track.name}${secs.length ? ` (${secs.join(', ')})` : ''}: ${locked} locked note${locked === 1 ? '' : 's'} left untouched`);
+      st.lockNotes.add(
+        `${track.name}${secs.length ? ` (${secs.join(', ')})` : ''}: ${locked} locked note${locked === 1 ? '' : 's'} left untouched`,
+      );
     }
-    if (!notes.length && !(intent === 'fill' || (intent === 'busier' && isDrumTrack(track)) || (intent === 'tension' && isDrumTrack(track)))) {
-      if (!locked && scope.explicitTracks) st.lines.push(`${track.name} (${scope.rangeLabel}): no notes to change.`);
+    if (
+      !notes.length &&
+      !(
+        intent === 'fill' ||
+        (intent === 'busier' && isDrumTrack(track)) ||
+        (intent === 'tension' && isDrumTrack(track))
+      )
+    ) {
+      if (!locked && scope.explicitTracks)
+        st.lines.push(`${track.name} (${scope.rangeLabel}): no notes to change.`);
       continue;
     }
     const ctx = ctxFor(st, w, scope, intent, amount);
@@ -619,7 +758,11 @@ function perTrack(
         w.uniform = { ...opts.uniform };
         w.uniformIds = ids;
         w.uniformRanges = scope.noteIds ? undefined : scope.ranges;
-      } else if (w.uniformIds && w.uniformIds.length === ids.length && ids.every((id) => w.uniformIds!.includes(id))) {
+      } else if (
+        w.uniformIds &&
+        w.uniformIds.length === ids.length &&
+        ids.every((id) => w.uniformIds!.includes(id))
+      ) {
         w.uniform = mergeUniform(w.uniform, opts.uniform);
       } else w.nonUniform = true;
       if (notes.some((n) => !n.id)) w.nonUniform = true;
@@ -635,8 +778,18 @@ function mergeUniform(a: NoteTransform, b: NoteTransform): NoteTransform {
   const out: NoteTransform = { ...a };
   for (const [k, v] of Object.entries(b) as [keyof NoteTransform, number & string][]) {
     const cur = out[k];
-    if (typeof cur === 'number' && typeof v === 'number' && (k === 'transpose' || k === 'transpose_diatonic' || k === 'velocity_add' || k === 'time_shift_beats')) (out[k] as number) = cur + v;
-    else if (typeof cur === 'number' && typeof v === 'number' && (k === 'velocity_scale' || k === 'duration_scale')) (out[k] as number) = cur * v;
+    if (
+      typeof cur === 'number' &&
+      typeof v === 'number' &&
+      (k === 'transpose' || k === 'transpose_diatonic' || k === 'velocity_add' || k === 'time_shift_beats')
+    )
+      (out[k] as number) = cur + v;
+    else if (
+      typeof cur === 'number' &&
+      typeof v === 'number' &&
+      (k === 'velocity_scale' || k === 'duration_scale')
+    )
+      (out[k] as number) = cur * v;
     else (out[k] as unknown) = v;
   }
   return out;
@@ -656,7 +809,11 @@ function chordLockedAt(song: Song, tick: number): string | null {
 type HarmonicKind = 'darker' | 'brighter' | 'ambiguous' | 'tension' | 'relax' | 'simplify';
 
 /** Rewrite the chords whose onset lies in the scope; returns the old timeline. */
-function rewriteChords(st: EditState, scope: ResolvedScope, kind: HarmonicKind): { old: ChordSlot[]; changed: number; lines: string[] } {
+function rewriteChords(
+  st: EditState,
+  scope: ResolvedScope,
+  kind: HarmonicKind,
+): { old: ChordSlot[]; changed: number; lines: string[] } {
   const old = st.slots.map((s) => ({ ...s }));
   if (st.noChords) return { old, changed: 0, lines: [] };
   const firstLine = st.chordLines.length;
@@ -684,19 +841,35 @@ function rewriteChords(st: EditState, scope: ResolvedScope, kind: HarmonicKind):
       const nxt = old[old.indexOf(s) + 1]?.spec;
       spec = darkenChord(s.spec, key, nxt);
       if (sameChord(spec, s.spec) && !sameChord(darkenChord(s.spec, key), s.spec))
-        st.chordLines.push(`${spellChord(s.spec, key)} (${romanOf(s.spec, key)}) kept major — it resolves down a fifth to ${spellChord(nxt!, key)}, so the cadence still lands`);
-    }
-    else if (kind === 'brighter') spec = brightenChord(s.spec, key);
+        st.chordLines.push(
+          `${spellChord(s.spec, key)} (${romanOf(s.spec, key)}) kept major — it resolves down a fifth to ${spellChord(nxt!, key)}, so the cadence still lands`,
+        );
+    } else if (kind === 'brighter') spec = brightenChord(s.spec, key);
     else if (kind === 'ambiguous') {
       const a = ambiguousChord(s.spec, key, rng);
       spec = a.spec;
       label = a.label;
     } else if (kind === 'tension') spec = tenseChord(s.spec, key, rng);
     else if (kind === 'relax' || kind === 'simplify') spec = relaxChord(s.spec, key);
-    if (kind === 'tension' && s === lastAffected && s.duration >= 2 * (st.song.ppq ?? 480) && (spec.quality === '7' || spec.quality === '9' || spec.quality === '7b9')) {
+    if (
+      kind === 'tension' &&
+      s === lastAffected &&
+      s.duration >= 2 * (st.song.ppq ?? 480) &&
+      (spec.quality === '7' || spec.quality === '9' || spec.quality === '7b9')
+    ) {
       const half = Math.round(s.duration / 2);
-      next.push({ tick: s.tick, duration: half, spec: { root: spec.root, quality: '7sus4' }, sourceId: s.sourceId });
-      next.push({ tick: s.tick + half, duration: s.duration - half, spec: { root: spec.root, quality: '7' }, sourceId: s.sourceId });
+      next.push({
+        tick: s.tick,
+        duration: half,
+        spec: { root: spec.root, quality: '7sus4' },
+        sourceId: s.sourceId,
+      });
+      next.push({
+        tick: s.tick + half,
+        duration: s.duration - half,
+        spec: { root: spec.root, quality: '7' },
+        sourceId: s.sourceId,
+      });
       const susSpec: ChordSpec = { root: spec.root, quality: '7sus4' };
       const domSpec: ChordSpec = { root: spec.root, quality: '7' };
       st.chordLines.push(
@@ -716,22 +889,37 @@ function rewriteChords(st: EditState, scope: ResolvedScope, kind: HarmonicKind):
     const merged: ChordSlot[] = [];
     for (const s of next) {
       const last = merged[merged.length - 1];
-      if (last && inRanges(scope.ranges, s.tick) && s.duration < st.song.ppq && last.tick + last.duration === s.tick && !chordLockedAt(st.song, s.tick)) {
+      if (
+        last &&
+        inRanges(scope.ranges, s.tick) &&
+        s.duration < st.song.ppq &&
+        last.tick + last.duration === s.tick &&
+        !chordLockedAt(st.song, s.tick)
+      ) {
         last.duration += s.duration;
         changed++;
-        st.chordLines.push(`removed passing chord at ${describeRanges(st.song, [{ startTick: s.tick, endTick: s.tick + 1 }])}`);
+        st.chordLines.push(
+          `removed passing chord at ${describeRanges(st.song, [{ startTick: s.tick, endTick: s.tick + 1 }])}`,
+        );
         continue;
       }
       merged.push({ ...s });
     }
     st.slots = merged;
   } else st.slots = next;
-  for (const n of lockedNames) st.lockNotes.add(`Chords${n === 'song' ? '' : ` in ${n}`} are locked — harmony left unchanged there`);
+  for (const n of lockedNames)
+    st.lockNotes.add(`Chords${n === 'song' ? '' : ` in ${n}`} are locked — harmony left unchanged there`);
   return { old, changed, lines: st.chordLines.slice(firstLine) };
 }
 
 /** Refit every unlocked pitched track (optionally restricted) to the new chord timeline within the scope. */
-function refitTracks(st: EditState, scope: ResolvedScope, old: ChordSlot[], filter: (t: Track) => boolean, scaleMapAt?: (tick: number) => ((pc: number) => number) | undefined): string[] {
+function refitTracks(
+  st: EditState,
+  scope: ResolvedScope,
+  old: ChordSlot[],
+  filter: (t: Track) => boolean,
+  scaleMapAt?: (tick: number) => ((pc: number) => number) | undefined,
+): string[] {
   const touched: string[] = [];
   for (const track of st.song.tracks) {
     if (track.kind !== 'midi' || !isPitchedTrack(track) || !filter(track)) continue;
@@ -749,9 +937,18 @@ function refitTracks(st: EditState, scope: ResolvedScope, old: ChordSlot[], filt
   return touched;
 }
 
-function harmonicShade(st: EditState, scope: ResolvedScope, mood: 'darker' | 'brighter', amount: number, explicitTracks: boolean) {
+function harmonicShade(
+  st: EditState,
+  scope: ResolvedScope,
+  mood: 'darker' | 'brighter',
+  amount: number,
+  explicitTracks: boolean,
+) {
   const targets = scope.tracks.filter((t) => t.kind === 'midi');
-  const affectsTexture = !explicitTracks || scope.chordsMentioned || targets.filter(isPitchedTrack).length >= st.song.tracks.filter(isPitchedTrack).length;
+  const affectsTexture =
+    !explicitTracks ||
+    scope.chordsMentioned ||
+    targets.filter(isPitchedTrack).length >= st.song.tracks.filter(isPitchedTrack).length;
   const { old, changed, lines: chordLines } = rewriteChords(st, scope, mood);
   // Darker maps passing tones onto the darker mode; brighter is chord-local (no scale map).
   const targetOf = (k: KeySignature) => (mood === 'darker' ? darkerMode(k.mode) : null);
@@ -765,16 +962,24 @@ function harmonicShade(st: EditState, scope: ResolvedScope, mood: 'darker' | 'br
     .harmonicKeys(scope.ranges)
     .map((k) => ({ k, m: targetOf(k) }))
     .filter((x) => x.m && x.m !== x.k.mode)
-    .map((x) => `${spellPitchClass(x.k.tonic, x.k)} ${x.m === 'minor' || x.m === 'major' ? x.m : `${x.m![0].toUpperCase()}${x.m!.slice(1)}`}`);
+    .map(
+      (x) =>
+        `${spellPitchClass(x.k.tonic, x.k)} ${x.m === 'minor' || x.m === 'major' ? x.m : `${x.m![0].toUpperCase()}${x.m!.slice(1)}`}`,
+    );
   const modeText = modeLabels.length ? [...new Set(modeLabels)].join(' / ') : null;
   if (changed) {
     const others = refitTracks(st, scope, old, (t) => !targets.includes(t), scaleMapAt);
     st.lines.push(
       `Harmony (${scope.rangeLabel}): ${mood === 'darker' ? `borrowed from the parallel ${modeText ?? 'minor'} (modal interchange)` : modeText ? `brightened toward ${modeText}` : 'minor chords turned major (raised thirds)'}: ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`,
     );
-    if (others.length) st.lines.push(`Adjusted other parts so they agree with the new chords: ${others.join(', ')}.`);
-  } else if (!st.noChords && affectsTexture && !modeText) st.lines.push(`Harmony (${scope.rangeLabel}): no chords to ${mood === 'darker' ? 'darken' : 'brighten'}.`);
-  else if (st.noChords) st.lines.push('Chords left unchanged as requested — only the selected part was re-coloured.');
+    if (others.length)
+      st.lines.push(`Adjusted other parts so they agree with the new chords: ${others.join(', ')}.`);
+  } else if (!st.noChords && affectsTexture && !modeText)
+    st.lines.push(
+      `Harmony (${scope.rangeLabel}): no chords to ${mood === 'darker' ? 'darken' : 'brighten'}.`,
+    );
+  else if (st.noChords)
+    st.lines.push('Chords left unchanged as requested — only the selected part was re-coloured.');
   perTrack(
     st,
     scope,
@@ -782,14 +987,26 @@ function harmonicShade(st: EditState, scope: ResolvedScope, mood: 'darker' | 'br
     amount,
     (ctx, notes) => {
       if (ctx.isDrums) return T.shadeExpression(ctx, notes, mood);
-      const fitted = T.refitNotes(ctx, notes, old, st.slots, changed ? scaleMapAt : (tick) => {
-        // Chords unchanged (locked or kept): only colour passing tones so they don't fight the harmony.
-        const map = scaleMapAt(tick);
-        return map;
-      });
-      const shaded = ctx.isMelodic || !affectsTexture ? T.shadeExpression(ctx, fitted.notes, mood) : { notes: fitted.notes, summary: '' };
+      const fitted = T.refitNotes(
+        ctx,
+        notes,
+        old,
+        st.slots,
+        changed
+          ? scaleMapAt
+          : (tick) => {
+              // Chords unchanged (locked or kept): only colour passing tones so they don't fight the harmony.
+              const map = scaleMapAt(tick);
+              return map;
+            },
+      );
+      const shaded =
+        ctx.isMelodic || !affectsTexture
+          ? T.shadeExpression(ctx, fitted.notes, mood)
+          : { notes: fitted.notes, summary: '' };
       const parts = [
-        fitted.summary && `${mood === 'darker' ? fitted.summary.replace('re-pitched', 'lowered the 3rd/6th/7th degrees on') : fitted.summary}${modeText ? ` (${modeText})` : ''}`,
+        fitted.summary &&
+          `${mood === 'darker' ? fitted.summary.replace('re-pitched', 'lowered the 3rd/6th/7th degrees on') : fitted.summary}${modeText ? ` (${modeText})` : ''}`,
         shaded.summary,
       ].filter(Boolean);
       return { notes: shaded.notes, summary: parts.join('; ') || 'no notes needed to change' };
@@ -806,7 +1023,12 @@ export interface EditInterpreterOptions {
   seed?: number;
 }
 
-export function interpretEditInstruction(song: Song, instruction: string, selection: EditSelection = {}, opts: EditInterpreterOptions = {}): EditInterpretation {
+export function interpretEditInstruction(
+  song: Song,
+  instruction: string,
+  selection: EditSelection = {},
+  opts: EditInterpreterOptions = {},
+): EditInterpretation {
   const seed = opts.seed ?? song.generation?.seed ?? 1;
   const text = normalizeText(instruction);
   const clauses = parseClauses(text);
@@ -826,7 +1048,9 @@ export function interpretEditInstruction(song: Song, instruction: string, select
     if (!clause.intents.length) continue;
     const scope = resolveScope(song, clause, selection, prev, melody);
     if (scope.missingInstrument && !scope.tracks.length) {
-      st.lines.push(`There is no ${scope.missingInstrument} track in this song, so "${clause.text}" was skipped.`);
+      st.lines.push(
+        `There is no ${scope.missingInstrument} track in this song, so "${clause.text}" was skipped.`,
+      );
       for (const i of clause.intents) st.intents.push(i.id);
       prev = scope;
       continue;
@@ -841,13 +1065,26 @@ export function interpretEditInstruction(song: Song, instruction: string, select
   return finish(st, instruction);
 }
 
-function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: ResolvedScope, melody: Track | undefined, selection: EditSelection) {
+function applyIntent(
+  st: EditState,
+  id: EditIntentId,
+  clause: string,
+  scope: ResolvedScope,
+  melody: Track | undefined,
+  selection: EditSelection,
+) {
   const song = st.song;
   const amount = amountOf(clause);
   const label = INTENT_LABEL[id];
   switch (id) {
     case 'busier': {
-      const s = scope.chordsMentioned && !scope.explicitTracks ? { ...scope, tracks: song.tracks.filter((t) => isPitchedTrack(t) && !isMelodicTrack(t) && !isBassTrack(t)) } : scope;
+      const s =
+        scope.chordsMentioned && !scope.explicitTracks
+          ? {
+              ...scope,
+              tracks: song.tracks.filter((t) => isPitchedTrack(t) && !isMelodicTrack(t) && !isBassTrack(t)),
+            }
+          : scope;
       perTrack(st, s, id, amount, (ctx, notes) => T.busier(ctx, notes), { label });
       return;
     }
@@ -855,9 +1092,12 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
       if (scope.chordsMentioned && !scope.explicitTracks) {
         const { old, changed, lines: chordLines } = rewriteChords(st, scope, 'simplify');
         if (changed) {
-          st.lines.push(`Chords (${scope.rangeLabel}): simplified to plain diatonic triads — ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`);
+          st.lines.push(
+            `Chords (${scope.rangeLabel}): simplified to plain diatonic triads — ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`,
+          );
           const others = refitTracks(st, scope, old, (t) => !isMelodicTrack(t));
-          if (others.length) st.lines.push(`Accompaniment adjusted to the simpler chords: ${others.join(', ')}.`);
+          if (others.length)
+            st.lines.push(`Accompaniment adjusted to the simpler chords: ${others.join(', ')}.`);
         } else st.lines.push(`Chords (${scope.rangeLabel}): already simple triads.`);
         return;
       }
@@ -870,13 +1110,25 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
       return;
     case 'half-time':
     case 'double-time': {
-      perTrack(st, scope, id, amount, (ctx, notes) => (id === 'half-time' ? T.halfTime(ctx, notes) : T.doubleTime(ctx, notes)), { label });
+      perTrack(
+        st,
+        scope,
+        id,
+        amount,
+        (ctx, notes) => (id === 'half-time' ? T.halfTime(ctx, notes) : T.doubleTime(ctx, notes)),
+        { label },
+      );
       const coversDrums = scope.tracks.some(isDrumTrack) || !scope.explicitTracks;
       if (coversDrums && !isLocked(song.locks, LockKeys.structure)) {
         for (const sp of sectionLayout(song)) {
           if (!scope.ranges.some((r) => r.startTick <= sp.startTick && r.endTick >= sp.endTick)) continue;
           if (isLocked(song.locks, LockKeys.section(sp.section.id))) continue;
-          st.extraOps.push({ op: 'update_section', section: sp.section.id, changes: { feel: id }, reason: `${label} feel` });
+          st.extraOps.push({
+            op: 'update_section',
+            section: sp.section.id,
+            changes: { feel: id },
+            reason: `${label} feel`,
+          });
         }
       }
       return;
@@ -886,81 +1138,159 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
       if (harmonic) {
         const { old, changed, lines: chordLines } = rewriteChords(st, scope, 'tension');
         if (changed) {
-          st.lines.push(`Chords (${scope.rangeLabel}): added extensions and suspensions — ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`);
+          st.lines.push(
+            `Chords (${scope.rangeLabel}): added extensions and suspensions — ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`,
+          );
           const others = refitTracks(st, scope, old, (t) => !isMelodicTrack(t));
           if (others.length) st.lines.push(`Parts adjusted for the suspensions: ${others.join(', ')}.`);
         }
       }
-      const s = scope.tracks.length ? scope : { ...scope, tracks: song.tracks.filter((t) => t.kind === 'midi') };
+      const s = scope.tracks.length
+        ? scope
+        : { ...scope, tracks: song.tracks.filter((t) => t.kind === 'midi') };
       perTrack(st, s, id, amount, (ctx, notes) => T.addTension(ctx, notes), { label });
       return;
     }
     case 'less-tension': {
       const { old, changed, lines: chordLines } = rewriteChords(st, scope, 'relax');
       if (changed) {
-        st.lines.push(`Chords (${scope.rangeLabel}): back to stable diatonic triads — ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`);
+        st.lines.push(
+          `Chords (${scope.rangeLabel}): back to stable diatonic triads — ${chordLines.slice(0, 6).join('; ')}${chordLines.length > 6 ? '; …' : ''}.`,
+        );
         const others = refitTracks(st, scope, old, (t) => !isMelodicTrack(t));
         if (others.length) st.lines.push(`Accompaniment adjusted: ${others.join(', ')}.`);
       }
-      const s = scope.explicitTracks ? scope : { ...scope, tracks: song.tracks.filter((t) => t.kind === 'midi') };
-      perTrack(st, s, id, amount, (ctx, notes) => T.velocityRamp(ctx, notes, -4, -10), { label, silentSummary: 'eased the dynamics back (gentle decrescendo)' });
+      const s = scope.explicitTracks
+        ? scope
+        : { ...scope, tracks: song.tracks.filter((t) => t.kind === 'midi') };
+      perTrack(st, s, id, amount, (ctx, notes) => T.velocityRamp(ctx, notes, -4, -10), {
+        label,
+        silentSummary: 'eased the dynamics back (gentle decrescendo)',
+      });
       return;
     }
     case 'ambiguous': {
       const { old, changed, lines: chordLines } = rewriteChords(st, scope, 'ambiguous');
       if (!changed) {
-        st.lines.push(st.noChords ? 'Chords were not changed (you asked to keep them).' : `Chords (${scope.rangeLabel}): nothing to change (no chords, or they are locked/already suspended).`);
+        st.lines.push(
+          st.noChords
+            ? 'Chords were not changed (you asked to keep them).'
+            : `Chords (${scope.rangeLabel}): nothing to change (no chords, or they are locked/already suspended).`,
+        );
         return;
       }
-      st.lines.push(`Chords (${scope.rangeLabel}): removed or blurred the defining thirds — ${chordLines.slice(0, 8).join('; ')}${chordLines.length > 8 ? '; …' : ''}.`);
+      st.lines.push(
+        `Chords (${scope.rangeLabel}): removed or blurred the defining thirds — ${chordLines.slice(0, 8).join('; ')}${chordLines.length > 8 ? '; …' : ''}.`,
+      );
       const others = refitTracks(st, scope, old, (t) => !isMelodicTrack(t));
-      if (others.length) st.lines.push(`Accompaniment voicings follow the new chords: ${others.join(', ')}. The melody was left as is.`);
+      if (others.length)
+        st.lines.push(
+          `Accompaniment voicings follow the new chords: ${others.join(', ')}. The melody was left as is.`,
+        );
       return;
     }
     case 'answer': {
-      const specific = scope.mentions.filter((m) => (!m.generic || m.generic === 'melody') && m.tracks.length);
+      const specific = scope.mentions.filter(
+        (m) => (!m.generic || m.generic === 'melody') && m.tracks.length,
+      );
       const answerIdx = clause.search(/\banswer|\brespond|call-and-response|rather than|instead of/);
-      let target: Track | undefined = specific.find((m) => m.index < answerIdx)?.tracks[0] ?? selectionTracks(song, selection)[0] ?? specific[0]?.tracks[0];
+      let target: Track | undefined =
+        specific.find((m) => m.index < answerIdx)?.tracks[0] ??
+        selectionTracks(song, selection)[0] ??
+        specific[0]?.tracks[0];
       let reference: Track | undefined = specific.find((m) => m.index > answerIdx)?.tracks[0];
-      if (!reference || reference === target) reference = melody && melody !== target ? melody : song.tracks.find((t) => isVocalTrack(t) && t !== target);
+      if (!reference || reference === target)
+        reference =
+          melody && melody !== target ? melody : song.tracks.find((t) => isVocalTrack(t) && t !== target);
       if (target && reference && target.id === reference.id) target = undefined;
       if (!target || !reference) {
-        st.lines.push('Tell me which instrument should answer which part (e.g. "make the violin answer the vocal").');
+        st.lines.push(
+          'Tell me which instrument should answer which part (e.g. "make the violin answer the vocal").',
+        );
         return;
       }
       const refNotes = st.tw(reference).work;
-      perTrack(st, { ...scope, tracks: [target] }, id, amount, (ctx, notes) => T.answerPhrases(ctx, notes, refNotes), { label: `${label} (${reference.name})` });
-      st.lines.push(`${target.name} now responds in the gaps of the ${reference.name} instead of doubling it.`);
+      perTrack(
+        st,
+        { ...scope, tracks: [target] },
+        id,
+        amount,
+        (ctx, notes) => T.answerPhrases(ctx, notes, refNotes),
+        { label: `${label} (${reference.name})` },
+      );
+      st.lines.push(
+        `${target.name} now responds in the gaps of the ${reference.name} instead of doubling it.`,
+      );
       return;
     }
     case 'repitch':
-      perTrack(st, scope, id, amount, (ctx, notes) => T.newPitchesSameRhythm(ctx, notes), { label, pitchedOnly: true });
+      perTrack(st, scope, id, amount, (ctx, notes) => T.newPitchesSameRhythm(ctx, notes), {
+        label,
+        pitchedOnly: true,
+      });
       return;
     case 'rerhythm':
       perTrack(st, scope, id, amount, (ctx, notes) => newRhythmSamePitches(ctx, notes), { label });
       return;
     case 'transpose': {
-      const spec = parseTranspose(clause) ?? { semitones: 12 * (/\b(down|lower)\b/.test(clause) ? -1 : 1), label: 'an octave' };
+      const spec = parseTranspose(clause) ?? {
+        semitones: 12 * (/\b(down|lower)\b/.test(clause) ? -1 : 1),
+        label: 'an octave',
+      };
       const allPitched = song.tracks.filter(isPitchedTrack);
-      if (scope.wholeSong && !scope.explicitTracks && spec.semitones && !spec.steps && scope.tracks.length >= allPitched.length && !isLocked(song.locks, LockKeys.key)) {
+      if (
+        scope.wholeSong &&
+        !scope.explicitTracks &&
+        spec.semitones &&
+        !spec.steps &&
+        scope.tracks.length >= allPitched.length &&
+        !isLocked(song.locks, LockKeys.key)
+      ) {
         const k = keyAt(song, 0);
         const tonic = spellPitchClass(mod12(k.tonic + spec.semitones), k);
-        st.extraOps.push({ op: 'set_key', tonic, mode: k.mode, at_bar: 1, transpose_notes: true, reason: `transpose ${spec.label}` });
-        st.lines.push(`Whole song: changed key ${keyName(k)} → ${tonic} ${k.mode} and transposed all pitched notes and chords ${spec.label} (drums unchanged).`);
+        st.extraOps.push({
+          op: 'set_key',
+          tonic,
+          mode: k.mode,
+          at_bar: 1,
+          transpose_notes: true,
+          reason: `transpose ${spec.label}`,
+        });
+        st.lines.push(
+          `Whole song: changed key ${keyName(k)} → ${tonic} ${k.mode} and transposed all pitched notes and chords ${spec.label} (drums unchanged).`,
+        );
         return;
       }
-      const transform: NoteTransform = spec.steps ? { transpose_diatonic: spec.steps } : { transpose: spec.semitones };
-      perTrack(st, scope, id, amount, (ctx, notes) => T.transposeNotes(ctx, notes, spec), { label, pitchedOnly: true, uniform: transform, silentSummary: `transposed ${spec.label}` });
+      const transform: NoteTransform = spec.steps
+        ? { transpose_diatonic: spec.steps }
+        : { transpose: spec.semitones };
+      perTrack(st, scope, id, amount, (ctx, notes) => T.transposeNotes(ctx, notes, spec), {
+        label,
+        pitchedOnly: true,
+        uniform: transform,
+        silentSummary: `transposed ${spec.label}`,
+      });
       return;
     }
     case 'register-up':
     case 'register-down':
-      perTrack(st, scope, id, amount, (ctx, notes) => T.registerShift(ctx, notes, id === 'register-up' ? 1 : -1), { label, pitchedOnly: true });
+      perTrack(
+        st,
+        scope,
+        id,
+        amount,
+        (ctx, notes) => T.registerShift(ctx, notes, id === 'register-up' ? 1 : -1),
+        { label, pitchedOnly: true },
+      );
       return;
     case 'louder':
     case 'softer': {
       const add = Math.round((id === 'louder' ? 12 : -12) * amount);
-      perTrack(st, scope, id, amount, (ctx, notes) => T.velocityChange(ctx, notes, add), { label, uniform: { velocity_add: add }, silentSummary: `velocity ${add > 0 ? '+' : ''}${add}` });
+      perTrack(st, scope, id, amount, (ctx, notes) => T.velocityChange(ctx, notes, add), {
+        label,
+        uniform: { velocity_add: add },
+        silentSummary: `velocity ${add > 0 ? '+' : ''}${add}`,
+      });
       return;
     }
     case 'expressive':
@@ -971,10 +1301,21 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
       return;
     case 'crescendo':
     case 'decrescendo':
-      perTrack(st, scope, id, amount, (ctx, notes) => (id === 'crescendo' ? T.velocityRamp(ctx, notes, -14, 18) : T.velocityRamp(ctx, notes, 10, -22)), {
-        label,
-        silentSummary: id === 'crescendo' ? 'velocities ramp up across the range (crescendo)' : 'velocities fall away across the range (decrescendo)',
-      });
+      perTrack(
+        st,
+        scope,
+        id,
+        amount,
+        (ctx, notes) =>
+          id === 'crescendo' ? T.velocityRamp(ctx, notes, -14, 18) : T.velocityRamp(ctx, notes, 10, -22),
+        {
+          label,
+          silentSummary:
+            id === 'crescendo'
+              ? 'velocities ramp up across the range (crescendo)'
+              : 'velocities fall away across the range (decrescendo)',
+        },
+      );
       return;
     case 'accent':
       perTrack(st, scope, id, amount, (ctx, notes) => T.accentDownbeats(ctx, notes), { label });
@@ -991,18 +1332,35 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
       return;
     case 'shorter': {
       const f = amount < 1 ? 0.85 : amount > 1 ? 0.5 : 0.7;
-      perTrack(st, scope, id, amount, (ctx, notes) => T.scaleDurations(ctx, notes, f), { label, uniform: { duration_scale: f }, silentSummary: `note lengths ×${f}` });
+      perTrack(st, scope, id, amount, (ctx, notes) => T.scaleDurations(ctx, notes, f), {
+        label,
+        uniform: { duration_scale: f },
+        silentSummary: `note lengths ×${f}`,
+      });
       return;
     }
     case 'longer': {
       const f = amount < 1 ? 1.25 : amount > 1 ? 2 : 1.5;
-      perTrack(st, scope, id, amount, (ctx, notes) => T.lengthen(ctx, notes, f), { label, silentSummary: `lengthened notes up to ×${f} (without overlapping the next note)` });
+      perTrack(st, scope, id, amount, (ctx, notes) => T.lengthen(ctx, notes, f), {
+        label,
+        silentSummary: `lengthened notes up to ×${f} (without overlapping the next note)`,
+      });
       return;
     }
     case 'quantize': {
       const grid = parseGrid(clause);
       const pct = /(\d+)\s*%/.exec(clause);
-      const strength = pct ? Math.min(1, parseInt(pct[1], 10) / 100) : /\bquanti[sz]/.test(clause) ? (amount < 1 ? 0.5 : 1) : amount < 1 ? 0.35 : amount > 1 ? 0.9 : 0.6;
+      const strength = pct
+        ? Math.min(1, parseInt(pct[1], 10) / 100)
+        : /\bquanti[sz]/.test(clause)
+          ? amount < 1
+            ? 0.5
+            : 1
+          : amount < 1
+            ? 0.35
+            : amount > 1
+              ? 0.9
+              : 0.6;
       perTrack(st, scope, id, amount, (ctx, notes) => T.quantizeNotes(ctx, notes, grid.beats, strength), {
         label,
         uniform: { quantize_beats: grid.beats, quantize_strength: strength },
@@ -1012,7 +1370,11 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
     }
     case 'humanize': {
       const amt = Math.min(1, 0.3 * amount);
-      perTrack(st, scope, id, amount, (ctx, notes) => T.humanizeNotes(ctx, notes, amt), { label, uniform: { humanize: amt }, silentSummary: `humanized timing and velocity (amount ${amt.toFixed(2)})` });
+      perTrack(st, scope, id, amount, (ctx, notes) => T.humanizeNotes(ctx, notes, amt), {
+        label,
+        uniform: { humanize: amt },
+        silentSummary: `humanized timing and velocity (amount ${amt.toFixed(2)})`,
+      });
       return;
     }
     case 'swing':
@@ -1028,7 +1390,10 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
       perTrack(st, scope, id, amount, (ctx, notes) => T.desyncopateNotes(ctx, notes), { label });
       return;
     case 'invert':
-      perTrack(st, scope, id, amount, (ctx, notes) => T.invertMelody(ctx, notes), { label, pitchedOnly: true });
+      perTrack(st, scope, id, amount, (ctx, notes) => T.invertMelody(ctx, notes), {
+        label,
+        pitchedOnly: true,
+      });
       return;
     case 'reverse':
       perTrack(st, scope, id, amount, (ctx, notes) => T.reverseNotes(ctx, notes), { label });
@@ -1049,12 +1414,27 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
       const ghost = /\bghost(?: notes)?\b/.test(clause);
       const high = /\b(?:high(?:est)?|top) notes\b/.test(clause);
       const low = /\b(?:low(?:est)?|bottom) notes\b/.test(clause);
-      perTrack(st, { ...scope, drumPitches: undefined }, id, amount, (ctx, notes) => T.removeNotes(ctx, notes, { drumPitches: ctx.isDrums ? scope.drumPitches : undefined, ghost, high, low }), { label });
+      perTrack(
+        st,
+        { ...scope, drumPitches: undefined },
+        id,
+        amount,
+        (ctx, notes) =>
+          T.removeNotes(ctx, notes, {
+            drumPitches: ctx.isDrums ? scope.drumPitches : undefined,
+            ghost,
+            high,
+            low,
+          }),
+        { label },
+      );
       return;
     }
     case 'double-octave':
     case 'harmonize': {
-      const mentionsWithTracks = scope.mentions.filter((m) => (!m.generic || m.generic === 'melody') && m.tracks.length);
+      const mentionsWithTracks = scope.mentions.filter(
+        (m) => (!m.generic || m.generic === 'melody') && m.tracks.length,
+      );
       const withIdx = clause.search(/\b(?:with|on|using|in|to|for|into) (?:the|a)\b/);
       const targetMention = withIdx >= 0 ? mentionsWithTracks.find((m) => m.index > withIdx) : undefined;
       const selTracks = selectionTracks(song, selection);
@@ -1070,10 +1450,16 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
               : [];
       const source = sourceTracks.filter(isPitchedTrack)[0];
       if (!source) {
-        st.lines.push('Select or name the part to double/harmonize (e.g. "double the melody an octave higher").');
+        st.lines.push(
+          'Select or name the part to double/harmonize (e.g. "double the melody an octave higher").',
+        );
         return;
       }
-      const srcNotes = st.tw(source).work.filter((n) => inRanges(scope.ranges, n.tick) && (!scope.noteIds || !n.id || scope.noteIds.has(n.id)));
+      const srcNotes = st
+        .tw(source)
+        .work.filter(
+          (n) => inRanges(scope.ranges, n.tick) && (!scope.noteIds || !n.id || scope.noteIds.has(n.id)),
+        );
       let steps = 2;
       if (id === 'harmonize') {
         if (/\bsixths?\b/.test(clause)) steps = 5;
@@ -1086,40 +1472,107 @@ function applyIntent(st: EditState, id: EditIntentId, clause: string, scope: Res
         // A monophonic instrument cannot play its own harmony: give the new line its own track.
         const name = uniqueTrackName(song, `${source.name} ${id === 'double-octave' ? 'Octave' : 'Harmony'}`);
         const virtual: Track = { ...source, id: name, name, notes: [] };
-        const ctx = ctxFor(st, { track: virtual, work: [], lockedIds: new Set(), locked: [], nonUniform: true, intents: 0 }, scope, id, amount);
-        const res = id === 'double-octave' ? T.octaveDoubling(ctx, srcNotes, semis) : T.harmonizeNotes(ctx, srcNotes, steps);
-        st.extraOps.push({ op: 'add_track', name, instrument_id: source.instrumentId, role: source.role, function: 'harmony', reason: `${INTENT_LABEL[id]} for ${source.name}` });
-        st.extraOps.push({ op: 'add_notes', track: name, notes: sortWork(res.notes).map((n) => toOpNote(song, n)), reason: INTENT_LABEL[id] });
-        st.lines.push(`New track "${name}" (${source.instrumentId}, ${scope.rangeLabel}): ${res.summary} from the ${source.name} — a ${source.instrumentId.replace(/-/g, ' ')} plays one note at a time, so the new line gets its own part.`);
+        const ctx = ctxFor(
+          st,
+          { track: virtual, work: [], lockedIds: new Set(), locked: [], nonUniform: true, intents: 0 },
+          scope,
+          id,
+          amount,
+        );
+        const res =
+          id === 'double-octave'
+            ? T.octaveDoubling(ctx, srcNotes, semis)
+            : T.harmonizeNotes(ctx, srcNotes, steps);
+        st.extraOps.push({
+          op: 'add_track',
+          name,
+          instrument_id: source.instrumentId,
+          role: source.role,
+          function: 'harmony',
+          reason: `${INTENT_LABEL[id]} for ${source.name}`,
+        });
+        st.extraOps.push({
+          op: 'add_notes',
+          track: name,
+          notes: sortWork(res.notes).map((n) => toOpNote(song, n)),
+          reason: INTENT_LABEL[id],
+        });
+        st.lines.push(
+          `New track "${name}" (${source.instrumentId}, ${scope.rangeLabel}): ${res.summary} from the ${source.name} — a ${source.instrumentId.replace(/-/g, ' ')} plays one note at a time, so the new line gets its own part.`,
+        );
         return;
       }
       if (target === source && isVocalTrack(source)) {
-        const backing = song.tracks.find((t) => t !== source && isVocalTrack(t) && /backing|harmony|double/i.test(`${t.name} ${t.instrumentId}`));
+        const backing = song.tracks.find(
+          (t) =>
+            t !== source && isVocalTrack(t) && /backing|harmony|double/i.test(`${t.name} ${t.instrumentId}`),
+        );
         if (backing) target = backing;
         else {
           // A second voice: new backing-vocal track singing the same words.
           const name = uniqueTrackName(song, id === 'double-octave' ? 'Vocal Double' : 'Harmony Vocal');
-          const voiceType = id === 'double-octave' ? (semis > 0 ? 'soprano' : 'bass') : source.vocal?.voiceType;
-          const virtual: Track = { ...source, id: name, name, instrumentId: 'backing-vocal', notes: [], constraints: { function: 'harmony' }, vocal: { ...source.vocal, voiceType } };
-          const ctx = ctxFor(st, { track: virtual, work: [], lockedIds: new Set(), locked: [], nonUniform: true, intents: 0 }, scope, id, amount);
-          const res = id === 'double-octave' ? T.octaveDoubling(ctx, srcNotes, semis) : T.harmonizeNotes(ctx, srcNotes, steps);
-          const withWords = res.notes.map((n, i) => (srcNotes[i]?.syllable ? { ...n, syllable: srcNotes[i].syllable } : n));
-          st.extraOps.push({ op: 'add_track', name, instrument_id: 'backing-vocal', role: 'vocal', function: 'harmony', reason: `${INTENT_LABEL[id]} for ${source.name}` });
-          st.extraOps.push({ op: 'add_notes', track: name, notes: sortWork(withWords).map((n) => toOpNote(song, n)), reason: INTENT_LABEL[id] });
-          st.lines.push(`New track "${name}" (backing vocal, ${scope.rangeLabel}): ${res.summary} from the ${source.name}, singing the same syllables.`);
+          const voiceType =
+            id === 'double-octave' ? (semis > 0 ? 'soprano' : 'bass') : source.vocal?.voiceType;
+          const virtual: Track = {
+            ...source,
+            id: name,
+            name,
+            instrumentId: 'backing-vocal',
+            notes: [],
+            constraints: { function: 'harmony' },
+            vocal: { ...source.vocal, voiceType },
+          };
+          const ctx = ctxFor(
+            st,
+            { track: virtual, work: [], lockedIds: new Set(), locked: [], nonUniform: true, intents: 0 },
+            scope,
+            id,
+            amount,
+          );
+          const res =
+            id === 'double-octave'
+              ? T.octaveDoubling(ctx, srcNotes, semis)
+              : T.harmonizeNotes(ctx, srcNotes, steps);
+          const withWords = res.notes.map((n, i) =>
+            srcNotes[i]?.syllable ? { ...n, syllable: srcNotes[i].syllable } : n,
+          );
+          st.extraOps.push({
+            op: 'add_track',
+            name,
+            instrument_id: 'backing-vocal',
+            role: 'vocal',
+            function: 'harmony',
+            reason: `${INTENT_LABEL[id]} for ${source.name}`,
+          });
+          st.extraOps.push({
+            op: 'add_notes',
+            track: name,
+            notes: sortWork(withWords).map((n) => toOpNote(song, n)),
+            reason: INTENT_LABEL[id],
+          });
+          st.lines.push(
+            `New track "${name}" (backing vocal, ${scope.rangeLabel}): ${res.summary} from the ${source.name}, singing the same syllables.`,
+          );
           return;
         }
       }
       const w = st.tw(target);
       const ctx = ctxFor(st, w, scope, id, amount);
-      const res = id === 'double-octave' ? T.octaveDoubling(ctx, srcNotes, semis) : T.harmonizeNotes(ctx, srcNotes, steps);
-      const notes = isVocalTrack(target) ? res.notes.map((n, i) => (srcNotes[i]?.syllable ? { ...n, syllable: srcNotes[i].syllable } : n)) : res.notes;
+      const res =
+        id === 'double-octave'
+          ? T.octaveDoubling(ctx, srcNotes, semis)
+          : T.harmonizeNotes(ctx, srcNotes, steps);
+      const notes = isVocalTrack(target)
+        ? res.notes.map((n, i) => (srcNotes[i]?.syllable ? { ...n, syllable: srcNotes[i].syllable } : n))
+        : res.notes;
       const before = w.work.length;
       commit(st, w, [], notes);
       w.nonUniform = true;
       w.intents++;
       const added = w.work.length - before;
-      st.lines.push(`${target.name} (${scope.rangeLabel}): ${res.summary}${target !== source ? ` from the ${source.name}` : ''}${added < notes.length ? ` (${notes.length - added} skipped in locked bars)` : ''}.`);
+      st.lines.push(
+        `${target.name} (${scope.rangeLabel}): ${res.summary}${target !== source ? ` from the ${source.name}` : ''}${added < notes.length ? ` (${notes.length - added} skipped in locked bars)` : ''}.`,
+      );
       return;
     }
   }
@@ -1184,11 +1637,15 @@ function newRhythmSamePitches(ctx: T.TransformContext, notes: WorkNote[]): T.Tra
     groups.slice(0, k).forEach((g, i) => {
       const t = start + sorted[i] * step;
       const end = i + 1 < sorted.length ? start + sorted[i + 1] * step : start + len;
-      for (const n of g) out.push({ ...n, tick: t, duration: Math.max(Math.round(step / 4), end - t - Math.round(step / 8)) });
+      for (const n of g)
+        out.push({ ...n, tick: t, duration: Math.max(Math.round(step / 4), end - t - Math.round(step / 8)) });
     });
     for (const g of groups.slice(k)) for (const n of g) out.push(n);
   }
-  return { notes: out, summary: `kept the pitch sequence and wrote a new 8th-note-grid rhythm (${notes.length} notes)` };
+  return {
+    notes: out,
+    summary: `kept the pitch sequence and wrote a new 8th-note-grid rhythm (${notes.length} notes)`,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1220,8 +1677,8 @@ function finish(st: EditState, instruction: string): EditInterpretation {
   const parts = [head, ...st.lines];
   if (st.lockNotes.size) parts.push(`Locked material was skipped — ${[...st.lockNotes].join('; ')}.`);
   if (!ops.length && st.lockNotes.size) parts.push('Nothing was changed: everything in range is locked.');
-  else if (!ops.length && st.appliedClauses) parts.push('No changes were needed — the music already matches that request.');
+  else if (!ops.length && st.appliedClauses)
+    parts.push('No changes were needed — the music already matches that request.');
   void noteOps;
   return { operations: ops, explanation: parts.join(' '), intents: uniqueIntents, understood: true };
 }
-

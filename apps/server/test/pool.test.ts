@@ -3,7 +3,12 @@ import { silentLogger } from '../src/logger';
 import { PoolBusyError, RenderPool } from '../src/render/pool';
 import type { RenderResult } from '../src/render/worker';
 
-const result = (n: number): RenderResult => ({ kind: 'loudness', contentType: 'application/json', json: { n }, renderMs: 0 });
+const result = (n: number): RenderResult => ({
+  kind: 'loudness',
+  contentType: 'application/json',
+  json: { n },
+  renderMs: 0,
+});
 
 describe('render pool', () => {
   it('falls back to inline rendering when workers cannot boot', async () => {

@@ -3,7 +3,14 @@
  * chord & lyric sheets, notation (lead sheet) PDF, DAWproject, Reaper .RPP, tempo map and
  * marker files. All functions are pure and return strings/bytes.
  */
-export { songToMidi, trackToMidi, midiToSong, parseMidiFile, writeMidiFile, estimateKeyFromNotes } from './midi';
+export {
+  songToMidi,
+  trackToMidi,
+  midiToSong,
+  parseMidiFile,
+  writeMidiFile,
+  estimateKeyFromNotes,
+} from './midi';
 export type { MidiEvent, MidiTrack, MidiFile, SongToMidiOptions, MidiToSongOptions } from './midi';
 export { songToMusicXML } from './musicxml';
 export type { MusicXmlOptions } from './musicxml';

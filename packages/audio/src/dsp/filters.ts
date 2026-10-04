@@ -4,7 +4,8 @@
  */
 import { clampNum } from './utils';
 
-export type BiquadType = 'lowpass' | 'highpass' | 'bandpass' | 'notch' | 'peak' | 'lowshelf' | 'highshelf' | 'allpass';
+export type BiquadType =
+  'lowpass' | 'highpass' | 'bandpass' | 'notch' | 'peak' | 'lowshelf' | 'highshelf' | 'allpass';
 
 const DENORMAL = 1e-25;
 
@@ -168,8 +169,13 @@ export class Biquad {
   }
 
   processMono(buf: Float64Array | Float32Array, start: number, end: number): void {
-    const b0 = this.b0, b1 = this.b1, b2 = this.b2, a1 = this.a1, a2 = this.a2;
-    let z1 = this.z1L, z2 = this.z2L;
+    const b0 = this.b0,
+      b1 = this.b1,
+      b2 = this.b2,
+      a1 = this.a1,
+      a2 = this.a2;
+    let z1 = this.z1L,
+      z2 = this.z2L;
     for (let i = start; i < end; i++) {
       const x = buf[i];
       const y = b0 * x + z1;
@@ -183,9 +189,21 @@ export class Biquad {
     this.z2L = z2;
   }
 
-  processStereo(L: Float64Array | Float32Array, R: Float64Array | Float32Array, start: number, end: number): void {
-    const b0 = this.b0, b1 = this.b1, b2 = this.b2, a1 = this.a1, a2 = this.a2;
-    let z1 = this.z1L, z2 = this.z2L, w1 = this.z1R, w2 = this.z2R;
+  processStereo(
+    L: Float64Array | Float32Array,
+    R: Float64Array | Float32Array,
+    start: number,
+    end: number,
+  ): void {
+    const b0 = this.b0,
+      b1 = this.b1,
+      b2 = this.b2,
+      a1 = this.a1,
+      a2 = this.a2;
+    let z1 = this.z1L,
+      z2 = this.z2L,
+      w1 = this.z1R,
+      w2 = this.z2R;
     for (let i = start; i < end; i++) {
       const x = L[i];
       const y = b0 * x + z1;
@@ -211,7 +229,10 @@ export class Biquad {
   /** Magnitude response at `freq` (for tests/analysis). */
   magnitude(freq: number, sampleRate: number): number {
     const w = (2 * Math.PI * freq) / sampleRate;
-    const c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
+    const c1 = Math.cos(w),
+      s1 = Math.sin(w),
+      c2 = Math.cos(2 * w),
+      s2 = Math.sin(2 * w);
     const nr = this.b0 + this.b1 * c1 + this.b2 * c2;
     const ni = -(this.b1 * s1 + this.b2 * s2);
     const dr = 1 + this.a1 * c1 + this.a2 * c2;
@@ -339,7 +360,8 @@ export class DcBlocker {
     return y;
   }
   processMono(buf: Float64Array, start: number, end: number): void {
-    let x1 = this.x1L, y1 = this.y1L;
+    let x1 = this.x1L,
+      y1 = this.y1L;
     const r = this.r;
     for (let i = start; i < end; i++) {
       const x = buf[i];

@@ -14,6 +14,7 @@ import {
   ENGINE_VERSION,
   IdFactory,
   PPQ,
+  ROLE_COLORS,
   chordToRoman,
   createEmptySong,
   defaultChannelStrip,
@@ -47,9 +48,18 @@ import { transcribeDrums } from './transcribe-drums';
 import { transcribeMonophonic } from './transcribe-mono';
 import { transcribePolyphonicSignal } from './transcribe-poly';
 import type { DrumHit, StemName, TranscribedNote } from './types';
-import { abortError, analysisMono, audioFingerprint, clamp01, mean, prepareChannels, yieldToEventLoop } from './util';
+import {
+  abortError,
+  analysisMono,
+  audioFingerprint,
+  clamp01,
+  mean,
+  prepareChannels,
+  yieldToEventLoop,
+} from './util';
 
-export type RebuildStageId = 'separation' | 'tempo' | 'key' | 'chords' | 'pitch' | 'instruments' | 'midi' | 'structure';
+export type RebuildStageId =
+  'separation' | 'tempo' | 'key' | 'chords' | 'pitch' | 'instruments' | 'midi' | 'structure';
 
 export interface RebuildStage {
   id: RebuildStageId;
@@ -81,7 +91,9 @@ export interface RebuildOptions {
   onProgress?(stage: RebuildStageId, progress: number, stages: RebuildStage[]): void;
   signal?: AbortSignal;
   /** Optional provider override for source separation (e.g. a neural separator); stems at any rate. */
-  separation?: (buf: AudioData) => Promise<{ drums: AudioData; bass: AudioData; vocals: AudioData; other: AudioData }>;
+  separation?: (
+    buf: AudioData,
+  ) => Promise<{ drums: AudioData; bass: AudioData; vocals: AudioData; other: AudioData }>;
   /** Generation seed recorded in the song and used for ids (default 1). */
   seed?: number;
   /** Quantisation grid in beats (default 0.25 = sixteenths). */
@@ -99,19 +111,45 @@ const STAGES: { id: RebuildStageId; label: string }[] = [
   { id: 'structure', label: 'Song structure reconstruction' },
 ];
 
-const OTHER_CANDIDATES = ['piano', 'electric-guitar-clean', 'electric-guitar-distorted', 'acoustic-guitar', 'synth-pad', 'string-ensemble', 'synth-lead'] as const;
+const OTHER_CANDIDATES = [
+  'piano',
+  'electric-guitar-clean',
+  'electric-guitar-distorted',
+  'acoustic-guitar',
+  'synth-pad',
+  'string-ensemble',
+  'synth-lead',
+] as const;
 
-const INSTRUMENT_INFO: Record<string, { name: string; stemGroup: StemGroup; range: [number, number]; color: string }> = {
-  'drum-kit': { name: 'Drums', stemGroup: 'drums', range: [27, 87], color: '#e4572e' },
-  'electric-bass': { name: 'Bass', stemGroup: 'bass', range: [28, 60], color: '#4c6ef5' },
-  'lead-vocal': { name: 'Vocal Melody', stemGroup: 'vocals', range: [45, 84], color: '#f2c14e' },
-  piano: { name: 'Piano', stemGroup: 'keys', range: [28, 100], color: '#2bb3a3' },
-  'electric-guitar-clean': { name: 'Clean Guitar', stemGroup: 'guitars', range: [40, 88], color: '#9b5de5' },
-  'electric-guitar-distorted': { name: 'Distorted Guitar', stemGroup: 'guitars', range: [40, 88], color: '#c0392b' },
-  'acoustic-guitar': { name: 'Acoustic Guitar', stemGroup: 'guitars', range: [40, 84], color: '#b5838d' },
-  'synth-pad': { name: 'Synth Pad', stemGroup: 'keys', range: [36, 96], color: '#43aa8b' },
-  'string-ensemble': { name: 'Strings', stemGroup: 'strings', range: [28, 100], color: '#577590' },
-  'synth-lead': { name: 'Synth Lead', stemGroup: 'keys', range: [48, 96], color: '#f8961e' },
+const INSTRUMENT_INFO: Record<
+  string,
+  { name: string; stemGroup: StemGroup; range: [number, number]; color: string }
+> = {
+  'drum-kit': { name: 'Drums', stemGroup: 'drums', range: [27, 87], color: ROLE_COLORS.drums },
+  'electric-bass': { name: 'Bass', stemGroup: 'bass', range: [28, 60], color: ROLE_COLORS.bass },
+  'lead-vocal': { name: 'Vocal Melody', stemGroup: 'vocals', range: [45, 84], color: ROLE_COLORS.vocal },
+  piano: { name: 'Piano', stemGroup: 'keys', range: [28, 100], color: ROLE_COLORS.keys },
+  'electric-guitar-clean': {
+    name: 'Clean Guitar',
+    stemGroup: 'guitars',
+    range: [40, 88],
+    color: ROLE_COLORS['rhythm-guitar'],
+  },
+  'electric-guitar-distorted': {
+    name: 'Distorted Guitar',
+    stemGroup: 'guitars',
+    range: [40, 88],
+    color: ROLE_COLORS['lead-guitar'],
+  },
+  'acoustic-guitar': {
+    name: 'Acoustic Guitar',
+    stemGroup: 'guitars',
+    range: [40, 84],
+    color: ROLE_COLORS.percussion,
+  },
+  'synth-pad': { name: 'Synth Pad', stemGroup: 'keys', range: [36, 96], color: ROLE_COLORS['synth-pad'] },
+  'string-ensemble': { name: 'Strings', stemGroup: 'strings', range: [28, 100], color: ROLE_COLORS.strings },
+  'synth-lead': { name: 'Synth Lead', stemGroup: 'keys', range: [48, 96], color: ROLE_COLORS['synth-lead'] },
 };
 
 function round3(v: number): number {
@@ -160,7 +198,11 @@ function medianOf(v: number[]): number {
  * the real bass note into pieces: drop such notes and stitch the real note back together
  * (starting with the kick).
  */
-export function removeKickBleed(notes: TranscribedNote[], kicks: number[], bassOnsets: number[] = []): TranscribedNote[] {
+export function removeKickBleed(
+  notes: TranscribedNote[],
+  kicks: number[],
+  bassOnsets: number[] = [],
+): TranscribedNote[] {
   if (!kicks.length || notes.length < 3) return notes;
   const medPitch = medianOf(notes.map((n) => n.pitch));
   const medConf = medianOf(notes.map((n) => n.confidence));
@@ -182,7 +224,8 @@ export function removeKickBleed(notes: TranscribedNote[], kicks: number[], bassO
   while (i < sorted.length) {
     const n = sorted[i];
     const k = kickFor(n.startSeconds);
-    const isBleed = (m: TranscribedNote): boolean => m.endSeconds - m.startSeconds < 0.3 && (m.pitch < medPitch - 5 || m.confidence < medConf * 0.8);
+    const isBleed = (m: TranscribedNote): boolean =>
+      m.endSeconds - m.startSeconds < 0.3 && (m.pitch < medPitch - 5 || m.confidence < medConf * 0.8);
     if (k === undefined || !isBleed(n)) {
       out.push(n);
       i++;
@@ -196,10 +239,16 @@ export function removeKickBleed(notes: TranscribedNote[], kicks: number[], bassO
     const prev = out[out.length - 1];
     if (next && next.startSeconds - runEnd < 0.08) {
       if (prev && prev.endSeconds > k) prev.endSeconds = Math.max(prev.startSeconds + 0.02, k);
-      const ownAttack = next.startSeconds - k > 0.12 && bassOnsets.some((o) => Math.abs(o - next.startSeconds) < 0.04);
+      const ownAttack =
+        next.startSeconds - k > 0.12 && bassOnsets.some((o) => Math.abs(o - next.startSeconds) < 0.04);
       if (ownAttack) {
         // the next note has its own attack: the bleed hid a separate (repeated) note on the kick
-        out.push({ ...next, startSeconds: Math.max(prev ? prev.endSeconds : 0, k), endSeconds: next.startSeconds - 0.01, confidence: Math.round(next.confidence * 0.7 * 1000) / 1000 });
+        out.push({
+          ...next,
+          startSeconds: Math.max(prev ? prev.endSeconds : 0, k),
+          endSeconds: next.startSeconds - 0.01,
+          confidence: Math.round(next.confidence * 0.7 * 1000) / 1000,
+        });
       } else {
         // the real note started with the kick and simply continues
         next.startSeconds = Math.max(prev ? prev.endSeconds : 0, Math.min(next.startSeconds, k));
@@ -219,15 +268,24 @@ function overlap(a: TranscribedNote, b: TranscribedNote): number {
  * vocal stem): unisons always, octave doublings only when not confident. Melody notes that the
  * bleed had split into fragments are joined again.
  */
-export function removeDoubling(notes: TranscribedNote[], ref: TranscribedNote[], octaveToo: boolean): TranscribedNote[] {
+export function removeDoubling(
+  notes: TranscribedNote[],
+  ref: TranscribedNote[],
+  octaveToo: boolean,
+): TranscribedNote[] {
   if (!ref.length || !notes.length) return notes;
   const medConf = medianOf(notes.map((n) => n.confidence));
   const removed: TranscribedNote[] = [];
   const kept = notes.filter((n) => {
     const d = n.endSeconds - n.startSeconds;
     // unison, or an octave below (sub-harmonic tracking of the leaking bass): bleed
-    const unison = ref.some((r) => (r.pitch === n.pitch || r.pitch === n.pitch + 12) && overlap(r, n) >= 0.6 * d);
-    const octave = octaveToo && n.confidence <= medConf && ref.some((r) => r.pitch + 12 === n.pitch && overlap(r, n) >= 0.5 * d);
+    const unison = ref.some(
+      (r) => (r.pitch === n.pitch || r.pitch === n.pitch + 12) && overlap(r, n) >= 0.6 * d,
+    );
+    const octave =
+      octaveToo &&
+      n.confidence <= medConf &&
+      ref.some((r) => r.pitch + 12 === n.pitch && overlap(r, n) >= 0.5 * d);
     if (unison || octave) removed.push(n);
     return !(unison || octave);
   });
@@ -260,14 +318,21 @@ export function penalizeDoubling(notes: TranscribedNote[], melody: TranscribedNo
 }
 
 /** Rebuild an editable project from a recording. */
-export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}): Promise<{ song: Song; report: RebuildReport }> {
+export async function rebuildProject(
+  buf: AudioData,
+  opts: RebuildOptions = {},
+): Promise<{ song: Song; report: RebuildReport }> {
   const stages: RebuildStage[] = STAGES.map((s) => ({ ...s, status: 'pending', confidence: 0, detail: '' }));
   const warnings: string[] = [];
   const seed = opts.seed ?? 1;
   const stage = (id: RebuildStageId): RebuildStage => stages.find((s) => s.id === id)!;
   const emit = (id: RebuildStageId, p: number): void => {
     try {
-      opts.onProgress?.(id, clamp01(p), stages.map((s) => ({ ...s })));
+      opts.onProgress?.(
+        id,
+        clamp01(p),
+        stages.map((s) => ({ ...s })),
+      );
     } catch {
       // progress listeners must not break the pipeline
     }
@@ -290,7 +355,12 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
     stage(id).status = 'running';
     emit(id, 0);
   };
-  const finish = (id: RebuildStageId, confidence: number, detail: string, status: RebuildStage['status'] = 'done'): void => {
+  const finish = (
+    id: RebuildStageId,
+    confidence: number,
+    detail: string,
+    status: RebuildStage['status'] = 'done',
+  ): void => {
     const s = stage(id);
     s.status = status;
     s.confidence = round3(clamp01(confidence));
@@ -322,23 +392,39 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
     if (opts.separation) {
       const ext = await opts.separation(buf);
       checkAbort('separation');
-      stems = { drums: prepareChannels(ext.drums), bass: prepareChannels(ext.bass), vocals: prepareChannels(ext.vocals), other: prepareChannels(ext.other) };
+      stems = {
+        drums: prepareChannels(ext.drums),
+        bass: prepareChannels(ext.bass),
+        vocals: prepareChannels(ext.vocals),
+        other: prepareChannels(ext.other),
+      };
       sepConf = { drums: 0.7, bass: 0.7, vocals: 0.7, other: 0.6 };
       separationMethod = 'provider';
       finish('separation', 0.7, 'External separation provider (quality not verified by the engine).');
     } else {
-      const sep = separateSources(work, { signal: opts.signal, onProgress: (p) => emit('separation', p * 0.98) });
+      const sep = separateSources(work, {
+        signal: opts.signal,
+        onProgress: (p) => emit('separation', p * 0.98),
+      });
       stems = sep.stems;
       sepConf = sep.confidence;
       separationMethod = sep.method;
       const c = mean(Object.values(sep.confidence));
       finish('separation', c, `${sep.method}${stereo ? '' : ' — mono input'}`);
-      if (!stereo) warnings.push('Mono input: vocals cannot be separated by stereo position; the vocal melody may include other parts.');
-      warnings.push('Built-in separation is DSP (HPSS + spectral masks), not a neural separator: expect bleed between stems.');
+      if (!stereo)
+        warnings.push(
+          'Mono input: vocals cannot be separated by stereo position; the vocal melody may include other parts.',
+        );
+      warnings.push(
+        'Built-in separation is DSP (HPSS + spectral masks), not a neural separator: expect bleed between stems.',
+      );
     }
   } catch (e) {
     fail('separation', e);
-    const silent = (): AudioData => ({ sampleRate: sr, channels: work.channels.map((c) => new Float32Array(c.length)) });
+    const silent = (): AudioData => ({
+      sampleRate: sr,
+      channels: work.channels.map((c) => new Float32Array(c.length)),
+    });
     stems = { drums: work, bass: silent(), vocals: silent(), other: work };
     separationMethod = 'none (failed)';
   }
@@ -355,7 +441,10 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
     tempo = tempoFromEnvelope(env, {
       bandProfileForBeats: (beats) => (i: number) => {
         const a = Math.max(0, Math.round(beats[i] / chroma.hopSeconds));
-        const b = Math.min(chroma.frames.length, Math.max(a + 1, Math.round((beats[i + 1] ?? beats[i] + 0.5) / chroma.hopSeconds)));
+        const b = Math.min(
+          chroma.frames.length,
+          Math.max(a + 1, Math.round((beats[i + 1] ?? beats[i] + 0.5) / chroma.hopSeconds)),
+        );
         const v = new Float32Array(12);
         for (let t = a; t < b; t++) for (let k = 0; k < 12; k++) v[k] += Math.sqrt(chroma.frames[t][k]);
         return v;
@@ -363,14 +452,32 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
     });
     if (tempo.beats.length < 4) throw new Error('no regular beat found');
     const reg = tempo.confidence;
-    finish('tempo', tempo.confidence * 0.7 + tempo.meterConfidence * 0.3, `${tempo.bpm} BPM, ${tempo.meter.numerator}/${tempo.meter.denominator} (meter ${Math.round(tempo.meterConfidence * 100)}%)`);
-    if (reg < 0.35) warnings.push(`Tempo detection is uncertain (${Math.round(reg * 100)}%): bars and quantisation may be off; adjust the tempo and re-run if needed.`);
-    if (tempo.meterConfidence < 0.35) warnings.push(`Meter is uncertain; assumed ${tempo.meter.numerator}/${tempo.meter.denominator}.`);
+    finish(
+      'tempo',
+      tempo.confidence * 0.7 + tempo.meterConfidence * 0.3,
+      `${tempo.bpm} BPM, ${tempo.meter.numerator}/${tempo.meter.denominator} (meter ${Math.round(tempo.meterConfidence * 100)}%)`,
+    );
+    if (reg < 0.35)
+      warnings.push(
+        `Tempo detection is uncertain (${Math.round(reg * 100)}%): bars and quantisation may be off; adjust the tempo and re-run if needed.`,
+      );
+    if (tempo.meterConfidence < 0.35)
+      warnings.push(`Meter is uncertain; assumed ${tempo.meter.numerator}/${tempo.meter.denominator}.`);
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') throw e;
     chroma ??= chromagramFromSignal(harmonic, sr);
     const beats = extendBeatGrid([], 120, duration);
-    tempo = { bpm: 120, confidence: 0, beats, downbeats: beats.filter((_, i) => i % 4 === 0), meter: { numerator: 4, denominator: 4 }, meterConfidence: 0, accents: [], downbeatPhase: 0, periodicity: 0 };
+    tempo = {
+      bpm: 120,
+      confidence: 0,
+      beats,
+      downbeats: beats.filter((_, i) => i % 4 === 0),
+      meter: { numerator: 4, denominator: 4 },
+      meterConfidence: 0,
+      accents: [],
+      downbeatPhase: 0,
+      periodicity: 0,
+    };
     warnings.push('No steady beat was found; a 120 BPM grid was assumed (free-tempo or ambient material).');
     finish('tempo', 0, 'fallback 120 BPM grid', 'failed');
   }
@@ -383,9 +490,16 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
   let keyRes: KeyResult;
   try {
     keyRes = detectKey({ frames: chroma.frames, bassFrames: chroma.bassFrames });
-    finish('key', keyRes.confidence, `${keyName(keyRes.key)}${keyRes.alternatives[0] ? ` (alt. ${keyName(keyRes.alternatives[0].key)})` : ''}`);
+    finish(
+      'key',
+      keyRes.confidence,
+      `${keyName(keyRes.key)}${keyRes.alternatives[0] ? ` (alt. ${keyName(keyRes.alternatives[0].key)})` : ''}`,
+    );
     if (keyRes.confidence === 0) warnings.push('No tonal content was found; the key defaults to C major.');
-    else if (keyRes.confidence < 0.35 && keyRes.alternatives[0]) warnings.push(`Key is ambiguous between ${keyName(keyRes.key)} and ${keyName(keyRes.alternatives[0].key)}.`);
+    else if (keyRes.confidence < 0.35 && keyRes.alternatives[0])
+      warnings.push(
+        `Key is ambiguous between ${keyName(keyRes.key)} and ${keyName(keyRes.alternatives[0].key)}.`,
+      );
   } catch (e) {
     fail('key', e);
     keyRes = { key: { tonic: 0, mode: 'major' }, confidence: 0, alternatives: [] };
@@ -427,7 +541,11 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
       }
     }
     const conf = chordSegs.length ? mean(chordSegs.map((c) => c.confidence)) : 0;
-    finish('chords', conf, `${chordSegs.length} chord segments, ${new Set(chordSegs.map((c) => c.symbol)).size} distinct chords`);
+    finish(
+      'chords',
+      conf,
+      `${chordSegs.length} chord segments, ${new Set(chordSegs.map((c) => c.symbol)).size} distinct chords`,
+    );
   } catch (e) {
     fail('chords', e);
   }
@@ -445,7 +563,13 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
   let drumConf = 0;
   const pitchDetail: string[] = [];
   try {
-    const v = transcribeMonophonic(stems.vocals, { minHz: 80, maxHz: 1100, voicingThreshold: 0.35, minNoteSeconds: 0.08, splitDipDb: 12 });
+    const v = transcribeMonophonic(stems.vocals, {
+      minHz: 80,
+      maxHz: 1100,
+      voicingThreshold: 0.35,
+      minNoteSeconds: 0.08,
+      splitDipDb: 12,
+    });
     // a lead vocal below G2 is almost certainly bass bleed tracked in the vocal stem
     vocalNotes = v.notes.filter((n) => n.pitch >= 43);
     vocalVoiced = v.voicedFraction;
@@ -454,14 +578,25 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
     emit('pitch', 0.25);
     await yieldToEventLoop();
     checkAbort('pitch');
-    const b = transcribeMonophonic(stems.bass, { minHz: 28, maxHz: 330, voicingThreshold: 0.35, minNoteSeconds: 0.06, splitDipDb: 8 });
+    const b = transcribeMonophonic(stems.bass, {
+      minHz: 28,
+      maxHz: 330,
+      voicingThreshold: 0.35,
+      minNoteSeconds: 0.06,
+      splitDipDb: 8,
+    });
     bassNotes = b.notes;
     bassConf = b.confidence;
     pitchDetail.push(`bass ${b.notes.length}`);
     emit('pitch', 0.45);
     await yieldToEventLoop();
     checkAbort('pitch');
-    const o = transcribePolyphonicSignal(analysisMono(stems.other), sr, { minPitch: 36, maxPitch: 96, maxPolyphony: 5, signal: opts.signal });
+    const o = transcribePolyphonicSignal(analysisMono(stems.other), sr, {
+      minPitch: 36,
+      maxPitch: 96,
+      maxPolyphony: 5,
+      signal: opts.signal,
+    });
     otherNotes = o.notes;
     otherConf = o.confidence;
     pitchDetail.push(`other ${o.notes.length}`);
@@ -472,7 +607,14 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
     drumHits = d.hits;
     drumConf = d.confidence;
     pitchDetail.push(`drum hits ${d.hits.length}`);
-    const pc = mean([vocalConf * sepConf.vocals, bassConf * sepConf.bass, otherConf * sepConf.other, drumConf * sepConf.drums].map((v) => Math.sqrt(Math.max(0, v))));
+    const pc = mean(
+      [
+        vocalConf * sepConf.vocals,
+        bassConf * sepConf.bass,
+        otherConf * sepConf.other,
+        drumConf * sepConf.drums,
+      ].map((v) => Math.sqrt(Math.max(0, v))),
+    );
     finish('pitch', pc, pitchDetail.join(', '));
   } catch (e) {
     fail('pitch', e);
@@ -485,7 +627,11 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
     otherClass = classifyStem(stems.other, { candidates: [...OTHER_CANDIDATES], maxSeconds: 40 });
     const vocalPresent = vocalVoiced >= 0.12 && vocalNotes.length >= 3;
     if (!vocalPresent) warnings.push('No clear lead vocal was found; the vocal melody track was omitted.');
-    finish('instruments', otherClass.confidence, `other → ${otherClass.instrumentId} (${Math.round(otherClass.confidence * 100)}%), vocal ${vocalPresent ? 'present' : 'not detected'}`);
+    finish(
+      'instruments',
+      otherClass.confidence,
+      `other → ${otherClass.instrumentId} (${Math.round(otherClass.confidence * 100)}%), vocal ${vocalPresent ? 'present' : 'not detected'}`,
+    );
   } catch (e) {
     fail('instruments', e);
   }
@@ -494,8 +640,16 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
   // ---- 7. MIDI reconstruction ------------------------------------------------------------------------------------
   await begin('midi');
   const ids = new IdFactory(seed, `rebuild-${audioFingerprint(mixMono).toString(36)}`);
-  const firstEvent = Math.min(vocalNotes[0]?.startSeconds ?? Infinity, bassNotes[0]?.startSeconds ?? Infinity, otherNotes[0]?.startSeconds ?? Infinity, drumHits[0]?.time ?? Infinity);
-  const offset = gridOrigin({ bpm, downbeats: tempo.downbeats, meter }, Number.isFinite(firstEvent) ? firstEvent : 0);
+  const firstEvent = Math.min(
+    vocalNotes[0]?.startSeconds ?? Infinity,
+    bassNotes[0]?.startSeconds ?? Infinity,
+    otherNotes[0]?.startSeconds ?? Infinity,
+    drumHits[0]?.time ?? Infinity,
+  );
+  const offset = gridOrigin(
+    { bpm, downbeats: tempo.downbeats, meter },
+    Number.isFinite(firstEvent) ? firstEvent : 0,
+  );
   const ppq = PPQ;
   const barTicks = Math.round((ppq * 4 * meter.numerator) / meter.denominator);
   const q = opts.quantizeBeats ?? 0.25;
@@ -503,11 +657,15 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
   const trackConfidence: Record<string, number> = {};
   const lowConfidenceRegions: RebuildReport['lowConfidenceRegions'] = [];
   const mixSettings = new Map<string, { pan: number; volumeDb: number }>();
-  const correct = (notes: Note[], info: { range: [number, number]; mono: boolean; snapLowConfidence: boolean; maxPoly?: number }): Note[] => {
+  const correct = (
+    notes: Note[],
+    info: { range: [number, number]; mono: boolean; snapLowConfidence: boolean; maxPoly?: number },
+  ): Note[] => {
     let out = notes.filter((n) => !(n.duration < ppq / 8 && (n.confidence ?? 1) < 0.5));
     if (info.snapLowConfidence) {
       out = out.map((n) => {
-        if ((n.confidence ?? 1) < 0.45 && !isInScale(n.pitch, key)) return { ...n, pitch: snapToScale(n.pitch, key), confidence: round3((n.confidence ?? 0) * 0.85) };
+        if ((n.confidence ?? 1) < 0.45 && !isInScale(n.pitch, key))
+          return { ...n, pitch: snapToScale(n.pitch, key), confidence: round3((n.confidence ?? 0) * 0.85) };
         return n;
       });
     }
@@ -520,7 +678,8 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
         else byTick.set(n.tick, [n]);
       }
       out = [];
-      for (const l of byTick.values()) out.push(...l.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, info.maxPoly));
+      for (const l of byTick.values())
+        out.push(...l.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, info.maxPoly));
     }
     return sortNotes(out);
   };
@@ -569,7 +728,13 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
       const bars = Math.ceil(lastTick / barTicks);
       let open: { start: number; end: number; confs: number[] } | null = null;
       const flush = (): void => {
-        if (open) lowConfidenceRegions.push({ trackId: id, startTick: open.start, endTick: open.end, confidence: round3(mean(open.confs)) });
+        if (open)
+          lowConfidenceRegions.push({
+            trackId: id,
+            startTick: open.start,
+            endTick: open.end,
+            confidence: round3(mean(open.confs)),
+          });
         open = null;
       };
       for (let b = 0; b < bars; b++) {
@@ -594,19 +759,36 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
   // instrument-aware cross-stem corrections (seconds domain)
   const kicks = drumHits.filter((h) => h.drum === 36 || h.drum === 35).map((h) => h.time);
   const bassEnv = onsetEnvelopeFromSignal(analysisMono(stems.bass), sr);
-  const bassOnsets = pickOnsetPeaks(bassEnv.envelope, bassEnv.hopSeconds, { delta: 0.05, floor: 0.03 }).map((f) => f * bassEnv.hopSeconds);
+  const bassOnsets = pickOnsetPeaks(bassEnv.envelope, bassEnv.hopSeconds, { delta: 0.05, floor: 0.03 }).map(
+    (f) => f * bassEnv.hopSeconds,
+  );
   bassNotes = removeKickBleed(bassNotes, kicks, bassOnsets);
   vocalNotes = removeDoubling(vocalNotes, bassNotes, true);
   otherNotes = penalizeDoubling(otherNotes, vocalNotes);
   try {
     const toNotes = (src: TranscribedNote[], prefix: string, range: [number, number]): Note[] =>
-      transcribedToNotes(src, { bpm, quantizeBeats: q, offsetSeconds: offset, idPrefix: prefix, seed, lowest: range[0], highest: range[1], key });
+      transcribedToNotes(src, {
+        bpm,
+        quantizeBeats: q,
+        offsetSeconds: offset,
+        idPrefix: prefix,
+        seed,
+        lowest: range[0],
+        highest: range[1],
+        key,
+      });
     if (drumHits.length >= 4) {
       addTrack({
         key: 'drums',
         instrumentId: 'drum-kit',
         role: 'drums',
-        notes: drumHitsToNotes(drumHits, { bpm, quantizeBeats: q, offsetSeconds: offset, idPrefix: 'dn', seed }),
+        notes: drumHitsToNotes(drumHits, {
+          bpm,
+          quantizeBeats: q,
+          offsetSeconds: offset,
+          idPrefix: 'dn',
+          seed,
+        }),
         stemConfidence: sepConf.drums,
         channel: 9,
         pan: 0,
@@ -619,7 +801,11 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
         key: 'bass',
         instrumentId: 'electric-bass',
         role: 'bass',
-        notes: correct(toNotes(bassNotes, 'bn', INSTRUMENT_INFO['electric-bass'].range), { range: INSTRUMENT_INFO['electric-bass'].range, mono: true, snapLowConfidence: true }),
+        notes: correct(toNotes(bassNotes, 'bn', INSTRUMENT_INFO['electric-bass'].range), {
+          range: INSTRUMENT_INFO['electric-bass'].range,
+          mono: true,
+          snapLowConfidence: true,
+        }),
         stemConfidence: sepConf.bass,
         channel: 0,
         pan: 0,
@@ -632,7 +818,11 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
         key: 'vocals',
         instrumentId: 'lead-vocal',
         role: 'vocal',
-        notes: correct(toNotes(vocalNotes, 'vn', INSTRUMENT_INFO['lead-vocal'].range), { range: INSTRUMENT_INFO['lead-vocal'].range, mono: true, snapLowConfidence: true }),
+        notes: correct(toNotes(vocalNotes, 'vn', INSTRUMENT_INFO['lead-vocal'].range), {
+          range: INSTRUMENT_INFO['lead-vocal'].range,
+          mono: true,
+          snapLowConfidence: true,
+        }),
         stemConfidence: sepConf.vocals,
         channel: 1,
         pan: 0,
@@ -647,16 +837,26 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
         key: 'other',
         instrumentId: otherInstrument,
         role: otherClass?.role ?? 'keys',
-        notes: correct(toNotes(otherNotes, 'on', info.range), { range: info.range, mono: otherInstrument === 'synth-lead', snapLowConfidence: true, maxPoly: 6 }),
+        notes: correct(toNotes(otherNotes, 'on', info.range), {
+          range: info.range,
+          mono: otherInstrument === 'synth-lead',
+          snapLowConfidence: true,
+          maxPoly: 6,
+        }),
         stemConfidence: sepConf.other * (otherClass ? 0.6 + 0.4 * otherClass.confidence : 0.6),
         channel: 2,
         pan: stereo ? 0.2 : 0,
         volumeDb: -8,
-        fn: otherInstrument === 'synth-pad' || otherInstrument === 'string-ensemble' ? 'pad' : 'accompaniment',
+        fn:
+          otherInstrument === 'synth-pad' || otherInstrument === 'string-ensemble' ? 'pad' : 'accompaniment',
       });
     } else warnings.push('No accompaniment (other) part was detected.');
     const allNotes = tracks.flatMap((t) => t.notes);
-    finish('midi', allNotes.length ? mean(allNotes.map((n) => n.confidence ?? 0)) : 0, `${tracks.length} tracks, ${allNotes.length} notes, grid ${q > 0 ? `1/${Math.round(4 / q)}` : 'off'}, tick 0 = ${offset.toFixed(3)} s`);
+    finish(
+      'midi',
+      allNotes.length ? mean(allNotes.map((n) => n.confidence ?? 0)) : 0,
+      `${tracks.length} tracks, ${allNotes.length} notes, grid ${q > 0 ? `1/${Math.round(4 / q)}` : 'off'}, tick 0 = ${offset.toFixed(3)} s`,
+    );
   } catch (e) {
     fail('midi', e);
   }
@@ -669,7 +869,14 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
   let sections: Section[] = [];
   let structSegs: StructureSegment[] = [];
   try {
-    structSegs = segmentStructure(work, { beats: tempo.beats, downbeats: tempo.downbeats, bpm, beatsPerBar: meter.numerator, chroma, signal: opts.signal }).segments;
+    structSegs = segmentStructure(work, {
+      beats: tempo.beats,
+      downbeats: tempo.downbeats,
+      bpm,
+      beatsPerBar: meter.numerator,
+      chroma,
+      signal: opts.signal,
+    }).segments;
     const barSec = (60 / bpm) * meter.numerator;
     const starts = structSegs.map((s) => Math.max(0, Math.round((s.startSeconds - offset) / barSec)));
     // contiguous sections from bar 0 covering the whole song
@@ -704,11 +911,16 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
       return sec;
     });
     const conf = structSegs.length ? mean(structSegs.map((s) => s.confidence)) : 0;
-    finish('structure', conf * (tempo.confidence > 0 ? 1 : 0.5), sections.map((s) => `${s.name} (${s.bars})`).join(', '));
+    finish(
+      'structure',
+      conf * (tempo.confidence > 0 ? 1 : 0.5),
+      sections.map((s) => `${s.name} (${s.bars})`).join(', '),
+    );
   } catch (e) {
     fail('structure', e);
   }
-  if (!sections.length) sections = [{ id: ids.next('sec'), name: 'Section 1', kind: 'verse', bars: totalBars, energy: 60 }];
+  if (!sections.length)
+    sections = [{ id: ids.next('sec'), name: 'Section 1', kind: 'verse', bars: totalBars, energy: 60 }];
   // make sure sections cover every note
   const sectionBars = sections.reduce((a, s) => a + s.bars, 0);
   if (sectionBars < totalBars) sections[sections.length - 1].bars += totalBars - sectionBars;
@@ -727,7 +939,10 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
   song.tracks = tracks;
   for (const t of tracks) {
     const m = mixSettings.get(t.id) ?? { pan: 0, volumeDb: -6 };
-    song.mixer.channels[t.id] = defaultChannelStrip({ ...m, reverbSend: t.role === 'vocal' ? 0.25 : t.role === 'drums' || t.role === 'bass' ? 0.05 : 0.2 });
+    song.mixer.channels[t.id] = defaultChannelStrip({
+      ...m,
+      reverbSend: t.role === 'vocal' ? 0.25 : t.role === 'drums' || t.role === 'bass' ? 0.05 : 0.2,
+    });
   }
   // chords on a half-beat grid, clipped to the song, without overlaps
   const songEndTick = song.sections.reduce((a, s) => a + s.bars, 0) * barTicks;
@@ -735,22 +950,47 @@ export async function rebuildProject(buf: AudioData, opts: RebuildOptions = {}):
   const chordEvents: ChordEvent[] = [];
   for (const c of chordSegs) {
     const tick = Math.max(0, Math.round(secondsToTicks(c.start - offset, bpm, ppq) / half) * half);
-    const end = Math.min(songEndTick, Math.max(tick + half, Math.round(secondsToTicks(c.end - offset, bpm, ppq) / half) * half));
+    const end = Math.min(
+      songEndTick,
+      Math.max(tick + half, Math.round(secondsToTicks(c.end - offset, bpm, ppq) / half) * half),
+    );
     if (end <= tick || tick >= songEndTick) continue;
     const spec = { root: c.root, quality: c.quality };
     const prev = chordEvents[chordEvents.length - 1];
     if (prev && tick <= prev.tick) continue;
-    if (prev && prev.root === spec.root && prev.quality === spec.quality && prev.tick + prev.duration >= tick) {
+    if (
+      prev &&
+      prev.root === spec.root &&
+      prev.quality === spec.quality &&
+      prev.tick + prev.duration >= tick
+    ) {
       prev.duration = Math.max(prev.duration, end - prev.tick);
       continue;
     }
     if (prev && prev.tick + prev.duration > tick) prev.duration = tick - prev.tick;
-    chordEvents.push({ id: ids.next('ch'), tick, duration: end - tick, root: spec.root, quality: spec.quality, symbol: formatChordSymbol(spec, key), roman: chordToRoman(spec, key) });
+    chordEvents.push({
+      id: ids.next('ch'),
+      tick,
+      duration: end - tick,
+      root: spec.root,
+      quality: spec.quality,
+      symbol: formatChordSymbol(spec, key),
+      roman: chordToRoman(spec, key),
+    });
   }
   song.chords = chordEvents;
 
   // ---- report --------------------------------------------------------------------------------------------------------
-  const weights: Record<RebuildStageId, number> = { separation: 1, tempo: 1.5, key: 1, chords: 1, pitch: 1.5, instruments: 0.5, midi: 1.5, structure: 0.7 };
+  const weights: Record<RebuildStageId, number> = {
+    separation: 1,
+    tempo: 1.5,
+    key: 1,
+    chords: 1,
+    pitch: 1.5,
+    instruments: 0.5,
+    midi: 1.5,
+    structure: 0.7,
+  };
   let wsum = 0;
   let csum = 0;
   for (const s of stages) {

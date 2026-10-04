@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { composeQuickSong } from './compose-helpers';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import http from 'node:http';
@@ -46,7 +47,9 @@ async function startMock(): Promise<Mock> {
     // `Authorization` cannot be covered by a wildcard: echo the requested headers.
     const cors = {
       'access-control-allow-origin': '*',
-      'access-control-allow-headers': String(req.headers['access-control-request-headers'] ?? 'authorization, content-type'),
+      'access-control-allow-headers': String(
+        req.headers['access-control-request-headers'] ?? 'authorization, content-type',
+      ),
       'access-control-allow-methods': 'GET, POST, OPTIONS',
     };
     if (req.method === 'OPTIONS') {
@@ -72,7 +75,14 @@ async function startMock(): Promise<Mock> {
       req.resume();
       req.on('end', () => {
         res.writeHead(200, { 'content-type': 'application/json', ...cors });
-        res.end(JSON.stringify({ id: 'cmpl', model: 'mock-llama-3.1-8b-instruct', choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: 'OK' } }], usage: { prompt_tokens: 14, completion_tokens: 1 } }));
+        res.end(
+          JSON.stringify({
+            id: 'cmpl',
+            model: 'mock-llama-3.1-8b-instruct',
+            choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: 'OK' } }],
+            usage: { prompt_tokens: 14, completion_tokens: 1 },
+          }),
+        );
       });
       return;
     }
@@ -92,9 +102,23 @@ interface SongDeckServer {
 
 async function startServer(origins: string[]): Promise<SongDeckServer> {
   const dataDir = mkdtempSync(path.join(tmpdir(), 'songdeck-e2e-'));
-  const args = ['--import', 'tsx', 'apps/server/src/cli.ts', '--port', '0', '--data-dir', dataDir, '--log-level', 'warn'];
+  const args = [
+    '--import',
+    'tsx',
+    'apps/server/src/cli.ts',
+    '--port',
+    '0',
+    '--data-dir',
+    dataDir,
+    '--log-level',
+    'warn',
+  ];
   for (const o of origins) args.push('--allow-origin', o);
-  const proc = spawn(process.execPath, args, { cwd: ROOT, env: { ...process.env, SONGDECK_DATA_DIR: dataDir }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc = spawn(process.execPath, args, {
+    cwd: ROOT,
+    env: { ...process.env, SONGDECK_DATA_DIR: dataDir },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   let log = '';
   const url = await new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Song Deck server did not start:\n${log}`)), 60_000);
@@ -139,11 +163,15 @@ test.afterAll(async () => {
 // ---------------------------------------------------------------------------
 
 /** A fresh browser profile pointed at the test server, with a display name. */
-async function studio(browser: Browser, userName: string): Promise<{ context: BrowserContext; page: Page; errors: string[] }> {
+async function studio(
+  browser: Browser,
+  userName: string,
+): Promise<{ context: BrowserContext; page: Page; errors: string[] }> {
   const context = await browser.newContext();
   await context.addInitScript(
     ({ serverUrl, name }) => {
-      if (!localStorage.getItem('songdeck:settings')) localStorage.setItem('songdeck:settings', JSON.stringify({ serverUrl, userName: name }));
+      if (!localStorage.getItem('songdeck:settings'))
+        localStorage.setItem('songdeck:settings', JSON.stringify({ serverUrl, userName: name }));
     },
     { serverUrl: server.url, name: userName },
   );
@@ -188,12 +216,7 @@ async function browserStorageDump(page: Page): Promise<string> {
 }
 
 async function composeSong(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Compose a new song' }).click();
-  await page.getByLabel('Song prompt').fill('Make a fast alternative rock song with a melancholy verse and huge cathartic chorus. Drums, bass, two guitars, piano and violin.');
-  await page.getByRole('button', { name: 'Draft Song Blueprint' }).click();
-  await page.getByRole('button', { name: 'Plan composition' }).click();
-  await page.getByRole('button', { name: 'Generate MIDI composition' }).click();
-  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
+  await composeQuickSong(page, 'Alt-rock band', 60_000);
 }
 
 // ---------------------------------------------------------------------------
@@ -209,7 +232,17 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   // Add provider → gallery → custom endpoint (spec §4.1 fields).
   await page.getByRole('button', { name: 'Add provider' }).click();
   const gallery = page.getByTestId('provider-gallery');
-  for (const group of ['Cloud language models', 'Local LLM servers', 'Custom endpoints', 'Music generation', 'Singing synthesis', 'Transcription', 'Source separation', 'Voice conversion', 'Mastering']) {
+  for (const group of [
+    'Cloud language models',
+    'Local LLM servers',
+    'Custom endpoints',
+    'Music generation',
+    'Singing synthesis',
+    'Transcription',
+    'Source separation',
+    'Voice conversion',
+    'Mastering',
+  ]) {
     await expect(gallery.getByRole('heading', { name: group })).toBeVisible();
   }
   await expect(gallery.getByRole('article', { name: 'Ollama' })).toBeVisible();
@@ -260,7 +293,7 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await expect(card).toContainText('1 model');
   await page.screenshot({ path: `${SHOTS}/settings-e2e-providers.png` });
 
-  // Browser-only mode: without a server the key stays in this tab's memory only.
+  // Browser-only mode: without a server the key is stored encrypted in this browser (never in plain text).
   await openSettings(page, /^General/);
   const serverUrl = page.getByLabel('Server URL');
   await serverUrl.fill('http://127.0.0.1:9');
@@ -272,7 +305,7 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await expect(editor.locator('.st-key-status')).toContainText('No key stored yet');
   await editor.getByLabel('API key').fill(SESSION_SECRET);
   await editor.getByRole('button', { name: 'Save key' }).click();
-  await expect(editor.getByTestId('key-note')).toContainText('this browser session only');
+  await expect(editor.getByTestId('key-note')).toContainText('Stored encrypted in this browser');
   await editor.getByRole('button', { name: 'Test connection' }).click();
   await expect(editor.getByTestId('provider-result')).toContainText('Connected');
   expect(mock.seen.some((r) => r.path === '/v1/models' && r.auth === `Bearer ${SESSION_SECRET}`)).toBe(true);
@@ -283,6 +316,14 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await serverUrl.fill(server.url);
   await serverUrl.press('Enter');
   await expect(page.getByTestId('server-status')).toContainText('Online', { timeout: 15_000 });
+
+  // With the server back, the browser-held key can move into the server vault.
+  await openSettings(page, /^Providers/);
+  const browserKeys = page.getByTestId('browser-keys');
+  await expect(browserKeys).toContainText('move them into its vault');
+  await browserKeys.getByRole('button', { name: 'Move to server vault' }).click();
+  await expect(browserKeys).toHaveCount(0);
+  await expect(page.getByTestId('provider-mock-llm')).toContainText('Key in vault');
   expect(ada.errors).toEqual([]);
 });
 
@@ -305,7 +346,21 @@ test('routing: Rules mode with “Never upload vocals”, live preview, offline 
   await expect(prefer).toContainText('Prefer Mock LLM for composition planner.');
 
   const preview = page.getByTestId('routing-preview');
-  for (const role of ['composition', 'harmony', 'midi-editing', 'lyrics', 'analysis', 'chat', 'transcription', 'separation', 'production', 'vocals', 'voice-conversion', 'mixing', 'mastering']) {
+  for (const role of [
+    'composition',
+    'harmony',
+    'midi-editing',
+    'lyrics',
+    'analysis',
+    'chat',
+    'transcription',
+    'separation',
+    'production',
+    'vocals',
+    'voice-conversion',
+    'mixing',
+    'mastering',
+  ]) {
     await expect(preview.getByTestId(`route-${role}`)).toBeVisible();
   }
   const composition = preview.getByTestId('route-composition');
@@ -317,7 +372,9 @@ test('routing: Rules mode with “Never upload vocals”, live preview, offline 
   await preview.getByRole('button', { name: 'Recorded vocals' }).click();
   await expect(composition.locator('.st-route-name')).not.toHaveText('Mock LLM');
   await composition.getByRole('button', { name: /excluded/ }).click();
-  await expect(composition.getByTestId('excluded-provider').filter({ hasText: 'Mock LLM' })).toContainText('never upload: recorded vocals');
+  await expect(composition.getByTestId('excluded-provider').filter({ hasText: 'Mock LLM' })).toContainText(
+    'never upload: recorded vocals',
+  );
   await preview.getByRole('button', { name: 'Recorded vocals' }).click();
   await expect(composition.locator('.st-route-name')).toHaveText('Mock LLM');
   await page.screenshot({ path: `${SHOTS}/settings-e2e-routing.png` });
@@ -335,7 +392,9 @@ test('routing: Rules mode with “Never upload vocals”, live preview, offline 
   await openSettings(page, /^Profiles & routing/);
   await expect(composition.locator('.st-route-name')).not.toHaveText('Mock LLM');
   await composition.getByRole('button', { name: /excluded/ }).click();
-  await expect(composition.getByTestId('excluded-provider').filter({ hasText: 'Mock LLM' })).toContainText('offline mode: cloud providers are disabled');
+  await expect(composition.getByTestId('excluded-provider').filter({ hasText: 'Mock LLM' })).toContainText(
+    'offline mode: cloud providers are disabled',
+  );
 
   await openSettings(page, /^Providers/);
   await expect(page.getByTestId('provider-mock-llm')).toContainText('Unavailable offline');
@@ -357,9 +416,12 @@ test('models & hardware from the local server', async () => {
   await expect(hw).toContainText(/RAM/);
   await expect(hw).toContainText('Acceleration');
   const manager = page.getByTestId('model-manager');
-  for (const cat of ['Composition', 'Audio', 'Vocals', 'Transcription', 'Separation', 'Mastering']) await expect(manager.getByRole('radio', { name: new RegExp(`^${cat}`) })).toBeVisible();
+  for (const cat of ['Composition', 'Audio', 'Vocals', 'Transcription', 'Separation', 'Mastering'])
+    await expect(manager.getByRole('radio', { name: new RegExp(`^${cat}`) })).toBeVisible();
   await expect(manager.getByTestId('model-row').first()).toBeVisible();
-  await expect(manager.locator('.st-model-rating .badge').first()).toHaveText(/Excellent|Compatible|Slow|Insufficient Hardware/);
+  await expect(manager.locator('.st-model-rating .badge').first()).toHaveText(
+    /Excellent|Compatible|Slow|Insufficient Hardware/,
+  );
   await page.getByRole('button', { name: 'Rescan' }).click();
   await expect(page.getByRole('button', { name: 'Rescan' })).toBeEnabled({ timeout: 60_000 });
   await manager.getByRole('radio', { name: /^Composition/ }).click();
@@ -413,7 +475,9 @@ test.afterAll(async () => {
   await bob?.context.close().catch(() => undefined);
 });
 
-test('collaboration: two people in one room — a commit by Alice appears in Bob’s history', async ({ browser }) => {
+test('collaboration: two people in one room — a commit by Alice appears in Bob’s history', async ({
+  browser,
+}) => {
   alice = await studio(browser, 'Alice');
   bob = await studio(browser, 'Bob');
   const a = alice.page;
@@ -433,7 +497,10 @@ test('collaboration: two people in one room — a commit by Alice appears in Bob
   // Bob opens the shared project and joins the same room.
   await openSettings(b, /^Collaboration/);
   await expectServerOnline(b);
-  await b.getByTestId('shared-projects').getByRole('button', { name: `Open ${shareName}` }).click();
+  await b
+    .getByTestId('shared-projects')
+    .getByRole('button', { name: `Open ${shareName}` })
+    .click();
   await expect(b.getByTestId('arrangement')).toBeVisible({ timeout: 30_000 });
   await openSettings(b, /^Collaboration/);
   await b.getByTestId('collab-connection').getByRole('button', { name: 'Connect' }).click();

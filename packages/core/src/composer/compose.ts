@@ -20,14 +20,16 @@ import { IdFactory } from '../util/ids';
 import { resolveFunction } from './arrangement';
 import { buildSongGen, type StyleOverrides } from './context';
 import { writeCells } from './engine';
-import { blendGenres } from './genres';
+import { blendForBlueprint, genreForBlueprint, normalizeTagIds } from './tags';
 import { getInstrument } from './instruments';
+import { placeBlueprintLyrics } from './lyrics-first';
 import { fillMixer, mixerForGenre, trackColor } from './mixer';
 import { buildSongMotifs } from './motifs';
 import { planComposition } from './planner';
+import { drumStyleInfo } from './styles';
 import { sectionsFromPlan, writePlanChords } from './structure';
 import { extractSongDNA } from './dna';
-import { meterInfo } from './util';
+import { effectiveMacros, meterInfo } from './util';
 
 export interface ComposeOptions {
   seed?: number;
@@ -51,7 +53,12 @@ export interface ComposeInternals {
 const RIFF_STYLES = ['rock', 'metal', 'punk', 'pop-punk', 'emo'];
 
 /** Song tracks for a blueprint's instrumentation (deterministic ids, MIDI channels, colours, vocal ranges). */
-export function tracksFromBlueprint(bp: Blueprint, seed: number, custom?: InstrumentProfile[], presetIds?: (string | undefined)[]): Track[] {
+export function tracksFromBlueprint(
+  bp: Blueprint,
+  seed: number,
+  custom?: InstrumentProfile[],
+  presetIds?: (string | undefined)[],
+): Track[] {
   const ids = new IdFactory(seed, 'tracks');
   let channel = 0;
   const leadVoice: VoiceType = bp.vocal?.voiceType ?? 'tenor';
@@ -91,14 +98,30 @@ export function tracksFromBlueprint(bp: Blueprint, seed: number, custom?: Instru
   });
 }
 
-export function composeInternal(blueprint: Blueprint, planIn: CompositionPlan | undefined, opts: ComposeOptions, internal: ComposeInternals): Song {
+export function composeInternal(
+  blueprint: Blueprint,
+  planIn: CompositionPlan | undefined,
+  opts: ComposeOptions,
+  internal: ComposeInternals,
+): Song {
   const seed = Math.floor(Math.abs(opts.seed ?? blueprint.seed ?? 1));
   const plan = planIn ?? planComposition(blueprint, { seed, customGenres: opts.customGenres });
-  const blend = blueprint.genreBlend && blueprint.genreBlend.length ? blueprint.genreBlend : [{ genreId: 'pop', weight: 1 }];
-  const genre = blendGenres(blend, opts.customGenres);
+  // Style tags pull an empty blend toward their parent genres; all tags then shape the profile.
+  const blend = blendForBlueprint(blueprint);
+  const tags = normalizeTagIds(blueprint.tags);
+  const genre = genreForBlueprint({ genreBlend: blend, tags }, opts.customGenres);
   const songId = opts.songId ?? new IdFactory(seed, 'song').next('song');
-  const song = createEmptySong({ id: songId, title: blueprint.title || 'Untitled', bpm: plan.tempo, meter: plan.meter, key: plan.key, seed });
+  const song = createEmptySong({
+    id: songId,
+    title: blueprint.title || 'Untitled',
+    bpm: plan.tempo,
+    meter: plan.meter,
+    key: plan.key,
+    seed,
+  });
   song.genreBlend = blend.map((g) => ({ ...g }));
+  if (tags.length) song.tags = tags;
+  // The blueprint's macros stay the user's base; tag deltas apply at generation (effectiveMacros).
   song.macros = { ...defaultMacros(), ...(blueprint.macros ?? {}) };
   song.blueprint = cloneSong(blueprint);
   song.plan = cloneSong(plan);
@@ -107,7 +130,9 @@ export function composeInternal(blueprint: Blueprint, planIn: CompositionPlan | 
   // Structure & harmony.
   const planSections = plan.sections.filter((s) => s.bars > 0);
   const structureIds = new IdFactory(seed, 'structure');
-  const moods = planSections.map((ps, i) => (blueprint.structure?.[i]?.kind === ps.kind ? blueprint.structure[i].mood : undefined));
+  const moods = planSections.map((ps, i) =>
+    blueprint.structure?.[i]?.kind === ps.kind ? blueprint.structure[i].mood : undefined,
+  );
   song.sections = sectionsFromPlan(planSections, () => structureIds.next('sec'), internal.sectionIds, moods);
   writePlanChords(song, { ...plan, sections: planSections }, seed);
 
@@ -122,8 +147,15 @@ export function composeInternal(blueprint: Blueprint, planIn: CompositionPlan | 
   fillMixer(song, genre, instOf, pans);
 
   // Motifs: who sings/plays them.
-  const melodyTrack = song.tracks.find((t) => t.role === 'vocal' && resolveFunction(t, instOf(t)) === 'melody') ?? song.tracks.find((t) => resolveFunction(t, instOf(t)) === 'melody');
-  const hookTrack = song.tracks.find((t) => (t.role === 'lead-guitar' || t.role === 'synth-lead') && resolveFunction(t, instOf(t)) !== 'counter-melody') ?? song.tracks.find((t) => resolveFunction(t, instOf(t)) === 'hook');
+  const melodyTrack =
+    song.tracks.find((t) => t.role === 'vocal' && resolveFunction(t, instOf(t)) === 'melody') ??
+    song.tracks.find((t) => resolveFunction(t, instOf(t)) === 'melody');
+  const hookTrack =
+    song.tracks.find(
+      (t) =>
+        (t.role === 'lead-guitar' || t.role === 'synth-lead') &&
+        resolveFunction(t, instOf(t)) !== 'counter-melody',
+    ) ?? song.tracks.find((t) => resolveFunction(t, instOf(t)) === 'hook');
   const answerTrack = song.tracks.find((t) => resolveFunction(t, instOf(t)) === 'counter-melody');
   const riffTrack = song.tracks.find((t) => t.role === 'rhythm-guitar');
   const sources: { vocal?: string; hook?: string; answer?: string; riff?: string } = {};
@@ -133,29 +165,38 @@ export function composeInternal(blueprint: Blueprint, planIn: CompositionPlan | 
   if (riffTrack) sources.riff = riffTrack.id;
   const firstVerse = song.sections.find((s) => s.kind === 'verse') ?? song.sections[0];
   void firstVerse;
+  const motifMacros = effectiveMacros(song);
   song.motifs = internal.motifs
     ? cloneSong(internal.motifs)
     : buildSongMotifs({
         seed,
         meter: meterInfo(plan.meter, song.ppq),
         bpm: plan.tempo,
-        density: song.macros.density,
-        syncopation: song.macros.syncopation,
-        movement: song.macros.melodicMovement,
+        density: motifMacros.density,
+        syncopation: motifMacros.syncopation,
+        movement: motifMacros.melodicMovement,
         riff: RIFF_STYLES.includes(genre.rhythm.drumStyle) && Boolean(riffTrack),
-        flatVocal: genre.rhythm.drumStyle === 'hip-hop' || genre.rhythm.drumStyle === 'trap',
+        flatVocal: drumStyleInfo(genre.rhythm.drumStyle).rap === true,
         sources,
       });
 
   // Vocal, production and mastering settings.
-  song.vocals.mode = melodyTrack && melodyTrack.role === 'vocal' ? blueprint.vocal?.mode ?? 'melody-only' : 'none';
+  song.vocals.mode =
+    melodyTrack && melodyTrack.role === 'vocal' ? (blueprint.vocal?.mode ?? 'melody-only') : 'none';
   const moodText = (blueprint.moods ?? []).join(', ');
   song.production.prompt = `${genre.production.description}. ${genre.production.keywords.join(', ')}${moodText ? `. Mood: ${moodText}` : ''}`;
   song.mastering.target = genre.production.masteringTarget ?? 'streaming';
 
+  // Lyrics supplied up front (lyrics-first): the user's words, sung by the lead vocal and locked.
+  if (blueprint.lyrics?.sections?.length) placeBlueprintLyrics(song, blueprint.lyrics, seed);
   internal.beforeNotes?.(song);
   if (!internal.skipNotes) {
-    const g = buildSongGen(song, { seed, customInstruments: opts.customInstruments, customGenres: opts.customGenres, overrides: internal.overrides });
+    const g = buildSongGen(song, {
+      seed,
+      customInstruments: opts.customInstruments,
+      customGenres: opts.customGenres,
+      overrides: internal.overrides,
+    });
     writeCells(g, seed, { respectLocks: false });
   }
   song.dna = extractSongDNA(song);

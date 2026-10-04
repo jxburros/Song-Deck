@@ -13,6 +13,7 @@ import {
   chordsInRange,
   chordToRoman,
   createTimeMap,
+  getTag,
   isLocked,
   isTrackSectionLocked,
   keyAtTick,
@@ -23,6 +24,7 @@ import {
   midiToNoteName,
   sectionLayout,
   songLengthBars,
+  songTags,
   songLengthTicks,
   tickToBar,
   tickToMusical,
@@ -167,6 +169,8 @@ export interface MusicContext {
   key: string;
   key_changes?: { bar: number; key: string }[];
   styles?: string[];
+  /** Tag-catalog tags of the song, as "Name (kind)" — e.g. "Lo-fi (production)". */
+  tags?: string[];
   moods?: string[];
   total_bars: number;
   duration_seconds: number;
@@ -254,7 +258,13 @@ function sectionToContext(span: SectionSpan, song: Song): ContextSection {
   return out;
 }
 
-function noteToContext(song: Song, track: Track, n: Note, key: KeySignature, lockedFn: (n: Note) => boolean): ContextNote {
+function noteToContext(
+  song: Song,
+  track: Track,
+  n: Note,
+  key: KeySignature,
+  lockedFn: (n: Note) => boolean,
+): ContextNote {
   const pos = tickToMusical(song, n.tick);
   const out: ContextNote = {
     id: n.id,
@@ -325,15 +335,28 @@ function mixerSummary(trackName: string, strip: ChannelStrip, locked: boolean): 
   if (eq?.enabled) {
     const bits: string[] = [];
     if (eq.highpassHz > 0) bits.push(`HP ${Math.round(eq.highpassHz)} Hz`);
-    if (eq.lowShelfDb) bits.push(`low shelf ${eq.lowShelfDb > 0 ? '+' : ''}${round(eq.lowShelfDb, 1)} dB @${Math.round(eq.lowShelfHz)} Hz`);
-    if (eq.lowMidDb) bits.push(`low-mid ${eq.lowMidDb > 0 ? '+' : ''}${round(eq.lowMidDb, 1)} dB @${Math.round(eq.lowMidHz)} Hz`);
-    if (eq.highMidDb) bits.push(`high-mid ${eq.highMidDb > 0 ? '+' : ''}${round(eq.highMidDb, 1)} dB @${Math.round(eq.highMidHz)} Hz`);
-    if (eq.highShelfDb) bits.push(`high shelf ${eq.highShelfDb > 0 ? '+' : ''}${round(eq.highShelfDb, 1)} dB @${Math.round(eq.highShelfHz)} Hz`);
+    if (eq.lowShelfDb)
+      bits.push(
+        `low shelf ${eq.lowShelfDb > 0 ? '+' : ''}${round(eq.lowShelfDb, 1)} dB @${Math.round(eq.lowShelfHz)} Hz`,
+      );
+    if (eq.lowMidDb)
+      bits.push(
+        `low-mid ${eq.lowMidDb > 0 ? '+' : ''}${round(eq.lowMidDb, 1)} dB @${Math.round(eq.lowMidHz)} Hz`,
+      );
+    if (eq.highMidDb)
+      bits.push(
+        `high-mid ${eq.highMidDb > 0 ? '+' : ''}${round(eq.highMidDb, 1)} dB @${Math.round(eq.highMidHz)} Hz`,
+      );
+    if (eq.highShelfDb)
+      bits.push(
+        `high shelf ${eq.highShelfDb > 0 ? '+' : ''}${round(eq.highShelfDb, 1)} dB @${Math.round(eq.highShelfHz)} Hz`,
+      );
     if (eq.lowpassHz > 0) bits.push(`LP ${Math.round(eq.lowpassHz)} Hz`);
     if (bits.length) out.eq = bits.join(', ');
   }
   const c = strip.compressor;
-  if (c?.enabled) out.compressor = `${round(c.thresholdDb, 1)} dB ${round(c.ratio, 1)}:1 attack ${round(c.attackMs, 1)} ms release ${Math.round(c.releaseMs)} ms`;
+  if (c?.enabled)
+    out.compressor = `${round(c.thresholdDb, 1)} dB ${round(c.ratio, 1)}:1 attack ${round(c.attackMs, 1)} ms release ${Math.round(c.releaseMs)} ms`;
   if (locked) out.locked = true;
   return out;
 }
@@ -352,12 +375,14 @@ function describeLock(song: Song, key: string): string | undefined {
   };
   if (simple[key]) return simple[key];
   let m: RegExpExecArray | null;
-  if ((m = /^track:([^:]+):section:(.+)$/.exec(key))) return `Track "${trackName(m[1])}" is locked in "${sectionName(m[2])}"`;
+  if ((m = /^track:([^:]+):section:(.+)$/.exec(key)))
+    return `Track "${trackName(m[1])}" is locked in "${sectionName(m[2])}"`;
   if ((m = /^track:(.+)$/.exec(key))) return `Track "${trackName(m[1])}" is locked`;
   if ((m = /^section:(.+)$/.exec(key))) return `Section "${sectionName(m[1])}" is locked (all material)`;
   if ((m = /^chords:section:(.+)$/.exec(key))) return `Chords in "${sectionName(m[1])}" are locked`;
   if ((m = /^lyrics:section:(.+)$/.exec(key))) return `Lyrics in "${sectionName(m[1])}" are locked`;
-  if ((m = /^motif:(.+)$/.exec(key))) return `Motif "${song.motifs.find((x) => x.id === m![1])?.name ?? m[1]}" is locked`;
+  if ((m = /^motif:(.+)$/.exec(key)))
+    return `Motif "${song.motifs.find((x) => x.id === m![1])?.name ?? m[1]}" is locked`;
   if ((m = /^mixer:(.+)$/.exec(key))) return `Mixer strip of "${trackName(m[1])}" is locked`;
   return `Locked: ${key}`;
 }
@@ -437,13 +462,22 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
         roman = undefined;
       }
     }
-    const out: ContextChord = { bar: pos.bar, beat: round(pos.beat, 3), symbol: c.symbol, duration_beats: round(ticksToBeats(song, c.duration, c.tick), 3) };
+    const out: ContextChord = {
+      bar: pos.bar,
+      beat: round(pos.beat, 3),
+      symbol: c.symbol,
+      duration_beats: round(ticksToBeats(song, c.duration, c.tick), 3),
+    };
     if (roman) out.roman = roman;
     return out;
   });
 
   // ---- Tracks
-  const includeTrack = (t: Track) => !opts.trackIds?.length || opts.trackIds.includes(t.id) || selectedTrackIds.has(t.id) || t.notes.some((n) => selectedNoteIds.has(n.id));
+  const includeTrack = (t: Track) =>
+    !opts.trackIds?.length ||
+    opts.trackIds.includes(t.id) ||
+    selectedTrackIds.has(t.id) ||
+    t.notes.some((n) => selectedNoteIds.has(n.id));
   const tracksInScope = song.tracks.filter(includeTrack);
   const lockedNoteIds: string[] = [];
   const selectedNotes: ContextSelectedNote[] = [];
@@ -457,18 +491,30 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
   }
   const drafts: Draft[] = tracksInScope.map((track) => {
     const wholeLocked = isLocked(song.locks, LockKeys.track(track.id));
-    const lockedSections = layout.filter((s) => isTrackSectionLocked(song, track.id, s.section.id)).map((s) => s.section.name);
+    const lockedSections = layout
+      .filter((s) => isTrackSectionLocked(song, track.id, s.section.id))
+      .map((s) => s.section.name);
     const lockedRanges = layout.filter((s) => isTrackSectionLocked(song, track.id, s.section.id));
-    const lockedFn = (n: Note) => n.locked === true || wholeLocked || lockedRanges.some((r) => n.tick >= r.startTick && n.tick < r.endTick);
-    const focusNotes = track.notes.filter((n) => n.tick >= start && n.tick < end).sort((a, b) => a.tick - b.tick || a.pitch - b.pitch);
+    const lockedFn = (n: Note) =>
+      n.locked === true ||
+      wholeLocked ||
+      lockedRanges.some((r) => n.tick >= r.startTick && n.tick < r.endTick);
+    const focusNotes = track.notes
+      .filter((n) => n.tick >= start && n.tick < end)
+      .sort((a, b) => a.tick - b.tick || a.pitch - b.pitch);
     const rows = focusNotes.map((n) => noteToContext(song, track, n, keyAtTick(song, n.tick), lockedFn));
     for (const n of focusNotes) if (n.locked) lockedNoteIds.push(n.id);
     for (const n of track.notes) {
-      if (selectedNoteIds.has(n.id)) selectedNotes.push({ ...noteToContext(song, track, n, keyAtTick(song, n.tick), lockedFn), track: track.name });
+      if (selectedNoteIds.has(n.id))
+        selectedNotes.push({
+          ...noteToContext(song, track, n, keyAtTick(song, n.tick), lockedFn),
+          track: track.name,
+        });
     }
     let range: string | undefined;
     const c = track.constraints ?? {};
-    if (c.lowest !== undefined && c.highest !== undefined) range = `${noteName(c.lowest, key)}-${noteName(c.highest, key)}`;
+    if (c.lowest !== undefined && c.highest !== undefined)
+      range = `${noteName(c.lowest, key)}-${noteName(c.highest, key)}`;
     else if (track.notes.length && !isDrumTrack(track)) {
       const lo = Math.min(...track.notes.map((n) => n.pitch));
       const hi = Math.max(...track.notes.map((n) => n.pitch));
@@ -485,7 +531,8 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
     };
     if (c.function) ctx.function = c.function;
     if (range) ctx.range = range;
-    const selectedTrack = selectedTrackIds.has(track.id) || track.notes.some((n) => selectedNoteIds.has(n.id));
+    const selectedTrack =
+      selectedTrackIds.has(track.id) || track.notes.some((n) => selectedNoteIds.has(n.id));
     if (selectedTrack) ctx.selected = true;
     return { track, ctx, focusNotes, rows, selectedTrack };
   });
@@ -530,22 +577,29 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
       return out;
     })
     .filter((x) => Object.keys(x).length > 1);
-  const rules = [
-    'Never modify locked material.',
-    'Keep notes inside each instrument range.',
-  ];
-  if (!wholeSong) rules.push(`Only change material inside bars ${startBar1}-${endBar1} unless the instruction explicitly says otherwise.`);
+  const rules = ['Never modify locked material.', 'Keep notes inside each instrument range.'];
+  if (!wholeSong)
+    rules.push(
+      `Only change material inside bars ${startBar1}-${endBar1} unless the instruction explicitly says otherwise.`,
+    );
   const constraints: ContextConstraints = { locks, locked_note_ids: lockedNoteIds, instruments, rules };
   if (!wholeSong) constraints.region = { start_bar: startBar1, end_bar: endBar1 };
 
   // ---- Lyrics in focus sections
-  const focusSectionIds = new Set(layout.filter((s) => s.startTick < end && s.endTick > start).map((s) => s.section.id));
+  const focusSectionIds = new Set(
+    layout.filter((s) => s.startTick < end && s.endTick > start).map((s) => s.section.id),
+  );
   const lyrics: ContextLyricLine[] = song.lyrics
     .filter((l) => focusSectionIds.has(l.sectionId))
     .map((l) => {
-      const out: ContextLyricLine = { id: l.id, section: sectionByName.get(l.sectionId) ?? l.sectionId, text: l.text };
+      const out: ContextLyricLine = {
+        id: l.id,
+        section: sectionByName.get(l.sectionId) ?? l.sectionId,
+        text: l.text,
+      };
       if (l.trackId) out.track = song.tracks.find((t) => t.id === l.trackId)?.name ?? l.trackId;
-      if (isLocked(song.locks, LockKeys.lyrics) || isLocked(song.locks, LockKeys.sectionLyrics(l.sectionId))) out.locked = true;
+      if (isLocked(song.locks, LockKeys.lyrics) || isLocked(song.locks, LockKeys.sectionLyrics(l.sectionId)))
+        out.locked = true;
       return out;
     });
 
@@ -555,7 +609,9 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
       ? []
       : tracksInScope
           .filter((t) => song.mixer.channels[t.id])
-          .map((t) => mixerSummary(t.name, song.mixer.channels[t.id], isLocked(song.locks, LockKeys.mixer(t.id))));
+          .map((t) =>
+            mixerSummary(t.name, song.mixer.channels[t.id], isLocked(song.locks, LockKeys.mixer(t.id))),
+          );
 
   // ---- Motifs
   const ppq = song.ppq;
@@ -568,7 +624,8 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
       degrees: m.notes.slice(0, 24).map((n) => n.degree),
     };
     if (m.description) out.description = m.description;
-    if (m.sourceTrackId) out.source_track = song.tracks.find((t) => t.id === m.sourceTrackId)?.name ?? m.sourceTrackId;
+    if (m.sourceTrackId)
+      out.source_track = song.tracks.find((t) => t.id === m.sourceTrackId)?.name ?? m.sourceTrackId;
     return out;
   });
 
@@ -585,20 +642,39 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
     tracks: drafts.map((d) => d.ctx),
     motifs,
     selected_notes: selectedNotes,
-    energy: layout.map((s) => ({ section: s.section.name, energy: s.section.energy, ...(s.section.energyEnd !== undefined ? { energy_end: s.section.energyEnd } : {}) })),
+    energy: layout.map((s) => ({
+      section: s.section.name,
+      energy: s.section.energy,
+      ...(s.section.energyEnd !== undefined ? { energy_end: s.section.energyEnd } : {}),
+    })),
     constraints,
     lyrics,
     mixer,
     instruction: opts.instruction,
   };
-  if (tempoChanges.length > 1) ctx.tempo_changes = tempoChanges.map((t) => ({ bar: tickToMusical(song, t.tick).bar, bpm: t.bpm }));
-  if (meterChanges.length > 1) ctx.meter_changes = meterChanges.map((m) => ({ bar: m.bar + 1, meter: `${m.numerator}/${m.denominator}` }));
-  if (keyChanges.length > 1) ctx.key_changes = keyChanges.map((k) => ({ bar: k.bar + 1, key: keyName(k.key) }));
-  const styles = song.blueprint?.styles?.length ? song.blueprint.styles : song.genreBlend.map((g) => g.genreId);
+  if (tempoChanges.length > 1)
+    ctx.tempo_changes = tempoChanges.map((t) => ({ bar: tickToMusical(song, t.tick).bar, bpm: t.bpm }));
+  if (meterChanges.length > 1)
+    ctx.meter_changes = meterChanges.map((m) => ({
+      bar: m.bar + 1,
+      meter: `${m.numerator}/${m.denominator}`,
+    }));
+  if (keyChanges.length > 1)
+    ctx.key_changes = keyChanges.map((k) => ({ bar: k.bar + 1, key: keyName(k.key) }));
+  const styles = song.blueprint?.styles?.length
+    ? song.blueprint.styles
+    : song.genreBlend.map((g) => g.genreId);
   if (styles.length) ctx.styles = [...styles];
+  const tagIds = songTags(song);
+  if (tagIds.length)
+    ctx.tags = tagIds
+      .map((id) => getTag(id))
+      .filter((t) => t !== undefined)
+      .map((t) => `${t.name} (${t.kind})`);
   if (song.blueprint?.moods?.length) ctx.moods = [...song.blueprint.moods];
   if (focusSpan) ctx.section = sectionToContext(focusSpan, song);
-  if (omitted || summarized.length) ctx.truncation = { omitted_notes: omitted, summarized_tracks: summarized };
+  if (omitted || summarized.length)
+    ctx.truncation = { omitted_notes: omitted, summarized_tracks: summarized };
 
   if (opts.maxTokens) fitToTokenBudget(song, ctx, drafts, key, opts.maxTokens);
   return ctx;
@@ -616,7 +692,10 @@ function fitToTokenBudget(
   if (!over()) return;
   const candidates = drafts
     .filter((d) => d.ctx.notes && d.ctx.notes.length)
-    .sort((a, b) => Number(a.selectedTrack) - Number(b.selectedTrack) || (b.ctx.notes!.length - a.ctx.notes!.length));
+    .sort(
+      (a, b) =>
+        Number(a.selectedTrack) - Number(b.selectedTrack) || b.ctx.notes!.length - a.ctx.notes!.length,
+    );
   for (const d of candidates) {
     if (!over()) break;
     const count = d.ctx.notes!.length;
@@ -660,12 +739,20 @@ function noteRow(n: ContextNote): string {
 /** Deterministic compact text rendering of a MusicContext for prompts. */
 export function musicContextToPrompt(ctx: MusicContext): string {
   const lines: string[] = [];
-  lines.push(`SONG: "${ctx.title}" — ${fmtNum(ctx.tempo)} BPM, ${ctx.meter}, ${ctx.key}, ${ctx.total_bars} bars (${fmtDuration(ctx.duration_seconds)})`);
+  lines.push(
+    `SONG: "${ctx.title}" — ${fmtNum(ctx.tempo)} BPM, ${ctx.meter}, ${ctx.key}, ${ctx.total_bars} bars (${fmtDuration(ctx.duration_seconds)})`,
+  );
   if (ctx.styles?.length) lines.push(`STYLE: ${ctx.styles.join(', ')}`);
+  if (ctx.tags?.length) lines.push(`STYLE TAGS: ${ctx.tags.join(', ')}`);
   if (ctx.moods?.length) lines.push(`MOODS: ${ctx.moods.join('; ')}`);
-  if (ctx.tempo_changes?.length) lines.push(`TEMPO MAP: ${ctx.tempo_changes.map((t) => `bar ${t.bar} → ${fmtNum(t.bpm)} BPM`).join(', ')}`);
-  if (ctx.meter_changes?.length) lines.push(`METER MAP: ${ctx.meter_changes.map((m) => `bar ${m.bar} → ${m.meter}`).join(', ')}`);
-  if (ctx.key_changes?.length) lines.push(`KEY MAP: ${ctx.key_changes.map((k) => `bar ${k.bar} → ${k.key}`).join(', ')}`);
+  if (ctx.tempo_changes?.length)
+    lines.push(
+      `TEMPO MAP: ${ctx.tempo_changes.map((t) => `bar ${t.bar} → ${fmtNum(t.bpm)} BPM`).join(', ')}`,
+    );
+  if (ctx.meter_changes?.length)
+    lines.push(`METER MAP: ${ctx.meter_changes.map((m) => `bar ${m.bar} → ${m.meter}`).join(', ')}`);
+  if (ctx.key_changes?.length)
+    lines.push(`KEY MAP: ${ctx.key_changes.map((k) => `bar ${k.bar} → ${k.key}`).join(', ')}`);
 
   lines.push('SECTIONS (1-based inclusive bars):');
   ctx.sections.forEach((s, i) => {
@@ -678,10 +765,14 @@ export function musicContextToPrompt(ctx: MusicContext): string {
     if (s.locked) row += ' [LOCKED]';
     lines.push(row);
   });
-  lines.push(`FOCUS: bars ${ctx.focus.start_bar}-${ctx.focus.end_bar} (${ctx.focus.description})${ctx.section ? ` — section "${ctx.section.name}"` : ''}`);
+  lines.push(
+    `FOCUS: bars ${ctx.focus.start_bar}-${ctx.focus.end_bar} (${ctx.focus.description})${ctx.section ? ` — section "${ctx.section.name}"` : ''}`,
+  );
 
   if (ctx.chords.length) {
-    lines.push(`CHORDS in focus (bar:beat symbol roman beats): ${ctx.chords.map((c) => `${c.bar}:${fmtNum(c.beat)} ${c.symbol}${c.roman ? ` ${c.roman}` : ''} ${fmtNum(c.duration_beats)}`).join(' | ')}`);
+    lines.push(
+      `CHORDS in focus (bar:beat symbol roman beats): ${ctx.chords.map((c) => `${c.bar}:${fmtNum(c.beat)} ${c.symbol}${c.roman ? ` ${c.roman}` : ''} ${fmtNum(c.duration_beats)}`).join(' | ')}`,
+    );
   } else {
     lines.push('CHORDS in focus: none');
   }
@@ -697,21 +788,30 @@ export function musicContextToPrompt(ctx: MusicContext): string {
     head += ` notes_total=${t.note_count}`;
     lines.push(head);
     if (t.notes) {
-      lines.push(t.notes.length ? `    notes in focus (bar:beat pitch beats velocity): ${t.notes.map(noteRow).join(', ')}` : '    notes in focus: none');
+      lines.push(
+        t.notes.length
+          ? `    notes in focus (bar:beat pitch beats velocity): ${t.notes.map(noteRow).join(', ')}`
+          : '    notes in focus: none',
+      );
     } else if (t.summary) {
       lines.push(`    summary: ${t.summary}`);
     }
   }
   if (ctx.selected_notes.length) {
-    lines.push(`SELECTED NOTES (id track bar:beat pitch beats velocity): ${ctx.selected_notes.map((n) => `${n.id} ${n.track} ${noteRow(n)}`).join('; ')}`);
+    lines.push(
+      `SELECTED NOTES (id track bar:beat pitch beats velocity): ${ctx.selected_notes.map((n) => `${n.id} ${n.track} ${noteRow(n)}`).join('; ')}`,
+    );
   }
   if (ctx.motifs.length) {
-    lines.push(`MOTIFS: ${ctx.motifs.map((m) => `${m.name} (${m.role}, ${fmtNum(m.length_beats)} beats${m.source_track ? `, ${m.source_track}` : ''}): degrees ${m.degrees.join(' ')}`).join(' | ')}`);
+    lines.push(
+      `MOTIFS: ${ctx.motifs.map((m) => `${m.name} (${m.role}, ${fmtNum(m.length_beats)} beats${m.source_track ? `, ${m.source_track}` : ''}): degrees ${m.degrees.join(' ')}`).join(' | ')}`,
+    );
   }
   lines.push('CONSTRAINTS:');
   for (const r of ctx.constraints.rules) lines.push(`  - ${r}`);
   for (const l of ctx.constraints.locks) lines.push(`  - ${l}`);
-  if (ctx.constraints.locked_note_ids.length) lines.push(`  - Locked notes (marked L): ${ctx.constraints.locked_note_ids.length}`);
+  if (ctx.constraints.locked_note_ids.length)
+    lines.push(`  - Locked notes (marked L): ${ctx.constraints.locked_note_ids.length}`);
   for (const c of ctx.constraints.instruments) {
     const bits: string[] = [];
     if (c.lowest || c.highest) bits.push(`range ${c.lowest ?? '?'}-${c.highest ?? '?'}`);
@@ -725,13 +825,21 @@ export function musicContextToPrompt(ctx: MusicContext): string {
     lines.push('LYRICS in focus:');
     const bySection = new Map<string, ContextLyricLine[]>();
     for (const l of ctx.lyrics) bySection.set(l.section, [...(bySection.get(l.section) ?? []), l]);
-    for (const [section, ls] of bySection) lines.push(`  ${section}${ls.some((l) => l.locked) ? ' [LOCKED]' : ''}: ${ls.map((l) => `"${l.text}"`).join(' / ')}`);
+    for (const [section, ls] of bySection)
+      lines.push(
+        `  ${section}${ls.some((l) => l.locked) ? ' [LOCKED]' : ''}: ${ls.map((l) => `"${l.text}"`).join(' / ')}`,
+      );
   }
   if (ctx.mixer.length) {
     lines.push(
       `MIXER: ${ctx.mixer
         .map((m) => {
-          const bits = [`vol ${fmtNum(m.volume_db)} dB`, `pan ${fmtNum(m.pan)}`, `rev ${fmtNum(m.reverb_send)}`, `dly ${fmtNum(m.delay_send)}`];
+          const bits = [
+            `vol ${fmtNum(m.volume_db)} dB`,
+            `pan ${fmtNum(m.pan)}`,
+            `rev ${fmtNum(m.reverb_send)}`,
+            `dly ${fmtNum(m.delay_send)}`,
+          ];
           if (m.mute) bits.push('muted');
           if (m.solo) bits.push('solo');
           if (m.width !== undefined) bits.push(`width ${fmtNum(m.width)}`);
@@ -745,15 +853,21 @@ export function musicContextToPrompt(ctx: MusicContext): string {
     );
   }
   if (ctx.truncation) {
-    lines.push(`NOTE: ${ctx.truncation.omitted_notes} notes summarized to save space (${ctx.truncation.summarized_tracks.join(', ')}).`);
+    lines.push(
+      `NOTE: ${ctx.truncation.omitted_notes} notes summarized to save space (${ctx.truncation.summarized_tracks.join(', ')}).`,
+    );
   }
   lines.push(`INSTRUCTION: ${ctx.instruction}`);
   return lines.join('\n');
 }
 
 /** Data kinds a MusicContext would disclose (privacy indicator, spec §50). */
-export function contextDataKinds(ctx: MusicContext): ('song-description' | 'chord-progression' | 'midi' | 'lyrics' | 'project-metadata')[] {
-  const kinds: ('song-description' | 'chord-progression' | 'midi' | 'lyrics' | 'project-metadata')[] = ['song-description'];
+export function contextDataKinds(
+  ctx: MusicContext,
+): ('song-description' | 'chord-progression' | 'midi' | 'lyrics' | 'project-metadata')[] {
+  const kinds: ('song-description' | 'chord-progression' | 'midi' | 'lyrics' | 'project-metadata')[] = [
+    'song-description',
+  ];
   if (ctx.chords.length || ctx.sections.some((s) => s.progression?.length)) kinds.push('chord-progression');
   if (ctx.tracks.some((t) => t.notes?.length || t.summary) || ctx.selected_notes.length) kinds.push('midi');
   if (ctx.lyrics.length) kinds.push('lyrics');

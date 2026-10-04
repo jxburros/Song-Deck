@@ -1,5 +1,13 @@
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
-import type { AnalysisRecord, GenerationRecord, HistoryState, Project, ProjectMeta, Revision, Song } from '../ir/types';
+import type {
+  AnalysisRecord,
+  GenerationRecord,
+  HistoryState,
+  Project,
+  ProjectMeta,
+  Revision,
+  Song,
+} from '../ir/types';
 import { ENGINE_VERSION, PROJECT_FORMAT_VERSION, emptyRights } from '../ir/defaults';
 import { randomId } from '../util/ids';
 import { sectionLayout } from '../timing';
@@ -7,6 +15,7 @@ import { songToMidi, trackToMidi } from '../io/midi';
 import { songToLyricSheet } from '../io/sheets';
 import { slugify, uniqueNames } from '../io/util';
 import { safePackagePath } from './assets';
+import { rightsSummaryText } from './rights';
 
 /**
  * `.songproject` package (spec §9): a ZIP containing
@@ -20,6 +29,7 @@ import { safePackagePath } from './assets';
  *   motifs/<id>.json                motif library                                     [derived]
  *   audio/{references,guide-renders,generations,vocals,masters,…}/…, stems/…   asset bytes at AudioAssetMeta.path
  *   analysis/<id>.json, generations/<id>.json
+ *   rights/RIGHTS.txt               rights metadata + upload attestations (when there are any)      [derived]
  *
  * Derived files are conveniences for other tools; unpacking reads only the canonical JSON.
  * Credentials are never written: keys such as apiKey/token/secret/password are dropped and
@@ -35,7 +45,8 @@ export interface PackOptions {
   mtime?: string | Date | number;
 }
 
-const SECRET_KEY = /^(api[-_]?key|apikey|x[-_]?api[-_]?key|secret|client[-_]?secret|token|access[-_]?token|refresh[-_]?token|auth[-_]?token|id[-_]?token|session[-_]?token|bearer|authorization|password|passwd|credentials?|private[-_]?key)$/i;
+const SECRET_KEY =
+  /^(api[-_]?key|apikey|x[-_]?api[-_]?key|secret|client[-_]?secret|token|access[-_]?token|refresh[-_]?token|auth[-_]?token|id[-_]?token|session[-_]?token|bearer|authorization|password|passwd|credentials?|private[-_]?key)$/i;
 const SECRET_VALUE =
   /^(?:Bearer\s+\S{8,}|sk-(?:ant-|proj-)?[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{30,}|xai-[A-Za-z0-9]{20,}|gsk_[A-Za-z0-9]{20,}|r8_[A-Za-z0-9]{20,}|hf_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16})$/;
 
@@ -57,7 +68,8 @@ export function scrubSecrets<T>(value: T): T {
   return walk(value) as T;
 }
 
-const json = (v: unknown, pretty = false) => strToU8(JSON.stringify(scrubSecrets(v), null, pretty ? 2 : undefined));
+const json = (v: unknown, pretty = false) =>
+  strToU8(JSON.stringify(scrubSecrets(v), null, pretty ? 2 : undefined));
 
 function fileId(id: string): string {
   return id.replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 100) || 'item';
@@ -72,7 +84,11 @@ function idFiles(dir: string, ids: string[]): string[] {
 const STORED = /\.(wav|mp3|flac|ogg|oga|opus|m4a|aac|aif|aiff|png|jpe?g|webp|zip)$/i;
 
 /** Serialize a project (+ asset bytes keyed by asset id) into a .songproject ZIP. */
-export function packProject(project: Project, assets: Map<string, Uint8Array> = new Map(), opts: PackOptions = {}): Uint8Array {
+export function packProject(
+  project: Project,
+  assets: Map<string, Uint8Array> = new Map(),
+  opts: PackOptions = {},
+): Uint8Array {
   if (!project?.meta || !project.song || !project.history) throw new Error('packProject: not a project.');
   const mtime = opts.mtime ?? project.meta.updatedAt ?? '2000-01-01T00:00:00Z';
   const files: Zippable = {};
@@ -80,9 +96,18 @@ export function packProject(project: Project, assets: Map<string, Uint8Array> = 
     files[path] = [data, { level: STORED.test(path) ? 0 : 6, mtime }];
   };
   const revisions = project.history.revisions;
-  const snapshotFiles = idFiles('history/snapshots', revisions.map((r) => r.id));
-  const analysisFiles = idFiles('analysis', project.analysis.map((a) => a.id));
-  const generationFiles = idFiles('generations', project.generations.map((g) => g.id));
+  const snapshotFiles = idFiles(
+    'history/snapshots',
+    revisions.map((r) => r.id),
+  );
+  const analysisFiles = idFiles(
+    'analysis',
+    project.analysis.map((a) => a.id),
+  );
+  const generationFiles = idFiles(
+    'generations',
+    project.generations.map((g) => g.id),
+  );
   add(
     'project.json',
     json(
@@ -98,12 +123,21 @@ export function packProject(project: Project, assets: Map<string, Uint8Array> = 
     ),
   );
   add('song.json', json(project.song));
-  add('history/revisions.json', json(revisions.map(({ snapshot: _snapshot, ...meta }) => meta), true));
+  add(
+    'history/revisions.json',
+    json(
+      revisions.map(({ snapshot: _snapshot, ...meta }) => meta),
+      true,
+    ),
+  );
   revisions.forEach((r, i) => add(snapshotFiles[i], json(r.snapshot)));
   project.analysis.forEach((a, i) => add(analysisFiles[i], json(a, true)));
   project.generations.forEach((g, i) => add(generationFiles[i], json(g, true)));
 
-  if (opts.includeDerived !== false) addDerived(project.song, add);
+  if (opts.includeDerived !== false) {
+    addDerived(project.song, add);
+    if (project.meta.attestations?.length) add('rights/RIGHTS.txt', strToU8(rightsSummaryText(project.meta)));
+  }
 
   for (const meta of project.meta.assets) {
     const bytes = assets.get(meta.id);
@@ -117,12 +151,15 @@ export function packProject(project: Project, assets: Map<string, Uint8Array> = 
 
 function addDerived(song: Song, add: (path: string, data: Uint8Array) => void) {
   const spans = sectionLayout(song);
-  const sectionNames = uniqueNames(spans.map((s, i) => `${String(i + 1).padStart(2, '0')}-${slugify(s.section.name, 'section')}`));
+  const sectionNames = uniqueNames(
+    spans.map((s, i) => `${String(i + 1).padStart(2, '0')}-${slugify(s.section.name, 'section')}`),
+  );
   spans.forEach((s, i) => {
     const lines = song.lyrics.filter((l) => l.sectionId === s.section.id).map((l) => l.text);
     if (lines.length) add(`lyrics/${sectionNames[i]}.txt`, strToU8(lines.join('\n') + '\n'));
   });
-  if (song.lyrics.length || song.tracks.some((t) => t.notes.some((n) => n.syllable))) add('lyrics/lyric-sheet.txt', strToU8(songToLyricSheet(song)));
+  if (song.lyrics.length || song.tracks.some((t) => t.notes.some((n) => n.syllable)))
+    add('lyrics/lyric-sheet.txt', strToU8(songToLyricSheet(song)));
   const midiTracks = song.tracks.filter((t) => t.kind === 'midi');
   if (midiTracks.length) {
     try {
@@ -133,7 +170,10 @@ function addDerived(song: Song, add: (path: string, data: Uint8Array) => void) {
       /* derived files are best-effort */
     }
   }
-  const motifNames = idFiles('motifs', song.motifs.map((m) => m.id));
+  const motifNames = idFiles(
+    'motifs',
+    song.motifs.map((m) => m.id),
+  );
   song.motifs.forEach((m, i) => add(motifNames[i], strToU8(JSON.stringify(m, null, 2))));
 }
 
@@ -143,17 +183,26 @@ function parseJson<T>(files: Record<string, Uint8Array>, path: string): T {
   try {
     return JSON.parse(strFromU8(data)) as T;
   } catch (e) {
-    throw new Error(`Invalid .songproject: ${path} is not valid JSON (${e instanceof Error ? e.message : String(e)}).`);
+    throw new Error(
+      `Invalid .songproject: ${path} is not valid JSON (${e instanceof Error ? e.message : String(e)}).`,
+    );
   }
 }
 
 function isSongLike(v: unknown): v is Song {
   const s = v as Song;
-  return !!s && typeof s === 'object' && Array.isArray(s.tracks) && Array.isArray(s.sections) && Array.isArray(s.tempoMap);
+  return (
+    !!s &&
+    typeof s === 'object' &&
+    Array.isArray(s.tracks) &&
+    Array.isArray(s.sections) &&
+    Array.isArray(s.tempoMap)
+  );
 }
 
 function completeMeta(meta: Partial<ProjectMeta>): ProjectMeta {
-  if (!meta || typeof meta !== 'object' || typeof meta.id !== 'string') throw new Error('Invalid .songproject: project metadata is missing.');
+  if (!meta || typeof meta !== 'object' || typeof meta.id !== 'string')
+    throw new Error('Invalid .songproject: project metadata is missing.');
   const now = new Date().toISOString();
   const out = { ...meta } as ProjectMeta;
   out.name ??= 'Untitled project';
@@ -187,17 +236,22 @@ export function unpackProject(bytes: Uint8Array): { project: Project; assets: Ma
     history?: { currentBranchId?: string; branches?: HistoryState['branches'] };
     files?: { snapshots?: string[]; analysis?: string[]; generations?: string[] };
   }>(files, 'project.json');
-  if (header.format !== undefined && header.format !== PROJECT_PACKAGE_FORMAT) throw new Error(`Not a .songproject package (format "${header.format}").`);
+  if (header.format !== undefined && header.format !== PROJECT_PACKAGE_FORMAT)
+    throw new Error(`Not a .songproject package (format "${header.format}").`);
   const version = header.formatVersion ?? header.meta?.formatVersion;
-  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) throw new Error('Invalid .songproject: unknown format version.');
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1)
+    throw new Error('Invalid .songproject: unknown format version.');
   if (version > PROJECT_FORMAT_VERSION) {
-    throw new Error(`This project was saved by a newer version of Song Deck (format ${version}; this version reads up to ${PROJECT_FORMAT_VERSION}).`);
+    throw new Error(
+      `This project was saved by a newer version of Song Deck (format ${version}; this version reads up to ${PROJECT_FORMAT_VERSION}).`,
+    );
   }
   const meta = completeMeta(header.meta ?? {});
 
   // --- history -------------------------------------------------------------------------------
   let song: Song | undefined = files['song.json'] ? parseJson<Song>(files, 'song.json') : undefined;
-  if (song !== undefined && !isSongLike(song)) throw new Error('Invalid .songproject: song.json is not a song.');
+  if (song !== undefined && !isSongLike(song))
+    throw new Error('Invalid .songproject: song.json is not a song.');
   let revisions: Revision[] = [];
   let branches = header.history?.branches ?? [];
   let currentBranchId = header.history?.currentBranchId;
@@ -211,13 +265,25 @@ export function unpackProject(bytes: Uint8Array): { project: Project; assets: Ma
       const snapshot = parseJson<Song>(files, path);
       if (isSongLike(snapshot)) revisions.push({ ...m, snapshot });
     });
-    if (revisions.length < metas.length) revisions = repairHistory(revisions, metas, (b) => (branches = b), branches);
+    if (revisions.length < metas.length)
+      revisions = repairHistory(revisions, metas, (b) => (branches = b), branches);
   }
   if (!revisions.length) {
     if (!song) throw new Error('Invalid .songproject: no song data found.');
     const branchId = randomId('br');
     const revId = randomId('rev');
-    revisions = [{ id: revId, number: 1, parents: [], branchId, message: 'Imported project', kind: 'import', createdAt: meta.updatedAt, snapshot: song }];
+    revisions = [
+      {
+        id: revId,
+        number: 1,
+        parents: [],
+        branchId,
+        message: 'Imported project',
+        kind: 'import',
+        createdAt: meta.updatedAt,
+        snapshot: song,
+      },
+    ];
     branches = [{ id: branchId, name: 'Main', headRevisionId: revId, createdAt: meta.updatedAt }];
     currentBranchId = branchId;
   }
@@ -237,7 +303,10 @@ export function unpackProject(bytes: Uint8Array): { project: Project; assets: Ma
   const readDir = <T>(dir: string, listed: string[] | undefined): T[] => {
     const paths = listed?.filter((p) => files[p]) ?? [];
     const extra = Object.keys(files)
-      .filter((p) => p.startsWith(`${dir}/`) && p.endsWith('.json') && p.split('/').length === 2 && !paths.includes(p))
+      .filter(
+        (p) =>
+          p.startsWith(`${dir}/`) && p.endsWith('.json') && p.split('/').length === 2 && !paths.includes(p),
+      )
       .sort();
     return [...paths, ...extra].map((p) => parseJson<T>(files, p));
   };
@@ -275,7 +344,10 @@ function repairHistory(
     }
     return undefined;
   };
-  const out = kept.map((r) => ({ ...r, parents: [...new Set(r.parents.map((p) => survivor(p)).filter((p): p is string => !!p && p !== r.id))] }));
+  const out = kept.map((r) => ({
+    ...r,
+    parents: [...new Set(r.parents.map((p) => survivor(p)).filter((p): p is string => !!p && p !== r.id))],
+  }));
   const repaired: HistoryState['branches'] = [];
   for (const b of branches) {
     const head = survivor(b.headRevisionId);

@@ -18,7 +18,12 @@ export class MasteringBridge implements MasteringProvider {
   async master(req: MasteringRequest): Promise<MasteringResult> {
     const body: MasteringBridgeRequest = { audio_base64: bytesToBase64(req.audio.data), target: req.target };
     if (req.reference) body.reference_audio_base64 = bytesToBase64(req.reference.data);
-    const r = await this.http.bytes({ url: joinUrl(this.config.baseUrl, MASTERING_BRIDGE_PATHS.master), json: body, accept: 'audio/wav', signal: req.signal });
+    const r = await this.http.bytes({
+      url: joinUrl(this.config.baseUrl, MASTERING_BRIDGE_PATHS.master),
+      json: body,
+      accept: 'audio/wav',
+      signal: req.signal,
+    });
     const res: MasteringResult = { audio: audioFromResponse(r.data, r.contentType, 'wav') };
     const model = r.headers.get('x-model') ?? req.model;
     if (model) res.model = model;
@@ -26,7 +31,14 @@ export class MasteringBridge implements MasteringProvider {
   }
 }
 
-export function createMasteringHttpProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
+export function createMasteringHttpProvider(
+  config: ProviderConfig,
+  deps: CreateProviderDeps,
+): ProviderInstance {
   const http = createHttpClient(config, deps);
-  return { descriptor: buildDescriptor(config, ['MASTERING']), config, mastering: new MasteringBridge(config, http) };
+  return {
+    descriptor: buildDescriptor(config, ['MASTERING']),
+    config,
+    mastering: new MasteringBridge(config, http),
+  };
 }

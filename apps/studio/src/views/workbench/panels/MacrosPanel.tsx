@@ -13,26 +13,45 @@ export default function MacrosPanel() {
   const st = useStudio.getState();
   const [scope, setScope] = useState<'song' | 'track'>('song');
   const track = song?.tracks.find((t) => t.id === selectedTrackId);
-  const base: MacroSettings | null = song ? (scope === 'track' && track ? { ...song.macros, ...track.macros } : song.macros) : null;
+  const base: MacroSettings | null = song
+    ? scope === 'track' && track
+      ? { ...song.macros, ...track.macros }
+      : song.macros
+    : null;
   const [draft, setDraft] = useState<MacroSettings | null>(base);
   useEffect(() => setDraft(base), [song?.macros, track?.macros, scope]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!song || !draft) return null;
 
   const withMacros = () => {
     if (scope === 'track' && track) {
-      return { ...song, tracks: song.tracks.map((t) => (t.id === track.id ? { ...t, macros: { ...t.macros, ...draft } } : t)) };
+      return {
+        ...song,
+        tracks: song.tracks.map((t) => (t.id === track.id ? { ...t, macros: { ...t.macros, ...draft } } : t)),
+      };
     }
     return { ...song, macros: draft };
   };
   const regenerate = () => {
     const seed = randomSeed();
-    const res = regenerateUnlocked(withMacros(), { seed, trackIds: scope === 'track' && track ? [track.id] : undefined, customInstruments });
-    st.commit(res.song, `Macros applied${scope === 'track' && track ? ` to ${track.name}` : ''} · regenerated unlocked material (seed ${seed})`, 'regenerate');
+    const res = regenerateUnlocked(withMacros(), {
+      seed,
+      trackIds: scope === 'track' && track ? [track.id] : undefined,
+      customInstruments,
+    });
+    st.commit(
+      res.song,
+      `Macros applied${scope === 'track' && track ? ` to ${track.name}` : ''} · regenerated unlocked material (seed ${seed})`,
+      'regenerate',
+    );
   };
   const transformOnly = () => {
     // applyMacroTransforms stores the macros itself; pass the current song so it sees the change.
     const next = applyMacroTransforms(song, draft, scope === 'track' ? track?.id : undefined);
-    st.commit(next, `Applied humanization/dynamics${scope === 'track' && track ? ` to ${track.name}` : ''}`, 'edit');
+    st.commit(
+      next,
+      `Applied humanization/dynamics${scope === 'track' && track ? ` to ${track.name}` : ''}`,
+      'edit',
+    );
   };
 
   return (
@@ -47,15 +66,34 @@ export default function MacrosPanel() {
         ]}
       />
       {MACRO_INFO.map((m) => (
-        <Slider key={m.key} label={m.label} left={m.left} right={m.right} value={draft[m.key]} onChange={(v) => setDraft({ ...draft, [m.key]: v })} accent />
+        <Slider
+          key={m.key}
+          label={m.label}
+          left={m.left}
+          right={m.right}
+          value={draft[m.key]}
+          onChange={(v) => setDraft({ ...draft, [m.key]: v })}
+          accent
+        />
       ))}
-      <Button variant="primary" icon="dice" onClick={regenerate} title="Regenerate unlocked material with these macros">
+      <Button
+        variant="primary"
+        icon="dice"
+        onClick={regenerate}
+        title="Regenerate unlocked material with these macros"
+      >
         Apply & regenerate unlocked
       </Button>
-      <Button onClick={transformOnly} title="Humanization and dynamics act on existing notes without regenerating">
+      <Button
+        onClick={transformOnly}
+        title="Humanization and dynamics act on existing notes without regenerating"
+      >
         Apply humanization & dynamics only
       </Button>
-      <div className="small muted">Locked components never change. Complexity, density and syncopation require regeneration; humanization and dynamics can reshape existing notes.</div>
+      <div className="small muted">
+        Locked components never change. Complexity, density and syncopation require regeneration; humanization
+        and dynamics can reshape existing notes.
+      </div>
     </div>
   );
 }

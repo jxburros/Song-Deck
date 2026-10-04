@@ -29,7 +29,13 @@ export interface TakeResult {
  * instrument → MIDI"). Onsets snap to the grid with the given strength; performed lengths are
  * kept. Notes landing in locked material are dropped, never written.
  */
-export function takeToNotes(song: Song, track: Track, take: CapturedNote[], newId: () => string, opts: TakeOptions = {}): TakeResult {
+export function takeToNotes(
+  song: Song,
+  track: Track,
+  take: CapturedNote[],
+  newId: () => string,
+  opts: TakeOptions = {},
+): TakeResult {
   const tm = createTimeMap(song);
   const grid = opts.grid ?? 0;
   const strength = Math.min(1, Math.max(0, opts.strength ?? 1));

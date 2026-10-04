@@ -17,7 +17,8 @@ export function StatusBar() {
   const queued = tasks.filter((t) => t.status === 'queued').length;
   const failed = tasks.filter((t) => t.status === 'failed').length;
   const head = project?.history.revisions.find(
-    (r) => r.id === project.history.branches.find((b) => b.id === project.history.currentBranchId)?.headRevisionId,
+    (r) =>
+      r.id === project.history.branches.find((b) => b.id === project.history.currentBranchId)?.headRevisionId,
   );
   const cloudCount = providers.filter((p) => p.enabled && p.location === 'cloud').length;
 
@@ -25,20 +26,35 @@ export function StatusBar() {
     <footer className="statusbar">
       {project ? (
         <span title="Autosaved to this device">
-          <span className={`status-dot ${saving ? 'busy' : 'ok'}`} style={{ display: 'inline-block', marginRight: 5 }} />
+          <span
+            className={`status-dot ${saving ? 'busy' : 'ok'}`}
+            style={{ display: 'inline-block', marginRight: 5 }}
+          />
           {saving ? 'Saving…' : 'Saved'}
           {head && ` · v${head.number}`}
         </span>
       ) : (
         <span>No project open</span>
       )}
-      <button onClick={() => useStudio.getState().setMode('settings')} title="Local Song Deck server (vault, proxy, render nodes, collaboration)">
-        <span className={`status-dot ${server.status === 'online' ? 'ok' : server.status === 'offline' ? 'warn' : ''}`} />
-        Server: {server.status === 'online' ? `online${server.info?.vault ? ` · vault: ${server.info.vault.backend}` : ''}` : server.status === 'offline' ? 'not running (browser-only mode)' : 'checking…'}
+      <button
+        onClick={() => useStudio.getState().setMode('settings')}
+        title="Local Song Deck server (vault, proxy, render nodes, collaboration)"
+      >
+        <span
+          className={`status-dot ${server.status === 'online' ? 'ok' : server.status === 'offline' ? 'warn' : ''}`}
+        />
+        Server:{' '}
+        {server.status === 'online'
+          ? `online${server.info?.vault ? ` · vault: ${server.info.vault.backend}` : ''}`
+          : server.status === 'offline'
+            ? 'not running (browser-only mode)'
+            : 'checking…'}
       </button>
       <button onClick={() => useStudio.getState().setMode('settings')} title="AI routing & privacy">
         <Icon name={routing.offline ? 'shield' : 'cloud'} size={12} />
-        {routing.offline ? 'Offline mode — nothing leaves this device' : `AI routing: ${routing.mode}${cloudCount ? ` · ${cloudCount} cloud provider${cloudCount > 1 ? 's' : ''}` : ' · on-device engine'}`}
+        {routing.offline
+          ? 'Offline mode — nothing leaves this device'
+          : `AI routing: ${routing.mode}${cloudCount ? ` · ${cloudCount} cloud provider${cloudCount > 1 ? 's' : ''}` : ' · on-device engine'}`}
       </button>
       <div className="spacer" />
       <button onClick={() => setTaskDrawer(!drawerOpen)} title="Generation queue">

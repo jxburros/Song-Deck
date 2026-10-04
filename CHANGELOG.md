@@ -6,6 +6,62 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Compose builder.** Compose starts with a builder instead of a prompt box: pick instruments and
+  how many of each, genres with how much influence, moods (whole song or one section), style, era
+  and production tags, and settings such as tempo feel, key, length, structure and vocal. It works
+  fully offline. With an AI model attached you can also describe the song in your own words; your
+  picks stay fixed. "Generate song" goes straight to an editable MIDI composition; "Fine-tune
+  first" keeps the blueprint and plan editors, which now edit tags too.
+- **Start from lyrics.** Paste a song, with or without `[Verse]`/`[Chorus]` headers, and Song Deck
+  finds the sections (repeated stanzas become the chorus), builds the structure around them, sings
+  your words with stressed syllables on strong beats, locks them and credits you as lyric writer.
+- **38 new genres (57 in all)**, from funk, reggaeton, bossa nova and amapiano to drum and bass,
+  phonk, bluegrass and Bollywood, with 29 new drum grooves, world-percussion families, bass and
+  comping idioms, and 12 new instruments with their own sounds (nylon guitar, banjo, mandolin,
+  pedal steel, sitar, clavinet, accordion, harmonica, steel pan, log drum, 808 bass, chip lead).
+- **487 tags** (style, mood, era, production, vocal, region, rhythm) that nudge a genre blend and
+  carry through composition, regeneration, variations and saved projects. Every tag is tested to
+  change the music. [`docs/GENRES.md`](docs/GENRES.md) lists them and is generated from the code.
+- **Connect a service.** Paste an API key: Song Deck recognises the provider, checks the key, lists
+  the models you can use grouped by what they do here and pre-ticks the best ones. Works for the
+  language-model providers and for ElevenLabs, Stability AI and Lyria (through a Gemini key).
+- **Found on this machine.** Running Ollama, LM Studio, llama.cpp, vLLM and Song Deck bridges are
+  detected and added with one click.
+- **Rights attestations for uploaded audio.** Every audio upload asks whether you made it, licensed
+  it, it is public domain or open-licensed, or it is for personal study. The answer is stored with
+  the project, shown in the Inspector and summarised in exports. Nothing is blocked.
+- **Offline copyright-tag check.** Uploads carrying ISRCs, copyright or label tags, or store
+  purchase markers are flagged as likely commercial releases.
+- **Optional AcoustID identification** (off by default; free for non-commercial use with your own
+  key). Only an on-device Chromaprint fingerprint and the duration are sent.
+- **Visual identity:** a new logo, favicon, app icons and web manifest; a pink, blue, yellow and
+  gray palette (pink for actions, blue for AI, yellow for locks and warnings) with WCAG AA
+  contrast enforced by a test; Inter and JetBrains Mono bundled for offline use.
+  See [`docs/BRAND.md`](docs/BRAND.md).
+- **Continuous integration:** lint (ESLint, Prettier, Ruff), typecheck, tests on Node 20.19, 22
+  and 24 with coverage, server tests on macOS and Windows, a bundle-size budget, a production
+  dependency audit, Playwright end-to-end and axe accessibility tests, CodeQL, dependency review
+  and Dependabot.
+
+### Changed
+
+- Without the local server, API keys are stored encrypted in the browser and survive reloads; they
+  can be moved into the server vault or forgotten. See [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md).
+- Cloud requests that would send audio marked for personal study, or flagged by the rights checks,
+  always ask for confirmation first.
+- The prompt parser understands every genre and tag; "brushed drums", plain "bass" and mood words
+  such as "warm" now come out right.
+- Faster first load: the main script is about 340 KB (was 1.49 MB).
+- The top bar and the Mix, Produce and Settings pages work on phones and tablets.
+- Track colours come from one brand palette that reads in both themes.
+
+### Fixed
+
+- The Theory view no longer states the same fact twice within a section.
+- Level meters, lyric syllable gutters and the spinner have valid accessibility roles.
+
 ## [0.1.0] - 2026-10-03
 
 The first release of Song Deck. It implements all five delivery phases of the specification

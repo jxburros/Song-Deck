@@ -8,21 +8,44 @@ let other: MockServer;
 const SECRET = 'sk-live-0123456789abcdef0123';
 
 async function setSecret(ref: string, secret: string) {
-  const res = await fetch(`${srv.url}/api/vault/${encodeURIComponent(ref)}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret }) });
+  const res = await fetch(`${srv.url}/api/vault/${encodeURIComponent(ref)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ secret }),
+  });
   expect(res.status).toBe(204);
 }
 
 async function registerProviders(providers: unknown[]) {
-  const res = await fetch(`${srv.url}/api/providers`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ providers }) });
+  const res = await fetch(`${srv.url}/api/providers`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ providers }),
+  });
   expect(res.status).toBe(200);
 }
 
 function provider(id: string, baseUrl: string, auth: Record<string, unknown>, credentialRef?: string) {
-  return { id, name: id, adapter: 'openai-compatible', enabled: true, location: 'cloud', baseUrl, auth, credentialRef, timeoutMs: 30000, concurrency: 2 };
+  return {
+    id,
+    name: id,
+    adapter: 'openai-compatible',
+    enabled: true,
+    location: 'cloud',
+    baseUrl,
+    auth,
+    credentialRef,
+    timeoutMs: 30000,
+    concurrency: 2,
+  };
 }
 
 function proxy(envelope: Record<string, unknown>, headers: Record<string, string> = {}) {
-  return fetch(`${srv.url}/api/proxy`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(envelope) });
+  return fetch(`${srv.url}/api/proxy`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: JSON.stringify(envelope),
+  });
 }
 
 beforeEach(async () => {
@@ -40,7 +63,14 @@ beforeEach(async () => {
     }
     if (url.pathname === '/v1/json') {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, auth: req.headers.authorization ?? null, key: req.headers['x-api-key'] ?? null, q: url.searchParams.get('key') }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          auth: req.headers.authorization ?? null,
+          key: req.headers['x-api-key'] ?? null,
+          q: url.searchParams.get('key'),
+        }),
+      );
       return;
     }
     if (url.pathname === '/v1/status') {
@@ -81,20 +111,39 @@ afterEach(async () => {
 
 describe('provider proxy', () => {
   it('injects a bearer token from the vault', async () => {
-    await registerProviders([provider('openai', `${upstream.url}/v1`, { type: 'bearer' }, 'provider:openai')]);
+    await registerProviders([
+      provider('openai', `${upstream.url}/v1`, { type: 'bearer' }, 'provider:openai'),
+    ]);
     await setSecret('provider:openai', SECRET);
-    const res = await proxy({ url: `${upstream.url}/v1/json`, method: 'GET', headers: { accept: 'application/json' }, credentialRef: 'provider:openai', auth: { type: 'bearer' } });
+    const res = await proxy({
+      url: `${upstream.url}/v1/json`,
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      credentialRef: 'provider:openai',
+      auth: { type: 'bearer' },
+    });
     expect(res.status).toBe(200);
     expect(await json(res)).toMatchObject({ ok: true, auth: `Bearer ${SECRET}` });
   });
 
   it('overrides placeholder header credentials (x-api-key: proxy-managed)', async () => {
-    await registerProviders([provider('anthropic', `${upstream.url}/v1`, { type: 'header', name: 'x-api-key' }, 'provider:anthropic')]);
+    await registerProviders([
+      provider(
+        'anthropic',
+        `${upstream.url}/v1`,
+        { type: 'header', name: 'x-api-key' },
+        'provider:anthropic',
+      ),
+    ]);
     await setSecret('provider:anthropic', SECRET);
     const res = await proxy({
       url: `${upstream.url}/v1/json`,
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': 'proxy-managed', 'anthropic-version': '2023-06-01' },
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': 'proxy-managed',
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({ hello: 'world' }),
       bodyEncoding: 'utf8',
       credentialRef: 'provider:anthropic',
@@ -110,9 +159,17 @@ describe('provider proxy', () => {
   });
 
   it('appends query-parameter credentials', async () => {
-    await registerProviders([provider('gemini', `${upstream.url}/v1`, { type: 'query', name: 'key' }, 'provider:gemini')]);
+    await registerProviders([
+      provider('gemini', `${upstream.url}/v1`, { type: 'query', name: 'key' }, 'provider:gemini'),
+    ]);
     await setSecret('provider:gemini', SECRET);
-    const res = await proxy({ url: `${upstream.url}/v1/json?alt=json&key=placeholder`, method: 'GET', headers: {}, credentialRef: 'provider:gemini', auth: { type: 'query', name: 'key' } });
+    const res = await proxy({
+      url: `${upstream.url}/v1/json?alt=json&key=placeholder`,
+      method: 'GET',
+      headers: {},
+      credentialRef: 'provider:gemini',
+      auth: { type: 'query', name: 'key' },
+    });
     expect(await json(res)).toMatchObject({ q: SECRET });
     expect(upstream.requests.at(-1)!.url).toBe(`/v1/json?alt=json&key=${SECRET}`);
   });
@@ -121,7 +178,13 @@ describe('provider proxy', () => {
     await registerProviders([provider('local', `${upstream.url}/v1`, { type: 'none' })]);
     const bytes = Buffer.from(Array.from({ length: 256 * 4 }, (_, i) => i % 256));
     const res = await proxy(
-      { url: `${upstream.url}/v1/echo`, method: 'POST', headers: { 'content-type': 'audio/wav', cookie: 'studio=1', host: 'evil' }, body: bytes.toString('base64'), bodyEncoding: 'base64' },
+      {
+        url: `${upstream.url}/v1/echo`,
+        method: 'POST',
+        headers: { 'content-type': 'audio/wav', cookie: 'studio=1', host: 'evil' },
+        body: bytes.toString('base64'),
+        bodyEncoding: 'base64',
+      },
       { origin: 'http://localhost:5173' },
     );
     expect(res.status).toBe(201);
@@ -147,7 +210,12 @@ describe('provider proxy', () => {
   it('allows loopback URLs without registration but rejects non-allowlisted hosts', async () => {
     const local = await proxy({ url: `${upstream.url}/v1/json`, method: 'GET', headers: {} });
     expect(local.status).toBe(200);
-    const res = await proxy({ url: 'https://api.example.com/v1/chat', method: 'POST', headers: {}, body: '{}' });
+    const res = await proxy({
+      url: 'https://api.example.com/v1/chat',
+      method: 'POST',
+      headers: {},
+      body: '{}',
+    });
     expect(res.status).toBe(403);
     expect(res.headers.get('x-songdeck-proxy-error')).toBe('1');
     expect(await json(res)).toMatchObject({ code: 'not-allowlisted' });
@@ -155,15 +223,37 @@ describe('provider proxy', () => {
 
   it('honours origin + path-prefix allowlisting of registered providers', async () => {
     const { computeAllowlist, ruleMatches } = await import('../src/providers');
-    const rules = computeAllowlist([provider('openai', 'https://api.openai.com/v1', { type: 'bearer' }, 'provider:openai') as never]);
+    const rules = computeAllowlist([
+      provider('openai', 'https://api.openai.com/v1', { type: 'bearer' }, 'provider:openai') as never,
+    ]);
     expect(ruleMatches(rules[0], new URL('https://api.openai.com/v1/chat/completions'))).toBe(true);
     expect(ruleMatches(rules[0], new URL('https://api.openai.com/v1'))).toBe(true);
     expect(ruleMatches(rules[0], new URL('https://api.openai.com/v10/x'))).toBe(false);
     expect(ruleMatches(rules[0], new URL('https://api.openai.com/other'))).toBe(false);
     expect(ruleMatches(rules[0], new URL('https://api.openai.com.evil.example/v1/x'))).toBe(false);
     expect(ruleMatches(rules[0], new URL('http://api.openai.com/v1/x'))).toBe(false);
-    const lyria = computeAllowlist([{ ...provider('lyria', 'https://{location}-aiplatform.googleapis.com/v1', { type: 'bearer' }, 'provider:lyria'), adapter: 'google-lyria', extra: { vertexLocation: 'europe-west4' } } as never]);
-    expect(lyria.some((r) => ruleMatches(r, new URL('https://europe-west4-aiplatform.googleapis.com/v1/projects/p/locations/europe-west4/publishers/google/models/lyria-002:predict')))).toBe(true);
+    const lyria = computeAllowlist([
+      {
+        ...provider(
+          'lyria',
+          'https://{location}-aiplatform.googleapis.com/v1',
+          { type: 'bearer' },
+          'provider:lyria',
+        ),
+        adapter: 'google-lyria',
+        extra: { vertexLocation: 'europe-west4' },
+      } as never,
+    ]);
+    expect(
+      lyria.some((r) =>
+        ruleMatches(
+          r,
+          new URL(
+            'https://europe-west4-aiplatform.googleapis.com/v1/projects/p/locations/europe-west4/publishers/google/models/lyria-002:predict',
+          ),
+        ),
+      ),
+    ).toBe(true);
   });
 
   it('only sends a credential to its own provider', async () => {
@@ -172,15 +262,29 @@ describe('provider proxy', () => {
       provider('b', `${other.url}/v1`, { type: 'bearer' }, 'provider:b'),
     ]);
     await setSecret('provider:a', SECRET);
-    const res = await proxy({ url: `${other.url}/v1/json`, method: 'GET', headers: {}, credentialRef: 'provider:a', auth: { type: 'bearer' } });
+    const res = await proxy({
+      url: `${other.url}/v1/json`,
+      method: 'GET',
+      headers: {},
+      credentialRef: 'provider:a',
+      auth: { type: 'bearer' },
+    });
     expect(res.status).toBe(403);
     expect(await json(res)).toMatchObject({ code: 'credential-scope' });
     expect(other.requests).toHaveLength(0);
   });
 
   it('reports a missing secret as a proxy error (502 + header)', async () => {
-    await registerProviders([provider('openai', `${upstream.url}/v1`, { type: 'bearer' }, 'provider:openai')]);
-    const res = await proxy({ url: `${upstream.url}/v1/json`, method: 'GET', headers: {}, credentialRef: 'provider:openai', auth: { type: 'bearer' } });
+    await registerProviders([
+      provider('openai', `${upstream.url}/v1`, { type: 'bearer' }, 'provider:openai'),
+    ]);
+    const res = await proxy({
+      url: `${upstream.url}/v1/json`,
+      method: 'GET',
+      headers: {},
+      credentialRef: 'provider:openai',
+      auth: { type: 'bearer' },
+    });
     expect(res.status).toBe(502);
     expect(res.headers.get('x-songdeck-proxy-error')).toBe('1');
     expect((await json(res)).error).toMatch(/No secret stored for credential "provider:openai"/);
@@ -198,7 +302,14 @@ describe('provider proxy', () => {
   });
 
   it('validates envelopes', async () => {
-    for (const env of [{}, { url: 'ftp://x/y' }, { url: 'not a url' }, { url: `${upstream.url}/v1/json`, method: 'TRACE' }, { url: `${upstream.url}/v1/json`, method: 'GET', body: 'x' }, { url: `${upstream.url}/v1/json`, headers: { a: 1 } }]) {
+    for (const env of [
+      {},
+      { url: 'ftp://x/y' },
+      { url: 'not a url' },
+      { url: `${upstream.url}/v1/json`, method: 'TRACE' },
+      { url: `${upstream.url}/v1/json`, method: 'GET', body: 'x' },
+      { url: `${upstream.url}/v1/json`, headers: { a: 1 } },
+    ]) {
       const res = await proxy(env);
       expect(res.status, JSON.stringify(env)).toBeGreaterThanOrEqual(400);
       expect(res.status).toBeLessThan(500);
@@ -207,13 +318,34 @@ describe('provider proxy', () => {
   });
 
   it('follows allowlisted redirects but drops credentials that leave the provider scope', async () => {
-    await registerProviders([provider('a', `${upstream.url}/v1`, { type: 'bearer' }, 'provider:a'), provider('b', `${other.url}/v1`, { type: 'none' })]);
+    await registerProviders([
+      provider('a', `${upstream.url}/v1`, { type: 'bearer' }, 'provider:a'),
+      provider('b', `${other.url}/v1`, { type: 'none' }),
+    ]);
     await setSecret('provider:a', SECRET);
-    const same = await proxy({ url: `${upstream.url}/v1/redirect-same`, method: 'GET', headers: {}, credentialRef: 'provider:a', auth: { type: 'bearer' } });
+    const same = await proxy({
+      url: `${upstream.url}/v1/redirect-same`,
+      method: 'GET',
+      headers: {},
+      credentialRef: 'provider:a',
+      auth: { type: 'bearer' },
+    });
     expect(await json(same)).toMatchObject({ ok: true, auth: `Bearer ${SECRET}` });
-    const out = await proxy({ url: `${upstream.url}/v1/redirect-out`, method: 'GET', headers: {}, credentialRef: 'provider:a', auth: { type: 'bearer' } });
+    const out = await proxy({
+      url: `${upstream.url}/v1/redirect-out`,
+      method: 'GET',
+      headers: {},
+      credentialRef: 'provider:a',
+      auth: { type: 'bearer' },
+    });
     expect(await json(out)).toEqual({ other: true, auth: null });
-    const evil = await proxy({ url: `${upstream.url}/v1/redirect-evil`, method: 'GET', headers: {}, credentialRef: 'provider:a', auth: { type: 'bearer' } });
+    const evil = await proxy({
+      url: `${upstream.url}/v1/redirect-evil`,
+      method: 'GET',
+      headers: {},
+      credentialRef: 'provider:a',
+      auth: { type: 'bearer' },
+    });
     expect(evil.status).toBe(502);
     expect(await json(evil)).toMatchObject({ code: 'redirect-not-allowlisted' });
   });
@@ -222,7 +354,14 @@ describe('provider proxy', () => {
     const res = await fetch(`${srv.url}/api/providers`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ providers: [{ ...provider('x', 'https://api.openai.com/v1', { type: 'bearer' }), apiKey: 'sk-abcdefghijklmnopqrstuvwxyz' }] }),
+      body: JSON.stringify({
+        providers: [
+          {
+            ...provider('x', 'https://api.openai.com/v1', { type: 'bearer' }),
+            apiKey: 'sk-abcdefghijklmnopqrstuvwxyz',
+          },
+        ],
+      }),
     });
     expect(res.status).toBe(400);
     expect(await json(res)).toMatchObject({ code: 'secret-in-config' });
@@ -231,12 +370,17 @@ describe('provider proxy', () => {
   });
 
   it('persists provider configs', async () => {
-    await registerProviders([provider('openai', 'https://api.openai.com/v1', { type: 'bearer' }, 'provider:openai')]);
+    await registerProviders([
+      provider('openai', 'https://api.openai.com/v1', { type: 'bearer' }, 'provider:openai'),
+    ]);
     const list = await json(await fetch(`${srv.url}/api/providers`));
     expect(list.providers).toHaveLength(1);
     const dataDir = srv.dataDir;
     await srv.close({ keepData: true });
     srv = await startServer({ dataDir });
-    expect((await json(await fetch(`${srv.url}/api/providers`))).providers[0]).toMatchObject({ id: 'openai', baseUrl: 'https://api.openai.com/v1' });
+    expect((await json(await fetch(`${srv.url}/api/providers`))).providers[0]).toMatchObject({
+      id: 'openai',
+      baseUrl: 'https://api.openai.com/v1',
+    });
   });
 });

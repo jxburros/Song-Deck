@@ -54,7 +54,11 @@ export function transcribePolyphonic(buf: AudioData, opts: PolyphonicOptions = {
   return transcribePolyphonicSignal(x, sr, opts);
 }
 
-export function transcribePolyphonicSignal(x: Float32Array, sr: number, opts: PolyphonicOptions = {}): PolyphonicResult {
+export function transcribePolyphonicSignal(
+  x: Float32Array,
+  sr: number,
+  opts: PolyphonicOptions = {},
+): PolyphonicResult {
   const minPitch = Math.max(12, Math.round(opts.minPitch ?? 36));
   const maxPitch = Math.min(120, Math.round(opts.maxPitch ?? 96));
   const maxPoly = Math.max(1, opts.maxPolyphony ?? 6);
@@ -124,7 +128,8 @@ export function transcribePolyphonicSignal(x: Float32Array, sr: number, opts: Po
     harmWeight.push(1 / Math.pow(h, 0.8));
   }
   const candHMax = new Int32Array(P);
-  for (let pi = 0; pi < P; pi++) candHMax[pi] = Math.min(H, Math.floor(fMax / (440 * Math.pow(2, (minPitch + pi - 69) / 12))));
+  for (let pi = 0; pi < P; pi++)
+    candHMax[pi] = Math.min(H, Math.floor(fMax / (440 * Math.pow(2, (minPitch + pi - 69) / 12))));
   const act = new Float32Array(T * P); // salience of detected pitches
   const energyAct = new Float32Array(T * P); // summed partial amplitude of detected pitches
   const sal = new Float32Array(P);
@@ -319,7 +324,9 @@ export function transcribePolyphonicSignal(x: Float32Array, sr: number, opts: Po
     const end = Math.max(start + Math.max(hopSec, 0.05), r.b * hopSec - 0.04);
     const dur = end - start;
     const meanAct = r.sum / Math.max(1, r.b - r.a);
-    const conf = clamp01((0.25 + 0.65 * Math.tanh(meanAct / 0.35)) * Math.sqrt(Math.min(1, dur / 0.15)) * 0.9);
+    const conf = clamp01(
+      (0.25 + 0.65 * Math.tanh(meanAct / 0.35)) * Math.sqrt(Math.min(1, dur / 0.15)) * 0.9,
+    );
     return {
       pitch: minPitch + r.pi,
       startSeconds: Math.round(start * 1e4) / 1e4,

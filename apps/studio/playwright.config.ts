@@ -17,7 +17,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     viewport: { width: 1440, height: 900 },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+  ],
   webServer: {
     command: `E2E=1 npx vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,

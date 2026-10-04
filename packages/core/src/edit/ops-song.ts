@@ -16,8 +16,24 @@ import type {
 import { defaultChannelStrip } from '../ir/defaults';
 import { cloneSong, findTrack } from '../ir/song-utils';
 import { LockKeys, setLock } from '../locks';
-import { barToTick, findSection, keyAtBar, keyAtTick, musicalToTick, sectionLayout, songLengthBars, songLengthTicks } from '../timing';
-import { CHORD_INTERVALS, QUALITY_SUFFIX, diatonicChord, formatChordSymbol, isDiatonic, parseChordSymbol } from '../theory/chords';
+import {
+  barToTick,
+  findSection,
+  keyAtBar,
+  keyAtTick,
+  musicalToTick,
+  sectionLayout,
+  songLengthBars,
+  songLengthTicks,
+} from '../timing';
+import {
+  CHORD_INTERVALS,
+  QUALITY_SUFFIX,
+  diatonicChord,
+  formatChordSymbol,
+  isDiatonic,
+  parseChordSymbol,
+} from '../theory/chords';
 import { mod12, pitchClassFromName } from '../theory/pitch';
 import { chordDegree, chordToRoman } from '../theory/roman';
 import { parseKey, pitchToScaleIndex, scaleIndexToPitch } from '../theory/scales';
@@ -52,12 +68,20 @@ export function normalizeChordSymbol(original: string, spec: ChordSpec): string 
   const root = /^\s*([A-Ga-g](?:#|♯|b|♭)?)/.exec(original);
   const bass = /\/\s*([A-Ga-g](?:#|♯|b|♭)?)\s*$/.exec(original);
   if (!root) return formatChordSymbol(spec);
-  const bassText = spec.bass !== undefined && spec.bass !== spec.root ? `/${bass ? fix(bass[1]) : formatChordSymbol({ root: spec.bass, quality: 'maj' })}` : '';
+  const bassText =
+    spec.bass !== undefined && spec.bass !== spec.root
+      ? `/${bass ? fix(bass[1]) : formatChordSymbol({ root: spec.bass, quality: 'maj' })}`
+      : '';
   return `${fix(root[1])}${QUALITY_SUFFIX[spec.quality]}${bassText}`;
 }
 
 /** Remove chord material in [start, end): chords straddling the range are trimmed/split. */
-export function clearChordRange(chords: ChordEvent[], start: number, end: number, nextId: () => string): ChordEvent[] {
+export function clearChordRange(
+  chords: ChordEvent[],
+  start: number,
+  end: number,
+  nextId: () => string,
+): ChordEvent[] {
   const out: ChordEvent[] = [];
   for (const ch of chords) {
     const chEnd = ch.tick + ch.duration;
@@ -66,7 +90,8 @@ export function clearChordRange(chords: ChordEvent[], start: number, end: number
       continue;
     }
     if (ch.tick < start) out.push({ ...ch, duration: start - ch.tick });
-    if (chEnd > end) out.push({ ...ch, id: ch.tick < start ? nextId() : ch.id, tick: end, duration: chEnd - end });
+    if (chEnd > end)
+      out.push({ ...ch, id: ch.tick < start ? nextId() : ch.id, tick: end, duration: chEnd - end });
   }
   return out.sort((a, b) => a.tick - b.tick);
 }
@@ -87,7 +112,9 @@ export function opSetChords(song: Song, op: RawOp, c: OpContext): boolean {
     for (const span of sectionLayout(song)) {
       if (span.endTick <= region.startTick || span.startTick >= region.endTick) continue;
       if (chordsProtected(c.locks, span.section.id)) {
-        c.error('lock.violated', `${name}: chords in "${span.section.name}" are locked.`, { sectionId: span.section.id });
+        c.error('lock.violated', `${name}: chords in "${span.section.name}" are locked.`, {
+          sectionId: span.section.id,
+        });
         return false;
       }
     }
@@ -103,7 +130,10 @@ export function opSetChords(song: Song, op: RawOp, c: OpContext): boolean {
     const symbol = toStr(raw.symbol)?.trim();
     const spec = symbol ? parseChordSymbol(symbol) : null;
     if (!symbol || !spec) {
-      c.warn('chord.unparseable', `${where}: chord symbol ${JSON.stringify(raw.symbol)} could not be parsed; dropped.`);
+      c.warn(
+        'chord.unparseable',
+        `${where}: chord symbol ${JSON.stringify(raw.symbol)} could not be parsed; dropped.`,
+      );
       return;
     }
     const bar = toNumber(raw.bar);
@@ -119,14 +149,21 @@ export function opSetChords(song: Song, op: RawOp, c: OpContext): boolean {
     }
     parsed.push({ tick, spec, symbol: normalizeChordSymbol(symbol, spec) });
   });
-  if (outside) c.warn('region.chord-outside', `${name}: ${outside} chord(s) outside bars ${region.startBar1}–${region.endBar1} were dropped.`, { fixed: true });
+  if (outside)
+    c.warn(
+      'region.chord-outside',
+      `${name}: ${outside} chord(s) outside bars ${region.startBar1}–${region.endBar1} were dropped.`,
+      { fixed: true },
+    );
   parsed.sort((a, b) => a.tick - b.tick);
   const unique: typeof parsed = [];
   for (const p of parsed) {
     if (unique.length && unique[unique.length - 1].tick === p.tick) unique[unique.length - 1] = p;
     else unique.push(p);
   }
-  const sounding = song.chords.find((ch) => ch.tick <= region.startTick && ch.tick + ch.duration > region.startTick);
+  const sounding = song.chords.find(
+    (ch) => ch.tick <= region.startTick && ch.tick + ch.duration > region.startTick,
+  );
   const chords = clearChordRange(song.chords, region.startTick, region.endTick, () => c.ids.next('ch'));
   if (unique.length) {
     const first = unique[0].tick;
@@ -135,11 +172,21 @@ export function opSetChords(song: Song, op: RawOp, c: OpContext): boolean {
       // with nothing sounding, the first new chord starts at the region start.
       if (sounding) {
         const locator = new SectionLocator(song);
-        const head = sounding.tick < region.startTick ? chords.find((ch) => ch.id === sounding.id && ch.tick === sounding.tick) : undefined;
-        if (head && !(c.respectLocks && chordsProtected(c.locks, locator.sectionIdAt(head.tick)))) head.duration = first - head.tick;
+        const head =
+          sounding.tick < region.startTick
+            ? chords.find((ch) => ch.id === sounding.id && ch.tick === sounding.tick)
+            : undefined;
+        if (head && !(c.respectLocks && chordsProtected(c.locks, locator.sectionIdAt(head.tick))))
+          head.duration = first - head.tick;
         else {
           const id = chords.some((ch) => ch.id === sounding.id) ? c.ids.next('ch') : sounding.id;
-          chords.push({ ...sounding, id, tick: region.startTick, duration: first - region.startTick, roman: chordToRoman(sounding, keyAtTick(song, region.startTick)) });
+          chords.push({
+            ...sounding,
+            id,
+            tick: region.startTick,
+            duration: first - region.startTick,
+            roman: chordToRoman(sounding, keyAtTick(song, region.startTick)),
+          });
         }
       } else unique[0].tick = region.startTick;
     }
@@ -158,7 +205,10 @@ export function opSetChords(song: Song, op: RawOp, c: OpContext): boolean {
       });
     });
   } else {
-    c.warn('chord.gap', `${name}: no valid chords supplied; bars ${region.startBar1}–${region.endBar1} now have no chords.`);
+    c.warn(
+      'chord.gap',
+      `${name}: no valid chords supplied; bars ${region.startBar1}–${region.endBar1} now have no chords.`,
+    );
   }
   song.chords = chords.sort((a, b) => a.tick - b.tick);
   return true;
@@ -188,7 +238,10 @@ export function opSetTempo(song: Song, op: RawOp, c: OpContext): boolean {
   const name = 'set_tempo';
   const bpm = toNumber(op.bpm);
   if (bpm === undefined || bpm < 20 || bpm > 400) {
-    c.error('tempo.invalid', `${name}: bpm must be a number between 20 and 400 (got ${JSON.stringify(op.bpm)}).`);
+    c.error(
+      'tempo.invalid',
+      `${name}: bpm must be a number between 20 and 400 (got ${JSON.stringify(op.bpm)}).`,
+    );
     return false;
   }
   const at = parseAtBar(song, op.at_bar, c, name);
@@ -204,7 +257,10 @@ export function opSetTempo(song: Song, op: RawOp, c: OpContext): boolean {
     else {
       const ratio = value / sorted[0].bpm;
       song.tempoMap = sorted.map((t) => ({ tick: t.tick, bpm: Math.round(t.bpm * ratio * 1000) / 1000 }));
-      c.info('tempo.scaled', `${name}: the song has tempo changes; all tempos were scaled so the base tempo is ${value} BPM.`);
+      c.info(
+        'tempo.scaled',
+        `${name}: the song has tempo changes; all tempos were scaled so the base tempo is ${value} BPM.`,
+      );
     }
     return true;
   }
@@ -255,12 +311,19 @@ function mapChord(ch: ChordEvent, from: KeySignature, to: KeySignature): ChordEv
     const deg = chordDegree(ch, from);
     if (deg >= 0) {
       const seventh = CHORD_INTERVALS[ch.quality].length >= 4;
-      if (diatonicChord(from, deg, seventh).quality === ch.quality) quality = diatonicChord(to, deg, seventh).quality;
+      if (diatonicChord(from, deg, seventh).quality === ch.quality)
+        quality = diatonicChord(to, deg, seventh).quality;
     }
   }
   const spec: ChordSpec = { root, quality };
   if (ch.bass !== undefined) spec.bass = mod12(mapPitchBetweenKeys(ch.bass + 60, from, to));
-  const out: ChordEvent = { ...ch, root, quality, symbol: formatChordSymbol(spec, to), roman: chordToRoman(spec, to) };
+  const out: ChordEvent = {
+    ...ch,
+    root,
+    quality,
+    symbol: formatChordSymbol(spec, to),
+    roman: chordToRoman(spec, to),
+  };
   if (spec.bass !== undefined) out.bass = spec.bass;
   else delete out.bass;
   return out;
@@ -309,14 +372,19 @@ export function opSetKey(song: Song, op: RawOp, c: OpContext): boolean {
       const first = sortedKeys[0].key;
       let delta = mod12(newKey.tonic - first.tonic);
       if (delta > 5) delta -= 12;
-      keyMap = sortedKeys.map((k, i) => (i === 0 ? { bar: k.bar, key: newKey } : { bar: k.bar, key: { tonic: mod12(k.key.tonic + delta), mode: k.key.mode } }));
+      keyMap = sortedKeys.map((k, i) =>
+        i === 0
+          ? { bar: k.bar, key: newKey }
+          : { bar: k.bar, key: { tonic: mod12(k.key.tonic + delta), mode: k.key.mode } },
+      );
       if (keyMap[0].bar !== 0) keyMap.unshift({ bar: 0, key: newKey });
     }
   } else {
     keyMap = sortedKeys.filter((k) => k.bar !== at);
     keyMap.push({ bar: at, key: newKey });
     keyMap.sort((a, b) => a.bar - b.bar);
-    if (keyMap[0].bar !== 0) keyMap.unshift({ bar: 0, key: sortedKeys[0]?.key ?? { tonic: 0, mode: 'major' } });
+    if (keyMap[0].bar !== 0)
+      keyMap.unshift({ bar: 0, key: sortedKeys[0]?.key ?? { tonic: 0, mode: 'major' } });
     endBar = sortedKeys.find((k) => k.bar > at)?.bar ?? Infinity;
   }
   const newSong = { ...song, keyMap };
@@ -331,11 +399,17 @@ export function opSetKey(song: Song, op: RawOp, c: OpContext): boolean {
         if (t.kind !== 'midi' || isDrumTrack(t, c.instruments)) continue;
         const locked = t.notes.find((n) => inRange(n.tick) && isProtected(c, locator, t, n));
         if (locked) {
-          c.error('lock.violated', `${name}: cannot transpose — "${t.name}" has locked notes in the affected range.`, { trackId: t.id, noteId: locked.id });
+          c.error(
+            'lock.violated',
+            `${name}: cannot transpose — "${t.name}" has locked notes in the affected range.`,
+            { trackId: t.id, noteId: locked.id },
+          );
           return false;
         }
       }
-      const lockedChord = song.chords.find((ch) => inRange(ch.tick) && chordsProtected(c.locks, locator.sectionIdAt(ch.tick)));
+      const lockedChord = song.chords.find(
+        (ch) => inRange(ch.tick) && chordsProtected(c.locks, locator.sectionIdAt(ch.tick)),
+      );
       if (lockedChord) {
         c.error('lock.violated', `${name}: cannot transpose — chords in the affected range are locked.`);
         return false;
@@ -351,7 +425,9 @@ export function opSetKey(song: Song, op: RawOp, c: OpContext): boolean {
         return { ...n, pitch: p };
       });
     }
-    song.chords = song.chords.map((ch) => (inRange(ch.tick) ? mapChord(ch, keyAtTick(oldSong, ch.tick), keyAtTick(newSong, ch.tick)) : ch));
+    song.chords = song.chords.map((ch) =>
+      inRange(ch.tick) ? mapChord(ch, keyAtTick(oldSong, ch.tick), keyAtTick(newSong, ch.tick)) : ch,
+    );
   }
   song.keyMap = keyMap;
   // Roman numerals are relative to the key in effect.
@@ -367,8 +443,17 @@ export function opSetMeter(song: Song, op: RawOp, c: OpContext): boolean {
   const name = 'set_meter';
   const num = toInt(op.numerator);
   const den = toInt(op.denominator);
-  if (num === undefined || num < 1 || num > 32 || den === undefined || !(VALID_DENOMINATORS as readonly number[]).includes(den)) {
-    c.error('meter.invalid', `${name}: invalid time signature ${JSON.stringify(op.numerator)}/${JSON.stringify(op.denominator)}.`);
+  if (
+    num === undefined ||
+    num < 1 ||
+    num > 32 ||
+    den === undefined ||
+    !(VALID_DENOMINATORS as readonly number[]).includes(den)
+  ) {
+    c.error(
+      'meter.invalid',
+      `${name}: invalid time signature ${JSON.stringify(op.numerator)}/${JSON.stringify(op.denominator)}.`,
+    );
     return false;
   }
   const at = parseAtBar(song, op.at_bar, c, name);
@@ -411,8 +496,10 @@ export function opSetLyrics(song: Song, op: RawOp, c: OpContext): boolean {
   const section = resolveSection(song, op.section, c, name);
   if (!section) return false;
   let lines: string[];
-  if (Array.isArray(op.lines)) lines = op.lines.map((l) => toStr(l) ?? '').map((l) => l.replace(/\s+/g, ' ').trim());
-  else if (typeof op.lines === 'string') lines = op.lines.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim());
+  if (Array.isArray(op.lines))
+    lines = op.lines.map((l) => toStr(l) ?? '').map((l) => l.replace(/\s+/g, ' ').trim());
+  else if (typeof op.lines === 'string')
+    lines = op.lines.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim());
   else {
     c.error('op.malformed', `${name}: "lines" must be an array of strings.`, { sectionId: section.id });
     return false;
@@ -461,7 +548,12 @@ export function opSetLyrics(song: Song, op: RawOp, c: OpContext): boolean {
         return copy;
       });
     }
-    if (cleared) c.info('lyrics.unaligned', `${name}: ${cleared} vocal note(s) in "${section.name}" lost their old syllables; re-align the lyrics to the melody.`, { sectionId: section.id });
+    if (cleared)
+      c.info(
+        'lyrics.unaligned',
+        `${name}: ${cleared} vocal note(s) in "${section.name}" lost their old syllables; re-align the lyrics to the melody.`,
+        { sectionId: section.id },
+      );
   }
   return true;
 }
@@ -520,9 +612,15 @@ function setPath(obj: Record<string, unknown>, path: string, value: unknown): vo
   cur[parts[parts.length - 1]] = value;
 }
 
-function resolveMixTarget(song: Song, ref: unknown, c: OpContext, name: string): { id: string; label: string } | undefined {
+function resolveMixTarget(
+  song: Song,
+  ref: unknown,
+  c: OpContext,
+  name: string,
+): { id: string; label: string } | undefined {
   const r = toStr(ref)?.trim();
-  if (r && r.toLowerCase() === 'master' && !song.tracks.some((t) => t.id === r)) return { id: 'master', label: 'Master' };
+  if (r && r.toLowerCase() === 'master' && !song.tracks.some((t) => t.id === r))
+    return { id: 'master', label: 'Master' };
   const t = resolveTrack(song, ref, c, name);
   return t ? { id: t.id, label: t.name } : undefined;
 }
@@ -542,7 +640,12 @@ export function opSetMixer(song: Song, op: RawOp, c: OpContext): boolean {
   }
   const isMaster = target.id === 'master';
   // Copy-on-write: the strip is edited on a private copy and stored back into a new mixer object.
-  const strip = (isMaster ? cloneSong(song.mixer.master) : cloneSong(song.mixer.channels[target.id] ?? defaultChannelStrip())) as unknown as Record<string, unknown>;
+  const strip = (isMaster
+    ? cloneSong(song.mixer.master)
+    : cloneSong(song.mixer.channels[target.id] ?? defaultChannelStrip())) as unknown as Record<
+    string,
+    unknown
+  >;
   let applied = 0;
   for (const [field, raw] of Object.entries(op.changes)) {
     const spec = MIXER_FIELDS[field];
@@ -570,7 +673,8 @@ export function opSetMixer(song: Song, op: RawOp, c: OpContext): boolean {
       continue;
     }
     const clamped = clampNum(v, spec.min ?? -Infinity, spec.max ?? Infinity);
-    if (clamped !== v) c.warn('mixer.clamped', `${name}: ${field} ${v} clamped to ${clamped}.`, { trackId, fixed: true });
+    if (clamped !== v)
+      c.warn('mixer.clamped', `${name}: ${field} ${v} clamped to ${clamped}.`, { trackId, fixed: true });
     setPath(strip, field, clamped);
     applied++;
   }
@@ -629,16 +733,26 @@ export function opSetAutomation(song: Song, op: RawOp, c: OpContext): boolean {
     const beat = raw.beat === undefined ? 1 : toNumber(raw.beat);
     const value = toNumber(raw.value);
     if (bar === undefined || bar < 1 || beat === undefined || beat < 1 || value === undefined) {
-      c.warn('automation.invalid', `${name}: point #${i + 1} needs a 1-based bar/beat and a numeric value; dropped.`, { trackId });
+      c.warn(
+        'automation.invalid',
+        `${name}: point #${i + 1} needs a 1-based bar/beat and a numeric value; dropped.`,
+        { trackId },
+      );
       return;
     }
     const tick = musicalToTick(song, Math.floor(bar), beat);
     if (tick > end) {
-      c.warn('automation.invalid', `${name}: point #${i + 1} is past the end of the song; dropped.`, { trackId });
+      c.warn('automation.invalid', `${name}: point #${i + 1} is past the end of the song; dropped.`, {
+        trackId,
+      });
       return;
     }
     const v = clampNum(value, lo, hi);
-    if (v !== value) c.warn('automation.clamped', `${name}: value ${value} clamped to ${v} for ${param}.`, { trackId, fixed: true });
+    if (v !== value)
+      c.warn('automation.clamped', `${name}: value ${value} clamped to ${v} for ${param}.`, {
+        trackId,
+        fixed: true,
+      });
     const curve = oneOf(raw.curve, ['linear', 'step'] as const);
     points.push(curve ? { tick, value: v, curve } : { tick, value: v });
   });
@@ -663,7 +777,9 @@ export function opSetAutomation(song: Song, op: RawOp, c: OpContext): boolean {
   const lane: AutomationLane = existing
     ? { ...existing, points: merged, enabled: true }
     : { id: c.ids.next('auto'), target: target.id, param, points: merged, enabled: true };
-  song.automation = existing ? song.automation.map((l) => (l === existing ? lane : l)) : [...song.automation, lane];
+  song.automation = existing
+    ? song.automation.map((l) => (l === existing ? lane : l))
+    : [...song.automation, lane];
   return true;
 }
 
@@ -687,13 +803,18 @@ export function opSetMacros(song: Song, op: RawOp, c: OpContext): boolean {
     const key = oneOf(k, MACRO_KEYS);
     const v = toNumber(raw);
     if (!key || v === undefined) {
-      c.warn('macro.invalid', `${name}: "${k}" is not a macro control or not a number; ignored.`, { trackId: track?.id });
+      c.warn('macro.invalid', `${name}: "${k}" is not a macro control or not a number; ignored.`, {
+        trackId: track?.id,
+      });
       continue;
     }
     let value = v;
     if (value > 1 && value <= 100) {
       value = value / 100;
-      c.warn('macro.invalid', `${name}: ${k} = ${v} interpreted as ${v}%.`, { trackId: track?.id, fixed: true });
+      c.warn('macro.invalid', `${name}: ${k} = ${v} interpreted as ${v}%.`, {
+        trackId: track?.id,
+        fixed: true,
+      });
     }
     valid[key] = clampNum(value, 0, 1);
   }
@@ -724,7 +845,8 @@ export function normalizeLockKey(song: Song, raw: string): string | undefined {
   const songKeys = Object.values(SONG_LOCK_ALIASES);
   if (songKeys.includes(key)) return key;
   if (SONG_LOCK_ALIASES[key.toLowerCase()]) return SONG_LOCK_ALIASES[key.toLowerCase()];
-  if (key.startsWith('song.') && SONG_LOCK_ALIASES[key.slice(5).toLowerCase()]) return SONG_LOCK_ALIASES[key.slice(5).toLowerCase()];
+  if (key.startsWith('song.') && SONG_LOCK_ALIASES[key.slice(5).toLowerCase()])
+    return SONG_LOCK_ALIASES[key.slice(5).toLowerCase()];
   const tid = (ref: string) => findTrack(song, ref)?.id;
   const sid = (ref: string) => findSection(song, ref)?.id;
   let m: RegExpExecArray | null;
@@ -751,7 +873,9 @@ export function normalizeLockKey(song: Song, raw: string): string | undefined {
     return t ? LockKeys.mixer(t) : undefined;
   }
   if ((m = /^motif:(.+)$/.exec(key))) {
-    const motif = song.motifs.find((x) => x.id === m![1]) ?? song.motifs.find((x) => x.name.toLowerCase() === m![1].toLowerCase());
+    const motif =
+      song.motifs.find((x) => x.id === m![1]) ??
+      song.motifs.find((x) => x.name.toLowerCase() === m![1].toLowerCase());
     return motif ? LockKeys.motif(motif.id) : undefined;
   }
   return undefined;
@@ -767,13 +891,19 @@ export function opSetLock(song: Song, op: RawOp, c: OpContext): boolean {
   }
   const key = normalizeLockKey(song, raw);
   if (!key) {
-    c.error('lock.unknown-key', `${name}: "${raw}" is not a valid lock key (or refers to an unknown track/section).`);
+    c.error(
+      'lock.unknown-key',
+      `${name}: "${raw}" is not a valid lock key (or refers to an unknown track/section).`,
+    );
     return false;
   }
   song.locks = setLock(song.locks, key, locked);
   if (locked) c.addLock(key);
   else if (c.lockMap[key]) {
-    c.info('lock.deferred', `${name}: "${key}" will be unlocked when this change is accepted; it stays protected for the rest of this change.`);
+    c.info(
+      'lock.deferred',
+      `${name}: "${key}" will be unlocked when this change is accepted; it stays protected for the rest of this change.`,
+    );
   }
   return true;
 }

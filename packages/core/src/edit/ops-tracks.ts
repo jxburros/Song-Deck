@@ -34,18 +34,30 @@ export function opAddTrack(song: Song, op: RawOp, c: OpContext): boolean {
   }
   const profile = lookupInstrument(instrumentId, c.instruments);
   if (!isKnownInstrument(instrumentId, c.instruments)) {
-    c.info('instrument.unknown', `${name}: unknown instrument "${instrumentId}"; treating it as ${profile.family === 'other' ? 'a generic instrument' : `a ${profile.family} instrument`}.`);
+    c.info(
+      'instrument.unknown',
+      `${name}: unknown instrument "${instrumentId}"; treating it as ${profile.family === 'other' ? 'a generic instrument' : `a ${profile.family} instrument`}.`,
+    );
   }
   let role = oneOf(op.role, TRACK_ROLES);
   if (!role) {
-    if (op.role !== undefined) c.warn('track.invalid', `${name}: unknown role ${JSON.stringify(op.role)}; using "${profile.defaultRole}".`);
+    if (op.role !== undefined)
+      c.warn(
+        'track.invalid',
+        `${name}: unknown role ${JSON.stringify(op.role)}; using "${profile.defaultRole}".`,
+      );
     role = profile.defaultRole;
   }
   const fn = oneOf(op.function, MUSICAL_FUNCTIONS);
-  if (op.function !== undefined && !fn) c.warn('track.invalid', `${name}: unknown musical function ${JSON.stringify(op.function)}; ignored.`);
+  if (op.function !== undefined && !fn)
+    c.warn('track.invalid', `${name}: unknown musical function ${JSON.stringify(op.function)}; ignored.`);
   const requested = toStr(op.name)?.trim() || profile.name;
   const trackName = uniqueTrackName(song, requested);
-  if (trackName !== requested) c.info('track.renamed', `${name}: a track called "${requested}" already exists; the new track is "${trackName}".`);
+  if (trackName !== requested)
+    c.info(
+      'track.renamed',
+      `${name}: a track called "${requested}" already exists; the new track is "${trackName}".`,
+    );
   const track: Track = {
     id: c.ids.next('trk'),
     name: trackName,
@@ -78,7 +90,10 @@ export function opRemoveTrack(song: Song, op: RawOp, c: OpContext): boolean {
     const locator = new SectionLocator(song);
     const locked = track.notes.find((n) => isProtected(c, locator, track, n));
     if (locked) {
-      c.error('lock.violated', `${name}: "${track.name}" contains locked material.`, { trackId: track.id, noteId: locked.id });
+      c.error('lock.violated', `${name}: "${track.name}" contains locked material.`, {
+        trackId: track.id,
+        noteId: locked.id,
+      });
       return false;
     }
   }
@@ -97,7 +112,8 @@ export function opRemoveTrack(song: Song, op: RawOp, c: OpContext): boolean {
   });
   const locks = { ...song.locks };
   for (const key of Object.keys(locks)) {
-    if (key === `track:${id}` || key.startsWith(`track:${id}:section:`) || key === `mixer:${id}`) delete locks[key];
+    if (key === `track:${id}` || key.startsWith(`track:${id}:section:`) || key === `mixer:${id}`)
+      delete locks[key];
   }
   song.locks = locks;
   if (song.production?.trackMethods?.[id] !== undefined) {
@@ -135,19 +151,28 @@ export function opSetInstrument(song: Song, op: RawOp, c: OpContext): boolean {
   }
   const profile = lookupInstrument(instrumentId, c.instruments);
   if (!isKnownInstrument(instrumentId, c.instruments)) {
-    c.info('instrument.unknown', `${name}: unknown instrument "${instrumentId}"; treating it as ${profile.family === 'other' ? 'a generic instrument' : `a ${profile.family} instrument`}.`, {
-      trackId: track.id,
-    });
+    c.info(
+      'instrument.unknown',
+      `${name}: unknown instrument "${instrumentId}"; treating it as ${profile.family === 'other' ? 'a generic instrument' : `a ${profile.family} instrument`}.`,
+      {
+        trackId: track.id,
+      },
+    );
   }
   const wasDrums = isDrumTrack(track, c.instruments);
   const isDrums = !!profile.isDrumKit;
   if (wasDrums !== isDrums && track.notes.length) {
-    c.warn('instrument.kind-change', `${name}: "${track.name}" changes between a drum kit and a pitched instrument; its notes may need rewriting.`, { trackId: track.id });
+    c.warn(
+      'instrument.kind-change',
+      `${name}: "${track.name}" changes between a drum kit and a pitched instrument; its notes may need rewriting.`,
+      { trackId: track.id },
+    );
   }
   track.instrumentId = instrumentId;
   track.stemGroup = profile.stemGroup;
   if (isDrums) track.midiChannel = 9;
-  else if (track.midiChannel === 9 || track.midiChannel === undefined) track.midiChannel = freeMidiChannel(song, track.id);
+  else if (track.midiChannel === 9 || track.midiChannel === undefined)
+    track.midiChannel = freeMidiChannel(song, track.id);
   // Re-check every note against the new range (autoFix folds out-of-range notes).
   if (!isDrums && track.kind === 'midi') {
     const locator = new SectionLocator(song);

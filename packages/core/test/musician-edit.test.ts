@@ -50,7 +50,10 @@ describe('interpretEditInstruction — core spec examples (§20)', () => {
 
   it('makes a selected melody sadder via modal interchange (chords + melody + other parts fitted)', () => {
     const song = makeSong();
-    const r = interpretEditInstruction(song, 'make this melody sadder', { trackIds: ['t-vocal'], sectionIds: ['sec-chorus1'] });
+    const r = interpretEditInstruction(song, 'make this melody sadder', {
+      trackIds: ['t-vocal'],
+      sectionIds: ['sec-chorus1'],
+    });
     expect(r.intents).toEqual(['darker']);
     const sc = opsOfType(r.operations, 'set_chords');
     expect(sc).toHaveLength(1);
@@ -71,7 +74,10 @@ describe('interpretEditInstruction — core spec examples (§20)', () => {
 
   it('changes the drums to half-time inside the selection (snare moves to beat 3)', () => {
     const song = makeSong();
-    const r = interpretEditInstruction(song, 'Change this to half-time', { trackIds: ['t-drums'], sectionIds: ['sec-chorus1'] });
+    const r = interpretEditInstruction(song, 'Change this to half-time', {
+      trackIds: ['t-drums'],
+      sectionIds: ['sec-chorus1'],
+    });
     expect(r.intents).toEqual(['half-time']);
     const rep = opsOfType(r.operations, 'replace_notes');
     expect(rep).toHaveLength(1);
@@ -81,7 +87,10 @@ describe('interpretEditInstruction — core spec examples (§20)', () => {
     expect(snares).toEqual([3]);
     const hats = bar13.filter((n) => n.pitch === 42).map((n) => n.beat);
     expect(hats).toEqual([1, 2, 3, 4]);
-    expect(opsOfType(r.operations, 'update_section')[0]).toMatchObject({ section: 'sec-chorus1', changes: { feel: 'half-time' } });
+    expect(opsOfType(r.operations, 'update_section')[0]).toMatchObject({
+      section: 'sec-chorus1',
+      changes: { feel: 'half-time' },
+    });
   });
 
   it('changes to double-time (backbeat on every off-beat)', () => {
@@ -94,7 +103,10 @@ describe('interpretEditInstruction — core spec examples (§20)', () => {
 
   it('adds tension over four selected bars: suspensions in the chords, crescendo and a snare build', () => {
     const song = makeSong();
-    const r = interpretEditInstruction(song, 'Add tension over these four bars', { startTick: 8 * BAR, endTick: 12 * BAR });
+    const r = interpretEditInstruction(song, 'Add tension over these four bars', {
+      startTick: 8 * BAR,
+      endTick: 12 * BAR,
+    });
     expect(r.intents).toEqual(['tension']);
     const sc = opsOfType(r.operations, 'set_chords')[0];
     expect(sc.region.start_bar).toBeGreaterThanOrEqual(9);
@@ -111,7 +123,9 @@ describe('interpretEditInstruction — core spec examples (§20)', () => {
 
   it('makes the violin answer the vocal instead of doubling it', () => {
     const song = makeSong();
-    const r = interpretEditInstruction(song, 'Make the violin answer the vocal rather than double it', { sectionIds: ['sec-chorus1'] });
+    const r = interpretEditInstruction(song, 'Make the violin answer the vocal rather than double it', {
+      sectionIds: ['sec-chorus1'],
+    });
     expect(r.intents).toEqual(['answer']);
     expect(r.operations.every((o) => 'track' in o && o.track === 't-violin')).toBe(true);
     const rep = opsOfType(r.operations, 'replace_notes')[0];
@@ -128,7 +142,12 @@ describe('interpretEditInstruction — core spec examples (§20)', () => {
 
   it('keeps the rhythm but changes the pitches (transpose-only, identity-preserving)', () => {
     const song = makeSong();
-    const r = interpretEditInstruction(song, 'Keep the rhythm but change the pitches', { trackIds: ['t-vocal'], sectionIds: ['sec-verse1'] }, { seed: 3 });
+    const r = interpretEditInstruction(
+      song,
+      'Keep the rhythm but change the pitches',
+      { trackIds: ['t-vocal'], sectionIds: ['sec-verse1'] },
+      { seed: 3 },
+    );
     expect(r.intents).toEqual(['repitch']);
     const ts = opsOfType(r.operations, 'transform_notes');
     expect(ts.length).toBeGreaterThan(0);
@@ -138,19 +157,32 @@ describe('interpretEditInstruction — core spec examples (§20)', () => {
     expect(changed.length).toBeGreaterThan(14);
     const notes = byId(song);
     for (const id of changed) expect(notes.get(id)!.tick).toBeLessThan(8 * BAR);
-    const again = interpretEditInstruction(song, 'Keep the rhythm but change the pitches', { trackIds: ['t-vocal'], sectionIds: ['sec-verse1'] }, { seed: 3 });
+    const again = interpretEditInstruction(
+      song,
+      'Keep the rhythm but change the pitches',
+      { trackIds: ['t-vocal'], sectionIds: ['sec-verse1'] },
+      { seed: 3 },
+    );
     expect(stableStringify(again.operations)).toBe(stableStringify(r.operations));
   });
 
   it('turns chords harmonically ambiguous (sus/quartal/no-third) and fits the accompaniment, not the melody', () => {
     const song = makeSong();
-    const r = interpretEditInstruction(song, 'Turn these chords into something more harmonically ambiguous', { sectionIds: ['sec-chorus1'] }, { seed: 5 });
+    const r = interpretEditInstruction(
+      song,
+      'Turn these chords into something more harmonically ambiguous',
+      { sectionIds: ['sec-chorus1'] },
+      { seed: 5 },
+    );
     expect(r.intents).toEqual(['ambiguous']);
     const sc = opsOfType(r.operations, 'set_chords')[0];
     expect(sc.region).toEqual({ start_bar: 13, end_bar: 20 });
     for (const c of sc.chords) {
       const spec = parseChordSymbol(c.symbol)!;
-      const ambiguous = ['sus2', 'sus4', '7sus4', '5', '11'].includes(spec.quality) || (spec.bass !== undefined && !chordPitchClasses({ root: spec.root, quality: spec.quality }).includes(spec.bass));
+      const ambiguous =
+        ['sus2', 'sus4', '7sus4', '5', '11'].includes(spec.quality) ||
+        (spec.bass !== undefined &&
+          !chordPitchClasses({ root: spec.root, quality: spec.quality }).includes(spec.bass));
       expect(ambiguous).toBe(true);
     }
     expect(opsOn(r.operations, 't-vocal')).toHaveLength(0);
@@ -160,10 +192,14 @@ describe('interpretEditInstruction — core spec examples (§20)', () => {
 
 describe('interpretEditInstruction — other intents', () => {
   const song = makeSong();
-  const transformOf = (instr: string, sel = {}) => opsOfType(interpretEditInstruction(song, instr, sel).operations, 'transform_notes');
+  const transformOf = (instr: string, sel = {}) =>
+    opsOfType(interpretEditInstruction(song, instr, sel).operations, 'transform_notes');
 
   it('transposes by semitones, octaves and diatonic intervals', () => {
-    expect(transformOf('transpose the violin up 2 semitones')[0]).toMatchObject({ track: 't-violin', transform: { transpose: 2 } });
+    expect(transformOf('transpose the violin up 2 semitones')[0]).toMatchObject({
+      track: 't-violin',
+      transform: { transpose: 2 },
+    });
     expect(transformOf('move the piano down an octave')[0].transform).toEqual({ transpose: -12 });
     expect(transformOf('shift the violin up a third')[0].transform).toEqual({ transpose_diatonic: 2 });
   });
@@ -181,8 +217,14 @@ describe('interpretEditInstruction — other intents', () => {
 
   it('humanizes, tightens and quantizes timing', () => {
     expect(transformOf('humanize the drums')[0].transform.humanize).toBeCloseTo(0.3);
-    expect(transformOf('quantize the bass to 16ths')[0].transform).toEqual({ quantize_beats: 0.25, quantize_strength: 1 });
-    expect(transformOf('tighten the drums')[0].transform).toEqual({ quantize_beats: 0.25, quantize_strength: 0.6 });
+    expect(transformOf('quantize the bass to 16ths')[0].transform).toEqual({
+      quantize_beats: 0.25,
+      quantize_strength: 1,
+    });
+    expect(transformOf('tighten the drums')[0].transform).toEqual({
+      quantize_beats: 0.25,
+      quantize_strength: 0.6,
+    });
   });
 
   it('adds swing (delays off-beats) and syncopation (anticipations)', () => {
@@ -197,7 +239,11 @@ describe('interpretEditInstruction — other intents', () => {
   it('applies legato, longer notes and expressive dynamics', () => {
     const lg = transformOf('make the violin legato');
     expect(lg.some((o) => o.transform.articulation === 'legato')).toBe(true);
-    const r = interpretEditInstruction(song, 'Make this less busy during the verse but more emotional during the chorus', { trackIds: ['t-violin'] });
+    const r = interpretEditInstruction(
+      song,
+      'Make this less busy during the verse but more emotional during the chorus',
+      { trackIds: ['t-violin'] },
+    );
     expect(r.intents).toEqual(['simplify', 'expressive']);
     expect(r.explanation).toMatch(/Verse 1/);
     expect(r.explanation).toMatch(/Chorus 1, Chorus 2/);
@@ -220,7 +266,9 @@ describe('interpretEditInstruction — other intents', () => {
   });
 
   it('doubles the melody an octave higher on a new backing-vocal track with the same syllables', () => {
-    const r = interpretEditInstruction(song, 'Double the melody an octave higher', { sectionIds: ['sec-chorus1'] });
+    const r = interpretEditInstruction(song, 'Double the melody an octave higher', {
+      sectionIds: ['sec-chorus1'],
+    });
     expect(r.intents).toEqual(['double-octave']);
     const add = opsOfType(r.operations, 'add_track')[0];
     expect(add).toMatchObject({ instrument_id: 'backing-vocal', role: 'vocal' });
@@ -234,7 +282,10 @@ describe('interpretEditInstruction — other intents', () => {
 
   it('harmonizes a monophonic instrument on its own new track', () => {
     const r = interpretEditInstruction(song, 'harmonize the violin in thirds', {});
-    expect(opsOfType(r.operations, 'add_track')[0]).toMatchObject({ instrument_id: 'violin', name: 'Violin Harmony' });
+    expect(opsOfType(r.operations, 'add_track')[0]).toMatchObject({
+      instrument_id: 'violin',
+      name: 'Violin Harmony',
+    });
     expect(opsOfType(r.operations, 'add_notes')[0].notes.length).toBe(song.tracks[3].notes.length);
   });
 
@@ -246,7 +297,9 @@ describe('interpretEditInstruction — other intents', () => {
     const rev = interpretEditInstruction(song, 'reverse the violin in the verse', {});
     const rts = opsOfType(rev.operations, 'transform_notes');
     expect(rts.length).toBe(4);
-    expect(rts.every((o) => o.note_ids && !o.region && o.transform.time_shift_beats !== undefined)).toBe(true);
+    expect(rts.every((o) => o.note_ids && !o.region && o.transform.time_shift_beats !== undefined)).toBe(
+      true,
+    );
   });
 
   it('adds drum fills', () => {
@@ -288,7 +341,9 @@ describe('interpretEditInstruction — other intents', () => {
     expect(all.explanation).toMatch(/D \(V\) kept major — it resolves down a fifth to G/);
     // Brighter in a minor centre: roots stay, the tonic gets a major third.
     const bright = interpretEditInstruction(song, 'make the verse brighter', {}, { seed: 1 });
-    expect(opsOfType(bright.operations, 'set_chords').flatMap((o) => o.chords.map((c) => c.symbol))).toEqual(['E']);
+    expect(opsOfType(bright.operations, 'set_chords').flatMap((o) => o.chords.map((c) => c.symbol))).toEqual([
+      'E',
+    ]);
   });
 });
 
@@ -322,24 +377,38 @@ describe('interpretEditInstruction — locks, purity, determinism', () => {
     const vocal = song.tracks[2];
     const lockedNote = vocal.notes[3];
     lockedNote.locked = true;
-    const r = interpretEditInstruction(song, 'keep the rhythm but change the pitches', { trackIds: ['t-vocal'], sectionIds: ['sec-verse1'] });
+    const r = interpretEditInstruction(song, 'keep the rhythm but change the pitches', {
+      trackIds: ['t-vocal'],
+      sectionIds: ['sec-verse1'],
+    });
     for (const o of r.operations) {
       if ('note_ids' in o && o.note_ids) expect(o.note_ids).not.toContain(lockedNote.id);
-      if (o.op === 'replace_notes') expect(lockedNote.tick >= (o.region.start_bar - 1) * BAR && lockedNote.tick < o.region.end_bar * BAR).toBe(false);
+      if (o.op === 'replace_notes')
+        expect(
+          lockedNote.tick >= (o.region.start_bar - 1) * BAR && lockedNote.tick < o.region.end_bar * BAR,
+        ).toBe(false);
     }
     const busier = interpretEditInstruction(song, 'make the vocal busier', { sectionIds: ['sec-verse1'] });
-    for (const o of opsOfType(busier.operations, 'replace_notes')) expect(lockedNote.tick >= (o.region.start_bar - 1) * BAR && lockedNote.tick < o.region.end_bar * BAR).toBe(false);
+    for (const o of opsOfType(busier.operations, 'replace_notes'))
+      expect(
+        lockedNote.tick >= (o.region.start_bar - 1) * BAR && lockedNote.tick < o.region.end_bar * BAR,
+      ).toBe(false);
   });
 
   it('leaves locked chords alone', () => {
     const song = makeSong();
     song.locks[LockKeys.sectionChords('sec-chorus1')] = true;
-    const r = interpretEditInstruction(song, 'make this melody sadder', { trackIds: ['t-vocal'], sectionIds: ['sec-chorus1'] });
+    const r = interpretEditInstruction(song, 'make this melody sadder', {
+      trackIds: ['t-vocal'],
+      sectionIds: ['sec-chorus1'],
+    });
     expect(opsOfType(r.operations, 'set_chords')).toHaveLength(0);
     expect(r.explanation).toMatch(/Chords in Chorus 1 are locked/);
     // Chord tones of the unchanged chords are kept; only passing tones may be coloured.
     const notes = byId(song);
-    for (const o of opsOfType(r.operations, 'transform_notes').filter((x) => x.track === 't-vocal' && x.transform.transpose)) {
+    for (const o of opsOfType(r.operations, 'transform_notes').filter(
+      (x) => x.track === 't-vocal' && x.transform.transpose,
+    )) {
       for (const id of o.note_ids ?? []) {
         const n = notes.get(id)!;
         const chord = song.chords.find((c) => c.tick <= n.tick && n.tick < c.tick + c.duration)!;
@@ -376,7 +445,8 @@ describe('interpretEditInstruction — locks, purity, determinism', () => {
     const song = makeSong();
     interpretEditInstruction(song, 'make the bass busier', {});
     const t0 = performance.now();
-    for (let i = 0; i < 5; i++) interpretEditInstruction(song, 'make everything busier and add tension in the chorus', {});
+    for (let i = 0; i < 5; i++)
+      interpretEditInstruction(song, 'make everything busier and add tension in the chorus', {});
     expect((performance.now() - t0) / 5).toBeLessThan(150);
   });
 });

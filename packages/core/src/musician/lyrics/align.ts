@@ -26,7 +26,12 @@ export function groupNotesByLine(song: Song, notes: Note[], lines: LyricLine[]):
 }
 
 /** Syllables for notes: existing note syllables, else a provisional alignment of the lyric lines. */
-export function provisionalSyllables(song: Song, track: Track, notes: Note[], lines: LyricLine[]): Map<string, string> {
+export function provisionalSyllables(
+  song: Song,
+  track: Track,
+  notes: Note[],
+  lines: LyricLine[],
+): Map<string, string> {
   const out = new Map<string, string>();
   if (notes.some((n) => n.syllable)) {
     for (const n of notes) if (n.syllable) out.set(n.id, n.syllable);
@@ -54,7 +59,11 @@ function groupNotes(song: Song, notes: Note[], lines: LyricLine[], tokens: Token
     const ph = song.phrases.find((p) => p.lyricLineId === l.id);
     return ph ? notes.filter((n) => n.tick >= ph.startTick && n.tick < ph.endTick) : [];
   });
-  if (phraseGroups.every((g) => g.length > 0) && phraseGroups.reduce((s, g) => s + g.length, 0) === notes.length) return phraseGroups;
+  if (
+    phraseGroups.every((g) => g.length > 0) &&
+    phraseGroups.reduce((s, g) => s + g.length, 0) === notes.length
+  )
+    return phraseGroups;
   // 3) Dynamic programming: match syllable counts, prefer cuts at rests.
   const n = notes.length;
   const syl = tokens.map((t) => t.length);
@@ -110,7 +119,8 @@ function mergeTokens(tokens: Token[], target: number): Token[] {
     }
     const a = t[best];
     const b = t[best + 1];
-    const text = a.word === b.word ? a.text.replace(/-$/, '') + b.text : `${a.text.replace(/-$/, '')} ${b.text}`;
+    const text =
+      a.word === b.word ? a.text.replace(/-$/, '') + b.text : `${a.text.replace(/-$/, '')} ${b.text}`;
     t.splice(best, 2, { text, word: b.word });
   }
   return t;
@@ -162,7 +172,12 @@ function fitRhythm(song: Song, notes: WorkNote[], tokens: Token[]): WorkNote[] {
     if (n.duration < minLen * 2) break;
     const grid = minLen;
     const half = Math.max(grid, Math.round(Math.round(n.duration / grid) / 2) * grid);
-    const second: WorkNote = { pitch: n.pitch, tick: n.tick + half, duration: n.duration - half, velocity: Math.max(1, n.velocity - 4) };
+    const second: WorkNote = {
+      pitch: n.pitch,
+      tick: n.tick + half,
+      duration: n.duration - half,
+      velocity: Math.max(1, n.velocity - 4),
+    };
     if (n.expression) second.expression = { ...n.expression };
     out[li] = { ...n, duration: half - Math.round(minLen / 8) };
     out.splice(li + 1, 0, second);
@@ -173,7 +188,9 @@ function fitRhythm(song: Song, notes: WorkNote[], tokens: Token[]): WorkNote[] {
     let bi = -1;
     let bc = Infinity;
     for (let i = 0; i + 1 < out.length; i++) {
-      const c = Math.abs(out[i + 1].pitch - out[i].pitch) * 2 + out[i + 1].duration / beatTicks(song, out[i + 1].tick);
+      const c =
+        Math.abs(out[i + 1].pitch - out[i].pitch) * 2 +
+        out[i + 1].duration / beatTicks(song, out[i + 1].tick);
       if (c < bc) {
         bc = c;
         bi = i;
@@ -188,7 +205,11 @@ function fitRhythm(song: Song, notes: WorkNote[], tokens: Token[]): WorkNote[] {
   return assign(song, out, tokens);
 }
 
-export function alignLyrics(song: Song, trackId: string, opts: AlignLyricsOptions = {}): LyricAlignmentResult {
+export function alignLyrics(
+  song: Song,
+  trackId: string,
+  opts: AlignLyricsOptions = {},
+): LyricAlignmentResult {
   const track: Track | undefined = song.tracks.find((t) => t.id === trackId) ?? findTrack(song, trackId);
   const report: LyricAlignmentEntry[] = [];
   const warnings: string[] = [];
@@ -201,24 +222,46 @@ export function alignLyrics(song: Song, trackId: string, opts: AlignLyricsOption
   let touched = false;
   for (const span of sectionLayout(song)) {
     if (opts.sectionIds && !opts.sectionIds.includes(span.section.id)) continue;
-    const lines = song.lyrics.filter((l) => l.sectionId === span.section.id && (!l.trackId || l.trackId === track.id));
+    const lines = song.lyrics.filter(
+      (l) => l.sectionId === span.section.id && (!l.trackId || l.trackId === track.id),
+    );
     if (!lines.length) continue;
-    const notes = track.notes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick).sort((a, b) => a.tick - b.tick || b.pitch - a.pitch);
+    const notes = track.notes
+      .filter((n) => n.tick >= span.startTick && n.tick < span.endTick)
+      .sort((a, b) => a.tick - b.tick || b.pitch - a.pitch);
     const tokens = lines.map(tokensFor);
     if (!notes.length) {
-      warnings.push(`${span.section.name}: no vocal notes to sing ${lines.length} lyric line${lines.length === 1 ? '' : 's'}.`);
-      lines.forEach((l, i) => report.push({ sectionId: span.section.id, lineId: l.id, syllables: tokens[i].length, notes: 0, status: 'too-many-syllables' }));
+      warnings.push(
+        `${span.section.name}: no vocal notes to sing ${lines.length} lyric line${lines.length === 1 ? '' : 's'}.`,
+      );
+      lines.forEach((l, i) =>
+        report.push({
+          sectionId: span.section.id,
+          lineId: l.id,
+          syllables: tokens[i].length,
+          notes: 0,
+          status: 'too-many-syllables',
+        }),
+      );
       continue;
     }
     const groups = groupNotes(song, notes, lines, tokens);
     lines.forEach((l, i) => {
       const s = tokens[i].length;
       const k = groups[i]?.length ?? 0;
-      report.push({ sectionId: span.section.id, lineId: l.id, syllables: s, notes: k, status: s === k ? 'aligned' : s > k ? 'too-many-syllables' : 'too-few-syllables' });
+      report.push({
+        sectionId: span.section.id,
+        lineId: l.id,
+        syllables: s,
+        notes: k,
+        status: s === k ? 'aligned' : s > k ? 'too-many-syllables' : 'too-few-syllables',
+      });
     });
     const lockedHere = notes.filter((n) => isL(n)).length;
     if (lockedHere) {
-      warnings.push(`${span.section.name}: ${lockedHere} locked vocal note${lockedHere === 1 ? '' : 's'} — syllables were not re-assigned there.`);
+      warnings.push(
+        `${span.section.name}: ${lockedHere} locked vocal note${lockedHere === 1 ? '' : 's'} — syllables were not re-assigned there.`,
+      );
       continue;
     }
     groups.forEach((g, i) => {
@@ -238,7 +281,11 @@ export function alignLyrics(song: Song, trackId: string, opts: AlignLyricsOption
     if (r) final.push(...r);
     else final.push(w);
   }
-  const res = emitNoteOps(song, track, track.notes, sortWork(final), { reason: mode === 'fit-rhythm' ? 'fit vocal rhythm to lyric syllables' : 'attach lyric syllables to vocal notes', maxGroups: 0 });
+  const res = emitNoteOps(song, track, track.notes, sortWork(final), {
+    reason:
+      mode === 'fit-rhythm' ? 'fit vocal rhythm to lyric syllables' : 'attach lyric syllables to vocal notes',
+    maxGroups: 0,
+  });
   const ops: MusicOperation[] = res.ops;
   return { operations: ops, report, warnings };
 }
@@ -287,46 +334,63 @@ export function validateLyricAlignment(song: Song, trackId: string): { ok: boole
   const issues: string[] = [];
   const layout = sectionLayout(song);
   for (const span of layout) {
-    const lines = song.lyrics.filter((l) => l.sectionId === span.section.id && (!l.trackId || l.trackId === track.id));
-    const notes = track.notes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick).sort((a, b) => a.tick - b.tick || b.pitch - a.pitch);
+    const lines = song.lyrics.filter(
+      (l) => l.sectionId === span.section.id && (!l.trackId || l.trackId === track.id),
+    );
+    const notes = track.notes
+      .filter((n) => n.tick >= span.startTick && n.tick < span.endTick)
+      .sort((a, b) => a.tick - b.tick || b.pitch - a.pitch);
     const name = span.section.name;
     if (!lines.length) {
       const withSyl = notes.filter((n) => n.syllable && n.syllable !== '_').length;
-      if (withSyl) issues.push(`${name}: ${withSyl} note${withSyl === 1 ? '' : 's'} carry syllables but the section has no lyric lines.`);
+      if (withSyl)
+        issues.push(
+          `${name}: ${withSyl} note${withSyl === 1 ? '' : 's'} carry syllables but the section has no lyric lines.`,
+        );
       continue;
     }
     const expected = lines.reduce((s, l) => s + lyricTokens(l.text).length, 0);
     if (!notes.length) {
-      issues.push(`${name}: ${lines.length} lyric line${lines.length === 1 ? '' : 's'} (${expected} syllables) but no vocal notes.`);
+      issues.push(
+        `${name}: ${lines.length} lyric line${lines.length === 1 ? '' : 's'} (${expected} syllables) but no vocal notes.`,
+      );
       continue;
     }
     const missing = notes.filter((n) => !n.syllable || !n.syllable.trim()).length;
-    if (missing) issues.push(`${name}: ${missing} vocal note${missing === 1 ? ' has' : 's have'} no syllable.`);
+    if (missing)
+      issues.push(`${name}: ${missing} vocal note${missing === 1 ? ' has' : 's have'} no syllable.`);
     const sung = notes.filter((n) => n.syllable && n.syllable !== '_' && n.syllable !== '-').length;
-    if (sung !== expected) issues.push(`${name}: the lyrics have ${expected} syllables but ${sung} notes carry syllables.`);
+    if (sung !== expected)
+      issues.push(`${name}: the lyrics have ${expected} syllables but ${sung} notes carry syllables.`);
     const want = lines.flatMap((l) => normWords(l.text));
     const got = sungWords(notes);
     if (sung && want.join(' ') !== got.join(' ')) {
       const firstDiff = want.findIndex((w, i) => got[i] !== w);
-      issues.push(`${name}: the sung words differ from the lyric text${firstDiff >= 0 ? ` (expected "${want[firstDiff]}", found "${got[firstDiff] ?? '—'}")` : ''}.`);
+      issues.push(
+        `${name}: the sung words differ from the lyric text${firstDiff >= 0 ? ` (expected "${want[firstDiff]}", found "${got[firstDiff] ?? '—'}")` : ''}.`,
+      );
     }
     // Melisma marks must continue a syllable, not start a phrase.
     notes.forEach((n, i) => {
       if (n.syllable !== '_') return;
       const prev = notes[i - 1];
       const beat = beatTicks(song, n.tick);
-      if (!prev || n.tick - (prev.tick + prev.duration) >= beat) issues.push(`${name}: a melisma "_" starts a phrase at bar ${barOf(song, n.tick)} (it has no syllable to continue).`);
+      if (!prev || n.tick - (prev.tick + prev.duration) >= beat)
+        issues.push(
+          `${name}: a melisma "_" starts a phrase at bar ${barOf(song, n.tick)} (it has no syllable to continue).`,
+        );
     });
     // A single voice cannot sing overlapping notes.
     for (let i = 1; i < notes.length; i++) {
       const prev = notes[i - 1];
       const overlap = prev.tick + prev.duration - notes[i].tick;
       if (overlap > beatTicks(song, notes[i].tick) / 16) {
-        issues.push(`${name}: overlapping vocal notes at bar ${barOf(song, notes[i].tick)} — a single voice cannot sing both.`);
+        issues.push(
+          `${name}: overlapping vocal notes at bar ${barOf(song, notes[i].tick)} — a single voice cannot sing both.`,
+        );
         break;
       }
     }
   }
   return { ok: issues.length === 0, issues };
 }
-

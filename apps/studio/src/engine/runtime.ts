@@ -98,7 +98,9 @@ function isLarge(v: unknown): boolean {
   if (!v || typeof v !== 'object') return false;
   if (ArrayBuffer.isView(v)) return true;
   if (Array.isArray(v)) return v.length > 200 || v.some(isLarge);
-  return Object.entries(v as Record<string, unknown>).some(([k, val]) => k === 'song' || k === 'snapshot' || isLarge(val));
+  return Object.entries(v as Record<string, unknown>).some(
+    ([k, val]) => k === 'song' || k === 'snapshot' || isLarge(val),
+  );
 }
 
 function stripLarge(v: unknown): unknown {
@@ -137,7 +139,9 @@ export async function initRuntime(): Promise<void> {
   started = true;
   // Task handlers and the AI runtime load in parallel with the server probe (the AI runtime
   // reacts to the server status when it arrives), so work queued at startup starts promptly.
-  const handlers = import('./taskHandlers').then(({ registerTaskHandlers }) => registerTaskHandlers(taskQueue));
+  const handlers = import('./taskHandlers').then(({ registerTaskHandlers }) =>
+    registerTaskHandlers(taskQueue),
+  );
   const ai = import('./ai').then(({ initAi }) => initAi());
   const instruments = import('./render-instruments').then(({ initInstrumentSync }) => initInstrumentSync());
   const clips = import('./clip-assets').then(({ initClipAssetSync }) => initClipAssetSync());

@@ -7,6 +7,7 @@
 export * from './ir/types';
 export * from './ir/defaults';
 export * from './ir/gm';
+export * from './ir/palette';
 export * from './ir/song-utils';
 export * from './util/random';
 export * from './util/ids';

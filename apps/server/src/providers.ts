@@ -62,7 +62,13 @@ export function findSecrets(value: unknown, at = ''): string[] {
       for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
         const kp = p ? `${p}.${k}` : k;
         if (k === 'credentialRef') continue;
-        if (SECRET_KEY_RE.test(k) && typeof val === 'string' && val.length > 0 && !/^\{\{.*\}\}$/.test(val) && val !== 'proxy-managed') {
+        if (
+          SECRET_KEY_RE.test(k) &&
+          typeof val === 'string' &&
+          val.length > 0 &&
+          !/^\{\{.*\}\}$/.test(val) &&
+          val !== 'proxy-managed'
+        ) {
           found.push(kp);
           continue;
         }
@@ -80,7 +86,8 @@ export function validateConfig(c: unknown, index: number): string[] {
   if (!isPlainObject(c)) return [`${at} must be an object`];
   const p: string[] = [];
   if (typeof c.id !== 'string' || !ID_RE.test(c.id)) p.push(`${at}.id must match ${ID_RE}`);
-  if (typeof c.name !== 'string' || !c.name.trim() || c.name.length > 200) p.push(`${at}.name is required (max 200 chars)`);
+  if (typeof c.name !== 'string' || !c.name.trim() || c.name.length > 200)
+    p.push(`${at}.name is required (max 200 chars)`);
   if (typeof c.adapter !== 'string' || !c.adapter.trim()) p.push(`${at}.adapter is required`);
   if (c.location !== 'cloud' && c.location !== 'local') p.push(`${at}.location must be 'cloud' or 'local'`);
   if (c.baseUrl !== undefined && typeof c.baseUrl !== 'string') p.push(`${at}.baseUrl must be a string`);
@@ -98,14 +105,25 @@ export function validateConfig(c: unknown, index: number): string[] {
     }
   }
   if (c.auth !== undefined) {
-    if (!isPlainObject(c.auth) || !AUTH_TYPES.has(String(c.auth.type))) p.push(`${at}.auth.type must be bearer, header, query or none`);
-    else if ((c.auth.type === 'header' || c.auth.type === 'query') && (typeof c.auth.name !== 'string' || !c.auth.name)) {
+    if (!isPlainObject(c.auth) || !AUTH_TYPES.has(String(c.auth.type)))
+      p.push(`${at}.auth.type must be bearer, header, query or none`);
+    else if (
+      (c.auth.type === 'header' || c.auth.type === 'query') &&
+      (typeof c.auth.name !== 'string' || !c.auth.name)
+    ) {
       p.push(`${at}.auth.name is required for auth type ${String(c.auth.type)}`);
     }
   }
-  if (c.credentialRef !== undefined && c.credentialRef !== null && c.credentialRef !== '' && !isValidRef(c.credentialRef)) p.push(`${at}.credentialRef is not a valid reference`);
+  if (
+    c.credentialRef !== undefined &&
+    c.credentialRef !== null &&
+    c.credentialRef !== '' &&
+    !isValidRef(c.credentialRef)
+  )
+    p.push(`${at}.credentialRef is not a valid reference`);
   if (c.enabled !== undefined && typeof c.enabled !== 'boolean') p.push(`${at}.enabled must be a boolean`);
-  for (const s of findSecrets(c, at)) p.push(`possible secret at ${s} (store it in the vault and use credentialRef)`);
+  for (const s of findSecrets(c, at))
+    p.push(`possible secret at ${s} (store it in the vault and use credentialRef)`);
   return p;
 }
 
@@ -133,7 +151,8 @@ export function computeAllowlist(configs: readonly StoredProviderConfig[]): Allo
   const rules: AllowRule[] = [];
   for (const c of configs) {
     const credentialRef = c.auth?.type && c.auth.type !== 'none' ? c.credentialRef : undefined;
-    const add = (origin: string, pathPrefix: string) => rules.push({ origin, pathPrefix, providerId: c.id, ...(credentialRef ? { credentialRef } : {}) });
+    const add = (origin: string, pathPrefix: string) =>
+      rules.push({ origin, pathPrefix, providerId: c.id, ...(credentialRef ? { credentialRef } : {}) });
     const extra = (c.extra ?? {}) as Record<string, unknown>;
     // Vertex AI (Lyria) base URLs may contain a {location} placeholder.
     const location = String(extra.vertexLocation ?? c.region ?? 'us-central1')
@@ -146,7 +165,8 @@ export function computeAllowlist(configs: readonly StoredProviderConfig[]): Allo
       // Gemini uploads audio through the sibling /upload/<version>/files endpoint.
       if (c.adapter === 'gemini') add(base.origin, '/upload');
     }
-    if (c.adapter === 'google-lyria' && !base && location) add(`https://${location}-aiplatform.googleapis.com`, '/v1');
+    if (c.adapter === 'google-lyria' && !base && location)
+      add(`https://${location}-aiplatform.googleapis.com`, '/v1');
   }
   return rules;
 }
@@ -177,7 +197,8 @@ export class ProviderStore {
       const ok: StoredProviderConfig[] = [];
       list.forEach((c, i) => {
         const problems = validateConfig(c, i);
-        if (problems.length) this.logger?.warn(`providers.json: skipping invalid entry ${i}: ${problems.join('; ')}`);
+        if (problems.length)
+          this.logger?.warn(`providers.json: skipping invalid entry ${i}: ${problems.join('; ')}`);
         else ok.push(normalizeConfig(c as Record<string, unknown>));
       });
       this.set(ok);
@@ -217,8 +238,10 @@ export class ProviderStore {
 
   /** Validate, persist and activate a complete provider list. */
   async replace(input: unknown): Promise<StoredProviderConfig[]> {
-    if (!Array.isArray(input)) throw new HttpError(400, 'bad-request', 'Body must be { providers: ProviderConfig[] }');
-    if (input.length > MAX_PROVIDERS) throw new HttpError(400, 'bad-request', `At most ${MAX_PROVIDERS} providers`);
+    if (!Array.isArray(input))
+      throw new HttpError(400, 'bad-request', 'Body must be { providers: ProviderConfig[] }');
+    if (input.length > MAX_PROVIDERS)
+      throw new HttpError(400, 'bad-request', `At most ${MAX_PROVIDERS} providers`);
     const problems = input.flatMap((c, i) => validateConfig(c, i));
     const ids = new Set<string>();
     input.forEach((c, i) => {
@@ -230,12 +253,21 @@ export class ProviderStore {
     });
     if (problems.length) {
       const secret = problems.some((p) => p.startsWith('possible secret'));
-      throw new HttpError(400, secret ? 'secret-in-config' : 'invalid-provider-config', `Invalid provider configuration: ${problems.join('; ')}`, {
-        details: problems,
-      });
+      throw new HttpError(
+        400,
+        secret ? 'secret-in-config' : 'invalid-provider-config',
+        `Invalid provider configuration: ${problems.join('; ')}`,
+        {
+          details: problems,
+        },
+      );
     }
     const configs = input.map((c) => normalizeConfig(c as Record<string, unknown>));
-    await writeFileAtomic(this.file, JSON.stringify({ version: 1, updatedAt: new Date().toISOString(), providers: configs }, null, 2), 0o600);
+    await writeFileAtomic(
+      this.file,
+      JSON.stringify({ version: 1, updatedAt: new Date().toISOString(), providers: configs }, null, 2),
+      0o600,
+    );
     this.set(configs);
     return configs;
   }

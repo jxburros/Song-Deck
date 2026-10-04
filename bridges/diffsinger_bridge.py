@@ -57,6 +57,7 @@ In Song Deck: Settings → Providers → Add provider → Singing synthesis → 
 This is REFERENCE code (not exercised in Song Deck's CI). ``build_ds()`` (contract → .ds) and
 ``run_inference()`` (the command) are the functions to adapt to your DiffSinger version/voicebank.
 """
+
 from __future__ import annotations
 
 import json
@@ -74,7 +75,16 @@ if __package__ in (None, ""):
 
 from songdeck_bridge import __version__  # noqa: E402
 from songdeck_bridge.cli import app_options, build_parser, check_bind, fail, serve, setup_logging  # noqa: E402
-from songdeck_bridge.server import BridgeApp, EngineError, HTTPError, RequestContext, command_from_template, json_response, run_command, wav_response  # noqa: E402
+from songdeck_bridge.server import (
+    BridgeApp,
+    EngineError,
+    HTTPError,
+    RequestContext,
+    command_from_template,
+    json_response,
+    run_command,
+    wav_response,
+)  # noqa: E402
 from songdeck_bridge.singing import SingingJob, SungNote, parse_singing_request  # noqa: E402
 from songdeck_bridge.wav import WavError, fit_length, read_wav, resample_audio, write_wav  # noqa: E402
 
@@ -93,43 +103,229 @@ _AFFRICATES = frozenset("ch jh".split())
 _FRICATIVES = frozenset("f v th dh s z sh zh hh".split())
 
 LEXICON: Dict[str, str] = {
-    "a": "ah", "i": "ay", "an": "ae n", "the": "dh ah", "you": "y uw", "your": "y ao r", "you're": "y uh r", "me": "m iy",
-    "my": "m ay", "we": "w iy", "us": "ah s", "our": "aw er", "he": "hh iy", "she": "sh iy", "it": "ih t", "it's": "ih t s",
-    "is": "ih z", "was": "w ah z", "be": "b iy", "are": "aa r", "am": "ae m", "i'm": "ay m", "and": "ae n d", "or": "ao r",
-    "of": "ah v", "to": "t uw", "too": "t uw", "two": "t uw", "do": "d uw", "in": "ih n", "into": "ih n t uw", "on": "aa n",
-    "at": "ae t", "so": "s ow", "no": "n ow", "go": "g ow", "oh": "ow", "ooh": "uw", "ah": "aa", "la": "l aa", "na": "n aa",
-    "yeah": "y eh", "love": "l ah v", "heart": "hh aa r t", "night": "n ay t", "tonight": "t ah n ay t", "light": "l ay t",
-    "lights": "l ay t s", "fire": "f ay er", "sky": "s k ay", "home": "hh ow m", "time": "t ay m", "life": "l ay f",
-    "walk": "w ao k", "alone": "ah l ow n", "lone": "l ow n", "through": "th r uw", "water": "w ao t er", "carry": "k ae r iy",
-    "count": "k aw n t", "counting": "k aw n t ih ng", "come": "k ah m", "some": "s ah m", "one": "w ah n", "what": "w ah t",
-    "where": "w eh r", "there": "dh eh r", "their": "dh eh r", "here": "hh iy r", "know": "n ow", "now": "n aw", "how": "hh aw",
-    "down": "d aw n", "town": "t aw n", "all": "ao l", "call": "k ao l", "fall": "f ao l", "never": "n eh v er",
-    "ever": "eh v er", "forever": "f er eh v er", "baby": "b ey b iy", "dream": "d r iy m", "dreams": "d r iy m z",
-    "eyes": "ay z", "world": "w er l d", "feel": "f iy l", "free": "f r iy", "see": "s iy", "again": "ah g eh n",
-    "away": "ah w ey", "day": "d ey", "way": "w ey", "say": "s ey", "stay": "s t ey", "rain": "r ey n", "pain": "p ey n",
-    "sun": "s ah n", "run": "r ah n", "want": "w aa n t", "need": "n iy d", "can": "k ae n", "can't": "k ae n t",
-    "don't": "d ow n t", "won't": "w ow n t", "with": "w ih dh", "without": "w ih dh aw t", "from": "f r ah m", "for": "f ao r",
-    "this": "dh ih s", "that": "dh ae t", "these": "dh iy z", "those": "dh ow z", "they": "dh ey", "them": "dh eh m",
-    "when": "w eh n", "why": "w ay", "who": "hh uw", "up": "ah p", "out": "aw t", "hold": "hh ow l d", "hand": "hh ae n d",
-    "hands": "hh ae n d z", "sing": "s ih ng", "song": "s ao ng", "gone": "g ao n", "long": "l ao ng", "strong": "s t r ao ng",
-    "wrong": "r ao ng", "head": "hh eh d", "said": "s eh d", "good": "g uh d", "could": "k uh d", "would": "w uh d",
-    "should": "sh uh d", "look": "l uh k", "take": "t ey k", "make": "m ey k", "break": "b r ey k", "blue": "b l uw",
-    "true": "t r uw", "star": "s t aa r", "stars": "s t aa r z", "moon": "m uw n", "soul": "s ow l", "cold": "k ow l d",
-    "old": "ow l d", "tears": "t ih r z", "fly": "f l ay", "high": "hh ay", "cry": "k r ay", "try": "t r ay", "die": "d ay",
-    "lie": "l ay", "mind": "m ay n d", "find": "f ay n d", "kind": "k ay n d", "music": "m y uw z ih k", "ocean": "ow sh ah n",
+    "a": "ah",
+    "i": "ay",
+    "an": "ae n",
+    "the": "dh ah",
+    "you": "y uw",
+    "your": "y ao r",
+    "you're": "y uh r",
+    "me": "m iy",
+    "my": "m ay",
+    "we": "w iy",
+    "us": "ah s",
+    "our": "aw er",
+    "he": "hh iy",
+    "she": "sh iy",
+    "it": "ih t",
+    "it's": "ih t s",
+    "is": "ih z",
+    "was": "w ah z",
+    "be": "b iy",
+    "are": "aa r",
+    "am": "ae m",
+    "i'm": "ay m",
+    "and": "ae n d",
+    "or": "ao r",
+    "of": "ah v",
+    "to": "t uw",
+    "too": "t uw",
+    "two": "t uw",
+    "do": "d uw",
+    "in": "ih n",
+    "into": "ih n t uw",
+    "on": "aa n",
+    "at": "ae t",
+    "so": "s ow",
+    "no": "n ow",
+    "go": "g ow",
+    "oh": "ow",
+    "ooh": "uw",
+    "ah": "aa",
+    "la": "l aa",
+    "na": "n aa",
+    "yeah": "y eh",
+    "love": "l ah v",
+    "heart": "hh aa r t",
+    "night": "n ay t",
+    "tonight": "t ah n ay t",
+    "light": "l ay t",
+    "lights": "l ay t s",
+    "fire": "f ay er",
+    "sky": "s k ay",
+    "home": "hh ow m",
+    "time": "t ay m",
+    "life": "l ay f",
+    "walk": "w ao k",
+    "alone": "ah l ow n",
+    "lone": "l ow n",
+    "through": "th r uw",
+    "water": "w ao t er",
+    "carry": "k ae r iy",
+    "count": "k aw n t",
+    "counting": "k aw n t ih ng",
+    "come": "k ah m",
+    "some": "s ah m",
+    "one": "w ah n",
+    "what": "w ah t",
+    "where": "w eh r",
+    "there": "dh eh r",
+    "their": "dh eh r",
+    "here": "hh iy r",
+    "know": "n ow",
+    "now": "n aw",
+    "how": "hh aw",
+    "down": "d aw n",
+    "town": "t aw n",
+    "all": "ao l",
+    "call": "k ao l",
+    "fall": "f ao l",
+    "never": "n eh v er",
+    "ever": "eh v er",
+    "forever": "f er eh v er",
+    "baby": "b ey b iy",
+    "dream": "d r iy m",
+    "dreams": "d r iy m z",
+    "eyes": "ay z",
+    "world": "w er l d",
+    "feel": "f iy l",
+    "free": "f r iy",
+    "see": "s iy",
+    "again": "ah g eh n",
+    "away": "ah w ey",
+    "day": "d ey",
+    "way": "w ey",
+    "say": "s ey",
+    "stay": "s t ey",
+    "rain": "r ey n",
+    "pain": "p ey n",
+    "sun": "s ah n",
+    "run": "r ah n",
+    "want": "w aa n t",
+    "need": "n iy d",
+    "can": "k ae n",
+    "can't": "k ae n t",
+    "don't": "d ow n t",
+    "won't": "w ow n t",
+    "with": "w ih dh",
+    "without": "w ih dh aw t",
+    "from": "f r ah m",
+    "for": "f ao r",
+    "this": "dh ih s",
+    "that": "dh ae t",
+    "these": "dh iy z",
+    "those": "dh ow z",
+    "they": "dh ey",
+    "them": "dh eh m",
+    "when": "w eh n",
+    "why": "w ay",
+    "who": "hh uw",
+    "up": "ah p",
+    "out": "aw t",
+    "hold": "hh ow l d",
+    "hand": "hh ae n d",
+    "hands": "hh ae n d z",
+    "sing": "s ih ng",
+    "song": "s ao ng",
+    "gone": "g ao n",
+    "long": "l ao ng",
+    "strong": "s t r ao ng",
+    "wrong": "r ao ng",
+    "head": "hh eh d",
+    "said": "s eh d",
+    "good": "g uh d",
+    "could": "k uh d",
+    "would": "w uh d",
+    "should": "sh uh d",
+    "look": "l uh k",
+    "take": "t ey k",
+    "make": "m ey k",
+    "break": "b r ey k",
+    "blue": "b l uw",
+    "true": "t r uw",
+    "star": "s t aa r",
+    "stars": "s t aa r z",
+    "moon": "m uw n",
+    "soul": "s ow l",
+    "cold": "k ow l d",
+    "old": "ow l d",
+    "tears": "t ih r z",
+    "fly": "f l ay",
+    "high": "hh ay",
+    "cry": "k r ay",
+    "try": "t r ay",
+    "die": "d ay",
+    "lie": "l ay",
+    "mind": "m ay n d",
+    "find": "f ay n d",
+    "kind": "k ay n d",
+    "music": "m y uw z ih k",
+    "ocean": "ow sh ah n",
 }
 
 _GRAPHEMES: List[Tuple[str, List[str]]] = [  # longest first
-    ("tch", ["ch"]), ("igh", ["ay"]), ("eigh", ["ey"]), ("augh", ["ao"]), ("ough", ["ow"]), ("sch", ["s", "k"]),
-    ("ch", ["ch"]), ("sh", ["sh"]), ("th", ["th"]), ("ph", ["f"]), ("wh", ["w"]), ("ck", ["k"]), ("ng", ["ng"]),
-    ("qu", ["k", "w"]), ("gh", []), ("kn", ["n"]), ("wr", ["r"]), ("ee", ["iy"]), ("ea", ["iy"]), ("oo", ["uw"]),
-    ("ou", ["aw"]), ("oi", ["oy"]), ("oy", ["oy"]), ("ai", ["ey"]), ("ay", ["ey"]), ("au", ["ao"]), ("aw", ["ao"]),
-    ("ei", ["ey"]), ("ey", ["ey"]), ("ie", ["iy"]), ("ue", ["uw"]), ("ew", ["uw"]), ("oa", ["ow"]), ("ow", ["ow"]),
-    ("er", ["er"]), ("ir", ["er"]), ("ur", ["er"]), ("ar", ["aa", "r"]), ("or", ["ao", "r"]),
+    ("tch", ["ch"]),
+    ("igh", ["ay"]),
+    ("eigh", ["ey"]),
+    ("augh", ["ao"]),
+    ("ough", ["ow"]),
+    ("sch", ["s", "k"]),
+    ("ch", ["ch"]),
+    ("sh", ["sh"]),
+    ("th", ["th"]),
+    ("ph", ["f"]),
+    ("wh", ["w"]),
+    ("ck", ["k"]),
+    ("ng", ["ng"]),
+    ("qu", ["k", "w"]),
+    ("gh", []),
+    ("kn", ["n"]),
+    ("wr", ["r"]),
+    ("ee", ["iy"]),
+    ("ea", ["iy"]),
+    ("oo", ["uw"]),
+    ("ou", ["aw"]),
+    ("oi", ["oy"]),
+    ("oy", ["oy"]),
+    ("ai", ["ey"]),
+    ("ay", ["ey"]),
+    ("au", ["ao"]),
+    ("aw", ["ao"]),
+    ("ei", ["ey"]),
+    ("ey", ["ey"]),
+    ("ie", ["iy"]),
+    ("ue", ["uw"]),
+    ("ew", ["uw"]),
+    ("oa", ["ow"]),
+    ("ow", ["ow"]),
+    ("er", ["er"]),
+    ("ir", ["er"]),
+    ("ur", ["er"]),
+    ("ar", ["aa", "r"]),
+    ("or", ["ao", "r"]),
 ]
 _GRAPHEMES.sort(key=lambda g: -len(g[0]))
-_LETTERS = {"b": "b", "c": "k", "d": "d", "f": "f", "g": "g", "h": "hh", "j": "jh", "k": "k", "l": "l", "m": "m", "n": "n",
-            "p": "p", "q": "k", "r": "r", "s": "s", "t": "t", "v": "v", "w": "w", "z": "z"}
+_LETTERS = {
+    "b": "b",
+    "c": "k",
+    "d": "d",
+    "f": "f",
+    "g": "g",
+    "h": "hh",
+    "j": "jh",
+    "k": "k",
+    "l": "l",
+    "m": "m",
+    "n": "n",
+    "p": "p",
+    "q": "k",
+    "r": "r",
+    "s": "s",
+    "t": "t",
+    "v": "v",
+    "w": "w",
+    "z": "z",
+}
 _SHORT = {"a": "ae", "e": "eh", "i": "ih", "o": "aa", "u": "ah", "y": "ih"}
 _LONG = {"a": "ey", "e": "iy", "i": "ay", "o": "ow", "u": "uw", "y": "ay"}
 
@@ -230,7 +426,7 @@ class Phonology:
         """(onset consonants, vowel, coda). Without a known vowel, the last phoneme is the nucleus (CV syllables)."""
         for i, p in enumerate(phs):
             if p.split("/")[-1].lower() in self.vowels:
-                return phs[:i], p, phs[i + 1:]
+                return phs[:i], p, phs[i + 1 :]
         return phs[:-1], phs[-1], []
 
     def map(self, ph: str) -> str:
@@ -269,7 +465,9 @@ def _phrases(notes: List[SungNote], gap: float) -> List[List[SungNote]]:
     return out
 
 
-def _f0_curve(seg_start: float, seg_end: float, sung: List[Tuple[float, float, float, Dict[str, Any]]], default_vibrato: float) -> List[float]:
+def _f0_curve(
+    seg_start: float, seg_end: float, sung: List[Tuple[float, float, float, Dict[str, Any]]], default_vibrato: float
+) -> List[float]:
     """f0 (Hz) every F0_STEP seconds: note pitches, 30 ms legato glides, delayed vibrato."""
     count = int(math.ceil((seg_end - seg_start) / F0_STEP)) + 1
     out: List[float] = []
@@ -296,13 +494,26 @@ def _f0_curve(seg_start: float, seg_end: float, sung: List[Tuple[float, float, f
             depth = 0.6 * float(ex.get("vibrato", default_vibrato))
             since = t - s0 - 0.2
             if dur > 0.35 and depth > 0 and since > 0 and t < e0:
-                midi += depth * min(1.0, since / 0.15) * math.sin(2.0 * math.pi * float(ex.get("vibrato_rate", 5.5)) * since)
+                midi += (
+                    depth
+                    * min(1.0, since / 0.15)
+                    * math.sin(2.0 * math.pi * float(ex.get("vibrato_rate", 5.5)) * since)
+                )
         out.append(440.0 * 2.0 ** ((midi - 69.0) / 12.0))
     return out
 
 
-def build_ds(notes: List[SungNote], phon: Phonology, seed: int, *, lead_in: float = 0.5, tail: float = 0.3, phrase_gap: float = 0.8,
-             default_vibrato: float = 0.25, breaths: bool = True) -> List[Dict[str, Any]]:
+def build_ds(
+    notes: List[SungNote],
+    phon: Phonology,
+    seed: int,
+    *,
+    lead_in: float = 0.5,
+    tail: float = 0.3,
+    phrase_gap: float = 0.8,
+    default_vibrato: float = 0.25,
+    breaths: bool = True,
+) -> List[Dict[str, Any]]:
     """Contract notes (times relative to the output start, ≥ 0) → DiffSinger .ds segments.
 
     Invariants per segment: ``sum(ph_dur) == sum(note_dur) == segment length``; one ``ph_num``
@@ -395,20 +606,22 @@ def build_ds(notes: List[SungNote], phon: Phonology, seed: int, *, lead_in: floa
             if starts or not groups:
                 groups.append(0)
             groups[-1] += 1
-        segments.append({
-            "offset": round(seg_start, 6),
-            "text": " ".join(words),
-            "ph_seq": " ".join(e[0] for e in events),
-            "ph_dur": " ".join(f"{d:.6f}" for d in ph_dur),
-            "ph_num": " ".join(str(g) for g in groups),
-            "note_seq": " ".join(n[0] for n in notes_out),
-            "note_dur": " ".join(f"{n[2] - n[1]:.6f}" for n in notes_out),
-            "note_slur": " ".join(str(n[3]) for n in notes_out),
-            "f0_seq": " ".join(f"{f:.1f}" for f in _f0_curve(seg_start, seg_end, sung, default_vibrato)),
-            "f0_timestep": str(F0_STEP),
-            "input_type": "phoneme",
-            "seed": int(seed) & 0x7FFFFFFF,
-        })
+        segments.append(
+            {
+                "offset": round(seg_start, 6),
+                "text": " ".join(words),
+                "ph_seq": " ".join(e[0] for e in events),
+                "ph_dur": " ".join(f"{d:.6f}" for d in ph_dur),
+                "ph_num": " ".join(str(g) for g in groups),
+                "note_seq": " ".join(n[0] for n in notes_out),
+                "note_dur": " ".join(f"{n[2] - n[1]:.6f}" for n in notes_out),
+                "note_slur": " ".join(str(n[3]) for n in notes_out),
+                "f0_seq": " ".join(f"{f:.1f}" for f in _f0_curve(seg_start, seg_end, sung, default_vibrato)),
+                "f0_timestep": str(F0_STEP),
+                "input_type": "phoneme",
+                "seed": int(seed) & 0x7FFFFFFF,
+            }
+        )
     return segments
 
 
@@ -419,7 +632,9 @@ def window_notes(job: SingingJob, pre_roll: float) -> Tuple[List[SungNote], floa
     for n in job.notes_in_window():
         s, e = max(n.start, t0), min(n.end, t1)
         if e - s > 1e-4:
-            out.append(SungNote(n.pitch, s - t0 + pre_roll, e - s, n.lyric, n.velocity, list(n.phonemes), dict(n.expression)))
+            out.append(
+                SungNote(n.pitch, s - t0 + pre_roll, e - s, n.lyric, n.velocity, list(n.phonemes), dict(n.expression))
+            )
     return out, t1 - t0
 
 
@@ -428,7 +643,9 @@ def window_notes(job: SingingJob, pre_roll: float) -> Tuple[List[SungNote], floa
 # ---------------------------------------------------------------------------
 
 
-def run_inference(segments: List[Dict[str, Any]], voice: Dict[str, Any], seed: int, args: Any, ctx: Optional[RequestContext]) -> bytes:
+def run_inference(
+    segments: List[Dict[str, Any]], voice: Dict[str, Any], seed: int, args: Any, ctx: Optional[RequestContext]
+) -> bytes:
     """THE engine call: write the .ds, run the (optional variance and) acoustic command(s), return WAV bytes.
 
     Adapt the command templates (--command / --variance-command) or this function for other
@@ -443,23 +660,38 @@ def run_inference(segments: List[Dict[str, Any]], voice: Dict[str, Any], seed: i
             Path(args.dump_ds).mkdir(parents=True, exist_ok=True)
             Path(args.dump_ds, f"{title}-{seed}.ds").write_text(ds_path.read_text(encoding="utf-8"), encoding="utf-8")
         values = {
-            "python": args.python, "title": title, "seed": str(int(seed) & 0x7FFFFFFF), "spk": str(voice.get("speaker") or ""),
-            "voice": str(voice["id"]), "device": args.device, "exp": str(voice.get("exp") or args.exp or ""),
+            "python": args.python,
+            "title": title,
+            "seed": str(int(seed) & 0x7FFFFFFF),
+            "spk": str(voice.get("speaker") or ""),
+            "voice": str(voice["id"]),
+            "device": args.device,
+            "exp": str(voice.get("exp") or args.exp or ""),
             "variance_exp": str(voice.get("variance_exp") or args.variance_exp or ""),
         }
         if args.variance_command:
             vout = Path(tmp, "variance")
             vout.mkdir()
-            run_command(command_from_template(args.variance_command, {**values, "ds": str(ds_path), "out": str(vout)}), ctx,
-                        cwd=args.diffsinger_root, timeout=args.timeout, name="diffsinger variance")
+            run_command(
+                command_from_template(args.variance_command, {**values, "ds": str(ds_path), "out": str(vout)}),
+                ctx,
+                cwd=args.diffsinger_root,
+                timeout=args.timeout,
+                name="diffsinger variance",
+            )
             produced = sorted(vout.rglob("*.ds"), key=lambda p: p.stat().st_mtime)
             if not produced:
                 raise EngineError("the DiffSinger variance command did not write a .ds file")
             ds_path = produced[-1]
         out_dir = Path(tmp, "out")
         out_dir.mkdir()
-        run_command(command_from_template(args.command, {**values, "ds": str(ds_path), "out": str(out_dir)}), ctx,
-                    cwd=args.diffsinger_root, timeout=args.timeout, name="diffsinger")
+        run_command(
+            command_from_template(args.command, {**values, "ds": str(ds_path), "out": str(out_dir)}),
+            ctx,
+            cwd=args.diffsinger_root,
+            timeout=args.timeout,
+            name="diffsinger",
+        )
         wavs = sorted(out_dir.rglob("*.wav"), key=lambda p: p.stat().st_mtime)
         if not wavs:
             raise EngineError(f"the DiffSinger command did not write a WAV into {out_dir} (check --command)")
@@ -490,30 +722,54 @@ def load_voices(args: Any) -> Dict[str, Dict[str, Any]]:
         for v in json.loads(Path(args.voices_json).read_text(encoding="utf-8")):
             if not isinstance(v, dict) or not v.get("id"):
                 fail(f"{args.voices_json}: every voice needs an 'id'")
-            voices[str(v["id"])] = {"name": v.get("name") or v["id"], "voice_type": v.get("voice_type", ""), "language": v.get("language", "en"),
-                                    "kind": v.get("kind", "imported"), **v}
+            voices[str(v["id"])] = {
+                "name": v.get("name") or v["id"],
+                "voice_type": v.get("voice_type", ""),
+                "language": v.get("language", "en"),
+                "kind": v.get("kind", "imported"),
+                **v,
+            }
     for spec in args.voice or []:
         parts = spec.split(":")
         vid = parts[0].strip()
         if not vid:
             fail(f"--voice {spec!r}: the id is empty")
-        voices[vid] = {"id": vid, "name": (parts[1] if len(parts) > 1 and parts[1] else vid), "voice_type": parts[2] if len(parts) > 2 else "",
-                       "language": parts[3] if len(parts) > 3 and parts[3] else "en", "speaker": parts[4] if len(parts) > 4 else "", "kind": "imported"}
+        voices[vid] = {
+            "id": vid,
+            "name": (parts[1] if len(parts) > 1 and parts[1] else vid),
+            "voice_type": parts[2] if len(parts) > 2 else "",
+            "language": parts[3] if len(parts) > 3 and parts[3] else "en",
+            "speaker": parts[4] if len(parts) > 4 else "",
+            "kind": "imported",
+        }
     if not voices:
         vid = re.sub(r"[^A-Za-z0-9._-]+", "-", args.exp or "diffsinger").strip("-") or "diffsinger"
-        voices[vid] = {"id": vid, "name": f"DiffSinger ({args.exp or 'default'})", "voice_type": args.voice_type, "language": "en", "kind": "imported"}
+        voices[vid] = {
+            "id": vid,
+            "name": f"DiffSinger ({args.exp or 'default'})",
+            "voice_type": args.voice_type,
+            "language": "en",
+            "kind": "imported",
+        }
     return voices
 
 
 def contract_voice(v: Dict[str, Any]) -> Dict[str, str]:
-    return {"id": str(v["id"]), "name": str(v.get("name") or v["id"]), "voice_type": str(v.get("voice_type") or ""),
-            "language": str(v.get("language") or ""), "kind": str(v.get("kind") or "imported")}
+    return {
+        "id": str(v["id"]),
+        "name": str(v.get("name") or v["id"]),
+        "voice_type": str(v.get("voice_type") or ""),
+        "language": str(v.get("language") or ""),
+        "kind": str(v.get("kind") or "imported"),
+    }
 
 
 def make_phonology(args: Any) -> Phonology:
     phon = Phonology(dictionary=load_dictionary(args.dictionary), prefix=args.phoneme_prefix or "")
     if args.phoneme_map:
-        phon.phoneme_map = {str(k): str(v) for k, v in json.loads(Path(args.phoneme_map).read_text(encoding="utf-8")).items()}
+        phon.phoneme_map = {
+            str(k): str(v) for k, v in json.loads(Path(args.phoneme_map).read_text(encoding="utf-8")).items()
+        }
     if args.vowels:
         phon.vowels = frozenset(args.vowels.split()) | ARPABET_VOWELS
     return phon
@@ -525,8 +781,16 @@ def render(job: SingingJob, voice: Dict[str, Any], phon: Phonology, args: Any, c
         from songdeck_bridge.wav import silence
 
         return write_wav(silence(job.frames(), 1, job.sample_rate))
-    segments = build_ds(notes, phon, job.seed, lead_in=args.lead_in, tail=args.tail, phrase_gap=args.phrase_gap,
-                        default_vibrato=args.default_vibrato, breaths=not args.no_breaths)
+    segments = build_ds(
+        notes,
+        phon,
+        job.seed,
+        lead_in=args.lead_in,
+        tail=args.tail,
+        phrase_gap=args.phrase_gap,
+        default_vibrato=args.default_vibrato,
+        breaths=not args.no_breaths,
+    )
     raw = run_inference(segments, voice, job.seed, args, ctx)
     try:
         audio = read_wav(raw)
@@ -547,14 +811,16 @@ def build_app(args: Any) -> BridgeApp:
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
         exps = sorted({str(v.get("exp") or args.exp or "default") for v in voices.values()})
-        return json_response({
-            "name": app.name,
-            "version": __version__,
-            "models": [{"id": e, "name": f"DiffSinger acoustic model '{e}'"} for e in exps],
-            "capabilities": ["SINGING_SYNTHESIS", "MIDI_CONDITIONING", "LYRIC_CONDITIONING", "REGION_GENERATION"],
-            "voices": [contract_voice(v) for v in voices.values()],
-            "hardware": {"min_vram_gb": 0},
-        })
+        return json_response(
+            {
+                "name": app.name,
+                "version": __version__,
+                "models": [{"id": e, "name": f"DiffSinger acoustic model '{e}'"} for e in exps],
+                "capabilities": ["SINGING_SYNTHESIS", "MIDI_CONDITIONING", "LYRIC_CONDITIONING", "REGION_GENERATION"],
+                "voices": [contract_voice(v) for v in voices.values()],
+                "hardware": {"min_vram_gb": 0},
+            }
+        )
 
     @app.route("GET", "/voices")
     def list_voices(ctx: RequestContext):
@@ -562,12 +828,19 @@ def build_app(args: Any) -> BridgeApp:
 
     def job_route(phrase: bool):
         def handler(ctx: RequestContext):
-            job = parse_singing_request(ctx.json_object(), phrase=phrase, voice_ids=voices, max_duration=args.max_duration)
+            job = parse_singing_request(
+                ctx.json_object(), phrase=phrase, voice_ids=voices, max_duration=args.max_duration
+            )
             voice = voices[job.voice_id]
 
             def work():
                 wav = render(job, voice, phon, args, ctx)
-                return wav_response(wav, seed=job.seed, model=str(voice.get("exp") or args.exp or "diffsinger"), headers={"X-Voice-Id": job.voice_id})
+                return wav_response(
+                    wav,
+                    seed=job.seed,
+                    model=str(voice.get("exp") or args.exp or "diffsinger"),
+                    headers={"X-Voice-Id": job.voice_id},
+                )
 
             return work
 
@@ -579,35 +852,76 @@ def build_app(args: Any) -> BridgeApp:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    p = build_parser("Song Deck singing bridge for OpenVPI DiffSinger (reference implementation).", DEFAULT_PORT, prog="diffsinger_bridge.py")
+    p = build_parser(
+        "Song Deck singing bridge for OpenVPI DiffSinger (reference implementation).",
+        DEFAULT_PORT,
+        prog="diffsinger_bridge.py",
+    )
     d = p.add_argument_group("DiffSinger")
-    d.add_argument("--diffsinger-root", default=None, help="OpenVPI DiffSinger checkout (working directory of the command)")
-    d.add_argument("--exp", default=None, help="acoustic experiment name (checkpoints/<exp>) used by the default command")
+    d.add_argument(
+        "--diffsinger-root", default=None, help="OpenVPI DiffSinger checkout (working directory of the command)"
+    )
+    d.add_argument(
+        "--exp", default=None, help="acoustic experiment name (checkpoints/<exp>) used by the default command"
+    )
     d.add_argument("--variance-exp", default=None, help="variance experiment for --variance-command ({variance_exp})")
     d.add_argument("--python", default=sys.executable, help="interpreter of the DiffSinger environment ({python})")
-    d.add_argument("--command", default=DEFAULT_COMMAND, help=f"acoustic inference command template (default: {DEFAULT_COMMAND!r})")
-    d.add_argument("--variance-command", default=None, help="optional variance command template run first; its .ds feeds --command")
-    d.add_argument("--voice", action="append", default=[], metavar="ID[:NAME[:VOICE_TYPE[:LANG[:SPEAKER]]]]", help="a voice to list (repeatable)")
-    d.add_argument("--voices-json", default=None, help="JSON list of voices: {id, name, voice_type, language, kind, speaker?, exp?}")
+    d.add_argument(
+        "--command", default=DEFAULT_COMMAND, help=f"acoustic inference command template (default: {DEFAULT_COMMAND!r})"
+    )
+    d.add_argument(
+        "--variance-command", default=None, help="optional variance command template run first; its .ds feeds --command"
+    )
+    d.add_argument(
+        "--voice",
+        action="append",
+        default=[],
+        metavar="ID[:NAME[:VOICE_TYPE[:LANG[:SPEAKER]]]]",
+        help="a voice to list (repeatable)",
+    )
+    d.add_argument(
+        "--voices-json",
+        default=None,
+        help="JSON list of voices: {id, name, voice_type, language, kind, speaker?, exp?}",
+    )
     d.add_argument("--voice-type", default="soprano", help="voice type of the default voice (default soprano)")
-    d.add_argument("--dictionary", default=None, help="DiffSinger-style dictionary (syllable<TAB>phonemes) looked up before the English G2P")
-    d.add_argument("--phoneme-map", default=None, help="JSON object renaming phonemes, e.g. {\"aa\": \"a\"}")
+    d.add_argument(
+        "--dictionary",
+        default=None,
+        help="DiffSinger-style dictionary (syllable<TAB>phonemes) looked up before the English G2P",
+    )
+    d.add_argument("--phoneme-map", default=None, help='JSON object renaming phonemes, e.g. {"aa": "a"}')
     d.add_argument("--phoneme-prefix", default="", help="prefix added to every phoneme except SP/AP (e.g. 'en/')")
     d.add_argument("--vowels", default=None, help="extra vowel phonemes (space separated) for non-ARPAbet phoneme sets")
     d.add_argument("--lead-in", type=float, default=0.5, help="silence before each phrase in seconds (default 0.5)")
     d.add_argument("--tail", type=float, default=0.3, help="silence after each phrase in seconds (default 0.3)")
-    d.add_argument("--phrase-gap", type=float, default=0.8, help="rests at least this long start a new segment (default 0.8 s)")
-    d.add_argument("--default-vibrato", type=float, default=0.25, help="vibrato depth 0..1 when a note has none (default 0.25)")
+    d.add_argument(
+        "--phrase-gap", type=float, default=0.8, help="rests at least this long start a new segment (default 0.8 s)"
+    )
+    d.add_argument(
+        "--default-vibrato", type=float, default=0.25, help="vibrato depth 0..1 when a note has none (default 0.25)"
+    )
     d.add_argument("--no-breaths", action="store_true", help="do not insert AP breaths in longer rests")
-    d.add_argument("--dump-ds", default=None, metavar="DIR", help="also save every generated .ds file into DIR (debugging)")
-    d.add_argument("--print-ds", default=None, metavar="REQUEST.json", help="print the .ds for a SingingBridgeRequest file and exit (no server, no inference)")
+    d.add_argument(
+        "--dump-ds", default=None, metavar="DIR", help="also save every generated .ds file into DIR (debugging)"
+    )
+    d.add_argument(
+        "--print-ds",
+        default=None,
+        metavar="REQUEST.json",
+        help="print the .ds for a SingingBridgeRequest file and exit (no server, no inference)",
+    )
     d.add_argument("--max-duration", type=float, default=600.0, help="longest output in seconds (default 600)")
-    d.add_argument("--timeout", type=float, default=1800.0, help="seconds before an inference command is killed (default 1800)")
+    d.add_argument(
+        "--timeout", type=float, default=1800.0, help="seconds before an inference command is killed (default 1800)"
+    )
     args = p.parse_args(argv)
     setup_logging(args)
     for ph in re.findall(r"\{([a-z_]+)\}", (args.command or "") + " " + (args.variance_command or "")):
         if ph not in PLACEHOLDERS:
-            fail(f"unknown placeholder {{{ph}}} in the command template (known: {', '.join('{' + x + '}' for x in PLACEHOLDERS)})")
+            fail(
+                f"unknown placeholder {{{ph}}} in the command template (known: {', '.join('{' + x + '}' for x in PLACEHOLDERS)})"
+            )
     if args.print_ds:
         try:
             body = json.loads(Path(args.print_ds).read_text(encoding="utf-8"))
@@ -618,19 +932,38 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         voices = load_voices(args)
         body.setdefault("voice_id", next(iter(voices)))
         try:
-            job = parse_singing_request(body, phrase="start_seconds" in body, voice_ids=voices, max_duration=args.max_duration)
+            job = parse_singing_request(
+                body, phrase="start_seconds" in body, voice_ids=voices, max_duration=args.max_duration
+            )
         except HTTPError as e:
             fail(f"--print-ds: {e.message}")
         notes, _ = window_notes(job, args.lead_in)
-        print(json.dumps(build_ds(notes, make_phonology(args), job.seed, lead_in=args.lead_in, tail=args.tail, phrase_gap=args.phrase_gap,
-                                  default_vibrato=args.default_vibrato, breaths=not args.no_breaths), indent=1))
+        print(
+            json.dumps(
+                build_ds(
+                    notes,
+                    make_phonology(args),
+                    job.seed,
+                    lead_in=args.lead_in,
+                    tail=args.tail,
+                    phrase_gap=args.phrase_gap,
+                    default_vibrato=args.default_vibrato,
+                    breaths=not args.no_breaths,
+                ),
+                indent=1,
+            )
+        )
         return 0
     check_bind(args)
     if not args.diffsinger_root or not Path(args.diffsinger_root).is_dir():
-        fail("--diffsinger-root must point to an OpenVPI DiffSinger checkout (git clone https://github.com/openvpi/DiffSinger)")
+        fail(
+            "--diffsinger-root must point to an OpenVPI DiffSinger checkout (git clone https://github.com/openvpi/DiffSinger)"
+        )
     if args.command == DEFAULT_COMMAND:
         if not Path(args.diffsinger_root, "scripts", "infer.py").is_file():
-            fail(f"{args.diffsinger_root}/scripts/infer.py not found — is this an OpenVPI DiffSinger checkout? (or pass --command)")
+            fail(
+                f"{args.diffsinger_root}/scripts/infer.py not found — is this an OpenVPI DiffSinger checkout? (or pass --command)"
+            )
         if not args.exp and not args.voices_json:
             fail("--exp is required (the acoustic experiment folder name under checkpoints/)")
     return serve([(build_app(args), args.host, args.port)])

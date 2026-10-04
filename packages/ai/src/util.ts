@@ -207,7 +207,10 @@ export function joinUrl(base: string, path: string): string {
   return `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
 }
 
-export function withQuery(url: string, params: Record<string, string | number | boolean | undefined>): string {
+export function withQuery(
+  url: string,
+  params: Record<string, string | number | boolean | undefined>,
+): string {
   const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '');
   if (!entries.length) return url;
   const qs = entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join('&');

@@ -11,7 +11,13 @@ import { abortable, abortError } from './mix-render';
 
 export type AudioFormat = 'wav' | 'flac' | 'mp3' | 'aac';
 
-export const AUDIO_FORMATS: { value: AudioFormat; label: string; ext: string; mime: string; lossy: boolean }[] = [
+export const AUDIO_FORMATS: {
+  value: AudioFormat;
+  label: string;
+  ext: string;
+  mime: string;
+  lossy: boolean;
+}[] = [
   { value: 'wav', label: 'WAV', ext: 'wav', mime: MIME.wav, lossy: false },
   { value: 'flac', label: 'FLAC', ext: 'flac', mime: MIME.flac, lossy: false },
   { value: 'mp3', label: 'MP3', ext: 'mp3', mime: MIME.mp3, lossy: true },
@@ -40,7 +46,10 @@ export interface EncodeOptions {
 }
 
 /** Human description of an encoding, e.g. "WAV 24-bit · 44.1 kHz". */
-export function describeEncoding(opts: Pick<EncodeOptions, 'format' | 'wavBits' | 'flacBits' | 'kbps'>, sampleRate?: number): string {
+export function describeEncoding(
+  opts: Pick<EncodeOptions, 'format' | 'wavBits' | 'flacBits' | 'kbps'>,
+  sampleRate?: number,
+): string {
   const sr = sampleRate ? ` · ${(sampleRate / 1000).toFixed(sampleRate % 1000 ? 1 : 0)} kHz` : '';
   switch (opts.format) {
     case 'wav':
@@ -56,7 +65,8 @@ export function describeEncoding(opts: Pick<EncodeOptions, 'format' | 'wavBits' 
 
 function channelTransfer(audio: AudioData): Transferable[] {
   const out: Transferable[] = [];
-  for (const c of audio.channels) if (c.buffer instanceof ArrayBuffer && !out.includes(c.buffer)) out.push(c.buffer);
+  for (const c of audio.channels)
+    if (c.buffer instanceof ArrayBuffer && !out.includes(c.buffer)) out.push(c.buffer);
   return out;
 }
 
@@ -65,13 +75,35 @@ export async function encodeAudio(audio: AudioData, opts: EncodeOptions): Promis
   const transfer = opts.consume ? channelTransfer(audio) : undefined;
   switch (opts.format) {
     case 'wav':
-      return abortable(jobs.call<Uint8Array>('encodeWav', { audio, bitDepth: opts.wavBits ?? 24 }, { signal: opts.signal, transfer }), opts.signal);
+      return abortable(
+        jobs.call<Uint8Array>(
+          'encodeWav',
+          { audio, bitDepth: opts.wavBits ?? 24 },
+          { signal: opts.signal, transfer },
+        ),
+        opts.signal,
+      );
     case 'flac':
-      return abortable(jobs.call<Uint8Array>('encodeFlac', { audio, bitDepth: opts.flacBits ?? 24 }, { signal: opts.signal, transfer }), opts.signal);
+      return abortable(
+        jobs.call<Uint8Array>(
+          'encodeFlac',
+          { audio, bitDepth: opts.flacBits ?? 24 },
+          { signal: opts.signal, transfer },
+        ),
+        opts.signal,
+      );
     case 'mp3':
     case 'aac': {
-      const args: EncodeArgs = { sampleRate: audio.sampleRate, channels: audio.channels, kbps: opts.kbps ?? 256 };
-      return exportWorker.call<Uint8Array>(opts.format, args, { signal: opts.signal, onProgress: opts.onProgress, transfer });
+      const args: EncodeArgs = {
+        sampleRate: audio.sampleRate,
+        channels: audio.channels,
+        kbps: opts.kbps ?? 256,
+      };
+      return exportWorker.call<Uint8Array>(opts.format, args, {
+        signal: opts.signal,
+        onProgress: opts.onProgress,
+        transfer,
+      });
     }
   }
 }
@@ -93,9 +125,18 @@ export async function zipEntries(entries: ZipEntry[], signal?: AbortSignal): Pro
   const transfer: Transferable[] = [];
   for (const f of files) {
     const buf = f.data.buffer;
-    if (buf instanceof ArrayBuffer && f.data.byteOffset === 0 && f.data.byteLength === buf.byteLength && !transfer.includes(buf)) transfer.push(buf);
+    if (
+      buf instanceof ArrayBuffer &&
+      f.data.byteOffset === 0 &&
+      f.data.byteLength === buf.byteLength &&
+      !transfer.includes(buf)
+    )
+      transfer.push(buf);
   }
-  return exportWorker.call<Uint8Array>('zip', { files, mtime: Date.now() } satisfies ZipArgs, { signal, transfer });
+  return exportWorker.call<Uint8Array>('zip', { files, mtime: Date.now() } satisfies ZipArgs, {
+    signal,
+    transfer,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -116,14 +157,31 @@ export function aacSupport(sampleRate: number, kbps: number): Promise<CodecSuppo
   if (!p) {
     p = (async (): Promise<CodecSupport> => {
       const Enc = (globalThis as unknown as { AudioEncoder?: typeof AudioEncoder }).AudioEncoder;
-      if (!Enc) return { supported: false, reason: 'This browser has no WebCodecs AudioEncoder, so AAC cannot be encoded on-device. Use MP3, FLAC or WAV.' };
+      if (!Enc)
+        return {
+          supported: false,
+          reason:
+            'This browser has no WebCodecs AudioEncoder, so AAC cannot be encoded on-device. Use MP3, FLAC or WAV.',
+        };
       try {
-        const r = await Enc.isConfigSupported({ codec: 'mp4a.40.2', sampleRate, numberOfChannels: 2, bitrate: kbps * 1000 });
+        const r = await Enc.isConfigSupported({
+          codec: 'mp4a.40.2',
+          sampleRate,
+          numberOfChannels: 2,
+          bitrate: kbps * 1000,
+        });
         return r.supported
           ? { supported: true }
-          : { supported: false, reason: 'This browser’s WebCodecs build has no AAC encoder (common in open-source Chromium and Firefox builds). Use MP3, FLAC or WAV.' };
+          : {
+              supported: false,
+              reason:
+                'This browser’s WebCodecs build has no AAC encoder (common in open-source Chromium and Firefox builds). Use MP3, FLAC or WAV.',
+            };
       } catch (err) {
-        return { supported: false, reason: `AAC encoder check failed: ${err instanceof Error ? err.message : String(err)}` };
+        return {
+          supported: false,
+          reason: `AAC encoder check failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
       }
     })();
     aacCache.set(key, p);
@@ -214,7 +272,11 @@ class ExportWorkerClient {
     };
   }
 
-  async call<T>(method: Exclude<ExportMethod, 'cancel' | 'ping'>, args: unknown, opts: CallOpts = {}): Promise<T> {
+  async call<T>(
+    method: Exclude<ExportMethod, 'cancel' | 'ping'>,
+    args: unknown,
+    opts: CallOpts = {},
+  ): Promise<T> {
     if (opts.signal?.aborted) throw abortError();
     const ok = await this.ensureReady();
     if (!ok || !this.worker) return this.callMainThread<T>(method, args, opts);
@@ -236,7 +298,11 @@ class ExportWorkerClient {
   }
 
   /** Same codecs on the main thread (yielding between blocks) when workers are unavailable. */
-  private async callMainThread<T>(method: Exclude<ExportMethod, 'cancel' | 'ping'>, args: unknown, opts: CallOpts): Promise<T> {
+  private async callMainThread<T>(
+    method: Exclude<ExportMethod, 'cancel' | 'ping'>,
+    args: unknown,
+    opts: CallOpts,
+  ): Promise<T> {
     const codecs = await import('./export-codecs');
     const ctl = {
       onProgress: opts.onProgress,

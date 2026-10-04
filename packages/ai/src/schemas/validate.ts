@@ -48,7 +48,11 @@ function typeMatches(v: unknown, t: JsonSchemaType): boolean {
   return jt === t;
 }
 
-const normalizeEnum = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, '-');
+const normalizeEnum = (s: string) =>
+  s
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-');
 
 class Validator {
   errors: SchemaIssue[] = [];
@@ -76,30 +80,46 @@ class Validator {
         return value;
       }
     }
-    if (wanted.includes('integer') && !wanted.includes('number') && typeof value === 'number' && !Number.isInteger(value)) {
+    if (
+      wanted.includes('integer') &&
+      !wanted.includes('number') &&
+      typeof value === 'number' &&
+      !Number.isInteger(value)
+    ) {
       if (this.opts.coerce) {
         this.warnings.push({ path, message: `rounded ${value} to an integer` });
         value = Math.round(value);
       } else this.errors.push({ path, message: 'expected integer' });
     }
     if (s.enum && !s.enum.includes(value as never)) {
-      const match = this.opts.coerce && typeof value === 'string' ? s.enum.find((e) => typeof e === 'string' && normalizeEnum(e) === normalizeEnum(value as string)) : undefined;
+      const match =
+        this.opts.coerce && typeof value === 'string'
+          ? s.enum.find((e) => typeof e === 'string' && normalizeEnum(e) === normalizeEnum(value as string))
+          : undefined;
       if (match !== undefined) {
         this.warnings.push({ path, message: `normalized "${String(value)}" to "${String(match)}"` });
         value = match;
       } else {
-        this.errors.push({ path, message: `must be one of ${s.enum.map((e) => JSON.stringify(e)).join(', ')} (got ${JSON.stringify(value)})` });
+        this.errors.push({
+          path,
+          message: `must be one of ${s.enum.map((e) => JSON.stringify(e)).join(', ')} (got ${JSON.stringify(value)})`,
+        });
       }
     }
-    if (s.const !== undefined && value !== s.const) this.errors.push({ path, message: `must equal ${JSON.stringify(s.const)}` });
+    if (s.const !== undefined && value !== s.const)
+      this.errors.push({ path, message: `must equal ${JSON.stringify(s.const)}` });
     if (typeof value === 'number') value = this.numberBounds(value, s, path);
     if (typeof value === 'string') {
-      if (s.minLength !== undefined && value.length < s.minLength) this.errors.push({ path, message: `shorter than ${s.minLength}` });
-      if (s.maxLength !== undefined && value.length > s.maxLength) this.errors.push({ path, message: `longer than ${s.maxLength}` });
-      if (s.pattern && !new RegExp(s.pattern).test(value)) this.errors.push({ path, message: `does not match ${s.pattern}` });
+      if (s.minLength !== undefined && value.length < s.minLength)
+        this.errors.push({ path, message: `shorter than ${s.minLength}` });
+      if (s.maxLength !== undefined && value.length > s.maxLength)
+        this.errors.push({ path, message: `longer than ${s.maxLength}` });
+      if (s.pattern && !new RegExp(s.pattern).test(value))
+        this.errors.push({ path, message: `does not match ${s.pattern}` });
     }
     if (Array.isArray(value)) value = this.array(value, s, path);
-    else if (isPlainObject(value) && (s.properties || wanted.includes('object'))) value = this.object(value, s, path);
+    else if (isPlainObject(value) && (s.properties || wanted.includes('object')))
+      value = this.object(value, s, path);
     return value;
   }
 
@@ -113,14 +133,18 @@ class Validator {
     };
     if (s.minimum !== undefined && v < s.minimum) fix(s.minimum, `below minimum ${s.minimum}`);
     if (s.maximum !== undefined && v > s.maximum) fix(s.maximum, `above maximum ${s.maximum}`);
-    if (s.exclusiveMinimum !== undefined && v <= s.exclusiveMinimum) this.errors.push({ path, message: `must be > ${s.exclusiveMinimum}` });
-    if (s.exclusiveMaximum !== undefined && v >= s.exclusiveMaximum) this.errors.push({ path, message: `must be < ${s.exclusiveMaximum}` });
+    if (s.exclusiveMinimum !== undefined && v <= s.exclusiveMinimum)
+      this.errors.push({ path, message: `must be > ${s.exclusiveMinimum}` });
+    if (s.exclusiveMaximum !== undefined && v >= s.exclusiveMaximum)
+      this.errors.push({ path, message: `must be < ${s.exclusiveMaximum}` });
     return v;
   }
 
   private array(value: unknown[], s: JsonSchema, path: string): unknown[] {
-    if (s.minItems !== undefined && value.length < s.minItems) this.errors.push({ path, message: `needs at least ${s.minItems} item(s)` });
-    if (s.maxItems !== undefined && value.length > s.maxItems) this.errors.push({ path, message: `allows at most ${s.maxItems} item(s)` });
+    if (s.minItems !== undefined && value.length < s.minItems)
+      this.errors.push({ path, message: `needs at least ${s.minItems} item(s)` });
+    if (s.maxItems !== undefined && value.length > s.maxItems)
+      this.errors.push({ path, message: `allows at most ${s.maxItems} item(s)` });
     if (!s.items) return value;
     return value.map((item, i) => this.run(item, s.items!, `${path}[${i}]`));
   }
@@ -208,7 +232,11 @@ class Validator {
 }
 
 /** Validate (and optionally coerce) a value against a JSON-schema subset. */
-export function validateJson(value: unknown, schema: JsonSchema, opts: ValidateOptions = {}): SchemaValidationResult {
+export function validateJson(
+  value: unknown,
+  schema: JsonSchema,
+  opts: ValidateOptions = {},
+): SchemaValidationResult {
   const coerce = opts.coerce ?? false;
   const v = new Validator({ coerce, stripUnknown: opts.stripUnknown ?? coerce });
   const out = v.run(value, schema, '');

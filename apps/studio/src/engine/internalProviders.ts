@@ -1,4 +1,5 @@
 import {
+  ROLE_COLORS,
   answerQuestion,
   explainSection,
   explainSong,
@@ -63,22 +64,46 @@ function wav(audio: AudioData): EncodedAudio {
 function composer(ctx: InternalContext): CompositionProvider {
   return {
     async planSong(req) {
-      const blueprint = req.blueprint ?? parsePromptToBlueprint(req.prompt ?? '', { seed: ctx.seed(), customGenres: allCustomGenres() });
-      return { plan: planComposition(blueprint, { seed: blueprint.seed, customGenres: allCustomGenres() }), confidence: 0.65, explanation: 'Planned by the on-device theory engine.' };
+      const blueprint =
+        req.blueprint ??
+        parsePromptToBlueprint(req.prompt ?? '', { seed: ctx.seed(), customGenres: allCustomGenres() });
+      return {
+        plan: planComposition(blueprint, { seed: blueprint.seed, customGenres: allCustomGenres() }),
+        confidence: 0.65,
+        explanation: 'Planned by the on-device theory engine.',
+      };
     },
     async designBlueprint(req) {
-      const blueprint = parsePromptToBlueprint(req.prompt, { seed: (req.defaults?.seed as number | undefined) ?? ctx.seed(), customGenres: allCustomGenres() });
+      const blueprint = parsePromptToBlueprint(req.prompt, {
+        seed: (req.defaults?.seed as number | undefined) ?? ctx.seed(),
+        customGenres: allCustomGenres(),
+      });
       return { blueprint: { ...blueprint, ...(req.defaults ?? {}), seed: blueprint.seed }, confidence: 0.6 };
     },
     async modifyComposition(req) {
       const song = requireSong(ctx);
-      const r = interpretEditInstruction(song, req.instruction ?? req.context.instruction, ctx.selection(), { seed: ctx.seed() });
-      return { operations: r.operations, explanation: r.explanation, errors: [], confidence: r.understood ? 0.75 : 0.1 };
+      const r = interpretEditInstruction(song, req.instruction ?? req.context.instruction, ctx.selection(), {
+        seed: ctx.seed(),
+      });
+      return {
+        operations: r.operations,
+        explanation: r.explanation,
+        errors: [],
+        confidence: r.understood ? 0.75 : 0.1,
+      };
     },
     async analyzeMusic() {
       const song = requireSong(ctx);
       const ex = explainSong(song);
-      return { summary: ex.overview.join(' '), observations: ex.sections.map((s) => ({ topic: s.sectionName, detail: s.narrative.join(' '), section: s.sectionName })), confidence: 0.7 };
+      return {
+        summary: ex.overview.join(' '),
+        observations: ex.sections.map((s) => ({
+          topic: s.sectionName,
+          detail: s.narrative.join(' '),
+          section: s.sectionName,
+        })),
+        confidence: 0.7,
+      };
     },
     async explainMusic(req) {
       const song = requireSong(ctx);
@@ -86,7 +111,13 @@ function composer(ctx: InternalContext): CompositionProvider {
       const ex = explainSection(song, id);
       return {
         explanation: [ex.romanSummary, ...ex.narrative, ...ex.comparisons].join('\n\n'),
-        harmony: [{ section: ex.sectionName, chords: ex.chords.map((c) => c.symbol), romans: ex.chords.map((c) => c.roman) }],
+        harmony: [
+          {
+            section: ex.sectionName,
+            chords: ex.chords.map((c) => c.symbol),
+            romans: ex.chords.map((c) => c.roman),
+          },
+        ],
         suggestions: [],
         confidence: 0.75,
       };
@@ -95,23 +126,43 @@ function composer(ctx: InternalContext): CompositionProvider {
       return {
         sections: req.sections.map((s, i) => ({
           section: s.name,
-          lines: s.locked && s.existing?.length
-            ? s.existing
-            : generatePlaceholderLyrics({ mood: req.style, theme: req.theme, sectionKind: s.kind ?? 'verse', lines: s.lines, syllablesPerLine: s.syllables, seed: ctx.seed() + i }),
+          lines:
+            s.locked && s.existing?.length
+              ? s.existing
+              : generatePlaceholderLyrics({
+                  mood: req.style,
+                  theme: req.theme,
+                  sectionKind: s.kind ?? 'verse',
+                  lines: s.lines,
+                  syllablesPerLine: s.syllables,
+                  seed: ctx.seed() + i,
+                }),
         })),
-        notes: 'Placeholder lyrics from the on-device engine — configure a language model for real lyric writing.',
+        notes:
+          'Placeholder lyrics from the on-device engine — configure a language model for real lyric writing.',
         confidence: 0.3,
       };
     },
     async chat(req) {
       const song = requireSong(ctx);
       const r = answerQuestion(song, req.question, ctx.selection());
-      return { answer: r.answer, suggestions: r.suggestions ?? [], operations: r.operations ?? [], errors: [], confidence: 0.6 };
+      return {
+        answer: r.answer,
+        suggestions: r.suggestions ?? [],
+        operations: r.operations ?? [],
+        errors: [],
+        confidence: 0.6,
+      };
     },
     async mixAssist(req) {
       const song = requireSong(ctx);
       const r = interpretMixInstruction(song, req.instruction);
-      return { operations: r.operations, explanation: r.explanation, errors: [], confidence: r.understood ? 0.8 : 0.1 };
+      return {
+        operations: r.operations,
+        explanation: r.explanation,
+        errors: [],
+        confidence: r.understood ? 0.8 : 0.1,
+      };
     },
   };
 }
@@ -132,7 +183,7 @@ function singingRequestToSong(req: SingingRequest): Song {
       instrumentId: 'lead-vocal',
       constraints: {},
       clips: [],
-      color: '#ff7ac6',
+      color: ROLE_COLORS.vocal,
       stemGroup: 'vocals',
       notes: req.notes.map((n) => {
         const tick = Math.round(tm.secondsToTick(n.startSeconds));
@@ -155,11 +206,22 @@ function singingRequestToSong(req: SingingRequest): Song {
 function singer(): SingingProvider {
   return {
     async listVoices() {
-      return STOCK_VOICES.map((v) => ({ id: v.id, name: v.name, voiceType: v.voiceType, kind: 'stock' as const, language: 'en', description: 'Built-in formant voice' }));
+      return STOCK_VOICES.map((v) => ({
+        id: v.id,
+        name: v.name,
+        voiceType: v.voiceType,
+        kind: 'stock' as const,
+        language: 'en',
+        description: 'Built-in formant voice',
+      }));
     },
     async synthesizeSinging(req) {
       const song = singingRequestToSong(req);
-      const audio = await jobs.call<AudioData>('synthesizeVocal', { song, trackId: 'vox', voiceId: req.voiceId, sampleRate: req.sampleRate ?? 44100, seed: req.seed }, { signal: req.signal });
+      const audio = await jobs.call<AudioData>(
+        'synthesizeVocal',
+        { song, trackId: 'vox', voiceId: req.voiceId, sampleRate: req.sampleRate ?? 44100, seed: req.seed },
+        { signal: req.signal },
+      );
       return { audio: wav(audio), voiceId: req.voiceId, seed: req.seed };
     },
     async regeneratePhrase(req) {
@@ -170,11 +232,23 @@ function singer(): SingingProvider {
       const endTick = Math.max(startTick + 1, Math.round(tm.secondsToTick(req.endSeconds)));
       const audio = await jobs.call<AudioData>(
         'synthesizeVocal',
-        { song, trackId: 'vox', voiceId: req.voiceId, sampleRate: req.sampleRate ?? 44100, seed: req.seed, startTick, endTick },
+        {
+          song,
+          trackId: 'vox',
+          voiceId: req.voiceId,
+          sampleRate: req.sampleRate ?? 44100,
+          seed: req.seed,
+          startTick,
+          endTick,
+        },
         { signal: req.signal },
       );
       const frames = Math.max(1, Math.round((req.endSeconds - req.startSeconds) * audio.sampleRate));
-      return { audio: wav({ sampleRate: audio.sampleRate, channels: audio.channels.map((c) => c.slice(0, frames)) }), voiceId: req.voiceId, seed: req.seed };
+      return {
+        audio: wav({ sampleRate: audio.sampleRate, channels: audio.channels.map((c) => c.slice(0, frames)) }),
+        voiceId: req.voiceId,
+        seed: req.seed,
+      };
     },
   };
 }
@@ -184,14 +258,21 @@ function analysis(): TranscriptionProvider & SeparationProvider {
     async transcribeNotes(req) {
       const audio = await decodeAudioBytes(req.audio.data);
       const source = (req.source ?? 'full-mix') as never;
-      const r = await jobs.call<{ notes: { pitch: number; tick: number; duration: number; velocity: number; confidence?: number }[]; bpm: number; key: { tonic: number; mode: string }; confidence: number }>(
-        'transcribe',
-        { audio, source, quantizeBeats: 0 },
-        { signal: req.signal },
-      );
+      const r = await jobs.call<{
+        notes: { pitch: number; tick: number; duration: number; velocity: number; confidence?: number }[];
+        bpm: number;
+        key: { tonic: number; mode: string };
+        confidence: number;
+      }>('transcribe', { audio, source, quantizeBeats: 0 }, { signal: req.signal });
       const spt = 60 / (r.bpm * 480);
       return {
-        notes: r.notes.map((n) => ({ pitch: n.pitch, start: n.tick * spt, end: (n.tick + n.duration) * spt, velocity: n.velocity, confidence: n.confidence ?? r.confidence })),
+        notes: r.notes.map((n) => ({
+          pitch: n.pitch,
+          start: n.tick * spt,
+          end: (n.tick + n.duration) * spt,
+          velocity: n.velocity,
+          confidence: n.confidence ?? r.confidence,
+        })),
         tempo: r.bpm,
         confidence: r.confidence,
         model: 'on-device DSP',
@@ -199,11 +280,19 @@ function analysis(): TranscriptionProvider & SeparationProvider {
     },
     async separateStems(req) {
       const audio = await decodeAudioBytes(req.audio.data);
-      const r = await jobs.call<{ stems: Record<string, AudioData>; confidence: Record<string, number> }>('separate', { audio }, { signal: req.signal });
+      const r = await jobs.call<{ stems: Record<string, AudioData>; confidence: Record<string, number> }>(
+        'separate',
+        { audio },
+        { signal: req.signal },
+      );
       const stems: Record<string, EncodedAudio> = {};
       for (const [name, buf] of Object.entries(r.stems)) stems[name] = wav(buf);
       const confs = Object.values(r.confidence ?? {});
-      return { stems, model: 'HPSS + spectral masks (on-device)', confidence: confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : 0.4 };
+      return {
+        stems,
+        model: 'HPSS + spectral masks (on-device)',
+        confidence: confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : 0.4,
+      };
     },
   };
 }
@@ -225,16 +314,27 @@ function mastering(): MasteringProvider {
 function producer(): AudioGenerationProvider {
   return {
     async discoverModels() {
-      return [{ id: 'dsp-producer', name: 'DSP producer', capabilities: [...INTERNAL_DESCRIPTORS.producer.capabilities] }];
+      return [
+        {
+          id: 'dsp-producer',
+          name: 'DSP producer',
+          capabilities: [...INTERNAL_DESCRIPTORS.producer.capabilities],
+        },
+      ];
     },
     async getCapabilities() {
       return [...INTERNAL_DESCRIPTORS.producer.capabilities];
     },
     async generateMusic(req) {
-      if (!req.song) throw new Error('The built-in producer renders the composition itself — no song was supplied');
+      if (!req.song)
+        throw new Error('The built-in producer renders the composition itself — no song was supplied');
       // Audio-track clips (stems, recordings) are part of the performance too.
       const assets = await collectAssets(req.song);
-      const audio = await jobs.call<AudioData>('renderMix', { song: req.song, assets, sampleRate: 44100, applyMaster: true, seed: req.seed }, { signal: req.signal });
+      const audio = await jobs.call<AudioData>(
+        'renderMix',
+        { song: req.song, assets, sampleRate: 44100, applyMaster: true, seed: req.seed },
+        { signal: req.signal },
+      );
       return { audio: wav(audio), model: 'dsp-producer', seed: req.seed, confidence: 0.5 };
     },
     async transformAudio(req) {
@@ -243,10 +343,19 @@ function producer(): AudioGenerationProvider {
       const audio = await decodeAudioBytes(req.audio.data);
       const [before, r] = await Promise.all([
         jobs.call<LoudnessReport>('loudness', audio, { signal: req.signal }),
-        jobs.call<{ output: AudioData }>('master', { audio, settings: { method: 'builtin', target: 'demo', tone: 0.15, width: 1.1 } }, { signal: req.signal }),
+        jobs.call<{ output: AudioData }>(
+          'master',
+          { audio, settings: { method: 'builtin', target: 'demo', tone: 0.15, width: 1.1 } },
+          { signal: req.signal },
+        ),
       ]);
       const after = await jobs.call<LoudnessReport>('loudness', r.output, { signal: req.signal });
-      return { audio: wav(matchLoudness(r.output, before, after)), model: 'dsp-producer', seed: req.seed, confidence: 0.4 };
+      return {
+        audio: wav(matchLoudness(r.output, before, after)),
+        model: 'dsp-producer',
+        seed: req.seed,
+        confidence: 0.4,
+      };
     },
   };
 }

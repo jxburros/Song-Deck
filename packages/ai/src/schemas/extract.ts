@@ -33,7 +33,8 @@ export function stripThinking(text: string): string {
   // Unclosed think block at the start: drop up to the first JSON-looking character after it.
   if (/^\s*<think(?:ing)?>/i.test(t)) {
     const close = t.search(/<\/think(?:ing)?>/i);
-    t = close >= 0 ? t.slice(close).replace(/^<\/think(?:ing)?>/i, '') : t.replace(/^\s*<think(?:ing)?>/i, '');
+    t =
+      close >= 0 ? t.slice(close).replace(/^<\/think(?:ing)?>/i, '') : t.replace(/^\s*<think(?:ing)?>/i, '');
   }
   return t;
 }
@@ -44,7 +45,15 @@ function fencedBlocks(text: string): string[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     const lang = m[1].toLowerCase();
-    if (!lang || lang === 'json' || lang === 'jsonc' || lang === 'json5' || lang === 'javascript' || lang === 'js') out.push(m[2]);
+    if (
+      !lang ||
+      lang === 'json' ||
+      lang === 'jsonc' ||
+      lang === 'json5' ||
+      lang === 'javascript' ||
+      lang === 'js'
+    )
+      out.push(m[2]);
   }
   return out;
 }
@@ -250,7 +259,8 @@ export function repairJson(input: string): RepairResult {
       // Unquoted key?
       let k = j;
       while (k < n && /\s/.test(input[k])) k++;
-      const isKey = stack[stack.length - 1] === '{' && (input[k] === ':' || input[k] === '=') && last !== 'colon';
+      const isKey =
+        stack[stack.length - 1] === '{' && (input[k] === ':' || input[k] === '=') && last !== 'colon';
       emitValueStart();
       if (isKey) out += JSON.stringify(word);
       else if (LITERALS[word] !== undefined) out += LITERALS[word];
@@ -268,7 +278,8 @@ export function repairJson(input: string): RepairResult {
     let closeStack = [...stack];
     const trimmed = out.replace(/\s+$/, '');
     // A string right after '{' or ',' inside an object is a key whose value never arrived.
-    const danglingKey = stack[stack.length - 1] === '{' && last === 'value' && /[{,]\s*"(?:[^"\\]|\\.)*"$/.test(trimmed);
+    const danglingKey =
+      stack[stack.length - 1] === '{' && last === 'value' && /[{,]\s*"(?:[^"\\]|\\.)*"$/.test(trimmed);
     if (last === 'colon' || last === 'comma' || danglingKey) {
       const point = safe[safe.length - 1];
       if (point) {
@@ -300,7 +311,8 @@ export function extractJson(raw: string): ExtractJsonResult {
   if (!text) return { ok: false, error: 'Empty model output' };
 
   const direct = tryParse(text);
-  if (direct.ok && typeof direct.value === 'object' && direct.value !== null) return { ok: true, value: direct.value, repaired: false, truncated: false, text };
+  if (direct.ok && typeof direct.value === 'object' && direct.value !== null)
+    return { ok: true, value: direct.value, repaired: false, truncated: false, text };
 
   const candidates: string[] = [...fencedBlocks(text), text];
   let lastError = 'No JSON object found in model output';
@@ -314,7 +326,13 @@ export function extractJson(raw: string): ExtractJsonResult {
     const repaired = repairJson(slice);
     const reparsed = tryParse(repaired.text);
     if (reparsed.ok && typeof reparsed.value === 'object' && reparsed.value !== null) {
-      return { ok: true, value: reparsed.value, repaired: true, truncated: repaired.truncated || end < 0, text: repaired.text };
+      return {
+        ok: true,
+        value: reparsed.value,
+        repaired: true,
+        truncated: repaired.truncated || end < 0,
+        text: repaired.text,
+      };
     }
     lastError = `Could not parse JSON${end < 0 ? ' (output looks truncated)' : ''}`;
   }

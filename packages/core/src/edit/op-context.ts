@@ -11,11 +11,30 @@ import type {
 } from '../ir/types';
 import type { IdFactory } from '../util/ids';
 import { findTrack, sortNotes } from '../ir/song-utils';
-import { beatsToTicks, findSection, musicalToTick, regionToTicks, sectionLayout, songLengthBars, songLengthTicks, tickToBar } from '../timing';
+import {
+  beatsToTicks,
+  findSection,
+  musicalToTick,
+  regionToTicks,
+  sectionLayout,
+  songLengthBars,
+  songLengthTicks,
+  tickToBar,
+} from '../timing';
 import { parsePitch } from '../theory/pitch';
 import { lookupInstrument, type InstrumentLookupOptions, type InstrumentResolver } from './instruments';
 import { parseLocks, type ParsedLocks } from './locks-check';
-import { ARTICULATIONS, IdAllocator, IssueList, SectionLocator, clampNum, isRecord, oneOf, toNumber, toStr } from './util';
+import {
+  ARTICULATIONS,
+  IdAllocator,
+  IssueList,
+  SectionLocator,
+  clampNum,
+  isRecord,
+  oneOf,
+  toNumber,
+  toStr,
+} from './util';
 
 export type RegenerateOperation = Extract<MusicOperation, { op: 'regenerate' }>;
 
@@ -110,7 +129,9 @@ export function resolveTrack(song: Song, ref: unknown, c: OpContext, opName: str
 export function resolveMidiTrack(song: Song, ref: unknown, c: OpContext, opName: string): Track | undefined {
   const t = resolveTrack(song, ref, c, opName);
   if (t && t.kind !== 'midi') {
-    c.error('track.not-midi', `${opName}: "${t.name}" is an audio track and has no notes.`, { trackId: t.id });
+    c.error('track.not-midi', `${opName}: "${t.name}" is an audio track and has no notes.`, {
+      trackId: t.id,
+    });
     return undefined;
   }
   return t;
@@ -150,7 +171,13 @@ export interface ResolvedRegion {
 }
 
 /** Parse an OpRegion. Returns undefined (no region) when absent and optional, null on error. */
-export function parseRegion(song: Song, raw: unknown, c: OpContext, opName: string, required: boolean): ResolvedRegion | undefined | null {
+export function parseRegion(
+  song: Song,
+  raw: unknown,
+  c: OpContext,
+  opName: string,
+  required: boolean,
+): ResolvedRegion | undefined | null {
   if (raw === undefined || raw === null) {
     if (required) {
       c.error('op.malformed', `${opName}: missing "region".`);
@@ -180,10 +207,17 @@ export function parseRegion(song: Song, raw: unknown, c: OpContext, opName: stri
   end = Math.floor(end);
   if (start > end) {
     [start, end] = [end, start];
-    c.warn('region.invalid', `${opName}: region start and end were reversed; swapped to bars ${start}–${end}.`, { fixed: true });
+    c.warn(
+      'region.invalid',
+      `${opName}: region start and end were reversed; swapped to bars ${start}–${end}.`,
+      { fixed: true },
+    );
   }
   if (end < 1) {
-    c.error('region.outside', `${opName}: region bars ${start}–${end} are before the start of the song (bars are 1-based).`);
+    c.error(
+      'region.outside',
+      `${opName}: region bars ${start}–${end} are before the start of the song (bars are 1-based).`,
+    );
     return null;
   }
   if (start < 1) {
@@ -193,11 +227,16 @@ export function parseRegion(song: Song, raw: unknown, c: OpContext, opName: stri
   const total = songLengthBars(song);
   if (total > 0) {
     if (start > total) {
-      c.error('region.outside', `${opName}: region bars ${start}–${end} are past the end of the song (${total} bars).`);
+      c.error(
+        'region.outside',
+        `${opName}: region bars ${start}–${end} are past the end of the song (${total} bars).`,
+      );
       return null;
     }
     if (end > total) {
-      c.warn('region.outside', `${opName}: region clamped to the end of the song (bar ${total}).`, { fixed: true });
+      c.warn('region.outside', `${opName}: region clamped to the end of the song (bar ${total}).`, {
+        fixed: true,
+      });
       end = total;
     }
   }
@@ -224,20 +263,30 @@ export function parseExpression(raw: unknown, c: OpContext, opName: string): Voc
   }
   if (raw.vibratoRate !== undefined) {
     const v = toNumber(raw.vibratoRate);
-    if (v === undefined) c.warn('expression.invalid', `${opName}: expression.vibratoRate is not a number; ignored.`);
+    if (v === undefined)
+      c.warn('expression.invalid', `${opName}: expression.vibratoRate is not a number; ignored.`);
     else out.vibratoRate = clampNum(v, 0.5, 12);
   }
   const onset = oneOf(raw.onset, ['soft', 'normal', 'hard', 'scoop'] as const);
-  if (raw.onset !== undefined && !onset) c.warn('expression.invalid', `${opName}: unknown expression.onset "${String(raw.onset)}"; ignored.`);
+  if (raw.onset !== undefined && !onset)
+    c.warn('expression.invalid', `${opName}: unknown expression.onset "${String(raw.onset)}"; ignored.`);
   if (onset) out.onset = onset;
   const release = oneOf(raw.release, ['normal', 'falling', 'rising', 'breathy', 'cut'] as const);
-  if (raw.release !== undefined && !release) c.warn('expression.invalid', `${opName}: unknown expression.release "${String(raw.release)}"; ignored.`);
+  if (raw.release !== undefined && !release)
+    c.warn('expression.invalid', `${opName}: unknown expression.release "${String(raw.release)}"; ignored.`);
   if (release) out.release = release;
   return Object.keys(out).length ? out : undefined;
 }
 
 /** Validate an untrusted OpNote. Returns null (with an issue) when unusable. */
-export function parseOpNote(song: Song, raw: unknown, c: OpContext, opName: string, index: number, trackId?: string): Omit<Note, 'id'> | null {
+export function parseOpNote(
+  song: Song,
+  raw: unknown,
+  c: OpContext,
+  opName: string,
+  index: number,
+  trackId?: string,
+): Omit<Note, 'id'> | null {
   const where = `${opName}: note #${index + 1}`;
   const bad = (msg: string) => {
     c.warn('note.invalid', `${where} ${msg}; note dropped.`, { trackId });
@@ -245,24 +294,34 @@ export function parseOpNote(song: Song, raw: unknown, c: OpContext, opName: stri
   };
   if (!isRecord(raw)) return bad('is not an object');
   const rawPitch = raw.pitch;
-  let pitch: number | null = typeof rawPitch === 'number' || typeof rawPitch === 'string' ? parsePitch(rawPitch) : null;
+  let pitch: number | null =
+    typeof rawPitch === 'number' || typeof rawPitch === 'string' ? parsePitch(rawPitch) : null;
   if (pitch === null) return bad(`has an invalid pitch (${JSON.stringify(rawPitch)})`);
   if (pitch < 0 || pitch > 127) {
     if (!c.autoFix) return bad(`has pitch ${pitch} outside MIDI 0–127`);
     const fixed = foldMidi(pitch);
-    c.warn('note.invalid', `${where} pitch ${pitch} outside MIDI 0–127 moved to ${fixed}.`, { trackId, fixed: true });
+    c.warn('note.invalid', `${where} pitch ${pitch} outside MIDI 0–127 moved to ${fixed}.`, {
+      trackId,
+      fixed: true,
+    });
     pitch = fixed;
   }
   const bar = toNumber(raw.bar);
-  if (bar === undefined || bar < 1) return bad(`has an invalid bar (${JSON.stringify(raw.bar)}; bars are 1-based)`);
+  if (bar === undefined || bar < 1)
+    return bad(`has an invalid bar (${JSON.stringify(raw.bar)}; bars are 1-based)`);
   const beat = raw.beat === undefined ? 1 : toNumber(raw.beat);
-  if (beat === undefined || beat < 1) return bad(`has an invalid beat (${JSON.stringify(raw.beat)}; beats are 1-based)`);
+  if (beat === undefined || beat < 1)
+    return bad(`has an invalid beat (${JSON.stringify(raw.beat)}; beats are 1-based)`);
   const total = songLengthBars(song);
-  if (bar > (total > 0 ? total : 100000) + 1 || beat > 1024) return bad(`is past the end of the song (bar ${Math.floor(bar)})`);
+  if (bar > (total > 0 ? total : 100000) + 1 || beat > 1024)
+    return bad(`is past the end of the song (bar ${Math.floor(bar)})`);
   const tick = musicalToTick(song, Math.floor(bar), beat);
   if (!Number.isFinite(tick) || tick < 0) return bad('has an invalid position');
   if (total > 0 && tick >= songLengthTicks(song)) {
-    c.warn('note.past-end', `${where} starts after the end of the song; note dropped.`, { trackId, fixed: true });
+    c.warn('note.past-end', `${where} starts after the end of the song; note dropped.`, {
+      trackId,
+      fixed: true,
+    });
     return null;
   }
   let durBeats = toNumber(raw.duration_beats ?? raw.duration ?? raw.durationBeats);
@@ -273,7 +332,10 @@ export function parseOpNote(song: Song, raw: unknown, c: OpContext, opName: stri
   } else if (durBeats <= 0) {
     if (!c.autoFix) return bad(`has a non-positive duration (${durBeats})`);
     durBeats = 0.25;
-    c.warn('note.duration', `${where} had a non-positive duration; set to a sixteenth.`, { trackId, fixed: true });
+    c.warn('note.duration', `${where} had a non-positive duration; set to a sixteenth.`, {
+      trackId,
+      fixed: true,
+    });
   }
   const duration = Math.max(1, beatsToTicks(song, durBeats, tick));
   let velocity = 90;
@@ -291,7 +353,10 @@ export function parseOpNote(song: Song, raw: unknown, c: OpContext, opName: stri
   if (raw.articulation !== undefined) {
     const a = oneOf(raw.articulation, ARTICULATIONS);
     if (a) note.articulation = a;
-    else c.warn('note.invalid', `${where} has unknown articulation "${String(raw.articulation)}"; ignored.`, { trackId });
+    else
+      c.warn('note.invalid', `${where} has unknown articulation "${String(raw.articulation)}"; ignored.`, {
+        trackId,
+      });
   }
   const syl = toStr(raw.syllable);
   if (syl !== undefined && syl.trim() !== '') note.syllable = syl.trim();
@@ -326,9 +391,12 @@ export function noteToOpNote(song: Song, note: Note): OpNote {
 
 export function opNoteToNote(song: Song, op: OpNote, id: string): Note {
   const pitch = parsePitch(op.pitch);
-  if (pitch === null || pitch < 0 || pitch > 127) throw new Error(`Invalid pitch: ${JSON.stringify(op.pitch)}`);
-  if (!Number.isFinite(op.bar) || op.bar < 1 || !Number.isFinite(op.beat) || op.beat < 1) throw new Error('Invalid bar/beat (1-based)');
-  if (!Number.isFinite(op.duration_beats) || op.duration_beats <= 0) throw new Error('Invalid duration_beats');
+  if (pitch === null || pitch < 0 || pitch > 127)
+    throw new Error(`Invalid pitch: ${JSON.stringify(op.pitch)}`);
+  if (!Number.isFinite(op.bar) || op.bar < 1 || !Number.isFinite(op.beat) || op.beat < 1)
+    throw new Error('Invalid bar/beat (1-based)');
+  if (!Number.isFinite(op.duration_beats) || op.duration_beats <= 0)
+    throw new Error('Invalid duration_beats');
   const tick = musicalToTick(song, Math.floor(op.bar), op.beat);
   const note: Note = {
     id,
@@ -352,7 +420,14 @@ function round6(v: number): number {
 // ---------------------------------------------------------------------------
 
 /** Error + true when the region of `track` contains locked material. */
-export function regionIsLocked(song: Song, track: Track, startTick: number, endTick: number, c: OpContext, opName: string): boolean {
+export function regionIsLocked(
+  song: Song,
+  track: Track,
+  startTick: number,
+  endTick: number,
+  c: OpContext,
+  opName: string,
+): boolean {
   if (!c.respectLocks) return false;
   const p = c.locks;
   if (p.tracks.has(track.id)) {
@@ -363,20 +438,31 @@ export function regionIsLocked(song: Song, track: Track, startTick: number, endT
     if (span.endTick <= startTick || span.startTick >= endTick) continue;
     const sid = span.section.id;
     if (p.sections.has(sid) || p.trackSections.get(track.id)?.has(sid)) {
-      c.error('lock.violated', `${opName}: "${track.name}" in "${span.section.name}" is locked.`, { trackId: track.id, sectionId: sid });
+      c.error('lock.violated', `${opName}: "${track.name}" in "${span.section.name}" is locked.`, {
+        trackId: track.id,
+        sectionId: sid,
+      });
       return true;
     }
   }
   const lockedNote = track.notes.find((n) => n.locked && n.tick >= startTick && n.tick < endTick);
   if (lockedNote) {
-    c.error('lock.violated', `${opName}: the selection contains locked notes on "${track.name}".`, { trackId: track.id, noteId: lockedNote.id });
+    c.error('lock.violated', `${opName}: the selection contains locked notes on "${track.name}".`, {
+      trackId: track.id,
+      noteId: lockedNote.id,
+    });
     return true;
   }
   return false;
 }
 
 /** Whether a note (existing or new) on a track is protected by locks. */
-export function isProtected(c: OpContext, locator: SectionLocator, track: Track, note: Pick<Note, 'tick' | 'locked'>): boolean {
+export function isProtected(
+  c: OpContext,
+  locator: SectionLocator,
+  track: Track,
+  note: Pick<Note, 'tick' | 'locked'>,
+): boolean {
   if (!c.respectLocks) return false;
   const p = c.locks;
   if (note.locked || p.tracks.has(track.id)) return true;
@@ -402,7 +488,10 @@ export function selectNotes(
     ids = new Set(noteIds.map((x) => toStr(x)).filter((x): x is string => !!x));
     const existing = new Set(track.notes.map((n) => n.id));
     const missing = [...ids].filter((id) => !existing.has(id));
-    if (missing.length) c.warn('note.not-found', `${opName}: ${missing.length} note id(s) not found on "${track.name}".`, { trackId: track.id });
+    if (missing.length)
+      c.warn('note.not-found', `${opName}: ${missing.length} note id(s) not found on "${track.name}".`, {
+        trackId: track.id,
+      });
   }
   const notes = track.notes.filter(
     (n) => (!region || (n.tick >= region.startTick && n.tick < region.endTick)) && (!ids || ids.has(n.id)),
@@ -422,13 +511,21 @@ export function filterLockedSelection(
   const locked = sel.notes.filter((n) => isProtected(c, locator, track, n));
   if (!locked.length) return sel.notes;
   if (sel.explicit || c.locks.tracks.has(track.id)) {
-    c.error('lock.violated', `${opName}: the selection on "${track.name}" contains ${locked.length} locked note(s).`, {
-      trackId: track.id,
-      noteId: locked[0].id,
-    });
+    c.error(
+      'lock.violated',
+      `${opName}: the selection on "${track.name}" contains ${locked.length} locked note(s).`,
+      {
+        trackId: track.id,
+        noteId: locked[0].id,
+      },
+    );
     return null;
   }
-  c.info('lock.skipped', `${opName}: ${locked.length} locked note(s) on "${track.name}" were left unchanged.`, { trackId: track.id });
+  c.info(
+    'lock.skipped',
+    `${opName}: ${locked.length} locked note(s) on "${track.name}" were left unchanged.`,
+    { trackId: track.id },
+  );
   const lockedSet = new Set(locked);
   return sel.notes.filter((n) => !lockedSet.has(n));
 }

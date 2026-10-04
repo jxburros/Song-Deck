@@ -11,8 +11,20 @@ export function Button({
   children,
   className = '',
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: 'sm' | 'lg'; icon?: IconName; active?: boolean }) {
-  const cls = ['btn', variant !== 'default' ? variant : '', size ?? '', !children && icon ? 'icon' : '', active ? 'active' : '', className]
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: Variant;
+  size?: 'sm' | 'lg';
+  icon?: IconName;
+  active?: boolean;
+}) {
+  const cls = [
+    'btn',
+    variant !== 'default' ? variant : '',
+    size ?? '',
+    !children && icon ? 'icon' : '',
+    active ? 'active' : '',
+    className,
+  ]
     .filter(Boolean)
     .join(' ');
   return (
@@ -23,7 +35,17 @@ export function Button({
   );
 }
 
-export function Field({ label, hint, children, className = '' }: { label?: ReactNode; hint?: ReactNode; children: ReactNode; className?: string }) {
+export function Field({
+  label,
+  hint,
+  children,
+  className = '',
+}: {
+  label?: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div className={`field ${className}`}>
       {label && <label>{label}</label>}
@@ -76,7 +98,10 @@ export function NumberInput({
   max?: number;
   step?: number;
   size?: 'sm';
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'size' | 'min' | 'max' | 'step'>) {
+} & Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'value' | 'onChange' | 'size' | 'min' | 'max' | 'step'
+>) {
   return (
     <input
       className={`input mono ${size ?? ''}`}
@@ -104,7 +129,16 @@ export function TextArea({
   React.TextareaHTMLAttributes<HTMLTextAreaElement>,
   'value' | 'onChange'
 >) {
-  return <textarea className="textarea" value={value} rows={rows} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} {...rest} />;
+  return (
+    <textarea
+      className="textarea"
+      value={value}
+      rows={rows}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      {...rest}
+    />
+  );
 }
 
 export function Select<T extends string>({
@@ -120,7 +154,12 @@ export function Select<T extends string>({
   size?: 'sm';
 } & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange' | 'size'>) {
   return (
-    <select className={`select ${size ?? ''}`} value={value} onChange={(e) => onChange(e.target.value as T)} {...rest}>
+    <select
+      className={`select ${size ?? ''}`}
+      value={value}
+      onChange={(e) => onChange(e.target.value as T)}
+      {...rest}
+    >
       {options.map((o) => {
         const opt = typeof o === 'string' ? { value: o, label: o } : o;
         return (
@@ -193,10 +232,26 @@ export function Slider({
   );
 }
 
-export function Toggle({ on, onChange, label, title }: { on: boolean; onChange: (v: boolean) => void; label?: ReactNode; title?: string }) {
+export function Toggle({
+  on,
+  onChange,
+  label,
+  title,
+}: {
+  on: boolean;
+  onChange: (v: boolean) => void;
+  label?: ReactNode;
+  title?: string;
+}) {
   return (
     <label className="row toggle-label" style={{ cursor: 'pointer' }} title={title}>
-      <button type="button" role="switch" aria-checked={on} className={`toggle ${on ? 'on' : ''}`} onClick={() => onChange(!on)} />
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        className={`toggle ${on ? 'on' : ''}`}
+        onClick={() => onChange(!on)}
+      />
       {label && <span>{label}</span>}
     </label>
   );
@@ -233,7 +288,15 @@ export function Tabs<T extends string>({
   );
 }
 
-export function Badge({ children, tone, title }: { children: ReactNode; tone?: 'accent' | 'ai' | 'success' | 'danger' | 'warning'; title?: string }) {
+export function Badge({
+  children,
+  tone,
+  title,
+}: {
+  children: ReactNode;
+  tone?: 'accent' | 'ai' | 'success' | 'danger' | 'warning';
+  title?: string;
+}) {
   return (
     <span className={`badge ${tone ?? ''}`} title={title}>
       {children}
@@ -289,10 +352,18 @@ export function Progress({ value, ai }: { value: number; ai?: boolean }) {
 }
 
 export function Spinner() {
-  return <span className="spinner" aria-label="Working" />;
+  return <span className="spinner" role="status" aria-label="Working" />;
 }
 
-export function LockButton({ locked, onToggle, title }: { locked: boolean; onToggle: () => void; title?: string }) {
+export function LockButton({
+  locked,
+  onToggle,
+  title,
+}: {
+  locked: boolean;
+  onToggle: () => void;
+  title?: string;
+}) {
   return (
     <button
       type="button"
@@ -309,7 +380,17 @@ export function LockButton({ locked, onToggle, title }: { locked: boolean; onTog
   );
 }
 
-export function EmptyState({ icon, title, children, actions }: { icon?: IconName; title: string; children?: ReactNode; actions?: ReactNode }) {
+export function EmptyState({
+  icon,
+  title,
+  children,
+  actions,
+}: {
+  icon?: IconName;
+  title: string;
+  children?: ReactNode;
+  actions?: ReactNode;
+}) {
   return (
     <div className="empty-state">
       {icon && <Icon name={icon} size={32} />}
@@ -320,7 +401,17 @@ export function EmptyState({ icon, title, children, actions }: { icon?: IconName
   );
 }
 
-export function Section({ title, actions, children, icon }: { title: ReactNode; actions?: ReactNode; children: ReactNode; icon?: IconName }) {
+export function Section({
+  title,
+  actions,
+  children,
+  icon,
+}: {
+  title: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
+  icon?: IconName;
+}) {
   return (
     <div className="panel" style={{ marginBottom: 14 }}>
       <div className="panel-header">
@@ -394,7 +485,17 @@ export function FileButton({
 }
 
 /** Text input that only commits on blur/Enter (one revision per edit, not per keystroke). */
-export function CommitText({ value, onCommit, size, mono, placeholder, ...rest }: { value: string; onCommit: (v: string) => void; size?: 'sm'; mono?: boolean; placeholder?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'size'>) {
+export function CommitText({
+  value,
+  onCommit,
+  size,
+  mono,
+  placeholder,
+  ...rest
+}: { value: string; onCommit: (v: string) => void; size?: 'sm'; mono?: boolean; placeholder?: string } & Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'value' | 'onChange' | 'size'
+>) {
   const [draft, setDraft] = useStateCompat(value);
   return (
     <input
@@ -413,7 +514,25 @@ export function CommitText({ value, onCommit, size, mono, placeholder, ...rest }
 }
 
 /** Number input that commits on blur/Enter. */
-export function CommitNumber({ value, onCommit, min, max, step = 1, size, ...rest }: { value: number; onCommit: (v: number) => void; min?: number; max?: number; step?: number; size?: 'sm' } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'size' | 'min' | 'max' | 'step'>) {
+export function CommitNumber({
+  value,
+  onCommit,
+  min,
+  max,
+  step = 1,
+  size,
+  ...rest
+}: {
+  value: number;
+  onCommit: (v: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  size?: 'sm';
+} & Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'value' | 'onChange' | 'size' | 'min' | 'max' | 'step'
+>) {
   const [draft, setDraft] = useStateCompat(String(value));
   const commit = () => {
     const v = parseFloat(draft);

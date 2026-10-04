@@ -47,7 +47,11 @@ export function register(api) {
       const barTicks = core.barLengthTicks(meter, song.ppq);
       const totalBars = core.songLengthBars(song);
       const notes = melody.notes
-        .map((n) => ({ ...n, tick: Math.round(n.tick / sixteenth) * sixteenth, duration: Math.max(sixteenth, Math.round(n.duration / sixteenth) * sixteenth) }))
+        .map((n) => ({
+          ...n,
+          tick: Math.round(n.tick / sixteenth) * sixteenth,
+          duration: Math.max(sixteenth, Math.round(n.duration / sixteenth) * sixteenth),
+        }))
         .sort((a, b) => a.tick - b.tick);
       let body = '';
       let cursor = 0;

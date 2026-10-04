@@ -54,7 +54,10 @@ export interface NodeInfo {
 
 /** JSON in a header must be ASCII (Node rejects other characters). */
 function asciiJson(value: unknown): string {
-  return JSON.stringify(value ?? {}).replace(/[\u007f-￿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+  return JSON.stringify(value ?? {}).replace(
+    /[\u007f-￿]/g,
+    (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
 }
 
 export class RenderNode {
@@ -64,7 +67,12 @@ export class RenderNode {
   private engineVersion?: string;
 
   constructor(private readonly opts: RenderNodeOptions) {
-    this.pool = new RenderPool({ size: opts.workers, maxQueue: opts.maxQueue, inline: opts.inline, logger: opts.logger });
+    this.pool = new RenderPool({
+      size: opts.workers,
+      maxQueue: opts.maxQueue,
+      inline: opts.inline,
+      logger: opts.logger,
+    });
   }
 
   async init(): Promise<void> {
@@ -133,7 +141,9 @@ export function registerRenderRoutes(router: Router, node: RenderNode, limit: nu
     }
     if (node.pool.isFull()) {
       req.resume();
-      throw new HttpError(429, 'busy', 'Render node is busy; retry later or use another node', { headers: { 'retry-after': '2', connection: 'close' } });
+      throw new HttpError(429, 'busy', 'Render node is busy; retry later or use another node', {
+        headers: { 'retry-after': '2', connection: 'close' },
+      });
     }
     const body = await readBody(req, limit);
     let result;
@@ -141,7 +151,8 @@ export function registerRenderRoutes(router: Router, node: RenderNode, limit: nu
       result = await node.pool.run(body, signal);
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return; // client disconnected
-      if (err instanceof PoolBusyError) throw new HttpError(429, 'busy', err.message, { headers: { 'retry-after': '2' } });
+      if (err instanceof PoolBusyError)
+        throw new HttpError(429, 'busy', err.message, { headers: { 'retry-after': '2' } });
       if (err instanceof JobFailedError) throw new HttpError(err.status, err.code, err.message);
       throw err;
     }
@@ -149,9 +160,12 @@ export function registerRenderRoutes(router: Router, node: RenderNode, limit: nu
       'x-songdeck-node': node.id,
       'x-songdeck-render-ms': String(result.renderMs),
       'cache-control': 'no-store',
-      ...(result.durationSeconds !== undefined ? { 'x-songdeck-duration': result.durationSeconds.toFixed(3) } : {}),
+      ...(result.durationSeconds !== undefined
+        ? { 'x-songdeck-duration': result.durationSeconds.toFixed(3) }
+        : {}),
     };
-    if (result.kind === 'master' && result.json !== undefined) headers['x-songdeck-report'] = asciiJson(result.json);
+    if (result.kind === 'master' && result.json !== undefined)
+      headers['x-songdeck-report'] = asciiJson(result.json);
     if (result.bytes) sendBytes(res, 200, result.bytes, result.contentType, headers);
     else sendJson(res, 200, result.json ?? {}, headers);
   });

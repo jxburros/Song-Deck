@@ -1,4 +1,5 @@
 import {
+  rightsSummaryText,
   songToDawProject,
   songToMidi,
   songToMusicXML,
@@ -25,7 +26,16 @@ import {
   ProgressMix,
 } from '../mix-render';
 import { renderStemsDistributed } from '../collab-render';
-import { describeEncoding, encodeAudio, formatInfo, zipEntries, type AudioFormat, type FlacBits, type WavBits, type ZipEntry } from '../export-audio';
+import {
+  describeEncoding,
+  encodeAudio,
+  formatInfo,
+  zipEntries,
+  type AudioFormat,
+  type FlacBits,
+  type WavBits,
+  type ZipEntry,
+} from '../export-audio';
 import { deliverFile, MIME, sanitizeFileName } from '../export-files';
 
 /**
@@ -97,7 +107,8 @@ const STEM_ORDER: StemGroup[] = ['vocals', 'drums', 'bass', 'guitars', 'keys', '
 
 function openSong(projectId: string): Song {
   const project = useStudio.getState().project;
-  if (!project || project.meta.id !== projectId) throw new Error('The project for this export is not open. Open it and retry the task.');
+  if (!project || project.meta.id !== projectId)
+    throw new Error('The project for this export is not open. Open it and retry the task.');
   return project.song;
 }
 
@@ -108,10 +119,11 @@ function lookup() {
 
 function peakOf(a: AudioData): number {
   let peak = 0;
-  for (const ch of a.channels) for (let i = 0; i < ch.length; i++) {
-    const v = ch[i] < 0 ? -ch[i] : ch[i];
-    if (v > peak) peak = v;
-  }
+  for (const ch of a.channels)
+    for (let i = 0; i < ch.length; i++) {
+      const v = ch[i] < 0 ? -ch[i] : ch[i];
+      if (v > peak) peak = v;
+    }
   return peak;
 }
 
@@ -151,14 +163,25 @@ function songInfoText(song: Song, sampleRate: number, bits: number, lines: strin
 async function renderDeliverable(
   song: Song,
   which: AudioWhich,
-  opts: { sampleRate: number; signal: AbortSignal; assets: Record<string, AudioData>; onProgress: (p: number) => void; log: (msg: string) => void },
+  opts: {
+    sampleRate: number;
+    signal: AbortSignal;
+    assets: Record<string, AudioData>;
+    onProgress: (p: number) => void;
+    log: (msg: string) => void;
+  },
 ): Promise<{ audio: AudioData | null; existing?: Uint8Array; label: string }> {
   if (which === 'master') {
     const project = useStudio.getState().project;
     const m = currentMaster(project, song);
     if (song.mastering.method === 'none') {
       opts.log('Mastering is set to “None (user export)” — exporting the unmastered mix.');
-      const audio = await renderMixAudio(song, { sampleRate: opts.sampleRate, signal: opts.signal, assets: opts.assets, onProgress: opts.onProgress });
+      const audio = await renderMixAudio(song, {
+        sampleRate: opts.sampleRate,
+        signal: opts.signal,
+        assets: opts.assets,
+        onProgress: opts.onProgress,
+      });
       return { audio, label: 'Mix' };
     }
     if (m && !m.stale) {
@@ -169,15 +192,41 @@ async function renderDeliverable(
         return { audio: null, existing: bytes, label: 'Master' };
       }
       opts.log('Saved master audio is missing from browser storage — mastering again.');
-    } else if (m?.stale) opts.log('The saved master is out of date (the mix changed) — mastering the current mix on the fly.');
+    } else if (m?.stale)
+      opts.log('The saved master is out of date (the mix changed) — mastering the current mix on the fly.');
     else opts.log('No master yet — mastering the current mix on the fly with built-in DSP.');
-    const mix = await renderMixAudio(song, { sampleRate: opts.sampleRate, signal: opts.signal, assets: opts.assets, onProgress: (p) => opts.onProgress(p * 0.7) });
-    const { output } = await masterAudioBuffer(mix, { ...song.mastering, method: 'builtin' }, { signal: opts.signal, onProgress: (p) => opts.onProgress(0.7 + p * 0.3) });
+    const mix = await renderMixAudio(song, {
+      sampleRate: opts.sampleRate,
+      signal: opts.signal,
+      assets: opts.assets,
+      onProgress: (p) => opts.onProgress(p * 0.7),
+    });
+    const { output } = await masterAudioBuffer(
+      mix,
+      { ...song.mastering, method: 'builtin' },
+      { signal: opts.signal, onProgress: (p) => opts.onProgress(0.7 + p * 0.3) },
+    );
     return { audio: output, label: 'Master' };
   }
-  const trackIds = which === 'instrumental' ? instrumentalTrackIds(song) : which === 'acapella' ? vocalTrackIds(song) : undefined;
-  if (trackIds && trackIds.length === 0) throw new Error(which === 'acapella' ? 'This song has no vocal tracks — there is no acapella to export.' : 'This song has only vocal tracks — there is no instrumental to export.');
-  const audio = await renderMixAudio(song, { sampleRate: opts.sampleRate, trackIds, signal: opts.signal, assets: opts.assets, onProgress: opts.onProgress });
+  const trackIds =
+    which === 'instrumental'
+      ? instrumentalTrackIds(song)
+      : which === 'acapella'
+        ? vocalTrackIds(song)
+        : undefined;
+  if (trackIds && trackIds.length === 0)
+    throw new Error(
+      which === 'acapella'
+        ? 'This song has no vocal tracks — there is no acapella to export.'
+        : 'This song has only vocal tracks — there is no instrumental to export.',
+    );
+  const audio = await renderMixAudio(song, {
+    sampleRate: opts.sampleRate,
+    trackIds,
+    signal: opts.signal,
+    assets: opts.assets,
+    onProgress: opts.onProgress,
+  });
   return { audio, label: which === 'mix' ? 'Mix' : which === 'instrumental' ? 'Instrumental' : 'Acapella' };
 }
 
@@ -190,17 +239,33 @@ const exportAudio: TaskHandler<AudioExportInput, ExportResult> = async (ctx) => 
   const info = formatInfo(input.format);
   ctx.log('info', `${input.which} → ${describeEncoding(input, input.sampleRate)}`);
   const assets = await collectAssets(song);
-  const r = await renderDeliverable(song, input.which, { sampleRate: input.sampleRate, signal, assets, onProgress: pRender, log: (m) => ctx.log('info', m) });
+  const r = await renderDeliverable(song, input.which, {
+    sampleRate: input.sampleRate,
+    signal,
+    assets,
+    onProgress: pRender,
+    log: (m) => ctx.log('info', m),
+  });
   throwIfAborted(signal);
   let bytes: Uint8Array;
   if (r.existing && input.format === 'wav') bytes = r.existing;
   else {
     const audio = r.audio ?? (await decodeAudioBytes(r.existing!));
-    bytes = await encodeAudio(audio, { format: input.format, wavBits: input.wavBits, flacBits: input.flacBits, kbps: input.kbps, signal, onProgress: pEncode, consume: true });
+    bytes = await encodeAudio(audio, {
+      format: input.format,
+      wavBits: input.wavBits,
+      flacBits: input.flacBits,
+      kbps: input.kbps,
+      signal,
+      onProgress: pEncode,
+      consume: true,
+    });
   }
   pm.done('encode');
   const fileName = `${input.fileBase} - ${r.label}.${info.ext}`;
-  deliverFile(fileName, bytes, info.mime, { detail: `${r.label} · ${describeEncoding(input, input.sampleRate)}` });
+  deliverFile(fileName, bytes, info.mime, {
+    detail: `${r.label} · ${describeEncoding(input, input.sampleRate)}`,
+  });
   ctx.log('info', `Delivered ${fileName} (${bytes.length} bytes)`);
   ctx.progress(1, 'Done');
   return { fileName, bytes: bytes.length };
@@ -212,7 +277,16 @@ const exportAudio: TaskHandler<AudioExportInput, ExportResult> = async (ctx) => 
 
 async function buildStems(
   song: Song,
-  opts: { by: 'stemGroup' | 'track'; wavBits: WavBits; sampleRate: number; includeAudioTracks: boolean; signal: AbortSignal; assets: Record<string, AudioData>; onProgress: (p: number) => void; log: (m: string) => void },
+  opts: {
+    by: 'stemGroup' | 'track';
+    wavBits: WavBits;
+    sampleRate: number;
+    includeAudioTracks: boolean;
+    signal: AbortSignal;
+    assets: Record<string, AudioData>;
+    onProgress: (p: number) => void;
+    log: (m: string) => void;
+  },
 ): Promise<{ entries: ZipEntry[]; names: string[] }> {
   // Spread stem groups across render nodes when enabled (Settings → Render nodes); otherwise,
   // or when no node is healthy, this renders on this device exactly like renderStemsAudio.
@@ -222,16 +296,26 @@ async function buildStems(
     signal: opts.signal,
     onProgress: (p) => opts.onProgress(p * 0.6),
     onPlacement: (pl) => {
-      if (pl.where !== 'this device') opts.log(`Stem ${pl.stem} rendered on ${pl.where} in ${(pl.ms / 1000).toFixed(1)} s`);
+      if (pl.where !== 'this device')
+        opts.log(`Stem ${pl.stem} rendered on ${pl.where} in ${(pl.ms / 1000).toFixed(1)} s`);
     },
   });
   throwIfAborted(opts.signal);
   const keys = Object.keys(stems);
   const ordered =
     opts.by === 'stemGroup'
-      ? [...STEM_ORDER.filter((g) => keys.includes(g)), ...keys.filter((k) => !STEM_ORDER.includes(k as StemGroup))]
-      : [...song.tracks.map((t) => t.id).filter((id) => keys.includes(id)), ...keys.filter((k) => !song.tracks.some((t) => t.id === k))];
-  const audioTracks = opts.includeAudioTracks && opts.by === 'stemGroup' ? song.tracks.filter((t) => t.kind === 'audio' && t.clips.length) : [];
+      ? [
+          ...STEM_ORDER.filter((g) => keys.includes(g)),
+          ...keys.filter((k) => !STEM_ORDER.includes(k as StemGroup)),
+        ]
+      : [
+          ...song.tracks.map((t) => t.id).filter((id) => keys.includes(id)),
+          ...keys.filter((k) => !song.tracks.some((t) => t.id === k)),
+        ];
+  const audioTracks =
+    opts.includeAudioTracks && opts.by === 'stemGroup'
+      ? song.tracks.filter((t) => t.kind === 'audio' && t.clips.length)
+      : [];
   const total = ordered.length + audioTracks.length;
   const entries: ZipEntry[] = [];
   const names: string[] = [];
@@ -243,8 +327,18 @@ async function buildStems(
       done++;
       continue;
     }
-    const base = opts.by === 'stemGroup' ? (STEM_LABEL[key as StemGroup] ?? sanitizeFileName(key, 'Stem')) : song.tracks.some((t) => t.id === key) ? trackFileName(song, key) : sanitizeFileName(key, 'Stem');
-    const data = await encodeAudio(audio, { format: 'wav', wavBits: opts.wavBits, signal: opts.signal, consume: true });
+    const base =
+      opts.by === 'stemGroup'
+        ? (STEM_LABEL[key as StemGroup] ?? sanitizeFileName(key, 'Stem'))
+        : song.tracks.some((t) => t.id === key)
+          ? trackFileName(song, key)
+          : sanitizeFileName(key, 'Stem');
+    const data = await encodeAudio(audio, {
+      format: 'wav',
+      wavBits: opts.wavBits,
+      signal: opts.signal,
+      consume: true,
+    });
     delete stems[key];
     entries.push({ name: `${base}.wav`, data, compress: false });
     names.push(`${base}.wav`);
@@ -252,8 +346,17 @@ async function buildStems(
     opts.onProgress(0.6 + (0.4 * done) / Math.max(1, total));
   }
   for (const t of audioTracks) {
-    const audio = await renderTrackAudio(song, t.id, { sampleRate: opts.sampleRate, signal: opts.signal, assets: opts.assets });
-    const data = await encodeAudio(audio, { format: 'wav', wavBits: opts.wavBits, signal: opts.signal, consume: true });
+    const audio = await renderTrackAudio(song, t.id, {
+      sampleRate: opts.sampleRate,
+      signal: opts.signal,
+      assets: opts.assets,
+    });
+    const data = await encodeAudio(audio, {
+      format: 'wav',
+      wavBits: opts.wavBits,
+      signal: opts.signal,
+      consume: true,
+    });
     const name = `Audio tracks/${trackFileName(song, t.id)}.wav`;
     entries.push({ name, data, compress: false });
     names.push(name);
@@ -263,7 +366,12 @@ async function buildStems(
   if (!entries.length) throw new Error('Every stem is silent (are all tracks muted?).');
   entries.push({
     name: 'Stems info.txt',
-    data: songInfoText(song, opts.sampleRate, opts.wavBits, [opts.by === 'stemGroup' ? 'Stems (by group, mixer processing and sends included, no master bus):' : 'Stems (one per track):', ...names.map((n) => `  ${n}`)]),
+    data: songInfoText(song, opts.sampleRate, opts.wavBits, [
+      opts.by === 'stemGroup'
+        ? 'Stems (by group, mixer processing and sends included, no master bus):'
+        : 'Stems (one per track):',
+      ...names.map((n) => `  ${n}`),
+    ]),
   });
   return { entries, names };
 }
@@ -274,9 +382,18 @@ const exportStems: TaskHandler<StemsExportInput, ExportResult> = async (ctx) => 
   const pm = new ProgressMix((p, m) => ctx.progress(p, m));
   const pStems = pm.part('stems', 9, 'Rendering stems');
   const pZip = pm.part('zip', 1, 'Packaging');
-  ctx.log('info', `Stems ${input.by === 'stemGroup' ? 'by group' : 'per track'} at ${input.sampleRate} Hz / ${input.wavBits}-bit`);
+  ctx.log(
+    'info',
+    `Stems ${input.by === 'stemGroup' ? 'by group' : 'per track'} at ${input.sampleRate} Hz / ${input.wavBits}-bit`,
+  );
   const assets = await collectAssets(song);
-  const { entries, names } = await buildStems(song, { ...input, signal, assets, onProgress: pStems, log: (m) => ctx.log('info', m) });
+  const { entries, names } = await buildStems(song, {
+    ...input,
+    signal,
+    assets,
+    onProgress: pStems,
+    log: (m) => ctx.log('info', m),
+  });
   pZip(0.2);
   const zip = await zipEntries(entries, signal);
   pZip(1);
@@ -316,15 +433,37 @@ const exportDaw: TaskHandler<DawExportInput, ExportResult> = async (ctx) => {
   let fileName: string;
   let bytes: Uint8Array;
   if (input.target === 'dawproject') {
-    bytes = songToDawProject(song, { ...custom, audio: audioFiles.map((f) => ({ trackId: f.trackId, path: f.path, data: f.data, durationSeconds: f.durationSeconds })), application: { name: 'Song Deck', version: '0.1.0' } });
+    bytes = songToDawProject(song, {
+      ...custom,
+      audio: audioFiles.map((f) => ({
+        trackId: f.trackId,
+        path: f.path,
+        data: f.data,
+        durationSeconds: f.durationSeconds,
+      })),
+      application: { name: 'Song Deck', version: '0.1.0' },
+    });
     fileName = `${input.fileBase}.dawproject`;
-    deliverFile(fileName, bytes, MIME.dawproject, { detail: `DAWproject · ${song.tracks.length} tracks${audioFiles.length ? ` · ${audioFiles.length} audio files` : ''}` });
+    deliverFile(fileName, bytes, MIME.dawproject, {
+      detail: `DAWproject · ${song.tracks.length} tracks${audioFiles.length ? ` · ${audioFiles.length} audio files` : ''}`,
+    });
   } else {
-    const rpp = songToReaperProject(song, { ...custom, audio: audioFiles.map((f) => ({ trackId: f.trackId, path: f.path, durationSeconds: f.durationSeconds })) });
+    const rpp = songToReaperProject(song, {
+      ...custom,
+      audio: audioFiles.map((f) => ({
+        trackId: f.trackId,
+        path: f.path,
+        durationSeconds: f.durationSeconds,
+      })),
+    });
     const dir = input.fileBase;
     const entries: ZipEntry[] = [{ name: `${dir}/${input.fileBase}.rpp`, data: rpp }];
     for (const f of audioFiles) entries.push({ name: `${dir}/${f.path}`, data: f.data, compress: false });
-    for (const t of song.tracks.filter((x) => x.kind === 'midi' && x.notes.length)) entries.push({ name: `${dir}/midi/${trackFileName(song, t.id)}.mid`, data: trackToMidi(song, t.id, custom) });
+    for (const t of song.tracks.filter((x) => x.kind === 'midi' && x.notes.length))
+      entries.push({
+        name: `${dir}/midi/${trackFileName(song, t.id)}.mid`,
+        data: trackToMidi(song, t.id, custom),
+      });
     entries.push({
       name: `${dir}/README.txt`,
       data: songInfoText(song, input.sampleRate, input.wavBits, [
@@ -335,7 +474,9 @@ const exportDaw: TaskHandler<DawExportInput, ExportResult> = async (ctx) => {
     pPack(0.3);
     bytes = await zipEntries(entries, signal);
     fileName = `${input.fileBase} - Reaper.zip`;
-    deliverFile(fileName, bytes, MIME.zip, { detail: `Reaper project · ${song.tracks.length} tracks${audioFiles.length ? ` · ${audioFiles.length} audio files` : ''}` });
+    deliverFile(fileName, bytes, MIME.zip, {
+      detail: `Reaper project · ${song.tracks.length} tracks${audioFiles.length ? ` · ${audioFiles.length} audio files` : ''}`,
+    });
   }
   pPack(1);
   ctx.progress(1, 'Done');
@@ -360,20 +501,52 @@ const exportEverything: TaskHandler<EverythingInput, ExportResult> = async (ctx)
   const pRest = pm.part('rest', 1, 'MIDI, MusicXML, project');
   const pZip = pm.part('zip', 2, 'Packaging');
   const log = (m: string) => ctx.log('info', m);
-  const wav = (audio: AudioData) => encodeAudio(audio, { format: 'wav', wavBits: input.wavBits, signal, consume: true });
+  const wav = (audio: AudioData) =>
+    encodeAudio(audio, { format: 'wav', wavBits: input.wavBits, signal, consume: true });
   const assets = await collectAssets(song);
   throwIfAborted(signal);
 
   // Master / Instrumental / Acapella render concurrently across the job-worker pool.
   const [master, instrumental, acapella] = await Promise.all([
-    renderDeliverable(song, 'master', { sampleRate: input.sampleRate, signal, assets, onProgress: pMaster, log }).then(async (r) => ({ label: r.label, bytes: r.existing ?? (await wav(r.audio!)) })),
-    hasInstrumental ? renderDeliverable(song, 'instrumental', { sampleRate: input.sampleRate, signal, assets, onProgress: pInstr, log }).then((r) => wav(r.audio!)) : Promise.resolve(null),
-    hasVocals ? renderDeliverable(song, 'acapella', { sampleRate: input.sampleRate, signal, assets, onProgress: pAcap, log }).then((r) => wav(r.audio!)) : Promise.resolve(null),
+    renderDeliverable(song, 'master', {
+      sampleRate: input.sampleRate,
+      signal,
+      assets,
+      onProgress: pMaster,
+      log,
+    }).then(async (r) => ({ label: r.label, bytes: r.existing ?? (await wav(r.audio!)) })),
+    hasInstrumental
+      ? renderDeliverable(song, 'instrumental', {
+          sampleRate: input.sampleRate,
+          signal,
+          assets,
+          onProgress: pInstr,
+          log,
+        }).then((r) => wav(r.audio!))
+      : Promise.resolve(null),
+    hasVocals
+      ? renderDeliverable(song, 'acapella', {
+          sampleRate: input.sampleRate,
+          signal,
+          assets,
+          onProgress: pAcap,
+          log,
+        }).then((r) => wav(r.audio!))
+      : Promise.resolve(null),
   ]);
   if (!hasVocals) log('No vocal tracks — Acapella.wav skipped.');
   throwIfAborted(signal);
 
-  const stems = await buildStems(song, { by: 'stemGroup', wavBits: input.wavBits, sampleRate: input.sampleRate, includeAudioTracks: true, signal, assets, onProgress: pStems, log });
+  const stems = await buildStems(song, {
+    by: 'stemGroup',
+    wavBits: input.wavBits,
+    sampleRate: input.sampleRate,
+    includeAudioTracks: true,
+    signal,
+    assets,
+    onProgress: pStems,
+    log,
+  });
   const stemsZip = await zipEntries(stems.entries, signal);
   throwIfAborted(signal);
 
@@ -391,6 +564,10 @@ const exportEverything: TaskHandler<EverythingInput, ExportResult> = async (ctx)
   entries.push({ name: 'Song.mid', data: midi });
   entries.push({ name: 'Song.musicxml', data: xml });
   entries.push({ name: `${input.fileBase}.songproject`, data: project, compress: false });
+  // Rights & attribution with the upload attestations (docs/RIGHTS.md), when there are any.
+  const meta = useStudio.getState().project?.meta;
+  if (meta?.attestations?.length)
+    entries.push({ name: 'RIGHTS.txt', data: new TextEncoder().encode(rightsSummaryText(meta)) });
   const listing = entries.map((e) => e.name);
   pZip(0.2);
   const zip = await zipEntries(entries, signal);

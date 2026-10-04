@@ -1,7 +1,15 @@
 import type { Project, Track, VocalMode } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { Icon } from '../../ui/icons';
-import { VOCAL_MODES, activeRender, applyVocalMonitoring, lyricsOfTrack, modeInfo, resolveVoice, takesTrackFor } from '../../engine/vocal-model';
+import {
+  VOCAL_MODES,
+  activeRender,
+  applyVocalMonitoring,
+  lyricsOfTrack,
+  modeInfo,
+  resolveVoice,
+  takesTrackFor,
+} from '../../engine/vocal-model';
 import { hasConversionProvider } from '../../engine/vocal-render';
 import { useVocalSession } from './session';
 import { useResolvedProvider } from './shared';
@@ -16,7 +24,9 @@ export function ModeCards({ project, track }: { project: Project; track: Track }
   const voice = resolveVoice(project, song.vocals.voiceId, track);
   const takes = song.vocals.takes.filter((t) => t.trackId === takesTrackFor(song, track.id)?.id);
   const lines = lyricsOfTrack(song, track.id).length;
-  const target = song.vocals.conversionVoiceId ? project.meta.voices.find((v) => v.id === song.vocals.conversionVoiceId) : undefined;
+  const target = song.vocals.conversionVoiceId
+    ? project.meta.voices.find((v) => v.id === song.vocals.conversionVoiceId)
+    : undefined;
 
   const status: Record<VocalMode, string> = {
     none: `${track.name} is silent; lyrics and melody are kept`,
@@ -26,7 +36,9 @@ export function ModeCards({ project, track }: { project: Project; track: Track }
       ? 'No singing provider available'
       : `${singer?.providerName ?? '…'}${singer?.providerId === 'internal-singer' ? ' (placeholder quality — no singing model configured)' : ''}`,
     'voice-conversion': `${target ? `Target: ${target.name}` : 'No target voice chosen'} · ${hasConversionProvider() ? 'conversion provider ready' : 'no voice-conversion provider configured'}`,
-    recorded: takes.length ? `${takes.length} take${takes.length === 1 ? '' : 's'} · ${takes.filter((t) => t.active).length} active` : 'No takes recorded yet',
+    recorded: takes.length
+      ? `${takes.length} take${takes.length === 1 ? '' : 's'} · ${takes.filter((t) => t.active).length} active`
+      : 'No takes recorded yet',
   };
 
   const choose = (m: VocalMode) => {
@@ -38,7 +50,8 @@ export function ModeCards({ project, track }: { project: Project; track: Track }
     if (!cur) return;
     const mon = applyVocalMonitoring({ ...cur, vocals: { ...cur.vocals, mode: m } }, track.id);
     st.commit(mon.song, `Vocal mode → ${info.label}`, 'vocals');
-    if (mon.skipped.length) st.toast('warning', `Mixer locked for ${mon.skipped.join(', ')} — its mute state was left as it is.`);
+    if (mon.skipped.length)
+      st.toast('warning', `Mixer locked for ${mon.skipped.join(', ')} — its mute state was left as it is.`);
   };
 
   return (

@@ -13,11 +13,28 @@ import type { Router } from './router';
 
 export const PLUGIN_MANIFEST = 'songdeck-plugin.json';
 
-export const PLUGIN_KINDS = ['ai-provider', 'music-model', 'singing-engine', 'transcription-engine', 'instrument', 'genre-profile', 'exporter'] as const;
+export const PLUGIN_KINDS = [
+  'ai-provider',
+  'music-model',
+  'singing-engine',
+  'transcription-engine',
+  'instrument',
+  'genre-profile',
+  'exporter',
+] as const;
 export type PluginKind = (typeof PLUGIN_KINDS)[number];
 
 /** Permissions a plugin may declare (informational; shown to the user before enabling). */
-export const KNOWN_PERMISSIONS = ['network', 'provider-registry', 'audio', 'project-read', 'project-write', 'storage', 'midi', 'files'] as const;
+export const KNOWN_PERMISSIONS = [
+  'network',
+  'provider-registry',
+  'audio',
+  'project-read',
+  'project-write',
+  'storage',
+  'midi',
+  'files',
+] as const;
 
 export interface PluginManifest {
   id: string;
@@ -52,26 +69,43 @@ const VERSION_RE = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.+-]+)?$/;
 const MANIFEST_MAX_BYTES = 256 * 1024;
 
 function validRelativePath(p: string): boolean {
-  if (!p || p.length > 512 || p.startsWith('/') || p.includes('\\') || p.includes('\0') || /^[a-zA-Z]:/.test(p)) return false;
+  if (
+    !p ||
+    p.length > 512 ||
+    p.startsWith('/') ||
+    p.includes('\\') ||
+    p.includes('\0') ||
+    /^[a-zA-Z]:/.test(p)
+  )
+    return false;
   return p.split('/').every((s) => s !== '' && s !== '.' && s !== '..');
 }
 
 /** Validate a parsed manifest; resolves the manifest or throws a list of problems. */
-export async function validateManifest(raw: unknown, dir: string): Promise<{ manifest: PluginManifest; warnings: string[] }> {
+export async function validateManifest(
+  raw: unknown,
+  dir: string,
+): Promise<{ manifest: PluginManifest; warnings: string[] }> {
   const problems: string[] = [];
   const warnings: string[] = [];
   if (!isPlainObject(raw)) throw new Error('manifest must be a JSON object');
   const m = raw as Record<string, unknown>;
-  if (typeof m.id !== 'string' || !ID_RE.test(m.id)) problems.push(`id must match ${ID_RE} (lowercase letters, digits, . _ -)`);
-  if (typeof m.name !== 'string' || !m.name.trim() || m.name.length > 100) problems.push('name is required (max 100 chars)');
-  if (typeof m.version !== 'string' || !VERSION_RE.test(m.version)) problems.push('version must be semver (e.g. 1.0.0)');
-  if (typeof m.kind !== 'string' || !(PLUGIN_KINDS as readonly string[]).includes(m.kind)) problems.push(`kind must be one of ${PLUGIN_KINDS.join(', ')}`);
+  if (typeof m.id !== 'string' || !ID_RE.test(m.id))
+    problems.push(`id must match ${ID_RE} (lowercase letters, digits, . _ -)`);
+  if (typeof m.name !== 'string' || !m.name.trim() || m.name.length > 100)
+    problems.push('name is required (max 100 chars)');
+  if (typeof m.version !== 'string' || !VERSION_RE.test(m.version))
+    problems.push('version must be semver (e.g. 1.0.0)');
+  if (typeof m.kind !== 'string' || !(PLUGIN_KINDS as readonly string[]).includes(m.kind))
+    problems.push(`kind must be one of ${PLUGIN_KINDS.join(', ')}`);
   for (const key of ['description', 'author'] as const) {
     if (m[key] === undefined) warnings.push(`${key} is missing`);
-    else if (typeof m[key] !== 'string' || (m[key] as string).length > 2000) problems.push(`${key} must be a string (max 2000 chars)`);
+    else if (typeof m[key] !== 'string' || (m[key] as string).length > 2000)
+      problems.push(`${key} must be a string (max 2000 chars)`);
   }
   if (m.entry !== undefined) {
-    if (typeof m.entry !== 'string' || !validRelativePath(m.entry)) problems.push('entry must be a relative path inside the plugin directory');
+    if (typeof m.entry !== 'string' || !validRelativePath(m.entry))
+      problems.push('entry must be a relative path inside the plugin directory');
     else if (!/\.(m?js)$/i.test(m.entry)) problems.push('entry must be an ES module (.js or .mjs)');
     else {
       const file = resolveInside(dir, m.entry.split('/'));
@@ -85,13 +119,17 @@ export async function validateManifest(raw: unknown, dir: string): Promise<{ man
     } else {
       for (const f of m.files as string[]) {
         const file = resolveInside(dir, f.split('/'));
-        if (!file || !(await fsp.stat(file).catch(() => undefined))) warnings.push(`listed file ${f} does not exist`);
+        if (!file || !(await fsp.stat(file).catch(() => undefined)))
+          warnings.push(`listed file ${f} does not exist`);
       }
     }
   }
   if (m.permissions !== undefined) {
-    if (!Array.isArray(m.permissions) || m.permissions.some((p) => typeof p !== 'string')) problems.push('permissions must be an array of strings');
-    else for (const p of m.permissions as string[]) if (!(KNOWN_PERMISSIONS as readonly string[]).includes(p)) warnings.push(`unknown permission "${p}"`);
+    if (!Array.isArray(m.permissions) || m.permissions.some((p) => typeof p !== 'string'))
+      problems.push('permissions must be an array of strings');
+    else
+      for (const p of m.permissions as string[])
+        if (!(KNOWN_PERMISSIONS as readonly string[]).includes(p)) warnings.push(`unknown permission "${p}"`);
   }
   if (m.homepage !== undefined) {
     let ok = false;
@@ -102,7 +140,14 @@ export async function validateManifest(raw: unknown, dir: string): Promise<{ man
     }
     if (!ok) problems.push('homepage must be an http(s) URL');
   }
-  if (!m.entry && (m.kind === 'ai-provider' || m.kind === 'music-model' || m.kind === 'singing-engine' || m.kind === 'transcription-engine' || m.kind === 'exporter')) {
+  if (
+    !m.entry &&
+    (m.kind === 'ai-provider' ||
+      m.kind === 'music-model' ||
+      m.kind === 'singing-engine' ||
+      m.kind === 'transcription-engine' ||
+      m.kind === 'exporter')
+  ) {
     warnings.push(`a ${String(m.kind)} plugin normally needs an entry module`);
   }
   if (problems.length) throw new Error(problems.join('; '));
@@ -151,7 +196,8 @@ export class PluginHost {
         let text: string;
         try {
           const st = await fsp.stat(manifestFile);
-          if (st.size > MANIFEST_MAX_BYTES) throw new Error(`manifest is larger than ${MANIFEST_MAX_BYTES} bytes`);
+          if (st.size > MANIFEST_MAX_BYTES)
+            throw new Error(`manifest is larger than ${MANIFEST_MAX_BYTES} bytes`);
           text = await fsp.readFile(manifestFile, 'utf8');
         } catch (err) {
           if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue; // not a plugin directory
@@ -169,7 +215,11 @@ export class PluginHost {
           const { manifest, warnings } = await validateManifest(parsed, dir);
           const previous = ids.get(manifest.id);
           if (previous) {
-            errors.push({ dir, id: manifest.id, error: `duplicate plugin id "${manifest.id}" (already provided by ${previous})` });
+            errors.push({
+              dir,
+              id: manifest.id,
+              error: `duplicate plugin id "${manifest.id}" (already provided by ${previous})`,
+            });
             continue;
           }
           ids.set(manifest.id, dir);

@@ -60,10 +60,15 @@ export default function GenerateMode() {
           req.bars = span.endBar - span.startBar;
           req.key = song.keyMap.filter((k) => k.bar <= span.startBar).slice(-1)[0]?.key ?? req.key;
           req.tempo = Math.round(song.tempoMap[0]?.bpm ?? req.tempo);
-          req.meter = { numerator: song.meterMap[0]?.numerator ?? 4, denominator: song.meterMap[0]?.denominator ?? 4 };
+          req.meter = {
+            numerator: song.meterMap[0]?.numerator ?? 4,
+            denominator: song.meterMap[0]?.denominator ?? 4,
+          };
           info = `Using the chords of “${span.section.name}” (${req.progression.join(' ')}) from the open project.`;
         }
-      } else info = 'No project is open, so the generator chooses a progression — open a project to generate over its chords.';
+      } else
+        info =
+          'No project is open, so the generator chooses a progression — open a project to generate over its chords.';
     }
     session.set({ note: info });
     return req;
@@ -79,10 +84,19 @@ export default function GenerateMode() {
         for (let i = 0; i < count; i++) {
           const s = baseSeed + i;
           const res = generateAsset({ ...req, seed: s }, s, { customGenres, customInstruments });
-          alts.push({ id: randomId('alt'), label: LABELS[i] ?? String(i + 1), seed: s, song: res.song, trackId: res.trackId, request: req });
+          alts.push({
+            id: randomId('alt'),
+            label: LABELS[i] ?? String(i + 1),
+            seed: s,
+            song: res.song,
+            trackId: res.trackId,
+            request: req,
+          });
         }
         useGenerateSession.getState().set({ alternatives: alts });
-        requestAnimationFrame(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        requestAnimationFrame(() =>
+          resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+        );
       } catch (err) {
         st.toast('error', `Generation failed: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
@@ -101,7 +115,8 @@ export default function GenerateMode() {
     generate(req, seed);
   };
 
-  const stale = request !== null && parsedPrompt !== null && prompt.trim() !== '' && prompt.trim() !== parsedPrompt;
+  const stale =
+    request !== null && parsedPrompt !== null && prompt.trim() !== '' && prompt.trim() !== parsedPrompt;
 
   const recordGeneration = (alt: Alternative, proposal?: Proposal) => {
     const rec: GenerationRecord = {
@@ -120,12 +135,19 @@ export default function GenerateMode() {
 
   const openAsProject = async (alt: Alternative) => {
     const inst = getInstrument(alt.request.instrumentId, customInstruments);
-    const fn = alt.request.function ?? (inst.isDrumKit ? 'pattern' : alt.request.role === 'bass' ? 'line' : 'part');
+    const fn =
+      alt.request.function ?? (inst.isDrumKit ? 'pattern' : alt.request.role === 'bass' ? 'line' : 'part');
     const what = fn === 'bass-line' ? 'line' : fn === 'rhythm' ? 'pattern' : fn;
-    const title = inst.isDrumKit ? `${inst.name} ${what} — ${alt.request.tempo} BPM` : `${inst.name} ${what} — ${keyName(alt.request.key)}`;
+    const title = inst.isDrumKit
+      ? `${inst.name} ${what} — ${alt.request.tempo} BPM`
+      : `${inst.name} ${what} — ${keyName(alt.request.key)}`;
     try {
       const created = await st.newProject(title, alt.song);
-      st.commit(created.song, `Generated ${inst.name.toLowerCase()} (alternative ${alt.label}, seed ${alt.seed})`, 'generate');
+      st.commit(
+        created.song,
+        `Generated ${inst.name.toLowerCase()} (alternative ${alt.label}, seed ${alt.seed})`,
+        'generate',
+      );
       const track = created.song.tracks.find((t) => t.id === alt.trackId) ?? created.song.tracks[0];
       recordGeneration(alt);
       st.addProvenance(
@@ -155,8 +177,12 @@ export default function GenerateMode() {
     setInserting(alt);
   };
 
-  const insertingTrack = inserting ? (inserting.song.tracks.find((t) => t.id === inserting.trackId) ?? inserting.song.tracks[0]) : null;
-  const insertingInst = inserting ? getInstrument(insertingTrack?.instrumentId ?? inserting.request.instrumentId, customInstruments) : null;
+  const insertingTrack = inserting
+    ? (inserting.song.tracks.find((t) => t.id === inserting.trackId) ?? inserting.song.tracks[0])
+    : null;
+  const insertingInst = inserting
+    ? getInstrument(insertingTrack?.instrumentId ?? inserting.request.instrumentId, customInstruments)
+    : null;
 
   const summary = useMemo(() => {
     if (!request) return null;
@@ -170,8 +196,9 @@ export default function GenerateMode() {
         <div className="grow">
           <h1>Generate MIDI</h1>
           <div className="lede">
-            Create individual musical assets — a melody, a drum pattern, a bass line — as editable MIDI with a <strong>notation preview</strong> and an <strong>audio preview</strong>.
-            Every alternative is reproducible from its seed; nothing enters a project until you accept it.
+            Create individual musical assets — a melody, a drum pattern, a bass line — as editable MIDI with a{' '}
+            <strong>notation preview</strong> and an <strong>audio preview</strong>. Every alternative is
+            reproducible from its seed; nothing enters a project until you accept it.
           </div>
         </div>
         {project && (
@@ -203,7 +230,14 @@ export default function GenerateMode() {
             ))}
           </div>
           <div className="row wrap">
-            <Button variant="primary" size="lg" icon="sparkles" onClick={onGenerate} disabled={busy} data-testid="generate-run">
+            <Button
+              variant="primary"
+              size="lg"
+              icon="sparkles"
+              onClick={onGenerate}
+              disabled={busy}
+              data-testid="generate-run"
+            >
               {busy ? 'Generating…' : stale || !request ? 'Generate' : 'Regenerate'}
             </Button>
             {busy && <Spinner />}
@@ -220,16 +254,32 @@ export default function GenerateMode() {
           <div className="panel-header">
             <Icon name="sliders" />
             <h3 className="grow">Asset request</h3>
-            {stale && <span className="small" style={{ color: 'var(--warning)' }}>The prompt changed — Generate re-reads it.</span>}
+            {stale && (
+              <span className="small" style={{ color: 'var(--warning)' }}>
+                The prompt changed — Generate re-reads it.
+              </span>
+            )}
             <Button size="sm" icon="dice" onClick={() => setSeed(randomSeed())} title="New seed">
               New seed
             </Button>
-            <Button size="sm" variant="primary" icon="midi" disabled={busy} onClick={() => generate(request, seed)}>
+            <Button
+              size="sm"
+              variant="primary"
+              icon="midi"
+              disabled={busy}
+              onClick={() => generate(request, seed)}
+            >
               Generate {request.count} alternative{request.count === 1 ? '' : 's'}
             </Button>
           </div>
           <div className="panel-body">
-            <AssetRequestForm request={request} onChange={setRequest} seed={seed} onSeed={setSeed} song={song} />
+            <AssetRequestForm
+              request={request}
+              onChange={setRequest}
+              seed={seed}
+              onSeed={setSeed}
+              song={song}
+            />
           </div>
         </div>
       )}
@@ -240,20 +290,33 @@ export default function GenerateMode() {
             <div className="section-title">
               <h3>Alternatives</h3>
               <span className="small muted">
-                {alternatives.length} result{alternatives.length === 1 ? '' : 's'} · seeds {alternatives[0].seed}–{alternatives[alternatives.length - 1].seed}
+                {alternatives.length} result{alternatives.length === 1 ? '' : 's'} · seeds{' '}
+                {alternatives[0].seed}–{alternatives[alternatives.length - 1].seed}
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(520px, 1fr))', gap: 12 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(520px, 1fr))',
+                gap: 12,
+              }}
+            >
               {alternatives.map((alt) => (
-                <AlternativeCard key={alt.id} alt={alt} hasProject={!!project} onInsert={onInsert} onOpen={(a) => void openAsProject(a)} />
+                <AlternativeCard
+                  key={alt.id}
+                  alt={alt}
+                  hasProject={!!project}
+                  onInsert={onInsert}
+                  onOpen={(a) => void openAsProject(a)}
+                />
               ))}
             </div>
           </>
         )}
         {!alternatives.length && !request && (
           <div className="card muted small">
-            Try one of the examples above. The request is parsed into instrument, role, bars, key, tempo, meter, moods, genres and how many alternatives you want — all
-            editable before generating.
+            Try one of the examples above. The request is parsed into instrument, role, bars, key, tempo,
+            meter, moods, genres and how many alternatives you want — all editable before generating.
           </div>
         )}
       </div>
@@ -278,7 +341,9 @@ export default function GenerateMode() {
           instruction={inserting.request.description}
           explanation={`Generated on-device (seed ${inserting.seed}, alternative ${inserting.label}).`}
           proposalTitle={(req: InsertRequest) =>
-            req.mode === 'replace' ? `Replace bars ${req.targetBar}–${req.endBar} with alternative ${inserting.label}` : `Add generated ${insertingInst.name.toLowerCase()} (alt. ${inserting.label})`
+            req.mode === 'replace'
+              ? `Replace bars ${req.targetBar}–${req.endBar} with alternative ${inserting.label}`
+              : `Add generated ${insertingInst.name.toLowerCase()} (alt. ${inserting.label})`
           }
           onClose={() => setInserting(null)}
           onProposed={(p) => {
@@ -292,5 +357,10 @@ export default function GenerateMode() {
 }
 
 function slugName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'part';
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'part'
+  );
 }

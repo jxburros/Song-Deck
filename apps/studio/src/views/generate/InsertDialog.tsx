@@ -17,7 +17,15 @@ import { useSettings } from '../../state/settings';
 import { useStudio } from '../../state/store';
 import { Button, Field, Modal, NumberInput, Select, Tabs, TextInput, Toggle } from '../../ui/kit';
 import { NoteStrip } from '../shared/NoteStrip';
-import { keyAtBar1, proposeInsertion, sectionChoices, songBars, transposeBetween, type InsertMode, type InsertRequest } from '../../engine/capture-song';
+import {
+  keyAtBar1,
+  proposeInsertion,
+  sectionChoices,
+  songBars,
+  transposeBetween,
+  type InsertMode,
+  type InsertRequest,
+} from '../../engine/capture-song';
 
 export interface InsertMaterial {
   notes: Note[];
@@ -51,17 +59,28 @@ export interface InsertDialogProps {
 export function InsertDialog(props: InsertDialogProps) {
   const { song, material } = props;
   const customInstruments = useSettings((s) => s.customInstruments);
-  const instruments: InstrumentProfile[] = useMemo(() => [...BUILTIN_INSTRUMENTS, ...customInstruments], [customInstruments]);
+  const instruments: InstrumentProfile[] = useMemo(
+    () => [...BUILTIN_INSTRUMENTS, ...customInstruments],
+    [customInstruments],
+  );
   const sections = useMemo(() => sectionChoices(song), [song]);
   const totalBars = songBars(song);
   const midiTracks = song.tracks.filter((t) => t.kind === 'midi');
   const compatible = midiTracks.filter((t) => {
-    const drumTrack = getInstrument(t.instrumentId, customInstruments).isDrumKit || t.role === 'drums' || t.role === 'percussion';
+    const drumTrack =
+      getInstrument(t.instrumentId, customInstruments).isDrumKit ||
+      t.role === 'drums' ||
+      t.role === 'percussion';
     return drumTrack === material.drums;
   });
-  const preferredTrack = compatible.find((t) => t.role === (material.role ?? '')) ?? compatible.find((t) => t.role === 'vocal') ?? compatible[0];
+  const preferredTrack =
+    compatible.find((t) => t.role === (material.role ?? '')) ??
+    compatible.find((t) => t.role === 'vocal') ??
+    compatible[0];
 
-  const [mode, setMode] = useState<InsertMode>(props.defaultMode === 'replace' && compatible.length ? 'replace' : 'new-track');
+  const [mode, setMode] = useState<InsertMode>(
+    props.defaultMode === 'replace' && compatible.length ? 'replace' : 'new-track',
+  );
   const [trackName, setTrackName] = useState(material.trackName);
   const [instrumentId, setInstrumentId] = useState(material.instrumentId);
   const [trackId, setTrackId] = useState(preferredTrack?.id ?? '');
@@ -83,7 +102,8 @@ export function InsertDialog(props: InsertDialogProps) {
   const [transpose, setTranspose] = useState(shift !== 0);
 
   const projMeter = song.meterMap[0] ?? { numerator: 4, denominator: 4 };
-  const meterMismatch = projMeter.numerator !== material.meter.numerator || projMeter.denominator !== material.meter.denominator;
+  const meterMismatch =
+    projMeter.numerator !== material.meter.numerator || projMeter.denominator !== material.meter.denominator;
   const materialBarTicks = (material.meter.numerator * 4 * material.ppq) / material.meter.denominator;
   const srcStartTick = (srcFrom - 1) * materialBarTicks;
   const srcEndTick = srcTo * materialBarTicks;
@@ -107,7 +127,12 @@ export function InsertDialog(props: InsertDialogProps) {
     fn: material.fn,
     transpose: transpose ? shift : 0,
     keepSyllables: isVocal && keepSyllables,
-    meta: { title: '', source: props.source ?? 'internal', instruction: props.instruction, explanation: props.explanation },
+    meta: {
+      title: '',
+      source: props.source ?? 'internal',
+      instruction: props.instruction,
+      explanation: props.explanation,
+    },
   });
 
   const submit = () => {
@@ -132,9 +157,16 @@ export function InsertDialog(props: InsertDialogProps) {
       onClose={props.onClose}
       footer={
         <>
-          <span className="small muted grow">Nothing changes until you accept the proposal in the workbench (spec §21).</span>
+          <span className="small muted grow">
+            Nothing changes until you accept the proposal in the workbench (spec §21).
+          </span>
           <Button onClick={props.onClose}>Cancel</Button>
-          <Button variant="primary" icon="check" onClick={submit} disabled={(mode === 'replace' && !targetTrack) || usedNotes === 0}>
+          <Button
+            variant="primary"
+            icon="check"
+            onClick={submit}
+            disabled={(mode === 'replace' && !targetTrack) || usedNotes === 0}
+          >
             Create proposal
           </Button>
         </>
@@ -155,22 +187,44 @@ export function InsertDialog(props: InsertDialogProps) {
               <TextInput value={trackName} onChange={setTrackName} aria-label="Track name" />
             </Field>
             <Field label="Instrument">
-              <Select value={instrumentId} onChange={setInstrumentId} options={instruments.map((i) => ({ value: i.id, label: i.name }))} aria-label="Insert instrument" />
+              <Select
+                value={instrumentId}
+                onChange={setInstrumentId}
+                options={instruments.map((i) => ({ value: i.id, label: i.name }))}
+                aria-label="Insert instrument"
+              />
             </Field>
           </div>
         ) : (
           <div className="grid-2">
-            <Field label="Track" hint={compatible.length ? undefined : material.drums ? 'The project has no drum track.' : 'The project has no melodic MIDI track.'}>
+            <Field
+              label="Track"
+              hint={
+                compatible.length
+                  ? undefined
+                  : material.drums
+                    ? 'The project has no drum track.'
+                    : 'The project has no melodic MIDI track.'
+              }
+            >
               <Select
                 value={trackId}
                 onChange={setTrackId}
-                options={compatible.length ? compatible.map((t) => ({ value: t.id, label: `${t.name} (${t.notes.length} notes)` })) : [{ value: '', label: 'No compatible track' }]}
+                options={
+                  compatible.length
+                    ? compatible.map((t) => ({ value: t.id, label: `${t.name} (${t.notes.length} notes)` }))
+                    : [{ value: '', label: 'No compatible track' }]
+                }
                 aria-label="Target track"
               />
             </Field>
             {isVocal ? (
               <Field label="Lyrics" hint="Re-use the replaced notes' syllables, in order.">
-                <Toggle on={keepSyllables} onChange={setKeepSyllables} label="Keep the phrase's lyric syllables" />
+                <Toggle
+                  on={keepSyllables}
+                  onChange={setKeepSyllables}
+                  label="Keep the phrase's lyric syllables"
+                />
               </Field>
             ) : (
               <div />
@@ -188,16 +242,31 @@ export function InsertDialog(props: InsertDialogProps) {
                 setTargetBar(s.startBar);
                 if (mode === 'replace') setEndBar(s.startBar + Math.min(s.bars, srcBars) - 1);
               }}
-              options={[{ value: '', label: 'Custom bar' }, ...sections.map((s) => ({ value: s.id, label: `${s.name} · bar ${s.startBar}` }))]}
+              options={[
+                { value: '', label: 'Custom bar' },
+                ...sections.map((s) => ({ value: s.id, label: `${s.name} · bar ${s.startBar}` })),
+              ]}
               aria-label="Start section"
             />
           </Field>
           <Field label="Start bar">
-            <NumberInput value={targetBar} min={1} max={Math.max(1, totalBars + 64)} onChange={(v) => setTargetBar(Math.round(v))} aria-label="Start bar" />
+            <NumberInput
+              value={targetBar}
+              min={1}
+              max={Math.max(1, totalBars + 64)}
+              onChange={(v) => setTargetBar(Math.round(v))}
+              aria-label="Start bar"
+            />
           </Field>
           {mode === 'replace' ? (
             <Field label="Replace through bar" hint={`Bars ${targetBar}–${effectiveEnd} are replaced.`}>
-              <NumberInput value={effectiveEnd} min={targetBar} max={Math.max(targetBar, totalBars + 64)} onChange={(v) => setEndBar(Math.round(v))} aria-label="End bar" />
+              <NumberInput
+                value={effectiveEnd}
+                min={targetBar}
+                max={Math.max(targetBar, totalBars + 64)}
+                onChange={(v) => setEndBar(Math.round(v))}
+                aria-label="End bar"
+              />
             </Field>
           ) : (
             <Field label="Ends at bar">
@@ -208,7 +277,11 @@ export function InsertDialog(props: InsertDialogProps) {
           )}
           {material.key && !material.drums && (
             <Field label="Key" hint={`Material: ${keyName(material.key)} · project: ${keyName(projectKey)}`}>
-              <Toggle on={transpose && shift !== 0} onChange={setTranspose} label={shift === 0 ? 'Already in key' : `Transpose ${shift > 0 ? '+' : ''}${shift} st`} />
+              <Toggle
+                on={transpose && shift !== 0}
+                onChange={setTranspose}
+                label={shift === 0 ? 'Already in key' : `Transpose ${shift > 0 ? '+' : ''}${shift} st`}
+              />
             </Field>
           )}
         </div>
@@ -216,10 +289,22 @@ export function InsertDialog(props: InsertDialogProps) {
         {props.allowSourceRange && (
           <div className="grid-4">
             <Field label="Use material from bar">
-              <NumberInput value={srcFrom} min={1} max={srcTo} onChange={(v) => setSrcFrom(Math.round(v))} aria-label="Source from bar" />
+              <NumberInput
+                value={srcFrom}
+                min={1}
+                max={srcTo}
+                onChange={(v) => setSrcFrom(Math.round(v))}
+                aria-label="Source from bar"
+              />
             </Field>
             <Field label="to bar">
-              <NumberInput value={srcTo} min={srcFrom} max={Math.max(srcFrom, material.bars)} onChange={(v) => setSrcTo(Math.round(v))} aria-label="Source to bar" />
+              <NumberInput
+                value={srcTo}
+                min={srcFrom}
+                max={Math.max(srcFrom, material.bars)}
+                onChange={(v) => setSrcTo(Math.round(v))}
+                aria-label="Source to bar"
+              />
             </Field>
             <div className="field" style={{ gridColumn: 'span 2' }}>
               <label>Material</label>
@@ -244,12 +329,17 @@ export function InsertDialog(props: InsertDialogProps) {
         <div className="callout small">
           {mode === 'new-track' ? (
             <>
-              Adds <strong>{usedNotes}</strong> notes as a new track “{trackName || 'New track'}” at bars {targetBar}–{lastBar}.
+              Adds <strong>{usedNotes}</strong> notes as a new track “{trackName || 'New track'}” at bars{' '}
+              {targetBar}–{lastBar}.
             </>
           ) : (
             <>
-              Replaces bars {targetBar}–{effectiveEnd} of “{targetTrack?.name ?? '—'}” with <strong>{usedNotes}</strong> notes
-              {targetTrack ? ` (currently ${targetTrack.notes.filter((n) => n.tick >= barToTick(song, targetBar - 1) && n.tick < barToTick(song, effectiveEnd)).length} notes there)` : ''}.
+              Replaces bars {targetBar}–{effectiveEnd} of “{targetTrack?.name ?? '—'}” with{' '}
+              <strong>{usedNotes}</strong> notes
+              {targetTrack
+                ? ` (currently ${targetTrack.notes.filter((n) => n.tick >= barToTick(song, targetBar - 1) && n.tick < barToTick(song, effectiveEnd)).length} notes there)`
+                : ''}
+              .
             </>
           )}
         </div>
@@ -257,11 +347,22 @@ export function InsertDialog(props: InsertDialogProps) {
           <div className="callout warning small">
             {meterMismatch && (
               <div>
-                The material is in {material.meter.numerator}/{material.meter.denominator} but the project is in {projMeter.numerator}/{projMeter.denominator}; bar lines will not line up.
+                The material is in {material.meter.numerator}/{material.meter.denominator} but the project is
+                in {projMeter.numerator}/{projMeter.denominator}; bar lines will not line up.
               </div>
             )}
-            {beyondEnd && <div>The material runs past the end of the song (bar {totalBars}); notes beyond the last section may be flagged by validation.</div>}
-            {locked && <div>“{targetTrack?.name}” is locked — the proposal will be rejected by the validation engine unless you unlock it.</div>}
+            {beyondEnd && (
+              <div>
+                The material runs past the end of the song (bar {totalBars}); notes beyond the last section
+                may be flagged by validation.
+              </div>
+            )}
+            {locked && (
+              <div>
+                “{targetTrack?.name}” is locked — the proposal will be rejected by the validation engine
+                unless you unlock it.
+              </div>
+            )}
           </div>
         )}
       </div>

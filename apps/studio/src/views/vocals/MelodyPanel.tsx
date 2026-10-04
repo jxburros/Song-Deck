@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ROLE_COLORS,
   LockKeys,
   isTrackSectionLocked,
   midiToNoteName,
@@ -69,7 +70,13 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
     if (!cur) return;
     try {
       const seed = randomSeed();
-      const res = regenerateUnlocked(cur, { seed, trackIds: [track.id], sectionIds, level: level === 'fresh' ? undefined : level, customInstruments });
+      const res = regenerateUnlocked(cur, {
+        seed,
+        trackIds: [track.id],
+        sectionIds,
+        level: level === 'fresh' ? undefined : level,
+        customInstruments,
+      });
       const changed = res.changed.find((c) => c.trackId === track.id)?.sectionIds ?? [];
       if (!changed.length) {
         st.toast('info', 'Nothing to regenerate — the vocal is locked there.');
@@ -77,15 +84,35 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
       }
       const names = cur.sections.filter((s) => changed.includes(s.id)).map((s) => s.name);
       const where = sectionIds?.length ? ` in ${names.join(', ')}` : '';
-      st.commit(res.song, `Regenerated the vocal melody${where}${level === 'ornament' ? ' (ornaments)' : ''} · seed ${seed}`, 'vocals');
-      logVocalActivity('melody', `Regenerated the vocal melody${where || ' (all unlocked sections)'} · seed ${seed}`);
+      st.commit(
+        res.song,
+        `Regenerated the vocal melody${where}${level === 'ornament' ? ' (ornaments)' : ''} · seed ${seed}`,
+        'vocals',
+      );
+      logVocalActivity(
+        'melody',
+        `Regenerated the vocal melody${where || ' (all unlocked sections)'} · seed ${seed}`,
+      );
       let resung = 0;
       if (render && autoResing) {
         for (const span of sectionLayout(res.song).filter((s) => changed.includes(s.section.id))) {
-          if (requestResing({ projectId: project.meta.id, trackId: track.id, startTick: span.startTick, endTick: span.endTick, label: span.section.name, reason: 'new vocal melody' })) resung++;
+          if (
+            requestResing({
+              projectId: project.meta.id,
+              trackId: track.id,
+              startTick: span.startTick,
+              endTick: span.endTick,
+              label: span.section.name,
+              reason: 'new vocal melody',
+            })
+          )
+            resung++;
         }
       }
-      st.toast('success', `New vocal melody${where}; instrumentation, chords and lyrics untouched${resung ? ` — re-singing ${resung} section${resung === 1 ? '' : 's'}` : ''}.`);
+      st.toast(
+        'success',
+        `New vocal melody${where}; instrumentation, chords and lyrics untouched${resung ? ` — re-singing ${resung} section${resung === 1 ? '' : 's'}` : ''}.`,
+      );
     } catch (err) {
       st.toast('error', `Regeneration failed: ${errorText(err)}`);
     }
@@ -94,7 +121,16 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
   const setVoiceType = (voiceType: VoiceType) => {
     const cur = useStudio.getState().project?.song;
     if (!cur) return;
-    st.commit({ ...cur, tracks: cur.tracks.map((t) => (t.id === track.id ? { ...t, vocal: { ...(t.vocal ?? {}), voiceType } } : t)) }, `${track.name}: voice type → ${voiceType}`, 'vocals');
+    st.commit(
+      {
+        ...cur,
+        tracks: cur.tracks.map((t) =>
+          t.id === track.id ? { ...t, vocal: { ...(t.vocal ?? {}), voiceType } } : t,
+        ),
+      },
+      `${track.name}: voice type → ${voiceType}`,
+      'vocals',
+    );
   };
 
   const openPianoRoll = () => {
@@ -110,24 +146,41 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
           <h3 className="grow">
             Vocal melody <span className="dim mono small">{midiName}</span>
           </h3>
-          <Button size="sm" icon="midi" onClick={openPianoRoll} title="Edit notes, syllables and the vocal expression lanes in the piano roll">
+          <Button
+            size="sm"
+            icon="midi"
+            onClick={openPianoRoll}
+            title="Edit notes, syllables and the vocal expression lanes in the piano roll"
+          >
             Open in piano roll
           </Button>
-          <Button size="sm" icon="download" onClick={() => downloadBytes(trackToMidi(song, track.id), midiName, 'audio/midi')} title={`Download ${midiName} (melody + lyric syllables)`}>
+          <Button
+            size="sm"
+            icon="download"
+            onClick={() => downloadBytes(trackToMidi(song, track.id), midiName, 'audio/midi')}
+            title={`Download ${midiName} (melody + lyric syllables)`}
+          >
             {midiName}
           </Button>
         </div>
         <div className="panel-body col">
           <div className="row wrap" style={{ alignItems: 'flex-end' }}>
             <Field label="Voice type">
-              <Select value={track.vocal?.voiceType ?? 'tenor'} onChange={setVoiceType} options={VOICE_TYPES} aria-label="Voice type" />
+              <Select
+                value={track.vocal?.voiceType ?? 'tenor'}
+                onChange={setVoiceType}
+                options={VOICE_TYPES}
+                aria-label="Voice type"
+              />
             </Field>
             <Field label="Regeneration">
               <Select value={level} onChange={setLevel} options={LEVELS} aria-label="Regeneration level" />
             </Field>
             <div className="field">
               <span className="field-label">Range</span>
-              <span className="mono">{low !== null && high !== null ? `${midiToNoteName(low)}–${midiToNoteName(high)}` : '—'}</span>
+              <span className="mono">
+                {low !== null && high !== null ? `${midiToNoteName(low)}–${midiToNoteName(high)}` : '—'}
+              </span>
             </div>
             <div className="field">
               <span className="field-label">Material</span>
@@ -136,7 +189,12 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
               </span>
             </div>
             <div className="spacer" />
-            <Button variant="primary" icon="dice" onClick={() => regenerate()} title="Regenerate the vocal melody in every unlocked section">
+            <Button
+              variant="primary"
+              icon="dice"
+              onClick={() => regenerate()}
+              title="Regenerate the vocal melody in every unlocked section"
+            >
               Regenerate whole vocal melody
             </Button>
           </div>
@@ -147,7 +205,7 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
             totalTicks={Math.max(songLengthTicks(song), 1)}
             height={140}
             colorBy="velocity"
-            color={track.color || '#ff7ac6'}
+            color={track.color || ROLE_COLORS.vocal}
             highlight={focusSpan ? { startTick: focusSpan.startTick, endTick: focusSpan.endTick } : null}
             ariaLabel={`${track.name}: ${track.notes.length} notes`}
             onBarClick={(bar1) => {
@@ -173,7 +231,11 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
                 const locked = isTrackSectionLocked(song, track.id, s.section.id);
                 const ly = lines.filter((l) => l.sectionId === s.section.id).length;
                 return (
-                  <tr key={s.section.id} className={focus === s.section.id ? 'vx-row-focus' : ''} onMouseEnter={() => setFocus(s.section.id)}>
+                  <tr
+                    key={s.section.id}
+                    className={focus === s.section.id ? 'vx-row-focus' : ''}
+                    onMouseEnter={() => setFocus(s.section.id)}
+                  >
                     <td>
                       <strong>{s.section.name}</strong>
                     </td>
@@ -185,12 +247,27 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
                     <td>
                       <LockButton
                         locked={locked}
-                        onToggle={() => st.toggleLock(LockKeys.trackSection(track.id, s.section.id), `${locked ? 'Unlocked' : 'Locked'} ${track.name} in ${s.section.name}`)}
-                        title={locked ? `${track.name} is locked in ${s.section.name}` : `Lock ${track.name} in ${s.section.name}`}
+                        onToggle={() =>
+                          st.toggleLock(
+                            LockKeys.trackSection(track.id, s.section.id),
+                            `${locked ? 'Unlocked' : 'Locked'} ${track.name} in ${s.section.name}`,
+                          )
+                        }
+                        title={
+                          locked
+                            ? `${track.name} is locked in ${s.section.name}`
+                            : `Lock ${track.name} in ${s.section.name}`
+                        }
                       />
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <Button size="sm" icon="dice" disabled={locked} onClick={() => regenerate([s.section.id])} aria-label={`Regenerate the vocal melody in ${s.section.name}`}>
+                      <Button
+                        size="sm"
+                        icon="dice"
+                        disabled={locked}
+                        onClick={() => regenerate([s.section.id])}
+                        aria-label={`Regenerate the vocal melody in ${s.section.name}`}
+                      >
                         Regenerate
                       </Button>
                     </td>
@@ -200,11 +277,18 @@ export function MelodyPanel({ project, track }: { project: Project; track: Track
             </tbody>
           </table>
           <div className="small muted">
-            Only {track.name} is regenerated: drums, harmony, every other track and the lyrics stay exactly as they are, and locked sections (here, in the Workbench or note
-            locks) are kept byte-identical. With lyrics, new melodies are rhythm-matched to the syllables.
-            {render ? (autoResing ? ' The vocal render is re-sung for the regenerated sections only.' : ' Re-sing changed sections from the Render tab.') : ''}
+            Only {track.name} is regenerated: drums, harmony, every other track and the lyrics stay exactly as
+            they are, and locked sections (here, in the Workbench or note locks) are kept byte-identical. With
+            lyrics, new melodies are rhythm-matched to the syllables.
+            {render
+              ? autoResing
+                ? ' The vocal render is re-sung for the regenerated sections only.'
+                : ' Re-sing changed sections from the Render tab.'
+              : ''}
           </div>
-          {track.vocal?.mode === 'none' && <Badge tone="warning">Vocal mode: none — the track is silent in playback</Badge>}
+          {track.vocal?.mode === 'none' && (
+            <Badge tone="warning">Vocal mode: none — the track is silent in playback</Badge>
+          )}
         </div>
       </div>
     </div>

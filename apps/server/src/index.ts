@@ -19,7 +19,15 @@ export {
   type ServerOptions,
 } from './config';
 export { createLogger, type Logger, type LogLevel } from './logger';
-export { createVault, EncryptedFileVault, KeychainVault, MemoryVault, type CredentialVault, type VaultBackendName, type VaultEntryMeta } from './vault';
+export {
+  createVault,
+  EncryptedFileVault,
+  KeychainVault,
+  MemoryVault,
+  type CredentialVault,
+  type VaultBackendName,
+  type VaultEntryMeta,
+} from './vault';
 export { detectHardware, type GpuInfo, type HardwareInfo } from './hardware';
 export type { ModelEntry, ModelsReport, ModelCategory, Compatibility } from './models';
 export type { PluginManifest, PluginRecord, PluginKind } from './plugins';

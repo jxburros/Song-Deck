@@ -2,11 +2,20 @@
  * Composition planning (spec §15): an abstract plan (sections, bars, harmony, energy, purpose)
  * produced before any MIDI. Every generator consumes the same plan.
  */
-import type { Blueprint, BlueprintSection, ChordSpec, CompositionPlan, GenreProfile, PlanSection, SectionFeel, SectionKind } from '../ir/types';
+import type {
+  Blueprint,
+  BlueprintSection,
+  ChordSpec,
+  CompositionPlan,
+  GenreProfile,
+  PlanSection,
+  SectionFeel,
+  SectionKind,
+} from '../ir/types';
 import { defaultMacros } from '../ir/defaults';
 import { deriveRng } from '../util/random';
 import { keyName } from '../theory/scales';
-import { blendGenres } from './genres';
+import { applyTagsToMacros, blendForBlueprint, genreForBlueprint, tagMeter } from './tags';
 import { defaultBlueprint } from './blueprint';
 import {
   chooseProgression,
@@ -19,7 +28,8 @@ import {
 } from './harmony';
 import { clamp, parseHarmonyToken } from './util';
 
-export type HarmonyGroup = 'verse' | 'chorus' | 'pre' | 'bridge' | 'breakdown' | 'solo' | 'post' | 'intro' | 'outro' | 'interlude';
+export type HarmonyGroup =
+  'verse' | 'chorus' | 'pre' | 'bridge' | 'breakdown' | 'solo' | 'post' | 'intro' | 'outro' | 'interlude';
 
 export function harmonyGroupOf(kind: SectionKind): HarmonyGroup {
   switch (kind) {
@@ -49,10 +59,27 @@ export function harmonyGroupOf(kind: SectionKind): HarmonyGroup {
   }
 }
 
-const GROUP_ORDER: HarmonyGroup[] = ['verse', 'chorus', 'pre', 'bridge', 'breakdown', 'solo', 'post', 'intro', 'outro', 'interlude'];
+const GROUP_ORDER: HarmonyGroup[] = [
+  'verse',
+  'chorus',
+  'pre',
+  'bridge',
+  'breakdown',
+  'solo',
+  'post',
+  'intro',
+  'outro',
+  'interlude',
+];
 
 /** Musical purpose of a section in context (the "Purpose" column of §15). */
-export function purposeFor(kind: SectionKind, occurrence: number, energy: number, energyEnd: number | undefined, isFirst: boolean): string {
+export function purposeFor(
+  kind: SectionKind,
+  occurrence: number,
+  energy: number,
+  energyEnd: number | undefined,
+  isFirst: boolean,
+): string {
   const rising = energyEnd !== undefined && energyEnd > energy + 8;
   switch (kind) {
     case 'intro':
@@ -91,7 +118,12 @@ function parseExplicitHarmony(tokens: readonly string[], key: Blueprint['key']):
   const out: ChordSpec[] = [];
   for (const t of tokens) {
     const c = parseHarmonyToken(t, key);
-    if (c) out.push(c.bass !== undefined ? { root: c.root, quality: c.quality, bass: c.bass } : { root: c.root, quality: c.quality });
+    if (c)
+      out.push(
+        c.bass !== undefined
+          ? { root: c.root, quality: c.quality, bass: c.bass }
+          : { root: c.root, quality: c.quality },
+      );
   }
   return out;
 }
@@ -109,15 +141,20 @@ export interface PlanOptions {
  */
 export function planComposition(blueprint: Blueprint, opts: PlanOptions = {}): CompositionPlan {
   const seed = opts.seed ?? blueprint.seed ?? 1;
-  const blend = blueprint.genreBlend && blueprint.genreBlend.length ? blueprint.genreBlend : [{ genreId: 'pop', weight: 1 }];
-  const genre = blendGenres(blend, opts.customGenres);
+  const blend = blendForBlueprint(blueprint);
+  const genre = genreForBlueprint({ genreBlend: blend, tags: blueprint.tags }, opts.customGenres);
   const key = { ...blueprint.key };
-  const meter = { numerator: blueprint.meter?.numerator ?? 4, denominator: blueprint.meter?.denominator ?? 4 };
+  const meter = tagMeter(blueprint.tags) ?? {
+    numerator: blueprint.meter?.numerator ?? 4,
+    denominator: blueprint.meter?.denominator ?? 4,
+  };
   const tempo = clamp(Math.round(blueprint.tempo || genre.tempo.typical), 20, 400);
-  const macros = { ...defaultMacros(), ...(blueprint.macros ?? {}) };
-  const sections: BlueprintSection[] = (blueprint.structure && blueprint.structure.length ? blueprint.structure : defaultBlueprint({ genreBlend: blend }).structure).filter(
-    (s) => s.bars > 0,
-  );
+  const macros = applyTagsToMacros({ ...defaultMacros(), ...(blueprint.macros ?? {}) }, blueprint.tags);
+  const sections: BlueprintSection[] = (
+    blueprint.structure && blueprint.structure.length
+      ? blueprint.structure
+      : defaultBlueprint({ genreBlend: blend }).structure
+  ).filter((s) => s.bars > 0);
   const globalDark = moodDarkness([...(blueprint.moods ?? []), ...sections.flatMap((s) => s.mood ?? [])]);
   const flavor = flavorFor(genre);
   const hrBase = snapHarmonicRhythm(genre.harmony.harmonicRhythm);
@@ -143,7 +180,8 @@ export function planComposition(blueprint: Blueprint, opts: PlanOptions = {}): C
         continue;
       }
     }
-    const reuse = (from: HarmonyGroup | undefined): ChordSpec[] | undefined => (from ? colored.get(from)?.map((c) => ({ ...c })) : undefined);
+    const reuse = (from: HarmonyGroup | undefined): ChordSpec[] | undefined =>
+      from ? colored.get(from)?.map((c) => ({ ...c })) : undefined;
     let chords: ChordSpec[] | undefined;
     let needsColor = true;
     switch (grp) {
@@ -180,11 +218,17 @@ export function planComposition(blueprint: Blueprint, opts: PlanOptions = {}): C
         needsColor = !colored.has('chorus');
         break;
       case 'intro':
-        chords = (rng.chance(0.55) ? reuse('chorus') : reuse('verse')) ?? reuse('chorus') ?? chooseProgression(genre, key, 'verse', raw, rng);
+        chords =
+          (rng.chance(0.55) ? reuse('chorus') : reuse('verse')) ??
+          reuse('chorus') ??
+          chooseProgression(genre, key, 'verse', raw, rng);
         needsColor = !colored.has('chorus') && !colored.has('verse');
         break;
       case 'outro':
-        chords = (rng.chance(0.65) ? reuse('chorus') : reuse('verse')) ?? reuse('verse') ?? chooseProgression(genre, key, 'verse', raw, rng);
+        chords =
+          (rng.chance(0.65) ? reuse('chorus') : reuse('verse')) ??
+          reuse('verse') ??
+          chooseProgression(genre, key, 'verse', raw, rng);
         needsColor = !colored.has('chorus') && !colored.has('verse');
         break;
       case 'interlude':
@@ -227,27 +271,53 @@ export function planComposition(blueprint: Blueprint, opts: PlanOptions = {}): C
     const own = s.harmony && s.harmony.length ? parseExplicitHarmony(s.harmony, key) : null;
     const rng = deriveRng(seed, 'plan', 'section', grp, s.kind);
     if (own && own.length) {
-      harmony = s.harmony!.filter((t) => parseHarmonyToken(t, key)).map((t) => {
-        const c = parseHarmonyToken(t, key)!;
-        return expandHarmony([c], 1, 1, key)[0];
-      });
+      harmony = s
+        .harmony!.filter((t) => parseHarmonyToken(t, key))
+        .map((t) => {
+          const c = parseHarmonyToken(t, key)!;
+          return expandHarmony([c], 1, 1, key)[0];
+        });
     } else {
       const chords = colored.get(grp) ?? colored.get('verse') ?? colored.get('chorus') ?? [];
       let hr = hrBase;
       if (hr >= 2 && tempo >= 150) hr = 1;
-      if ((s.kind === 'intro' || s.kind === 'outro' || s.kind === 'breakdown') && energy < 45 && chords.length <= 4 && rng.chance(0.5)) hr = 0.5;
+      if (
+        (s.kind === 'intro' || s.kind === 'outro' || s.kind === 'breakdown') &&
+        energy < 45 &&
+        chords.length <= 4 &&
+        rng.chance(0.5)
+      )
+        hr = 0.5;
       if (s.kind === 'build' && hr > 1) hr = 1;
-      const susResolve = (s.kind === 'pre-chorus' || s.kind === 'build') && !powerChords && macros.harmonicTension >= 0.4 && rng.chance(0.35 + macros.harmonicTension * 0.4);
-      harmony = expandHarmony(chords, s.bars, hr, key, { endOnTonic: isLast && (s.kind === 'outro' || s.kind === 'final-chorus' || sections.length > 1), susResolve });
+      const susResolve =
+        (s.kind === 'pre-chorus' || s.kind === 'build') &&
+        !powerChords &&
+        macros.harmonicTension >= 0.4 &&
+        rng.chance(0.35 + macros.harmonicTension * 0.4);
+      harmony = expandHarmony(chords, s.bars, hr, key, {
+        endOnTonic: isLast && (s.kind === 'outro' || s.kind === 'final-chorus' || sections.length > 1),
+        susResolve,
+      });
     }
     let feel: SectionFeel | undefined = s.feel;
     if (!feel) {
       const ht = genre.rhythm.halfTimeChance ?? 0;
       const frng = deriveRng(seed, 'plan', 'feel', grp);
-      if ((s.kind === 'bridge' || s.kind === 'breakdown') && frng.chance(ht * (s.kind === 'breakdown' ? 1.6 : 1))) feel = 'half-time';
+      if (
+        (s.kind === 'bridge' || s.kind === 'breakdown') &&
+        frng.chance(ht * (s.kind === 'breakdown' ? 1.6 : 1))
+      )
+        feel = 'half-time';
     }
     const purpose = s.purpose ?? purposeFor(s.kind, occ, energy, energyEnd, i === 0);
-    const ps: PlanSection = { name: s.name || `Section ${i + 1}`, kind: s.kind, bars: Math.max(1, Math.round(s.bars)), harmony, energy, purpose };
+    const ps: PlanSection = {
+      name: s.name || `Section ${i + 1}`,
+      kind: s.kind,
+      bars: Math.max(1, Math.round(s.bars)),
+      harmony,
+      energy,
+      purpose,
+    };
     if (energyEnd !== undefined) ps.energyEnd = energyEnd;
     if (feel) ps.feel = feel;
     return ps;

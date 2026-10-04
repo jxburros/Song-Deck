@@ -33,9 +33,18 @@ export default function AssistantPanel() {
     try {
       const history = [...useStudio.getState().chat].map((m) => ({ role: m.role, content: m.content }));
       const res = await aiChat(song, history, selection, { providerChoice: provider });
-      st.pushChat({ role: 'assistant', content: res.answer, provider: res.source, proposalId: res.proposalId });
+      st.pushChat({
+        role: 'assistant',
+        content: res.answer,
+        provider: res.source,
+        proposalId: res.proposalId,
+      });
     } catch (err) {
-      st.pushChat({ role: 'assistant', content: `I couldn't answer that: ${err instanceof Error ? err.message : String(err)}`, provider: 'error' });
+      st.pushChat({
+        role: 'assistant',
+        content: `I couldn't answer that: ${err instanceof Error ? err.message : String(err)}`,
+        provider: 'error',
+      });
     } finally {
       setBusy(false);
     }
@@ -55,9 +64,21 @@ export default function AssistantPanel() {
       <div className="chat-log grow" style={{ overflow: 'auto', minHeight: 120 }}>
         {chat.length === 0 && (
           <div className="col">
-            <div className="small muted">Ask about this song. Answers use its real sections, chords and parts.</div>
+            <div className="small muted">
+              Ask about this song. Answers use its real sections, chords and parts.
+            </div>
             {SUGGESTIONS.map((s) => (
-              <button key={s} className="chip" style={{ justifyContent: 'flex-start', height: 'auto', padding: '6px 10px', textAlign: 'left' }} onClick={() => void send(s)}>
+              <button
+                key={s}
+                className="chip"
+                style={{
+                  justifyContent: 'flex-start',
+                  height: 'auto',
+                  padding: '6px 10px',
+                  textAlign: 'left',
+                }}
+                onClick={() => void send(s)}
+              >
                 {s}
               </button>
             ))}
@@ -66,7 +87,11 @@ export default function AssistantPanel() {
         {chat.map((m) => (
           <div key={m.id} className={`chat-msg ${m.role}`}>
             {m.content}
-            {m.provider && m.role === 'assistant' && <div className="small dim" style={{ marginTop: 4 }}>{m.provider}</div>}
+            {m.provider && m.role === 'assistant' && (
+              <div className="small dim" style={{ marginTop: 4 }}>
+                {m.provider}
+              </div>
+            )}
             {m.proposalId && (
               <div style={{ marginTop: 6 }}>
                 <Button

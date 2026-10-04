@@ -24,7 +24,9 @@ export class Compressor {
 
   constructor(private readonly sampleRate: number) {}
 
-  configure(s: Pick<CompressorSettings, 'thresholdDb' | 'ratio' | 'kneeDb' | 'attackMs' | 'releaseMs' | 'makeupDb'>): void {
+  configure(
+    s: Pick<CompressorSettings, 'thresholdDb' | 'ratio' | 'kneeDb' | 'attackMs' | 'releaseMs' | 'makeupDb'>,
+  ): void {
     this.threshold = clampNum(s.thresholdDb, -80, 0);
     this.ratio = clampNum(s.ratio, 1, 100);
     this.knee = clampNum(s.kneeDb, 0, 24);
@@ -44,7 +46,9 @@ export class Compressor {
 
   /** Static curve: gain reduction (dB, ≤ 0) for input level x (dB). */
   private computeGr(x: number): number {
-    const T = this.threshold, R = this.ratio, W = this.knee;
+    const T = this.threshold,
+      R = this.ratio,
+      W = this.knee;
     const d = x - T;
     if (2 * d < -W) return 0;
     if (W > 0 && 2 * Math.abs(d) <= W) {
@@ -56,8 +60,10 @@ export class Compressor {
 
   process(L: Float64Array, R: Float64Array, start: number, end: number): void {
     let env = this.env;
-    const ac = this.attackCoef, rc = this.releaseCoef;
-    const ac4 = this.attackCoef4, rc4 = this.releaseCoef4;
+    const ac = this.attackCoef,
+      rc = this.releaseCoef;
+    const ac4 = this.attackCoef4,
+      rc4 = this.releaseCoef4;
     const makeup = this.makeup;
     const kneeLo = this.threshold - this.knee / 2;
     const kneeLoLin = Math.exp(kneeLo * DB_TO_LN);

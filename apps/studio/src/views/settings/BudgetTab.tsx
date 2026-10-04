@@ -10,7 +10,13 @@ import { ConfirmModal, Empty, Meter, OptNumber, Panel, Stat, TabHeader, download
 type LimitKey = 'perGenerationUsd' | 'dailyUsd' | 'monthlyUsd';
 
 const LIMITS: { key: LimitKey; label: string; hint: string; step: number; fallback: number }[] = [
-  { key: 'perGenerationUsd', label: 'Per generation', hint: 'Requests estimated above this are blocked before they are sent.', step: 0.1, fallback: 2 },
+  {
+    key: 'perGenerationUsd',
+    label: 'Per generation',
+    hint: 'Requests estimated above this are blocked before they are sent.',
+    step: 0.1,
+    fallback: 2,
+  },
   { key: 'dailyUsd', label: 'Daily', hint: 'Spend since midnight (local time).', step: 1, fallback: 10 },
   { key: 'monthlyUsd', label: 'Monthly', hint: 'Spend this calendar month.', step: 5, fallback: 50 },
 ];
@@ -45,10 +51,25 @@ export default function BudgetTab() {
     update({ budget: next });
     getBudget().setLimits(next);
   };
-  const threshold = budget.warningThreshold > 0 && budget.warningThreshold <= 1 ? budget.warningThreshold : 0.8;
-  const names = useMemo(() => new Map([...summaries.map((s) => [s.id, s.name] as const), ...providers.map((p) => [p.id, p.name] as const)]), [summaries, providers]);
+  const threshold =
+    budget.warningThreshold > 0 && budget.warningThreshold <= 1 ? budget.warningThreshold : 0.8;
+  const names = useMemo(
+    () =>
+      new Map([
+        ...summaries.map((s) => [s.id, s.name] as const),
+        ...providers.map((p) => [p.id, p.name] as const),
+      ]),
+    [summaries, providers],
+  );
   const ledger = [...entries].reverse();
-  const tone = (spent: number, limit?: number) => (limit === undefined ? undefined : spent >= limit ? 'danger' : spent >= threshold * limit ? 'warning' : undefined);
+  const tone = (spent: number, limit?: number) =>
+    limit === undefined
+      ? undefined
+      : spent >= limit
+        ? 'danger'
+        : spent >= threshold * limit
+          ? 'warning'
+          : undefined;
 
   return (
     <>
@@ -58,16 +79,36 @@ export default function BudgetTab() {
         spec="§60"
         lede="Cloud models report estimated cost before a request and actual cost after it. Limits are checked before anything is sent; local and on-device work is always free."
         actions={
-          <Button icon="download" onClick={() => downloadJson(`songdeck-spend-${new Date().toISOString().slice(0, 10)}.json`, entries)} disabled={!entries.length}>
+          <Button
+            icon="download"
+            onClick={() =>
+              downloadJson(`songdeck-spend-${new Date().toISOString().slice(0, 10)}.json`, entries)
+            }
+            disabled={!entries.length}
+          >
             Export ledger
           </Button>
         }
       />
 
       <div className="st-stats" data-testid="budget-totals">
-        <Stat label="Today" value={usd(totals?.todayUsd ?? 0)} sub={budget.dailyUsd !== undefined ? `of ${usd(budget.dailyUsd)}` : 'no daily limit'} tone={tone(totals?.todayUsd ?? 0, budget.dailyUsd)} />
-        <Stat label="This month" value={usd(totals?.monthUsd ?? 0)} sub={budget.monthlyUsd !== undefined ? `of ${usd(budget.monthlyUsd)}` : 'no monthly limit'} tone={tone(totals?.monthUsd ?? 0, budget.monthlyUsd)} />
-        <Stat label="All time" value={usd(totals?.totalUsd ?? 0)} sub={`${totals?.entries ?? 0} paid request${totals?.entries === 1 ? '' : 's'}`} />
+        <Stat
+          label="Today"
+          value={usd(totals?.todayUsd ?? 0)}
+          sub={budget.dailyUsd !== undefined ? `of ${usd(budget.dailyUsd)}` : 'no daily limit'}
+          tone={tone(totals?.todayUsd ?? 0, budget.dailyUsd)}
+        />
+        <Stat
+          label="This month"
+          value={usd(totals?.monthUsd ?? 0)}
+          sub={budget.monthlyUsd !== undefined ? `of ${usd(budget.monthlyUsd)}` : 'no monthly limit'}
+          tone={tone(totals?.monthUsd ?? 0, budget.monthlyUsd)}
+        />
+        <Stat
+          label="All time"
+          value={usd(totals?.totalUsd ?? 0)}
+          sub={`${totals?.entries ?? 0} paid request${totals?.entries === 1 ? '' : 's'}`}
+        />
         <Stat label="Warn at" value={`${Math.round(threshold * 100)}%`} sub="of a daily / monthly limit" />
       </div>
       <div className="st-two">
@@ -81,7 +122,11 @@ export default function BudgetTab() {
         </div>
       </div>
 
-      <Panel title="Limits" icon="lock" sub="Turn a limit off to leave it unlimited. Unknown provider pricing is allowed with a warning, because it cannot be verified.">
+      <Panel
+        title="Limits"
+        icon="lock"
+        sub="Turn a limit off to leave it unlimited. Unknown provider pricing is allowed with a warning, because it cannot be verified."
+      >
         <div className="grid-3">
           {LIMITS.map((l) => {
             const on = budget[l.key] !== undefined;
@@ -89,7 +134,11 @@ export default function BudgetTab() {
               <div key={l.key} className="card st-limit">
                 <div className="row between">
                   <strong>{l.label}</strong>
-                  <Toggle on={on} onChange={(v) => setLimits({ ...budget, [l.key]: v ? l.fallback : undefined })} title={on ? 'Remove limit' : 'Set limit'} />
+                  <Toggle
+                    on={on}
+                    onChange={(v) => setLimits({ ...budget, [l.key]: v ? l.fallback : undefined })}
+                    title={on ? 'Remove limit' : 'Set limit'}
+                  />
                 </div>
                 <Field hint={l.hint}>
                   <div className="row">
@@ -144,7 +193,13 @@ export default function BudgetTab() {
                     <td className="num">{usd(t.todayUsd)}</td>
                     <td className="num">{usd(t.monthUsd)}</td>
                     <td className="num">{usd(t.totalUsd)}</td>
-                    <td>{pb?.monthlyUsd ? <Meter value={t.monthUsd} max={pb.monthlyUsd} warnAt={threshold} /> : <span className="small dim">—</span>}</td>
+                    <td>
+                      {pb?.monthlyUsd ? (
+                        <Meter value={t.monthUsd} max={pb.monthlyUsd} warnAt={threshold} />
+                      ) : (
+                        <span className="small dim">—</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -158,13 +213,22 @@ export default function BudgetTab() {
         icon="history"
         testId="spend-ledger"
         actions={
-          <Button size="sm" variant="danger" icon="trash" onClick={() => setConfirmReset(true)} disabled={!entries.length}>
+          <Button
+            size="sm"
+            variant="danger"
+            icon="trash"
+            onClick={() => setConfirmReset(true)}
+            disabled={!entries.length}
+          >
             Reset
           </Button>
         }
       >
         {ledger.length === 0 ? (
-          <Empty icon="tasks">Nothing spent yet. Requests to paid cloud providers appear here with their actual (or estimated) cost.</Empty>
+          <Empty icon="tasks">
+            Nothing spent yet. Requests to paid cloud providers appear here with their actual (or estimated)
+            cost.
+          </Empty>
         ) : (
           <div className="st-table-wrap">
             <table className="table">
@@ -187,7 +251,12 @@ export default function BudgetTab() {
                     <td>{e.role ? (ROLE_INFO[e.role]?.label ?? e.role) : '—'}</td>
                     <td className="num">
                       {usd(e.costUsd)}
-                      {e.estimated && <span className="dim" title="Provider reported no usage; the estimate was recorded"> est.</span>}
+                      {e.estimated && (
+                        <span className="dim" title="Provider reported no usage; the estimate was recorded">
+                          {' '}
+                          est.
+                        </span>
+                      )}
                     </td>
                     <td className="small dim">{e.note ?? ''}</td>
                   </tr>
@@ -210,7 +279,8 @@ export default function BudgetTab() {
             setN((x) => x + 1);
           }}
         >
-          All recorded spend is deleted from this device and daily / monthly totals start from zero. Your providers’ own billing is not affected.
+          All recorded spend is deleted from this device and daily / monthly totals start from zero. Your
+          providers’ own billing is not affected.
         </ConfirmModal>
       )}
     </>

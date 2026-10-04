@@ -229,7 +229,8 @@ export interface JsonSchema {
 
 export type ChatRole = 'user' | 'assistant';
 
-export type ContentPart = { type: 'text'; text: string } | { type: 'audio'; audio: EncodedAudio; label?: string };
+export type ContentPart =
+  { type: 'text'; text: string } | { type: 'audio'; audio: EncodedAudio; label?: string };
 
 export interface ChatMessage {
   role: ChatRole;
@@ -280,6 +281,11 @@ export interface LLMResponse {
 
 export interface LLMProvider {
   listModels(signal?: AbortSignal): Promise<ModelInfo[]>;
+  /**
+   * Models the last `listModels()` saw but left out because they are not chat models (embeddings,
+   * images, speech…), with no capabilities — for "show all models" views. Optional.
+   */
+  readonly skippedModels?: ModelInfo[];
   complete(req: LLMRequest): Promise<LLMResponse>;
 }
 
@@ -330,6 +336,12 @@ export interface DesignBlueprintRequest extends BaseCompositionRequest {
   genres?: { id: string; name: string }[];
   /** Known instrument profiles the model may reference. */
   instruments?: { id: string; name: string; family?: string }[];
+  /** Tag catalog entries (style, mood, era, production…) the model may put in `tags`. */
+  tags?: { id: string; name: string; kind?: string }[];
+  /** Choices the user fixed in the Compose builder, in plain language: the model must keep them. */
+  constraints?: string[];
+  /** The user's own lyrics: the song is built around them and the words are never changed. */
+  lyrics?: string;
 }
 
 export interface DesignBlueprintResult {

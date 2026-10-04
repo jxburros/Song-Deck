@@ -43,7 +43,9 @@ export interface ProposalMeta {
 /** Build a validated proposal from operations against `song` (spec §21, §46, §48). */
 export function buildProposal(song: Song, ops: MusicOperation[], meta: ProposalMeta): Proposal {
   const project = useStudio.getState().project;
-  const head = project?.history.branches.find((b) => b.id === project.history.currentBranchId)?.headRevisionId;
+  const head = project?.history.branches.find(
+    (b) => b.id === project.history.currentBranchId,
+  )?.headRevisionId;
   const customInstruments = allCustomInstruments(project?.meta.customInstruments);
   return createProposal(song, ops, {
     ...meta,
@@ -55,14 +57,21 @@ export function buildProposal(song: Song, ops: MusicOperation[], meta: ProposalM
 }
 
 /** Create a proposal and surface it for review (visual diff in the piano roll + Proposals panel). */
-export function propose(song: Song, ops: MusicOperation[], meta: ProposalMeta, opts: { openPianoRoll?: boolean } = {}): Proposal | null {
+export function propose(
+  song: Song,
+  ops: MusicOperation[],
+  meta: ProposalMeta,
+  opts: { openPianoRoll?: boolean } = {},
+): Proposal | null {
   const st = useStudio.getState();
   if (!ops.length) {
     st.toast('info', meta.explanation ?? 'No changes were proposed.');
     return null;
   }
   const proposal = buildProposal(song, ops, meta);
-  const changedTracks = proposal.diff.tracks.filter((t) => t.added.length || t.removed.length || t.modified.length);
+  const changedTracks = proposal.diff.tracks.filter(
+    (t) => t.added.length || t.removed.length || t.modified.length,
+  );
   const anyChange =
     changedTracks.length ||
     proposal.diff.chords.added.length ||
@@ -77,7 +86,12 @@ export function propose(song: Song, ops: MusicOperation[], meta: ProposalMeta, o
     proposal.diff.tracksRemoved.length;
   if (!anyChange) {
     const reasons = proposal.validation.issues.filter((i) => i.severity !== 'info').map((i) => i.message);
-    st.toast('warning', reasons.length ? `Proposal had no effect: ${reasons.slice(0, 2).join('; ')}` : 'Proposal produced no changes.');
+    st.toast(
+      'warning',
+      reasons.length
+        ? `Proposal had no effect: ${reasons.slice(0, 2).join('; ')}`
+        : 'Proposal produced no changes.',
+    );
     return null;
   }
   st.addProposal(proposal);

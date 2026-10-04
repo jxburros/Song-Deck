@@ -73,17 +73,33 @@ export function writeCells(g: SongGen, seed: number, scope: CellScope): CellChan
       const mono = !drum && inst.polyphony === 'mono';
       const rs = region ? Math.max(region.start, span.startTick) : span.startTick;
       const re = region ? Math.min(region.end, span.endTick) : span.endTick;
-      const generated = finalizeNotes(out.notes, { low: drum ? 0 : cell.range.low, high: drum ? 127 : cell.range.high, start: span.startTick, end: span.endTick, mono, drum });
+      const generated = finalizeNotes(out.notes, {
+        low: drum ? 0 : cell.range.low,
+        high: drum ? 127 : cell.range.high,
+        start: span.startTick,
+        end: span.endTick,
+        mono,
+        drum,
+      });
 
       const before = track.notes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick);
-      const inside = (n: { tick: number; duration: number }) => (region ? n.tick >= rs && n.tick + n.duration <= re : true);
+      const inside = (n: { tick: number; duration: number }) =>
+        region ? n.tick >= rs && n.tick + n.duration <= re : true;
       const kept = before.filter((n) => n.locked === true || !inside(n));
       // Material that must not be overlapped: kept notes plus notes ringing in from earlier sections.
-      const blockers = [...kept, ...track.notes.filter((n) => n.tick < span.startTick && n.tick + n.duration > span.startTick)];
+      const blockers = [
+        ...kept,
+        ...track.notes.filter((n) => n.tick < span.startTick && n.tick + n.duration > span.startTick),
+      ];
       const candidates = generated.filter((n) => inside(n));
       const accepted: RawNote[] = [];
       for (const n of candidates) {
-        if (mono ? blockers.some((k) => overlaps(k, n)) : blockers.some((k) => k.pitch === n.pitch && (k.tick === n.tick || (!drum && overlaps(k, n))))) continue;
+        if (
+          mono
+            ? blockers.some((k) => overlaps(k, n))
+            : blockers.some((k) => k.pitch === n.pitch && (k.tick === n.tick || (!drum && overlaps(k, n))))
+        )
+          continue;
         accepted.push(n);
       }
       // Ids: deterministic per (seed, track, section[, region]); never colliding with kept notes.
@@ -102,7 +118,14 @@ export function writeCells(g: SongGen, seed: number, scope: CellScope): CellChan
         // covers every note of the phrase.
         const startTick = Math.min(d.startTick, ...members.map((n) => n.tick));
         const endTick = Math.max(d.endTick, ...members.map((n) => n.tick + n.duration));
-        const ph: Phrase = { id: pids.next('ph'), trackId: track.id, startTick, endTick, label: d.label, sectionId: section.id };
+        const ph: Phrase = {
+          id: pids.next('ph'),
+          trackId: track.id,
+          startTick,
+          endTick,
+          label: d.label,
+          sectionId: section.id,
+        };
         if (d.motifId) ph.motifId = d.motifId;
         if (d.lyricLineId) ph.lyricLineId = d.lyricLineId;
         phraseIds.set(d.key, ph.id);
@@ -127,14 +150,24 @@ export function writeCells(g: SongGen, seed: number, scope: CellScope): CellChan
       const outside = track.notes.filter((n) => n.tick < span.startTick || n.tick >= span.endTick);
       // New attacks never collide with the tails of kept notes of the same pitch (and vice versa).
       const fresh = new Set(newNotes);
-      const nextNotes = sortNotes(resolveSamePitchOverlaps([...outside, ...kept, ...newNotes], (n) => !fresh.has(n), 'drop'));
-      const changed = stableStringify(before) !== stableStringify(nextNotes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick));
+      const nextNotes = sortNotes(
+        resolveSamePitchOverlaps([...outside, ...kept, ...newNotes], (n) => !fresh.has(n), 'drop'),
+      );
+      const changed =
+        stableStringify(before) !==
+        stableStringify(nextNotes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick));
       track.notes = nextNotes;
       if (track.role === 'vocal' || (out.phrases && out.phrases.length)) {
         const keptPhraseIds = new Set(kept.map((n) => n.phraseId).filter(Boolean) as string[]);
         song.phrases = [
           ...song.phrases.filter(
-            (p) => p.trackId !== track.id || p.startTick < span.startTick || p.startTick >= span.endTick || keptPhraseIds.has(p.id) || p.startTick < rs || p.endTick > re,
+            (p) =>
+              p.trackId !== track.id ||
+              p.startTick < span.startTick ||
+              p.startTick >= span.endTick ||
+              keptPhraseIds.has(p.id) ||
+              p.startTick < rs ||
+              p.endTick > re,
           ),
           ...newPhrases,
         ].sort((a, b) => a.startTick - b.startTick || a.trackId.localeCompare(b.trackId));

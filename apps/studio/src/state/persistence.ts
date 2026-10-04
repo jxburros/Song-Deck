@@ -42,7 +42,8 @@ function openDb(): Promise<IDBDatabase> {
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('summaries')) db.createObjectStore('summaries', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects', { keyPath: 'meta.id' });
+        if (!db.objectStoreNames.contains('projects'))
+          db.createObjectStore('projects', { keyPath: 'meta.id' });
         if (!db.objectStoreNames.contains('assets')) {
           const s = db.createObjectStore('assets', { keyPath: 'id' });
           s.createIndex('projectId', 'projectId');
@@ -56,7 +57,11 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-function tx<T>(stores: string[], mode: IDBTransactionMode, fn: (t: IDBTransaction) => IDBRequest<T> | void): Promise<T> {
+function tx<T>(
+  stores: string[],
+  mode: IDBTransactionMode,
+  fn: (t: IDBTransaction) => IDBRequest<T> | void,
+): Promise<T> {
   return openDb().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
@@ -73,7 +78,9 @@ function tx<T>(stores: string[], mode: IDBTransactionMode, fn: (t: IDBTransactio
 
 export async function listProjectSummaries(): Promise<ProjectSummary[]> {
   if (!hasIndexedDb()) return [];
-  const all = await tx<ProjectSummary[]>(['summaries'], 'readonly', (t) => t.objectStore('summaries').getAll());
+  const all = await tx<ProjectSummary[]>(['summaries'], 'readonly', (t) =>
+    t.objectStore('summaries').getAll(),
+  );
   return (all ?? []).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
@@ -92,7 +99,9 @@ export async function loadProject(id: string): Promise<Project | undefined> {
 
 export async function deleteProject(id: string): Promise<void> {
   if (!hasIndexedDb()) return;
-  const assetIds = await tx<IDBValidKey[]>(['assets'], 'readonly', (t) => t.objectStore('assets').index('projectId').getAllKeys(id));
+  const assetIds = await tx<IDBValidKey[]>(['assets'], 'readonly', (t) =>
+    t.objectStore('assets').index('projectId').getAllKeys(id),
+  );
   await tx(['projects', 'summaries', 'assets'], 'readwrite', (t) => {
     t.objectStore('projects').delete(id);
     t.objectStore('summaries').delete(id);
@@ -121,7 +130,9 @@ export async function getAsset(id: string): Promise<StoredAsset | undefined> {
 
 export async function listProjectAssets(projectId: string): Promise<StoredAsset[]> {
   if (!hasIndexedDb()) return [];
-  return tx<StoredAsset[]>(['assets'], 'readonly', (t) => t.objectStore('assets').index('projectId').getAll(projectId));
+  return tx<StoredAsset[]>(['assets'], 'readonly', (t) =>
+    t.objectStore('assets').index('projectId').getAll(projectId),
+  );
 }
 
 export async function deleteAsset(id: string): Promise<void> {
@@ -133,7 +144,9 @@ export async function deleteAsset(id: string): Promise<void> {
 
 export async function kvGet<T>(key: string): Promise<T | undefined> {
   if (!hasIndexedDb()) return undefined;
-  const row = await tx<{ key: string; value: T } | undefined>(['kv'], 'readonly', (t) => t.objectStore('kv').get(key));
+  const row = await tx<{ key: string; value: T } | undefined>(['kv'], 'readonly', (t) =>
+    t.objectStore('kv').get(key),
+  );
   return row?.value;
 }
 

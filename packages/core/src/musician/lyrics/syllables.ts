@@ -126,9 +126,86 @@ const DICT: Record<string, string[]> = {
   "i've": ["I've"],
 };
 
-const SUFFIX_KEEP_E = new Set(['some', 'fire', 'home', 'life', 'time', 'love', 'lone', 'base', 'game', 'side', 'whole', 'stone', 'bone', 'wire', 'care', 'more', 'where', 'there', 'here', 'face', 'place', 'space', 'grace', 'rage', 'page', 'stage', 'wave', 'save', 'brave', 'make', 'take', 'wake', 'shake', 'smoke', 'line', 'mine', 'nine', 'shine', 'fine', 'hope', 'rope', 'tune', 'moon', 'free', 'tree', 'sun', 'star', 'heart', 'night', 'day', 'rain', 'snow', 'sea', 'sky']);
+const SUFFIX_KEEP_E = new Set([
+  'some',
+  'fire',
+  'home',
+  'life',
+  'time',
+  'love',
+  'lone',
+  'base',
+  'game',
+  'side',
+  'whole',
+  'stone',
+  'bone',
+  'wire',
+  'care',
+  'more',
+  'where',
+  'there',
+  'here',
+  'face',
+  'place',
+  'space',
+  'grace',
+  'rage',
+  'page',
+  'stage',
+  'wave',
+  'save',
+  'brave',
+  'make',
+  'take',
+  'wake',
+  'shake',
+  'smoke',
+  'line',
+  'mine',
+  'nine',
+  'shine',
+  'fine',
+  'hope',
+  'rope',
+  'tune',
+  'moon',
+  'free',
+  'tree',
+  'sun',
+  'star',
+  'heart',
+  'night',
+  'day',
+  'rain',
+  'snow',
+  'sea',
+  'sky',
+]);
 
-const VALID_ONSET2 = new Set(['bl', 'br', 'cl', 'cr', 'dr', 'fl', 'fr', 'gl', 'gr', 'pl', 'pr', 'tr', 'thr', 'shr', 'wr', 'chr', 'tw', 'dw', 'sw', 'kw', 'qu']);
+const VALID_ONSET2 = new Set([
+  'bl',
+  'br',
+  'cl',
+  'cr',
+  'dr',
+  'fl',
+  'fr',
+  'gl',
+  'gr',
+  'pl',
+  'pr',
+  'tr',
+  'thr',
+  'shr',
+  'wr',
+  'chr',
+  'tw',
+  'dw',
+  'sw',
+  'kw',
+  'qu',
+]);
 const S_CLUSTER = new Set(['st', 'sp', 'sk', 'sc', 'sm', 'sn', 'sl']);
 
 function isLetterVowel(c: string): boolean {
@@ -147,7 +224,14 @@ function vowelMask(w: string): boolean[] {
     if (c === 'y' && i > 0 && isLetterVowel(prev) && !isLetterVowel(next)) v = true; // ay, ey, oy teams
     if (c === 'u' && prev === 'q') v = false;
     if (c === 'u' && prev === 'g' && isLetterVowel(next)) v = false;
-    if (c === 'w' && i > 0 && (prev === 'a' || prev === 'e' || prev === 'o') && !isLetterVowel(next) && next !== 'y') v = true;
+    if (
+      c === 'w' &&
+      i > 0 &&
+      (prev === 'a' || prev === 'e' || prev === 'o') &&
+      !isLetterVowel(next) &&
+      next !== 'y'
+    )
+      v = true;
     m.push(v);
   }
   // Glide i in -tion, -sion, -cial, -cious, -tious, -gion, -geous, million, union…
@@ -179,10 +263,18 @@ function nuclei(w: string): [number, number][] {
       const priorVowel = groups.length > 0;
       let split = false;
       if (pair === 'ia' || pair === 'io' || pair === 'iu') split = true;
-      else if (pair === 'eo') split = !/^peo|geo[nu]/.test(w.slice(k - 2, k + 2)) && !(w.slice(k - 2, k + 1) === 'peo');
+      else if (pair === 'eo')
+        split = !/^peo|geo[nu]/.test(w.slice(k - 2, k + 2)) && !(w.slice(k - 2, k + 1) === 'peo');
       else if (pair === 'ua' || pair === 'uo') split = true;
       else if (pair === 'ea' && k + 1 === w.length && priorVowel) split = true;
-      else if (pair === 'ie' && (/^(t|nt|nc)/.test(after) || (after === 'r' && priorVowel) || (after.startsWith('st') && priorVowel)) && !/[tcs]$/.test(w[k - 2] ?? '')) split = true;
+      else if (
+        pair === 'ie' &&
+        (/^(t|nt|nc)/.test(after) ||
+          (after === 'r' && priorVowel) ||
+          (after.startsWith('st') && priorVowel)) &&
+        !/[tcs]$/.test(w[k - 2] ?? '')
+      )
+        split = true;
       else if (pair === 'ue' && after.length > 0 && !/^(s|d)$/.test(after)) split = true;
       else if (pair === 'oe' && after.length > 0 && after !== 's') split = true;
       else if (pair === 'ye' && after.length > 0 && after !== 's' && after !== 'd') split = true;
@@ -252,7 +344,14 @@ function core(w: string, silentE = true): string[] {
   // Silent final e (but not consonant + le, and not when it is the only vowel).
   const lastG = groups[groups.length - 1];
   const leEnding = /[^aeiouy]le$/.test(w) && groups.length >= 2;
-  if (silentE && groups.length >= 2 && lastG[0] === w.length - 1 && w.endsWith('e') && !leEnding && lastG[1] - lastG[0] === 1) {
+  if (
+    silentE &&
+    groups.length >= 2 &&
+    lastG[0] === w.length - 1 &&
+    w.endsWith('e') &&
+    !leEnding &&
+    lastG[1] - lastG[0] === 1
+  ) {
     groups = groups.slice(0, -1);
   }
   if (groups.length === 1) return [w];
@@ -279,7 +378,10 @@ function hasVowel(s: string): boolean {
 }
 
 function lowerWord(word: string): string {
-  return word.toLowerCase().replace(/[’‘`]/g, "'").replace(/[^a-z']/g, '');
+  return word
+    .toLowerCase()
+    .replace(/[’‘`]/g, "'")
+    .replace(/[^a-z']/g, '');
 }
 
 /** Restore the original capitalization of `word` onto syllables of its lowercase form. */
@@ -353,7 +455,11 @@ function syllabifyLower(w: string): string[] {
     let base = w.slice(0, -3);
     if (hasVowel(base)) {
       let carry = '';
-      if (base.length >= 3 && base[base.length - 1] === base[base.length - 2] && !/[aeiouylsfz]/.test(base[base.length - 1])) {
+      if (
+        base.length >= 3 &&
+        base[base.length - 1] === base[base.length - 2] &&
+        !/[aeiouylsfz]/.test(base[base.length - 1])
+      ) {
         carry = base[base.length - 1];
         base = base.slice(0, -1);
       }
@@ -384,7 +490,8 @@ function syllabifyLower(w: string): string[] {
   if (w.endsWith('es') && w.length > 3) {
     const base = w.slice(0, -2);
     if (hasVowel(base)) {
-      if (/(s|z|x|ch|sh|ss|zz)$/.test(base) || /[gc]$/.test(base)) return [...syllabifyBaseForSuffix(base), 'es'];
+      if (/(s|z|x|ch|sh|ss|zz)$/.test(base) || /[gc]$/.test(base))
+        return [...syllabifyBaseForSuffix(base), 'es'];
       const b = syllabifyBaseForSuffix(base);
       b[b.length - 1] += 'es';
       return b;
@@ -431,7 +538,11 @@ function syllabifyLowerCached(w: string): readonly string[] {
 export function syllabify(word: string): string[] {
   const trimmed = word.trim();
   if (!trimmed) return [];
-  if (trimmed.includes('-') && /[A-Za-z]-[A-Za-z]/.test(trimmed)) return trimmed.split('-').filter(Boolean).flatMap((p) => syllabify(p));
+  if (trimmed.includes('-') && /[A-Za-z]-[A-Za-z]/.test(trimmed))
+    return trimmed
+      .split('-')
+      .filter(Boolean)
+      .flatMap((p) => syllabify(p));
   const w = lowerWord(trimmed);
   if (!w || !/[a-z]/.test(w)) return [];
   return recase(trimmed, syllabifyLowerCached(w));
@@ -458,11 +569,15 @@ export function countSyllables(text: string): number {
  * Syllables of a lyric line as sung tokens: word-continuation syllables carry a trailing "-"
  * ("ca-", "thar-", "tic").
  */
-export function lyricTokens(text: string): { text: string; wordIndex: number; syllableIndex: number; word: string }[] {
+export function lyricTokens(
+  text: string,
+): { text: string; wordIndex: number; syllableIndex: number; word: string }[] {
   const out: { text: string; wordIndex: number; syllableIndex: number; word: string }[] = [];
   syllabifyText(text).forEach((w, wi) => {
     const s = w.syllables.length ? w.syllables : [w.word];
-    s.forEach((syl, si) => out.push({ text: si < s.length - 1 ? `${syl}-` : syl, wordIndex: wi, syllableIndex: si, word: w.word }));
+    s.forEach((syl, si) =>
+      out.push({ text: si < s.length - 1 ? `${syl}-` : syl, wordIndex: wi, syllableIndex: si, word: w.word }),
+    );
   });
   return out;
 }

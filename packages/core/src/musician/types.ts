@@ -68,7 +68,8 @@ export interface SongExplanation {
 }
 
 /** Theory View controls (spec §43). */
-export type TheoryControl = 'darker' | 'brighter' | 'more-tension' | 'less-tension' | 'less-conventional' | 'modal' | 'simplify';
+export type TheoryControl =
+  'darker' | 'brighter' | 'more-tension' | 'less-tension' | 'less-conventional' | 'modal' | 'simplify';
 
 export interface ChordSuggestion {
   symbol: string;

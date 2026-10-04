@@ -1,5 +1,12 @@
 import { MASTERING_PRESETS, type LoudnessReport } from '@songdeck/audio';
-import type { AudioAssetMeta, MasteringSettings, MasteringTarget, Project, ProvenanceRecord, Song } from '@songdeck/core';
+import type {
+  AudioAssetMeta,
+  MasteringSettings,
+  MasteringTarget,
+  Project,
+  ProvenanceRecord,
+  Song,
+} from '@songdeck/core';
 import { mixHash } from './mix-render';
 
 /**
@@ -15,11 +22,29 @@ export interface TargetInfo {
   truePeakDb: number;
 }
 
-const COPY: Record<MasteringTarget, { label: string; description: string; lufs: number; truePeakDb: number }> = {
-  streaming: { label: 'Streaming', description: 'Spotify, Apple Music, YouTube normalization', lufs: -14, truePeakDb: -1 },
+const COPY: Record<
+  MasteringTarget,
+  { label: string; description: string; lufs: number; truePeakDb: number }
+> = {
+  streaming: {
+    label: 'Streaming',
+    description: 'Spotify, Apple Music, YouTube normalization',
+    lufs: -14,
+    truePeakDb: -1,
+  },
   cd: { label: 'CD', description: 'Competitive full-scale CD master', lufs: -9, truePeakDb: -0.3 },
-  'loud-rock': { label: 'Loud rock', description: 'Dense, aggressive, maximized', lufs: -8, truePeakDb: -0.5 },
-  dynamic: { label: 'Dynamic', description: 'Preserves transients and dynamic range', lufs: -18, truePeakDb: -1 },
+  'loud-rock': {
+    label: 'Loud rock',
+    description: 'Dense, aggressive, maximized',
+    lufs: -8,
+    truePeakDb: -0.5,
+  },
+  dynamic: {
+    label: 'Dynamic',
+    description: 'Preserves transients and dynamic range',
+    lufs: -18,
+    truePeakDb: -1,
+  },
   podcast: { label: 'Podcast', description: 'Speech-friendly broadcast loudness', lufs: -16, truePeakDb: -1 },
   demo: { label: 'Demo', description: 'Quick, safe level for sharing drafts', lufs: -12, truePeakDb: -1 },
 };
@@ -70,7 +95,10 @@ export function loudnessSummary(r: LoudnessReport): string {
 }
 
 /** The current master asset of the song, with the provenance that produced it. */
-export function currentMaster(project: Project | null, song: Song | null): { meta: AudioAssetMeta; provenance?: ProvenanceRecord; stale: boolean; report?: LoudnessReport } | null {
+export function currentMaster(
+  project: Project | null,
+  song: Song | null,
+): { meta: AudioAssetMeta; provenance?: ProvenanceRecord; stale: boolean; report?: LoudnessReport } | null {
   if (!project || !song) return null;
   const id = song.mastering.lastMasterAssetId;
   if (!id) return null;
@@ -84,11 +112,21 @@ export function currentMaster(project: Project | null, song: Song | null): { met
 }
 
 /** Latest persisted loudness analysis of the unmastered mix (and whether it matches the current mix). */
-export function latestMixAnalysis(project: Project | null, song: Song | null): { report: LoudnessReport; hash: string; createdAt: string; current: boolean } | null {
+export function latestMixAnalysis(
+  project: Project | null,
+  song: Song | null,
+): { report: LoudnessReport; hash: string; createdAt: string; current: boolean } | null {
   if (!project || !song) return null;
-  const recs = project.analysis.filter((a) => a.kind === 'loudness' && (a.data as { scope?: string } | null)?.scope === 'mix');
+  const recs = project.analysis.filter(
+    (a) => a.kind === 'loudness' && (a.data as { scope?: string } | null)?.scope === 'mix',
+  );
   const last = recs[recs.length - 1];
   if (!last) return null;
   const data = last.data as { hash: string; report: LoudnessReport };
-  return { report: data.report, hash: data.hash, createdAt: last.createdAt, current: data.hash === mixHash(song) };
+  return {
+    report: data.report,
+    hash: data.hash,
+    createdAt: last.createdAt,
+    current: data.hash === mixHash(song),
+  };
 }

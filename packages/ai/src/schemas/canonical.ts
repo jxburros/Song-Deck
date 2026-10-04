@@ -31,7 +31,17 @@ import type { JsonSchema } from '../types';
 
 type Complete<T, A extends readonly unknown[]> = [Exclude<T, A[number]>] extends [never] ? A : never;
 
-const MODES_ = ['major', 'minor', 'dorian', 'phrygian', 'lydian', 'mixolydian', 'locrian', 'harmonic-minor', 'melodic-minor'] as const;
+const MODES_ = [
+  'major',
+  'minor',
+  'dorian',
+  'phrygian',
+  'lydian',
+  'mixolydian',
+  'locrian',
+  'harmonic-minor',
+  'melodic-minor',
+] as const;
 export const MODE_NAMES: Complete<ModeName, typeof MODES_> = MODES_;
 
 const SECTION_KINDS_ = [
@@ -90,7 +100,19 @@ const TRACK_ROLES_ = [
 ] as const;
 export const TRACK_ROLE_NAMES: Complete<TrackRole, typeof TRACK_ROLES_> = TRACK_ROLES_;
 
-const FUNCTIONS_ = ['melody', 'counter-melody', 'harmony', 'accompaniment', 'bass-line', 'rhythm', 'pad', 'hook', 'fills', 'solo', 'texture'] as const;
+const FUNCTIONS_ = [
+  'melody',
+  'counter-melody',
+  'harmony',
+  'accompaniment',
+  'bass-line',
+  'rhythm',
+  'pad',
+  'hook',
+  'fills',
+  'solo',
+  'texture',
+] as const;
 export const MUSICAL_FUNCTIONS: Complete<MusicalFunction, typeof FUNCTIONS_> = FUNCTIONS_;
 
 const AUTOMATION_PARAMS_ = [
@@ -115,10 +137,26 @@ export const VARIATION_LEVELS: Complete<VariationLevel, typeof VARIATION_LEVELS_
 const VOICE_TYPES_ = ['soprano', 'mezzo', 'alto', 'tenor', 'baritone', 'bass'] as const;
 export const VOICE_TYPES: Complete<VoiceType, typeof VOICE_TYPES_> = VOICE_TYPES_;
 
-const VOCAL_MODES_ = ['none', 'melody-only', 'placeholder', 'ai-singer', 'voice-conversion', 'recorded'] as const;
+const VOCAL_MODES_ = [
+  'none',
+  'melody-only',
+  'placeholder',
+  'ai-singer',
+  'voice-conversion',
+  'recorded',
+] as const;
 export const VOCAL_MODES: Complete<VocalMode, typeof VOCAL_MODES_> = VOCAL_MODES_;
 
-const AVOID_RULES_ = ['double-vocal', 'parallel-fifths', 'busy-verses', 'high-register', 'low-register', 'chromaticism', 'syncopation', 'large-leaps'] as const;
+const AVOID_RULES_ = [
+  'double-vocal',
+  'parallel-fifths',
+  'busy-verses',
+  'high-register',
+  'low-register',
+  'chromaticism',
+  'syncopation',
+  'large-leaps',
+] as const;
 export const AVOID_RULES: Complete<AvoidRule, typeof AVOID_RULES_> = AVOID_RULES_;
 
 const MIXER_PARAMS_ = [
@@ -151,7 +189,12 @@ const MIXER_PARAMS_ = [
   'compressor.makeupDb',
 ] as const;
 export const MIXER_PARAMS: Complete<keyof MixerChange, typeof MIXER_PARAMS_> = MIXER_PARAMS_;
-export const BOOLEAN_MIXER_PARAMS: readonly (keyof MixerChange)[] = ['mute', 'solo', 'eq.enabled', 'compressor.enabled'];
+export const BOOLEAN_MIXER_PARAMS: readonly (keyof MixerChange)[] = [
+  'mute',
+  'solo',
+  'eq.enabled',
+  'compressor.enabled',
+];
 
 const OP_NAMES_ = [
   'replace_notes',
@@ -186,18 +229,41 @@ export const RELEASES = ['normal', 'falling', 'rising', 'breathy', 'cut'] as con
 // Builders
 // ---------------------------------------------------------------------------
 
-const str = (description?: string, extra: JsonSchema = {}): JsonSchema => ({ type: 'string', ...(description ? { description } : {}), ...extra });
-const num = (description?: string, extra: JsonSchema = {}): JsonSchema => ({ type: 'number', ...(description ? { description } : {}), ...extra });
-const int = (description?: string, extra: JsonSchema = {}): JsonSchema => ({ type: 'integer', ...(description ? { description } : {}), ...extra });
-const bool = (description?: string): JsonSchema => ({ type: 'boolean', ...(description ? { description } : {}) });
-const enm = (values: readonly string[], description?: string): JsonSchema => ({ type: 'string', enum: [...values], ...(description ? { description } : {}) });
+const str = (description?: string, extra: JsonSchema = {}): JsonSchema => ({
+  type: 'string',
+  ...(description ? { description } : {}),
+  ...extra,
+});
+const num = (description?: string, extra: JsonSchema = {}): JsonSchema => ({
+  type: 'number',
+  ...(description ? { description } : {}),
+  ...extra,
+});
+const int = (description?: string, extra: JsonSchema = {}): JsonSchema => ({
+  type: 'integer',
+  ...(description ? { description } : {}),
+  ...extra,
+});
+const bool = (description?: string): JsonSchema => ({
+  type: 'boolean',
+  ...(description ? { description } : {}),
+});
+const enm = (values: readonly string[], description?: string): JsonSchema => ({
+  type: 'string',
+  enum: [...values],
+  ...(description ? { description } : {}),
+});
 const arr = (items: JsonSchema, description?: string, extra: JsonSchema = {}): JsonSchema => ({
   type: 'array',
   items,
   ...(description ? { description } : {}),
   ...extra,
 });
-const obj = (properties: Record<string, JsonSchema>, required: string[] = [], description?: string): JsonSchema => ({
+const obj = (
+  properties: Record<string, JsonSchema>,
+  required: string[] = [],
+  description?: string,
+): JsonSchema => ({
   type: 'object',
   properties,
   required,
@@ -206,7 +272,10 @@ const obj = (properties: Record<string, JsonSchema>, required: string[] = [], de
 });
 const keep = (s: JsonSchema): JsonSchema => ({ ...s, 'x-keep': true });
 
-const CONFIDENCE = num('Your confidence that this answer is musically correct and complete, 0..1', { minimum: 0, maximum: 1 });
+const CONFIDENCE = num('Your confidence that this answer is musically correct and complete, 0..1', {
+  minimum: 0,
+  maximum: 1,
+});
 
 // ---------------------------------------------------------------------------
 // Composition plan (spec §15) and blueprint (spec §10)
@@ -239,9 +308,13 @@ export const COMPOSITION_PLAN_SCHEMA: JsonSchema = obj(
           name: str('Display name, e.g. "Verse 1", "Final Chorus"'),
           kind: enm(SECTION_KINDS),
           bars: int('Length in bars', { minimum: 1, maximum: 128 }),
-          harmony: arr(str('Chord symbol such as "Em", "C", "G/B", "D7sus4"'), 'Chord symbols in order, one per harmonic-rhythm slot (they repeat to fill the section)', {
-            minItems: 1,
-          }),
+          harmony: arr(
+            str('Chord symbol such as "Em", "C", "G/B", "D7sus4"'),
+            'Chord symbols in order, one per harmonic-rhythm slot (they repeat to fill the section)',
+            {
+              minItems: 1,
+            },
+          ),
           energy: num('Energy 0..100 at the start of the section', { minimum: 0, maximum: 100 }),
           energy_end: num('Energy 0..100 at the end (for ramps)', { minimum: 0, maximum: 100 }),
           purpose: str('Musical purpose, e.g. "Rising tension"'),
@@ -278,7 +351,13 @@ export const BLUEPRINT_SCHEMA: JsonSchema = obj(
     key: KEY_SCHEMA,
     styles: arr(str(), 'Style labels, e.g. ["Emo", "Pop-punk"]'),
     genre_blend: arr(
-      obj({ genre_id: str('Genre profile id (use the provided ids when given)'), weight: num('Relative weight', { minimum: 0 }) }, ['genre_id', 'weight']),
+      obj(
+        {
+          genre_id: str('Genre profile id (use the provided ids when given)'),
+          weight: num('Relative weight', { minimum: 0 }),
+        },
+        ['genre_id', 'weight'],
+      ),
       'Genre blend, e.g. 50% pop-punk / 30% emo / 20% cinematic',
     ),
     moods: arr(str(), 'Mood statements, e.g. "Melancholy verses", "Cathartic chorus"'),
@@ -317,8 +396,12 @@ export const BLUEPRINT_SCHEMA: JsonSchema = obj(
       'Song structure in order',
       { minItems: 1 },
     ),
-    vocal: obj({ voice_type: enm(VOICE_TYPES), mode: enm(VOCAL_MODES), description: str() }, ['voice_type', 'mode']),
+    vocal: obj({ voice_type: enm(VOICE_TYPES), mode: enm(VOCAL_MODES), description: str() }, [
+      'voice_type',
+      'mode',
+    ]),
     lyrics_theme: str('What the lyrics are about'),
+    tags: arr(str(), 'Tag ids (style, mood, era, production…) from the available tag ids'),
     macros: obj(MACRO_PROPS, [], 'Macro controls 0..1'),
     explanation: str('One or two sentences explaining the choices'),
     confidence: CONFIDENCE,
@@ -405,8 +488,12 @@ const TRANSFORM_SCHEMA = obj(
 export const OPERATION_ITEM_SCHEMA: JsonSchema = obj(
   {
     op: enm(OPERATION_NAMES, 'Operation type'),
-    track: keep(str('Target track: id, exact name, or role (e.g. "bass"); "master" for master-bus mixer ops')),
-    section: keep(str('Target section id or name (update_section, remove_section, move_section, set_lyrics)')),
+    track: keep(
+      str('Target track: id, exact name, or role (e.g. "bass"); "master" for master-bus mixer ops'),
+    ),
+    section: keep(
+      str('Target section id or name (update_section, remove_section, move_section, set_lyrics)'),
+    ),
     start_bar: keep(int('Region start, 1-based inclusive', { minimum: 1 })),
     end_bar: keep(int('Region end, 1-based inclusive', { minimum: 1 })),
     notes: keep(arr(NOTE_ITEM_SCHEMA, 'Notes (replace_notes, add_notes)')),
@@ -492,7 +579,10 @@ export const LYRICS_SCHEMA: JsonSchema = obj(
   {
     title: str('Suggested title'),
     sections: arr(
-      obj({ section: str('Section name exactly as requested'), lines: arr(str(), 'Lyric lines in order') }, ['section', 'lines']),
+      obj({ section: str('Section name exactly as requested'), lines: arr(str(), 'Lyric lines in order') }, [
+        'section',
+        'lines',
+      ]),
       'One entry per requested section',
     ),
     notes: str('Notes on rhyme, imagery or syllable fitting'),
@@ -505,7 +595,10 @@ export const CHAT_SCHEMA: JsonSchema = obj(
   {
     answer: str('Answer in terms of the actual project (sections, bars, chords, tracks)'),
     suggestions: arr(str(), 'Optional short follow-up suggestions'),
-    operations: arr(OPERATION_ITEM_SCHEMA, 'Edits to PROPOSE only if the user asked for a change; otherwise empty'),
+    operations: arr(
+      OPERATION_ITEM_SCHEMA,
+      'Edits to PROPOSE only if the user asked for a change; otherwise empty',
+    ),
     confidence: CONFIDENCE,
   },
   ['answer', 'suggestions', 'operations', 'confidence'],
@@ -514,7 +607,16 @@ export const CHAT_SCHEMA: JsonSchema = obj(
 export const ANALYSIS_SCHEMA: JsonSchema = obj(
   {
     summary: str('Overall analysis'),
-    observations: arr(obj({ topic: str('e.g. "harmony", "energy", "arrangement"'), detail: str(), section: str('Section name, if specific') }, ['topic', 'detail'])),
+    observations: arr(
+      obj(
+        {
+          topic: str('e.g. "harmony", "energy", "arrangement"'),
+          detail: str(),
+          section: str('Section name, if specific'),
+        },
+        ['topic', 'detail'],
+      ),
+    ),
     key: str('Detected/confirmed key, e.g. "E minor"'),
     tempo: num('Tempo in BPM'),
     genre: str('Genre / style'),

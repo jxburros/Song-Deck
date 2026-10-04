@@ -2,6 +2,7 @@
  * Tiny vowel-group syllabifier used by the vocal generator to match note counts to lyric lines.
  * (The musician module owns the full lyric tooling; this is intentionally small and internal.)
  */
+import { wordStress } from '../musician/lyrics/g2p';
 
 const VOWELS = 'aeiouy';
 
@@ -83,5 +84,26 @@ export function splitWordSyllables(word: string): string[] {
 export function lineSyllables(text: string): string[] {
   const out: string[] = [];
   for (const w of splitWords(text)) out.push(...splitWordSyllables(w));
+  return out;
+}
+
+/**
+ * Lexical stress (1/0) of each syllable `lineSyllables` returns: the musician's stress rules
+ * (primary stress per word, monosyllabic function words unstressed) mapped onto this splitter.
+ */
+export function lineStresses(text: string): number[] {
+  const out: number[] = [];
+  for (const w of splitWords(text)) {
+    const n = splitWordSyllables(w).length;
+    const s = wordStress(w);
+    if (s.length === n) {
+      out.push(...s);
+      continue;
+    }
+    const idx = s.indexOf(1);
+    const at =
+      idx < 0 ? -1 : n === 1 ? 0 : Math.min(n - 1, Math.round((idx * (n - 1)) / Math.max(1, s.length - 1)));
+    for (let i = 0; i < n; i++) out.push(i === at ? 1 : 0);
+  }
   return out;
 }

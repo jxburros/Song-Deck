@@ -23,7 +23,10 @@ export class MicError extends Error {
 /** Human-readable explanation for any getUserMedia / MediaRecorder failure. */
 export function describeMicError(err: unknown): MicError {
   if (err instanceof MicError) return err;
-  const name = err instanceof Error || (typeof DOMException !== 'undefined' && err instanceof DOMException) ? (err as Error).name : '';
+  const name =
+    err instanceof Error || (typeof DOMException !== 'undefined' && err instanceof DOMException)
+      ? (err as Error).name
+      : '';
   const detail = err instanceof Error ? err.message : String(err);
   switch (name) {
     case 'NotAllowedError':
@@ -36,23 +39,47 @@ export function describeMicError(err: unknown): MicError {
     case 'NotFoundError':
     case 'DevicesNotFoundError':
     case 'OverconstrainedError':
-      return new MicError('no-device', 'No microphone was found. Connect one (or choose an input in your system settings) and try again, or upload a recording.');
+      return new MicError(
+        'no-device',
+        'No microphone was found. Connect one (or choose an input in your system settings) and try again, or upload a recording.',
+      );
     case 'NotReadableError':
     case 'TrackStartError':
     case 'AbortError':
-      return new MicError('busy', 'The microphone could not be started — it may be in use by another application.');
+      return new MicError(
+        'busy',
+        'The microphone could not be started — it may be in use by another application.',
+      );
     default:
       return new MicError('unknown', `Could not use the microphone: ${detail || 'unknown error'}`);
   }
 }
 
 export function micSupport(): { ok: boolean; reason?: MicError } {
-  if (typeof window === 'undefined') return { ok: false, reason: new MicError('unsupported', 'No browser environment.') };
+  if (typeof window === 'undefined')
+    return { ok: false, reason: new MicError('unsupported', 'No browser environment.') };
   if (!window.isSecureContext) {
-    return { ok: false, reason: new MicError('insecure', 'Recording needs a secure connection (https or localhost). Upload a recording instead.') };
+    return {
+      ok: false,
+      reason: new MicError(
+        'insecure',
+        'Recording needs a secure connection (https or localhost). Upload a recording instead.',
+      ),
+    };
   }
-  if (!navigator.mediaDevices?.getUserMedia) return { ok: false, reason: new MicError('unsupported', 'This browser cannot record from a microphone. Upload a recording instead.') };
-  if (typeof MediaRecorder === 'undefined') return { ok: false, reason: new MicError('unsupported', 'This browser has no MediaRecorder. Upload a recording instead.') };
+  if (!navigator.mediaDevices?.getUserMedia)
+    return {
+      ok: false,
+      reason: new MicError(
+        'unsupported',
+        'This browser cannot record from a microphone. Upload a recording instead.',
+      ),
+    };
+  if (typeof MediaRecorder === 'undefined')
+    return {
+      ok: false,
+      reason: new MicError('unsupported', 'This browser has no MediaRecorder. Upload a recording instead.'),
+    };
   return { ok: true };
 }
 
@@ -78,15 +105,28 @@ export interface RecorderEvents {
   onTime?(seconds: number): void;
 }
 
-const PREFERRED_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/mpeg'];
+const PREFERRED_TYPES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+  'audio/mp4',
+  'audio/mpeg',
+];
 
 function pickMime(): string | undefined {
-  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') return undefined;
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function')
+    return undefined;
   return PREFERRED_TYPES.find((t) => MediaRecorder.isTypeSupported(t));
 }
 
 /** Schedule metronome clicks on a context (used for the count-in). Returns the time after the last beat. */
-export function scheduleClicks(ctx: BaseAudioContext, startAt: number, beats: number, bpm: number, beatsPerBar = beats): number {
+export function scheduleClicks(
+  ctx: BaseAudioContext,
+  startAt: number,
+  beats: number,
+  bpm: number,
+  beatsPerBar = beats,
+): number {
   const beat = 60 / bpm;
   for (let i = 0; i < beats; i++) {
     const t = startAt + i * beat;
@@ -151,7 +191,9 @@ export class MicRecorder {
       this.setPhase('idle');
       throw describeMicError(err);
     }
-    const Ctx: typeof AudioContext = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const Ctx: typeof AudioContext =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     this.ctx = new Ctx({ latencyHint: 'interactive' });
     if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => undefined);
     this.source = this.ctx.createMediaStreamSource(this.stream);
@@ -200,7 +242,9 @@ export class MicRecorder {
    * Start recording, optionally after a count-in at `bpm` (`beats` clicks). Resolves once the
    * recorder is actually running. Use `stop()` to finish.
    */
-  async start(opts: { countIn?: { beats: number; bpm: number; beatsPerBar?: number } | null; maxSeconds?: number } = {}): Promise<void> {
+  async start(
+    opts: { countIn?: { beats: number; bpm: number; beatsPerBar?: number } | null; maxSeconds?: number } = {},
+  ): Promise<void> {
     if (!this.stream || !this.ctx) await this.open();
     if (this.phase === 'recording' || this.phase === 'count-in') return;
     const ctx = this.ctx!;
@@ -247,7 +291,8 @@ export class MicRecorder {
       }
       this.startedAt = performance.now();
       this.setPhase('recording');
-      if (opts.maxSeconds) this.maxTimer = setTimeout(() => void this.stop().catch(() => undefined), opts.maxSeconds * 1000);
+      if (opts.maxSeconds)
+        this.maxTimer = setTimeout(() => void this.stop().catch(() => undefined), opts.maxSeconds * 1000);
     };
 
     const ci = opts.countIn;
@@ -257,7 +302,12 @@ export class MicRecorder {
       const end = scheduleClicks(ctx, t0, ci.beats, ci.bpm, ci.beatsPerBar ?? ci.beats);
       const beat = 60 / ci.bpm;
       for (let i = 0; i < ci.beats; i++) {
-        this.timers.push(setTimeout(() => this.events.onCountIn?.(i + 1, ci.beats), Math.max(0, (t0 + i * beat - ctx.currentTime) * 1000)));
+        this.timers.push(
+          setTimeout(
+            () => this.events.onCountIn?.(i + 1, ci.beats),
+            Math.max(0, (t0 + i * beat - ctx.currentTime) * 1000),
+          ),
+        );
       }
       await new Promise<void>((resolve, reject) => {
         this.timers.push(

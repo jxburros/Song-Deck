@@ -3,40 +3,62 @@
  * guitars panned wide, high-pass filters on everything that isn't bass, compression on drums, bass
  * and vocals, reverb sends scaled by the genre's production reverb, vocal slightly forward.
  */
-import type { ChannelStrip, GenreProfile, InstrumentProfile, MixerState, Song, Track, TrackRole } from '../ir/types';
+import type {
+  ChannelStrip,
+  GenreProfile,
+  InstrumentProfile,
+  MixerState,
+  Song,
+  Track,
+  TrackRole,
+} from '../ir/types';
 import { defaultChannelStrip, defaultCompressor, defaultEq, defaultMixer } from '../ir/defaults';
+import { baseDrumStyle } from './styles';
+import { colorForRole } from '../ir/palette';
 import { clamp, clamp01 } from './util';
 
-export const ROLE_COLORS: Record<TrackRole, string> = {
-  drums: '#e05252',
-  percussion: '#e07b52',
-  bass: '#e0a852',
-  'rhythm-guitar': '#c9c94f',
-  'lead-guitar': '#8fd14f',
-  keys: '#4fd18f',
-  strings: '#4fc9d1',
-  'synth-pad': '#4f8fd1',
-  'synth-arp': '#6f6fe0',
-  'synth-lead': '#a35be0',
-  'synth-seq': '#d15bc9',
-  vocal: '#e05b9a',
-  custom: '#9aa3ad',
-};
-
 export function trackColor(role: TrackRole): string {
-  return ROLE_COLORS[role] ?? ROLE_COLORS.custom;
+  return colorForRole(role);
 }
 
 const HPF_BY_INSTRUMENT: Record<string, number> = {
-  'lead-vocal': 90, 'backing-vocal': 120, choir: 90, violin: 180, viola: 120, cello: 50, contrabass: 30, 'string-ensemble': 60,
-  'pizzicato-strings': 70, harp: 60, flute: 180, clarinet: 120, saxophone: 100, trumpet: 140, trombone: 70, 'french-horn': 70,
-  'brass-section': 80, piano: 50, 'electric-piano': 70, organ: 70, 'synth-pad': 120, 'synth-arp': 150, 'synth-lead': 120, 'synth-seq': 100,
-  'electric-guitar-distorted': 90, 'electric-guitar-clean': 100, 'acoustic-guitar': 100, 'electric-guitar-lead': 110, percussion: 200,
-  glockenspiel: 400, marimba: 80, timpani: 35,
+  'lead-vocal': 90,
+  'backing-vocal': 120,
+  choir: 90,
+  violin: 180,
+  viola: 120,
+  cello: 50,
+  contrabass: 30,
+  'string-ensemble': 60,
+  'pizzicato-strings': 70,
+  harp: 60,
+  flute: 180,
+  clarinet: 120,
+  saxophone: 100,
+  trumpet: 140,
+  trombone: 70,
+  'french-horn': 70,
+  'brass-section': 80,
+  piano: 50,
+  'electric-piano': 70,
+  organ: 70,
+  'synth-pad': 120,
+  'synth-arp': 150,
+  'synth-lead': 120,
+  'synth-seq': 100,
+  'electric-guitar-distorted': 90,
+  'electric-guitar-clean': 100,
+  'acoustic-guitar': 100,
+  'electric-guitar-lead': 110,
+  percussion: 200,
+  glockenspiel: 400,
+  marimba: 80,
+  timpani: 35,
 };
 
 function baseVolume(role: TrackRole, instrumentId: string, fn?: string): number {
-  if (role === 'vocal') return instrumentId === 'lead-vocal' || fn === 'melody' ? -3 : instrumentId === 'choir' ? -11 : -10;
+  if (role === 'vocal')
+    return instrumentId === 'lead-vocal' || fn === 'melody' ? -3 : instrumentId === 'choir' ? -11 : -10;
   switch (role) {
     case 'drums':
       return -5;
@@ -75,22 +97,61 @@ function basePan(track: Track, instrumentId: string, pairIndex: number, pairCoun
     return pairCount >= 2 ? (pairIndex % 2 === 0 ? -0.45 : 0.45) : 0.25;
   }
   const table: Record<string, number> = {
-    'electric-guitar-lead': 0.2, 'electric-guitar-clean': -0.3, 'acoustic-guitar': -0.25, piano: -0.2, 'electric-piano': -0.25, organ: 0.3,
-    violin: 0.35, viola: 0.15, cello: -0.3, contrabass: -0.15, 'string-ensemble': 0.1, 'pizzicato-strings': 0.2, harp: -0.35,
-    trumpet: 0.3, trombone: -0.25, 'french-horn': -0.35, 'brass-section': 0.25, flute: 0.4, clarinet: -0.4, saxophone: 0.25,
-    'synth-arp': -0.35, 'synth-seq': 0.35, 'synth-lead': 0.15, percussion: 0.4, glockenspiel: 0.3, marimba: -0.3, choir: 0, timpani: -0.1,
+    'electric-guitar-lead': 0.2,
+    'electric-guitar-clean': -0.3,
+    'acoustic-guitar': -0.25,
+    piano: -0.2,
+    'electric-piano': -0.25,
+    organ: 0.3,
+    violin: 0.35,
+    viola: 0.15,
+    cello: -0.3,
+    contrabass: -0.15,
+    'string-ensemble': 0.1,
+    'pizzicato-strings': 0.2,
+    harp: -0.35,
+    trumpet: 0.3,
+    trombone: -0.25,
+    'french-horn': -0.35,
+    'brass-section': 0.25,
+    flute: 0.4,
+    clarinet: -0.4,
+    saxophone: 0.25,
+    'synth-arp': -0.35,
+    'synth-seq': 0.35,
+    'synth-lead': 0.15,
+    percussion: 0.4,
+    glockenspiel: 0.3,
+    marimba: -0.3,
+    choir: 0,
+    timpani: -0.1,
   };
   if (track.role === 'rhythm-guitar' && pairCount === 1) return -0.3;
   return table[instrumentId] ?? 0;
 }
 
 /** Channel strip for one generated track. */
-export function defaultChannelFor(track: Track, instrument: InstrumentProfile, genre: GenreProfile, pairIndex: number, pairCount: number, panOverride?: number): ChannelStrip {
+export function defaultChannelFor(
+  track: Track,
+  instrument: InstrumentProfile,
+  genre: GenreProfile,
+  pairIndex: number,
+  pairCount: number,
+  panOverride?: number,
+): ChannelStrip {
   const id = instrument.id;
   const fn = track.constraints?.function;
-  const strip = defaultChannelStrip({ volumeDb: baseVolume(track.role, id, fn), pan: clamp(panOverride ?? basePan(track, id, pairIndex, pairCount), -1, 1) });
+  const strip = defaultChannelStrip({
+    volumeDb: baseVolume(track.role, id, fn),
+    pan: clamp(panOverride ?? basePan(track, id, pairIndex, pairCount), -1, 1),
+  });
   const eq = defaultEq();
-  eq.highpassHz = track.role === 'bass' || track.role === 'drums' || instrument.isDrumKit ? (track.role === 'bass' ? 30 : 0) : HPF_BY_INSTRUMENT[id] ?? 80;
+  eq.highpassHz =
+    track.role === 'bass' || track.role === 'drums' || instrument.isDrumKit
+      ? track.role === 'bass'
+        ? 30
+        : 0
+      : (HPF_BY_INSTRUMENT[id] ?? 80);
   if (instrument.isDrumKit && track.role === 'percussion') eq.highpassHz = 200;
   const comp = defaultCompressor();
   const reverb = clamp01(genre.production.reverb);
@@ -98,13 +159,27 @@ export function defaultChannelFor(track: Track, instrument: InstrumentProfile, g
   let delay = 0;
   switch (track.role) {
     case 'drums':
-      Object.assign(comp, { enabled: true, thresholdDb: -16, ratio: 4, attackMs: 10, releaseMs: 120, makeupDb: 2 });
+      Object.assign(comp, {
+        enabled: true,
+        thresholdDb: -16,
+        ratio: 4,
+        attackMs: 10,
+        releaseMs: 120,
+        makeupDb: 2,
+      });
       eq.lowShelfDb = 1;
       eq.highShelfDb = 1;
       reverbFactor = 0.35;
       break;
     case 'bass':
-      Object.assign(comp, { enabled: true, thresholdDb: -20, ratio: 4, attackMs: 15, releaseMs: 150, makeupDb: 2 });
+      Object.assign(comp, {
+        enabled: true,
+        thresholdDb: -20,
+        ratio: 4,
+        attackMs: 15,
+        releaseMs: 150,
+        makeupDb: 2,
+      });
       eq.lowShelfDb = 1;
       reverbFactor = 0;
       strip.width = 0.5;
@@ -112,12 +187,25 @@ export function defaultChannelFor(track: Track, instrument: InstrumentProfile, g
       break;
     case 'vocal':
       if (id === 'lead-vocal' || fn === 'melody') {
-        Object.assign(comp, { enabled: true, thresholdDb: -18, ratio: 3, attackMs: 5, releaseMs: 100, makeupDb: 2 });
+        Object.assign(comp, {
+          enabled: true,
+          thresholdDb: -18,
+          ratio: 3,
+          attackMs: 5,
+          releaseMs: 100,
+          makeupDb: 2,
+        });
         eq.highMidDb = 1.5;
         eq.highMidHz = 3000;
         eq.highShelfDb = 1.5;
         reverbFactor = 0.85;
-        delay = genre.rhythm.drumStyle === 'punk' || genre.rhythm.drumStyle === 'metal' ? 0.06 : 0.14;
+        delay =
+          baseDrumStyle(genre.rhythm.drumStyle) === 'punk' ||
+          baseDrumStyle(genre.rhythm.drumStyle) === 'metal'
+            ? 0.06
+            : genre.rhythm.drumStyle === 'one-drop' || genre.rhythm.drumStyle === 'dubstep'
+              ? 0.22
+              : 0.14;
         strip.width = 0.8;
       } else {
         Object.assign(comp, { enabled: true, thresholdDb: -20, ratio: 3, attackMs: 8, releaseMs: 120 });
@@ -173,9 +261,19 @@ export function defaultChannelFor(track: Track, instrument: InstrumentProfile, g
 /** Shared reverb/delay buses shaped by the genre's production style. */
 export function mixerForGenre(genre: GenreProfile): MixerState {
   const m = defaultMixer();
-  const d = genre.rhythm.drumStyle;
+  const d = baseDrumStyle(genre.rhythm.drumStyle);
   const rv = clamp01(genre.production.reverb);
-  m.reverb.type = d === 'orchestral' || d === 'cinematic' || d === 'trance' ? 'hall' : d === 'punk' || d === 'indie' || d === 'folk' || d === 'country' || d === 'jazz-swing' || d === 'hip-hop' ? 'room' : 'plate';
+  m.reverb.type =
+    d === 'orchestral' || d === 'cinematic' || d === 'trance'
+      ? 'hall'
+      : d === 'punk' ||
+          d === 'indie' ||
+          d === 'folk' ||
+          d === 'country' ||
+          d === 'jazz-swing' ||
+          d === 'hip-hop'
+        ? 'room'
+        : 'plate';
   m.reverb.size = Math.round((0.35 + rv * 0.6) * 100) / 100;
   m.reverb.decaySeconds = Math.round((0.8 + rv * 3.2) * 10) / 10;
   m.reverb.returnDb = -6 + Math.round(rv * 4);
@@ -185,7 +283,12 @@ export function mixerForGenre(genre: GenreProfile): MixerState {
 }
 
 /** Fill mixer channels for every track of a song that has no strip yet. */
-export function fillMixer(song: Song, genre: GenreProfile, instrumentOf: (t: Track) => InstrumentProfile, pans?: Map<string, number>): void {
+export function fillMixer(
+  song: Song,
+  genre: GenreProfile,
+  instrumentOf: (t: Track) => InstrumentProfile,
+  pans?: Map<string, number>,
+): void {
   const groups = new Map<string, Track[]>();
   for (const t of song.tracks) {
     const k = `${t.role}|${t.instrumentId}`;
@@ -194,6 +297,13 @@ export function fillMixer(song: Song, genre: GenreProfile, instrumentOf: (t: Tra
   for (const t of song.tracks) {
     if (song.mixer.channels[t.id]) continue;
     const group = groups.get(`${t.role}|${t.instrumentId}`) ?? [t];
-    song.mixer.channels[t.id] = defaultChannelFor(t, instrumentOf(t), genre, group.indexOf(t), group.length, pans?.get(t.id));
+    song.mixer.channels[t.id] = defaultChannelFor(
+      t,
+      instrumentOf(t),
+      genre,
+      group.indexOf(t),
+      group.length,
+      pans?.get(t.id),
+    );
   }
 }

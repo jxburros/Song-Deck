@@ -54,7 +54,8 @@ function baseCopy(s: JsonSchema, keepConstraints: boolean): JsonSchema {
   if (s.description) out.description = s.description;
   if (s.enum) out.enum = [...s.enum];
   if (s.const !== undefined) out.const = s.const;
-  if (keepConstraints) for (const k of CONSTRAINT_KEYS) if (s[k] !== undefined) (out as Record<string, unknown>)[k] = s[k];
+  if (keepConstraints)
+    for (const k of CONSTRAINT_KEYS) if (s[k] !== undefined) (out as Record<string, unknown>)[k] = s[k];
   return out;
 }
 
@@ -71,7 +72,11 @@ function isNullable(s: JsonSchema): boolean {
 // ---------------------------------------------------------------------------
 
 function toOpenAI(s: JsonSchema, keepConstraints: boolean): JsonSchema {
-  if (s.anyOf) return { anyOf: s.anyOf.map((b) => toOpenAI(b, keepConstraints)), ...(s.description ? { description: s.description } : {}) };
+  if (s.anyOf)
+    return {
+      anyOf: s.anyOf.map((b) => toOpenAI(b, keepConstraints)),
+      ...(s.description ? { description: s.description } : {}),
+    };
   const out = baseCopy(s, keepConstraints);
   const t = nonNullType(s);
   if (t === 'object' || s.properties) {
@@ -95,7 +100,8 @@ function toOpenAI(s: JsonSchema, keepConstraints: boolean): JsonSchema {
 }
 
 function makeNullableOpenAI(s: JsonSchema): JsonSchema {
-  if (s.anyOf) return s.anyOf.some((b) => b.type === 'null') ? s : { ...s, anyOf: [...s.anyOf, { type: 'null' }] };
+  if (s.anyOf)
+    return s.anyOf.some((b) => b.type === 'null') ? s : { ...s, anyOf: [...s.anyOf, { type: 'null' }] };
   const t = nonNullType(s);
   if (t === 'object' || t === 'array') {
     const { description, ...rest } = s;
@@ -112,7 +118,11 @@ function makeNullableOpenAI(s: JsonSchema): JsonSchema {
 // ---------------------------------------------------------------------------
 
 function toAnthropic(s: JsonSchema): JsonSchema {
-  if (s.anyOf) return { anyOf: s.anyOf.filter((b) => b.type !== 'null').map(toAnthropic), ...(s.description ? { description: s.description } : {}) };
+  if (s.anyOf)
+    return {
+      anyOf: s.anyOf.filter((b) => b.type !== 'null').map(toAnthropic),
+      ...(s.description ? { description: s.description } : {}),
+    };
   const out = baseCopy(s, false);
   const t = nonNullType(s);
   if (t === 'object' || s.properties) {
@@ -156,7 +166,11 @@ interface FoldedField {
 }
 
 function typeLabel(s: JsonSchema): string {
-  if (s.enum) return s.enum.filter((v) => v !== null).map((v) => JSON.stringify(v)).join('|');
+  if (s.enum)
+    return s.enum
+      .filter((v) => v !== null)
+      .map((v) => JSON.stringify(v))
+      .join('|');
   const t = nonNullType(s) ?? 'any';
   if (t === 'array') return `${s.items ? typeLabel(s.items) : 'any'}[]`;
   return t;
@@ -172,7 +186,8 @@ function foldableFields(s: JsonSchema): FoldedField[] {
     if (t === 'object' && child.properties) {
       for (const [ck, cchild] of Object.entries(child.properties)) {
         const ct = nonNullType(cchild);
-        if (ct === 'object' || (ct === 'array' && cchild.items && nonNullType(cchild.items) === 'object')) continue;
+        if (ct === 'object' || (ct === 'array' && cchild.items && nonNullType(cchild.items) === 'object'))
+          continue;
         out.push({ name: `${k}.${ck}`, schema: cchild });
       }
       continue;
@@ -189,7 +204,11 @@ function foldObject(s: JsonSchema): boolean {
   const roots = new Set(fields.map((f) => f.name.split('.')[0]));
   const props: Record<string, JsonSchema> = {};
   for (const [k, child] of Object.entries(s.properties ?? {})) if (!roots.has(k)) props[k] = child;
-  const listing = fields.map((f) => `${f.name} (${typeLabel(f.schema)})${f.schema.description ? `: ${f.schema.description}` : ''}`).join('; ');
+  const listing = fields
+    .map(
+      (f) => `${f.name} (${typeLabel(f.schema)})${f.schema.description ? `: ${f.schema.description}` : ''}`,
+    )
+    .join('; ');
   props.params = {
     type: 'array',
     description: `Any other field of this object as name/value pairs. Values are text: numbers as digits, booleans as true/false, lists as JSON arrays. Fields: ${listing}`,
@@ -233,7 +252,10 @@ function foldUntilWithin(s: JsonSchema, max: number): void {
 function stripAnnotations(s: JsonSchema): JsonSchema {
   const out: JsonSchema = { ...s };
   delete out['x-keep'];
-  if (out.properties) out.properties = Object.fromEntries(Object.entries(out.properties).map(([k, v]) => [k, stripAnnotations(v)]));
+  if (out.properties)
+    out.properties = Object.fromEntries(
+      Object.entries(out.properties).map(([k, v]) => [k, stripAnnotations(v)]),
+    );
   if (out.items) out.items = stripAnnotations(out.items);
   if (out.anyOf) out.anyOf = out.anyOf.map(stripAnnotations);
   return out;
@@ -256,7 +278,11 @@ const GEMINI_TYPES: Record<JsonSchemaType, string> = {
 function toGemini(s: JsonSchema, optional = false): Record<string, unknown> {
   if (s.anyOf) {
     const nonNull = s.anyOf.filter((b) => b.type !== 'null');
-    if (nonNull.length === 1) return toGemini({ ...nonNull[0], description: s.description ?? nonNull[0].description }, optional || nonNull.length < s.anyOf.length);
+    if (nonNull.length === 1)
+      return toGemini(
+        { ...nonNull[0], description: s.description ?? nonNull[0].description },
+        optional || nonNull.length < s.anyOf.length,
+      );
     return { anyOf: nonNull.map((b) => toGemini(b)), ...(optional ? { nullable: true } : {}) };
   }
   const out: Record<string, unknown> = {};
@@ -285,13 +311,18 @@ function toGemini(s: JsonSchema, optional = false): Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 function toJsonSchema(s: JsonSchema, keepConstraints: boolean): JsonSchema {
-  if (s.anyOf) return { anyOf: s.anyOf.map((b) => toJsonSchema(b, keepConstraints)), ...(s.description ? { description: s.description } : {}) };
+  if (s.anyOf)
+    return {
+      anyOf: s.anyOf.map((b) => toJsonSchema(b, keepConstraints)),
+      ...(s.description ? { description: s.description } : {}),
+    };
   const out = baseCopy(s, keepConstraints);
   const t = nonNullType(s);
   if (t === 'object' || s.properties) {
     out.type = 'object';
     const props: Record<string, JsonSchema> = {};
-    for (const [k, child] of Object.entries(s.properties ?? {})) props[k] = toJsonSchema(child, keepConstraints);
+    for (const [k, child] of Object.entries(s.properties ?? {}))
+      props[k] = toJsonSchema(child, keepConstraints);
     out.properties = props;
     out.required = (s.required ?? []).filter((k) => k in props);
     out.additionalProperties = false;
@@ -307,7 +338,11 @@ function toJsonSchema(s: JsonSchema, keepConstraints: boolean): JsonSchema {
 // ---------------------------------------------------------------------------
 
 /** Compile a canonical schema to a provider dialect. The input is never mutated. */
-export function compileSchema(schema: JsonSchema, dialect: SchemaDialect, opts: CompileOptions = {}): JsonSchema {
+export function compileSchema(
+  schema: JsonSchema,
+  dialect: SchemaDialect,
+  opts: CompileOptions = {},
+): JsonSchema {
   const keepConstraints = opts.keepConstraints ?? false;
   switch (dialect) {
     case 'openai-strict':
@@ -390,7 +425,8 @@ export function unfoldParams(value: unknown, schema: JsonSchema | undefined): un
       if (!isPlainObject(p) || typeof p.name !== 'string') continue;
       const path = p.name.split('.');
       if (path.length === 1) {
-        if (out[path[0]] === undefined || out[path[0]] === null) out[path[0]] = coerceFolded(p.value, props[path[0]]);
+        if (out[path[0]] === undefined || out[path[0]] === null)
+          out[path[0]] = coerceFolded(p.value, props[path[0]]);
       } else {
         const [root, leaf] = path;
         const container = isPlainObject(out[root]) ? (out[root] as Record<string, unknown>) : {};

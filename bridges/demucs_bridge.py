@@ -37,6 +37,7 @@ In Song Deck: Settings → Providers → Add provider → Source separation → 
 This is REFERENCE code (not exercised in Song Deck's CI). ``run_demucs()`` is the one function to
 adapt if your Demucs version uses different flags or output paths.
 """
+
 from __future__ import annotations
 
 import os
@@ -75,7 +76,9 @@ KNOWN_MODELS = [
 ]
 
 
-def run_demucs(input_wav: Path, out_dir: Path, model: str, two_stems: Optional[str], args: Any, ctx: RequestContext) -> Dict[str, Path]:
+def run_demucs(
+    input_wav: Path, out_dir: Path, model: str, two_stems: Optional[str], args: Any, ctx: RequestContext
+) -> Dict[str, Path]:
     """THE engine call: run the Demucs CLI and return {stem name: wav path}.
 
     Written for the Demucs 4.x command line (``python -m demucs`` = ``demucs.separate``):
@@ -113,15 +116,21 @@ def run_demucs(input_wav: Path, out_dir: Path, model: str, two_stems: Optional[s
 def check_engine(python: str) -> str:
     """Verify that Demucs can be imported by the configured interpreter; return its version."""
     try:
-        r = subprocess.run([python, "-c", "import demucs; print(getattr(demucs, '__version__', 'unknown'))"],
-                           capture_output=True, text=True, timeout=180)
+        r = subprocess.run(
+            [python, "-c", "import demucs; print(getattr(demucs, '__version__', 'unknown'))"],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
     except (OSError, subprocess.TimeoutExpired) as e:
         fail(f"could not run {python} to check for Demucs: {e}")
     if r.returncode != 0:
         detail = (r.stderr or r.stdout).strip().splitlines()[-1:] or ["no output"]
-        fail(f"Demucs is not importable by {python} ({detail[0]}).\n"
-             "Install it with:  pip install demucs   (installs PyTorch; for a GPU install the CUDA build of torch first)\n"
-             "or point --python at the interpreter/venv that has it (--skip-check skips this test).")
+        fail(
+            f"Demucs is not importable by {python} ({detail[0]}).\n"
+            "Install it with:  pip install demucs   (installs PyTorch; for a GPU install the CUDA build of torch first)\n"
+            "or point --python at the interpreter/venv that has it (--skip-check skips this test)."
+        )
     return r.stdout.strip() or "unknown"
 
 
@@ -130,17 +139,19 @@ def build_app(args: Any, engine_version: str) -> BridgeApp:
 
     @app.route("GET", "/info")
     def info(ctx: RequestContext):
-        return json_response({
-            "name": app.name,
-            "version": __version__,
-            "engine": {"name": "demucs", "version": engine_version, "python": args.python},
-            "models": KNOWN_MODELS,
-            "default_model": args.model,
-            "six_stem_model": args.model_6s,
-            "capabilities": ["SOURCE_SEPARATION", "VOCAL_ISOLATION", "STEM_OUTPUT"],
-            "stems": SIX_STEMS,
-            "hardware": {"min_vram_gb": 0},
-        })
+        return json_response(
+            {
+                "name": app.name,
+                "version": __version__,
+                "engine": {"name": "demucs", "version": engine_version, "python": args.python},
+                "models": KNOWN_MODELS,
+                "default_model": args.model,
+                "six_stem_model": args.model_6s,
+                "capabilities": ["SOURCE_SEPARATION", "VOCAL_ISOLATION", "STEM_OUTPUT"],
+                "stems": SIX_STEMS,
+                "hardware": {"min_vram_gb": 0},
+            }
+        )
 
     @app.job("POST", "/separate")
     def separate(ctx: RequestContext):
@@ -151,7 +162,9 @@ def build_app(args: Any, engine_version: str) -> BridgeApp:
         except WavError as e:
             raise BadRequest(f"audio_base64: {e}") from None
         if meta["duration"] > args.max_duration:
-            raise BadRequest(f"the audio is {meta['duration']:.0f} s long; this bridge accepts at most {args.max_duration:.0f} s (--max-duration)")
+            raise BadRequest(
+                f"the audio is {meta['duration']:.0f} s long; this bridge accepts at most {args.max_duration:.0f} s (--max-duration)"
+            )
         raw = req_list(body, "stems", required=False, default=None) or list(FOUR_STEMS)
         stems: List[str] = []
         for i, s in enumerate(raw):
@@ -173,7 +186,9 @@ def build_app(args: Any, engine_version: str) -> BridgeApp:
                 wanted = stems + ([f"no_{two_stems}"] if two_stems else [])
                 missing = [s for s in wanted if s not in files]
                 if missing:
-                    raise EngineError(f"Demucs ({model}) did not produce {', '.join(missing)} (got: {', '.join(sorted(files)) or 'nothing'})")
+                    raise EngineError(
+                        f"Demucs ({model}) did not produce {', '.join(missing)} (got: {', '.join(sorted(files)) or 'nothing'})"
+                    )
                 out = {name: encode_base64(files[name].read_bytes()) for name in wanted}
             return json_response({"stems": out, "model": model}, headers={"X-Model": model})
 
@@ -183,20 +198,37 @@ def build_app(args: Any, engine_version: str) -> BridgeApp:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    p = build_parser("Song Deck separation bridge for Demucs (reference implementation).", DEFAULT_PORT, prog="demucs_bridge.py")
+    p = build_parser(
+        "Song Deck separation bridge for Demucs (reference implementation).", DEFAULT_PORT, prog="demucs_bridge.py"
+    )
     p.set_defaults(model="htdemucs")
     d = p.add_argument_group("demucs")
-    d.add_argument("--model-6s", default="htdemucs_6s", help="model used when guitar/piano stems are requested (default htdemucs_6s)")
+    d.add_argument(
+        "--model-6s",
+        default="htdemucs_6s",
+        help="model used when guitar/piano stems are requested (default htdemucs_6s)",
+    )
     d.add_argument("--python", default=sys.executable, help="interpreter with Demucs installed (default: this one)")
-    d.add_argument("--shifts", type=int, default=1, help="random shifts for equivariant stabilization (quality vs time; default 1)")
+    d.add_argument(
+        "--shifts", type=int, default=1, help="random shifts for equivariant stabilization (quality vs time; default 1)"
+    )
     d.add_argument("--overlap", type=float, default=0.25, help="overlap between prediction windows (default 0.25)")
     d.add_argument("--segment", type=int, default=None, help="segment length in seconds (lower = less memory)")
     d.add_argument("--jobs", type=int, default=0, help="parallel jobs inside Demucs (CPU; default 0)")
-    d.add_argument("--output-format", choices=["float32", "int24", "int16"], default="float32", help="stem WAV encoding (default float32: stems sum exactly)")
+    d.add_argument(
+        "--output-format",
+        choices=["float32", "int24", "int16"],
+        default="float32",
+        help="stem WAV encoding (default float32: stems sum exactly)",
+    )
     d.add_argument("--repo", default=None, help="local folder with Demucs models (offline use)")
-    d.add_argument("--demucs-arg", action="append", default=[], metavar="ARG", help="extra argument passed to Demucs (repeatable)")
+    d.add_argument(
+        "--demucs-arg", action="append", default=[], metavar="ARG", help="extra argument passed to Demucs (repeatable)"
+    )
     d.add_argument("--no-two-stems", action="store_true", help="never use --two-stems for single-stem requests")
-    d.add_argument("--max-duration", type=float, default=1800.0, help="longest accepted input in seconds (default 1800)")
+    d.add_argument(
+        "--max-duration", type=float, default=1800.0, help="longest accepted input in seconds (default 1800)"
+    )
     d.add_argument("--timeout", type=float, default=3600.0, help="seconds before a Demucs run is killed (default 3600)")
     d.add_argument("--skip-check", action="store_true", help="do not check at startup that Demucs is importable")
     args = p.parse_args(argv)

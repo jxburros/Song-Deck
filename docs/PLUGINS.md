@@ -4,20 +4,20 @@ Plugins extend the studio with the contribution types listed in spec §57: AI pr
 models, singing engines, transcription engines, instruments, genre profiles and exporters. Three
 working examples live in [`plugins/`](../plugins):
 
-| Example | Kind | Shows |
-| --- | --- | --- |
-| `lofi-hiphop-genre` | `genre-profile` | Loading a JSON file shipped with the plugin and registering a genre profile |
-| `abc-notation-exporter` | `exporter` | Using the core library to turn a song into a new file format |
-| `felt-keys-sfz` | `instrument` | A sampled instrument: an SFZ file with WAV samples |
+| Example                 | Kind            | Shows                                                                       |
+| ----------------------- | --------------- | --------------------------------------------------------------------------- |
+| `lofi-hiphop-genre`     | `genre-profile` | Loading a JSON file shipped with the plugin and registering a genre profile |
+| `abc-notation-exporter` | `exporter`      | Using the core library to turn a song into a new file format                |
+| `felt-keys-sfz`         | `instrument`    | A sampled instrument: an SFZ file with WAV samples                          |
 
 ## Trust model
 
-* The local server (`apps/server`) **finds and validates** plugin manifests and **serves** plugin
+- The local server (`apps/server`) **finds and validates** plugin manifests and **serves** plugin
   files. It never executes plugin code.
-* The studio imports a plugin's entry module **only after the user enables it** in
+- The studio imports a plugin's entry module **only after the user enables it** in
   Settings → Plugins, which shows a trust warning. Plugin code then runs in the studio with the
   same rights as the studio itself, so only enable plugins you trust.
-* Providers contributed by plugins go through the same orchestrator as built-in ones. A
+- Providers contributed by plugins go through the same orchestrator as built-in ones. A
   provider declared as `location: 'cloud'` is subject to the privacy confirmation, offline mode
   and budgets (spec §50, §60).
 
@@ -60,17 +60,17 @@ export async function register(api) {
 
 ### API (`apiVersion: 1`)
 
-| Member | Purpose |
-| --- | --- |
-| `core` | The whole `@songdeck/core` library: Music IR helpers, theory engine, timing, MIDI/MusicXML writers… |
-| `fileUrl(path)` | URL of a file inside the plugin (samples, JSON, SFZ…) |
-| `log(message)` | Write to the browser console, prefixed with the plugin id |
-| `registerGenre(profile)` | Add a `GenreProfile` (spec §14) that Compose, Generate MIDI and the composer use like the built-in genres |
-| `registerInstrument(profile)` | Add an `InstrumentProfile` (spec §17); its `patchId` picks the built-in synth patch used to play it |
-| `registerSampleInstrument({ profile, sfz })` | Add a sampled instrument from an SFZ file and its WAV or FLAC samples; see below |
-| `registerExporter(exporter)` | Add a format to Export mode: `{ id, name, extension, mimeType, description?, export(song) }`, where `export` returns a string or `Uint8Array` (sync or async) |
-| `ai.createProvider(spec)` | Build a provider instance from provider interfaces (`llm`, `composition`, `audioGeneration`, `singing`, `transcription`, `separation`, `voiceConversion`, `mastering`) plus `capabilities` and `location` |
-| `registerProvider(instance)` | Make a provider available to routing (spec §49) and the provider pickers |
+| Member                                       | Purpose                                                                                                                                                                                                   |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core`                                       | The whole `@songdeck/core` library: Music IR helpers, theory engine, timing, MIDI/MusicXML writers…                                                                                                       |
+| `fileUrl(path)`                              | URL of a file inside the plugin (samples, JSON, SFZ…)                                                                                                                                                     |
+| `log(message)`                               | Write to the browser console, prefixed with the plugin id                                                                                                                                                 |
+| `registerGenre(profile)`                     | Add a `GenreProfile` (spec §14) that Compose, Generate MIDI and the composer use like the built-in genres                                                                                                 |
+| `registerInstrument(profile)`                | Add an `InstrumentProfile` (spec §17); its `patchId` picks the built-in synth patch used to play it                                                                                                       |
+| `registerSampleInstrument({ profile, sfz })` | Add a sampled instrument from an SFZ file and its WAV or FLAC samples; see below                                                                                                                          |
+| `registerExporter(exporter)`                 | Add a format to Export mode: `{ id, name, extension, mimeType, description?, export(song) }`, where `export` returns a string or `Uint8Array` (sync or async)                                             |
+| `ai.createProvider(spec)`                    | Build a provider instance from provider interfaces (`llm`, `composition`, `audioGeneration`, `singing`, `transcription`, `separation`, `voiceConversion`, `mastering`) plus `capabilities` and `location` |
+| `registerProvider(instance)`                 | Make a provider available to routing (spec §49) and the provider pickers                                                                                                                                  |
 
 ### Sampled instruments
 
