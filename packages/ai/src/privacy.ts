@@ -112,7 +112,12 @@ export function formatDataFlow(flow: DataFlowDescriptor): string {
 }
 
 /** Whether the user must confirm this data flow under the privacy setting. */
-export function needsPrivacyConfirmation(mode: PrivacyConfirmMode, flow: DataFlowDescriptor): boolean {
+export function needsPrivacyConfirmation(
+  mode: PrivacyConfirmMode,
+  flow: DataFlowDescriptor,
+  trustedProviderIds: readonly string[] = [],
+): boolean {
+  if (mode !== 'always' && flow.providerId && trustedProviderIds.includes(flow.providerId)) return false;
   switch (mode) {
     case 'always':
       return true;

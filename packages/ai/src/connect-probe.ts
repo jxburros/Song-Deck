@@ -265,6 +265,13 @@ export function connectedConfig(presetId: string, opts: ConnectConfigOptions): P
     ...base,
     enabled: true,
     credentialRef: base.credentialRef ?? defaultCredentialRef(base.id),
+    modelCatalog: chosen.map(({ id, name, capabilities, capabilitiesInferred, qualityTier }) => ({
+      id,
+      name,
+      capabilities,
+      capabilitiesInferred,
+      qualityTier,
+    })),
   };
   delete config.enabledModels;
   if (opts.probe.listed && opts.selected.length) config.enabledModels = [...opts.selected];

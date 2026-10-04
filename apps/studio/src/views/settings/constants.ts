@@ -299,12 +299,12 @@ export const PRIVACY_CONFIRM_OPTIONS = [
   {
     value: 'cloud',
     label: 'Before data leaves this device',
-    hint: 'Recommended: confirm every request to a cloud provider, with the data-flow indicator.',
+    hint: 'Ask before cloud requests unless you have allowed that connected service.',
   },
   {
     value: 'audio',
     label: 'Before audio leaves this device',
-    hint: 'Only confirm cloud requests that contain recordings, stems or reference audio.',
+    hint: 'Ask before sending audio unless you have allowed that connected service.',
   },
   {
     value: 'never',

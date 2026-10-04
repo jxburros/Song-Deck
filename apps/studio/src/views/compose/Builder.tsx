@@ -1,5 +1,5 @@
 import { useComposeInputs } from './inputs';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import {
   BUILTIN_GENRES,
   BUILTIN_INSTRUMENTS,
@@ -155,6 +155,8 @@ function InstrumentRow({
 
 export function Builder({
   route,
+  lyricsControls,
+  prototypeControls,
   busy,
   onGenerate,
   onFineTune,
@@ -163,6 +165,8 @@ export function Builder({
   onSuggestFromLyrics,
 }: {
   route: RoleRoute | null;
+  lyricsControls: ReactNode;
+  prototypeControls: ReactNode;
   busy: string | null;
   onGenerate: () => void;
   onFineTune: () => void;
@@ -304,7 +308,12 @@ export function Builder({
         />
 
         {session.tab === 'lyrics' ? (
-          <LyricsInput onSuggest={model ? onSuggestFromLyrics : undefined} route={route} busy={busy} />
+          <>
+            {lyricsControls}
+            {session.lyricsMode === 'provided' && (
+              <LyricsInput onSuggest={model ? onSuggestFromLyrics : undefined} route={route} busy={busy} />
+            )}
+          </>
         ) : (
           <>
             <div className="cb-starters row wrap">
@@ -334,213 +343,225 @@ export function Builder({
               )}
             </div>
 
-            <div className="panel" data-testid="builder-instruments">
-              <div className="panel-header">
-                <Icon name="midi" />
-                <h3 className="grow">Instruments</h3>
-                <span className="small muted">
-                  {draft.instruments.reduce((t, i) => t + i.count, 0) || 'none yet'}
-                </span>
-              </div>
-              <div className="panel-body col">
-                {draft.instruments.map((entry, i) => (
-                  <InstrumentRow
-                    key={entry.instrumentId}
-                    entry={entry}
-                    inst={instOf(entry.instrumentId)}
-                    onChange={(p) => setInstrument(i, p)}
-                    onRemove={() => patch({ instruments: draft.instruments.filter((_, j) => j !== i) })}
-                  />
-                ))}
-                {!draft.instruments.length && suggestion.length > 0 && (
-                  <div className="callout small cb-suggest" data-testid="instrument-suggestion">
-                    <span>
-                      Suggested for {draft.genres.length ? genre.name : 'this style'}:{' '}
-                      {suggestion
-                        .map(
-                          (s) =>
-                            `${instOf(s.instrumentId)?.name ?? s.instrumentId}${s.count > 1 ? ` × ${s.count}` : ''}`,
-                        )
-                        .join(', ')}
-                    </span>
-                    <Button
-                      size="sm"
-                      icon="plus"
-                      onClick={() =>
-                        patch({
-                          instruments: suggestion.map((s) => ({
-                            instrumentId: s.instrumentId,
-                            count: s.count,
-                          })),
-                        })
-                      }
-                    >
-                      Use these
-                    </Button>
-                  </div>
-                )}
-                <ChipPicker
-                  items={instPick}
-                  selected={draft.instruments.map((i) => i.instrumentId)}
-                  onToggle={toggleInstrument}
-                  label="Search instruments"
-                  placeholder="Search instruments (guitar, strings, synth…)"
-                  perGroup={8}
-                />
-              </div>
-            </div>
-
-            <div className="panel" data-testid="builder-genres">
-              <div className="panel-header">
-                <Icon name="layers" />
-                <h3 className="grow">Genres</h3>
-                <span className="small muted">
-                  {draft.genres.length ? 'influence' : 'pick one or blend several'}
-                </span>
-              </div>
-              <div className="panel-body col">
-                {draft.genres.map((g, i) => {
-                  const p = getGenre(g.genreId, customGenres);
-                  const name = p?.name ?? g.genreId;
-                  return (
-                    <div key={g.genreId} className="cb-genre-row" data-testid="builder-genre">
-                      <strong className="cb-genre-name ellipsis">{name}</strong>
-                      <div className="grow">
-                        <Slider
-                          value={g.weight}
-                          min={0.05}
-                          max={1}
-                          step={0.05}
-                          ariaLabel={`${name} influence`}
-                          onChange={(weight) =>
-                            patch({ genres: draft.genres.map((x, j) => (j === i ? { ...x, weight } : x)) })
-                          }
-                          accent
-                        />
-                      </div>
-                      <span className="mono small cb-pct">{Math.round((g.weight / genreTotal) * 100)}%</span>
+            <details className="cb-disclosure" data-testid="sound-details">
+              <summary>Customize instruments, genres &amp; mood</summary>
+              <div className="panel" data-testid="builder-instruments">
+                <div className="panel-header">
+                  <Icon name="midi" />
+                  <h3 className="grow">Instruments</h3>
+                  <span className="small muted">
+                    {draft.instruments.reduce((t, i) => t + i.count, 0) || 'none yet'}
+                  </span>
+                </div>
+                <div className="panel-body col">
+                  {draft.instruments.map((entry, i) => (
+                    <InstrumentRow
+                      key={entry.instrumentId}
+                      entry={entry}
+                      inst={instOf(entry.instrumentId)}
+                      onChange={(p) => setInstrument(i, p)}
+                      onRemove={() => patch({ instruments: draft.instruments.filter((_, j) => j !== i) })}
+                    />
+                  ))}
+                  {!draft.instruments.length && suggestion.length > 0 && (
+                    <div className="callout small cb-suggest" data-testid="instrument-suggestion">
+                      <span>
+                        Suggested for {draft.genres.length ? genre.name : 'this style'}:{' '}
+                        {suggestion
+                          .map(
+                            (s) =>
+                              `${instOf(s.instrumentId)?.name ?? s.instrumentId}${s.count > 1 ? ` × ${s.count}` : ''}`,
+                          )
+                          .join(', ')}
+                      </span>
                       <Button
                         size="sm"
-                        variant="ghost"
-                        icon="close"
-                        aria-label={`Remove ${name}`}
-                        onClick={() => patch({ genres: draft.genres.filter((_, j) => j !== i) })}
-                      />
+                        icon="plus"
+                        onClick={() =>
+                          patch({
+                            instruments: suggestion.map((s) => ({
+                              instrumentId: s.instrumentId,
+                              count: s.count,
+                            })),
+                          })
+                        }
+                      >
+                        Use these
+                      </Button>
                     </div>
-                  );
-                })}
-                <ChipPicker
-                  items={genrePick}
-                  selected={draft.genres.map((g) => g.genreId)}
-                  onToggle={toggleGenre}
-                  label="Search genres"
-                  placeholder="Search genres"
-                  perGroup={8}
-                />
+                  )}
+                  <ChipPicker
+                    items={instPick}
+                    selected={draft.instruments.map((i) => i.instrumentId)}
+                    onToggle={toggleInstrument}
+                    label="Search instruments"
+                    placeholder="Search instruments (guitar, strings, synth…)"
+                    perGroup={8}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="panel" data-testid="builder-moods">
-              <div className="panel-header">
-                <Icon name="sparkles" />
-                <h3 className="grow">Moods &amp; feelings</h3>
-              </div>
-              <div className="panel-body col">
-                {draft.moods.length > 0 && (
-                  <div className="cb-moods">
-                    {draft.moods.map((m, i) => {
-                      const t = getTag(m.tagId);
-                      return (
-                        <div key={`${m.tagId}-${i}`} className="cb-mood" data-testid="builder-mood">
-                          <span className="chip on">{t?.name ?? m.tagId}</span>
-                          <Select
-                            size="sm"
-                            aria-label={`Where ${t?.name ?? m.tagId} applies`}
-                            value={m.section ?? ''}
-                            onChange={(v) =>
-                              patch({
-                                moods: draft.moods.map((x, j) =>
-                                  j === i
-                                    ? v
-                                      ? { ...x, section: v as SectionKind }
-                                      : { tagId: x.tagId }
-                                    : x,
-                                ),
-                              })
+              <div className="panel" data-testid="builder-genres">
+                <div className="panel-header">
+                  <Icon name="layers" />
+                  <h3 className="grow">Genres</h3>
+                  <span className="small muted">
+                    {draft.genres.length ? 'influence' : 'pick one or blend several'}
+                  </span>
+                </div>
+                <div className="panel-body col">
+                  {draft.genres.map((g, i) => {
+                    const p = getGenre(g.genreId, customGenres);
+                    const name = p?.name ?? g.genreId;
+                    return (
+                      <div key={g.genreId} className="cb-genre-row" data-testid="builder-genre">
+                        <strong className="cb-genre-name ellipsis">{name}</strong>
+                        <div className="grow">
+                          <Slider
+                            value={g.weight}
+                            min={0.05}
+                            max={1}
+                            step={0.05}
+                            ariaLabel={`${name} influence`}
+                            onChange={(weight) =>
+                              patch({ genres: draft.genres.map((x, j) => (j === i ? { ...x, weight } : x)) })
                             }
-                            options={MOOD_TARGETS}
-                          />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            icon="close"
-                            aria-label={`Remove ${t?.name ?? m.tagId}`}
-                            onClick={() => patch({ moods: draft.moods.filter((_, j) => j !== i) })}
+                            accent
                           />
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {moodPick.length ? (
+                        <span className="mono small cb-pct">
+                          {Math.round((g.weight / genreTotal) * 100)}%
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon="close"
+                          aria-label={`Remove ${name}`}
+                          onClick={() => patch({ genres: draft.genres.filter((_, j) => j !== i) })}
+                        />
+                      </div>
+                    );
+                  })}
                   <ChipPicker
-                    items={moodPick}
-                    selected={draft.moods.map((m) => m.tagId)}
-                    onToggle={toggleMood}
-                    label="Search moods"
-                    placeholder="Search moods and feelings"
-                    perGroup={14}
+                    items={genrePick}
+                    selected={draft.genres.map((g) => g.genreId)}
+                    onToggle={toggleGenre}
+                    label="Search genres"
+                    placeholder="Search genres"
+                    perGroup={8}
                   />
-                ) : (
-                  <div className="small muted">No mood tags in the catalog yet.</div>
-                )}
+                </div>
               </div>
-            </div>
 
-            <div className="panel" data-testid="builder-tags">
-              <div className="panel-header">
-                <Icon name="grid" />
-                <h3 className="grow">Style, era &amp; production</h3>
-                <span className="small muted">
-                  {draft.tags.length
-                    ? `${draft.tags.length} chosen`
-                    : tagPick.length === 1
-                      ? '1 tag'
-                      : `${tagPick.length} tags`}
-                </span>
+              <div className="panel" data-testid="builder-moods">
+                <div className="panel-header">
+                  <Icon name="sparkles" />
+                  <h3 className="grow">Moods &amp; feelings</h3>
+                </div>
+                <div className="panel-body col">
+                  {draft.moods.length > 0 && (
+                    <div className="cb-moods">
+                      {draft.moods.map((m, i) => {
+                        const t = getTag(m.tagId);
+                        return (
+                          <div key={`${m.tagId}-${i}`} className="cb-mood" data-testid="builder-mood">
+                            <span className="chip on">{t?.name ?? m.tagId}</span>
+                            <Select
+                              size="sm"
+                              aria-label={`Where ${t?.name ?? m.tagId} applies`}
+                              value={m.section ?? ''}
+                              onChange={(v) =>
+                                patch({
+                                  moods: draft.moods.map((x, j) =>
+                                    j === i
+                                      ? v
+                                        ? { ...x, section: v as SectionKind }
+                                        : { tagId: x.tagId }
+                                      : x,
+                                  ),
+                                })
+                              }
+                              options={MOOD_TARGETS}
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              icon="close"
+                              aria-label={`Remove ${t?.name ?? m.tagId}`}
+                              onClick={() => patch({ moods: draft.moods.filter((_, j) => j !== i) })}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {moodPick.length ? (
+                    <ChipPicker
+                      items={moodPick}
+                      selected={draft.moods.map((m) => m.tagId)}
+                      onToggle={toggleMood}
+                      label="Search moods"
+                      placeholder="Search moods and feelings"
+                      perGroup={14}
+                    />
+                  ) : (
+                    <div className="small muted">No mood tags in the catalog yet.</div>
+                  )}
+                </div>
               </div>
-              <div className="panel-body col">
-                {draft.tags.length > 0 && (
-                  <div className="chip-list" aria-label="Chosen tags">
-                    {draft.tags.map((id) => (
-                      <button
-                        key={id}
-                        type="button"
-                        className="chip on"
-                        onClick={() => toggleTag(id)}
-                        aria-label={`Remove tag ${getTag(id)?.name ?? id}`}
-                      >
-                        {getTag(id)?.name ?? id} <Icon name="close" size={10} />
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <ChipPicker
-                  items={tagPick}
-                  selected={draft.tags}
-                  onToggle={toggleTag}
-                  label="Search tags"
-                  placeholder="Search styles, eras, production, regions, rhythms…"
-                  perGroup={8}
-                />
+
+              <div className="panel" data-testid="builder-tags">
+                <div className="panel-header">
+                  <Icon name="grid" />
+                  <h3 className="grow">Style, era &amp; production</h3>
+                  <span className="small muted">
+                    {draft.tags.length
+                      ? `${draft.tags.length} chosen`
+                      : tagPick.length === 1
+                        ? '1 tag'
+                        : `${tagPick.length} tags`}
+                  </span>
+                </div>
+                <div className="panel-body col">
+                  {draft.tags.length > 0 && (
+                    <div className="chip-list" aria-label="Chosen tags">
+                      {draft.tags.map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          className="chip on"
+                          onClick={() => toggleTag(id)}
+                          aria-label={`Remove tag ${getTag(id)?.name ?? id}`}
+                        >
+                          {getTag(id)?.name ?? id} <Icon name="close" size={10} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <ChipPicker
+                    items={tagPick}
+                    selected={draft.tags}
+                    onToggle={toggleTag}
+                    label="Search tags"
+                    placeholder="Search styles, eras, production, regions, rhythms…"
+                    perGroup={8}
+                  />
+                </div>
               </div>
-            </div>
+            </details>
           </>
         )}
       </div>
 
       <div className="cb-actions panel" data-testid="builder-actions">
         <div className="panel-body col">
+          <Field label="Composition planner">
+            <ProviderPicker
+              role="composition"
+              value={session.planner}
+              onChange={(planner) => session.set({ planner })}
+            />
+          </Field>
           {summary}
           {preview && preview.instrumentation.length > 0 && (
             <div
@@ -553,7 +574,8 @@ export function Builder({
           <Button variant="primary" size="lg" icon="sparkles" disabled={!!busy} onClick={onGenerate}>
             {busy ?? 'Generate song'}
           </Button>
-          <Button icon="sliders" disabled={!!busy} onClick={onFineTune}>
+          {prototypeControls}
+          <Button size="sm" variant="ghost" icon="sliders" disabled={!!busy} onClick={onFineTune}>
             Fine-tune first
           </Button>
           <div className="small dim">
@@ -565,11 +587,8 @@ export function Builder({
       </div>
 
       <div className="cb-side col">
-        <div className="panel" data-testid="builder-settings">
-          <div className="panel-header">
-            <Icon name="settings" />
-            <h3 className="grow">Settings</h3>
-          </div>
+        <details className="cb-disclosure" data-testid="builder-settings">
+          <summary>Song settings</summary>
           <div className="panel-body col">
             <Field label="Tempo">
               <div className="row">
@@ -729,16 +748,9 @@ export function Builder({
                   />
                 </div>
               </Field>
-              <Field label="Composition planner">
-                <ProviderPicker
-                  role="composition"
-                  value={session.planner}
-                  onChange={(planner) => session.set({ planner })}
-                />
-              </Field>
             </div>
           </div>
-        </div>
+        </details>
       </div>
     </div>
   );

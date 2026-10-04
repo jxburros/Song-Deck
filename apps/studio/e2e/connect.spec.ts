@@ -118,6 +118,29 @@ async function fakeGemini(page: Page, seen: string[]): Promise<void> {
         headers: { ...CORS, 'content-type': 'application/json' },
         json: GEMINI_MODELS,
       });
+    if (req.url().endsWith(':generateContent'))
+      return route.fulfill({
+        status: 200,
+        headers: { ...CORS, 'content-type': 'application/json' },
+        json: {
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      explanation: 'Gemini is working with your song.',
+                      confidence: 0.9,
+                      operations: [],
+                    }),
+                  },
+                ],
+              },
+              finishReason: 'STOP',
+            },
+          ],
+        },
+      });
     return route.fulfill({ status: 404, headers: CORS, body: '{}' });
   });
 }
@@ -175,7 +198,64 @@ async function storageDump(page: Page): Promise<string> {
   });
 }
 
-test('connect Gemini with a pasted key, keep it across reloads, use it in a role picker', async ({
+test('connect text and audio models in two clicks without changing routing', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'songdeck:settings',
+      JSON.stringify({
+        serverUrl: 'http://127.0.0.1:9',
+        routing: { mode: 'manual', profileId: 'local-only' },
+      }),
+    ),
+  );
+  await fakeGemini(page, []);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Connect an AI service' }).click();
+  const dialog = page.getByTestId('connect-service');
+  await dialog.getByLabel('API key').fill(KEY);
+  await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
+  await expect(dialog.getByTestId('connect-models')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Connect and use', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('provider-gemini')).toContainText('Key in browser');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('songdeck:settings')!));
+  expect(saved.providers[0]).toMatchObject({
+    enabled: true,
+    defaultModel: 'gemini-2.5-pro',
+    enabledModels: ['gemini-2.5-pro', 'lyria-3-clip-preview'],
+  });
+  expect(saved.routing).toMatchObject({
+    mode: 'manual',
+    profileId: 'local-only',
+    trustedProviderIds: ['gemini'],
+  });
+});
+
+test('offline setup can be enabled directly in the connect dialog', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'songdeck:settings',
+      JSON.stringify({
+        serverUrl: 'http://127.0.0.1:9',
+        routing: { offline: true },
+      }),
+    ),
+  );
+  const seen: string[] = [];
+  await fakeGemini(page, seen);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Connect an AI service' }).click();
+  const dialog = page.getByTestId('connect-service');
+  await dialog.getByLabel('API key').fill(KEY);
+  await expect(dialog).toContainText('Offline mode is on.');
+  expect(seen).toEqual([]);
+  await dialog.getByRole('button', { name: 'Turn off offline mode and connect' }).click();
+  await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
+  await dialog.getByTestId('connect-add').click();
+  await expect(page.getByTestId('provider-gemini')).toContainText('Key in browser');
+});
+
+test('connect Gemini with a pasted key, keep it across reloads, and generate without extra setup', async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -206,6 +286,8 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
 
   // The real key: recognised, checked, models grouped by use with recommendations ticked.
   await dialog.getByLabel('API key').fill(`GEMINI_API_KEY="${KEY}"`);
+  await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
+  await dialog.getByRole('button', { name: 'Choose models (optional)' }).click();
   const models = dialog.getByTestId('connect-models');
   await expect(models).toContainText('Key accepted');
   const writing = dialog.getByTestId('connect-group-writing');
@@ -230,6 +312,7 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
   await page.screenshot({ path: `${SHOTS}/connect-e2e-models.png` });
 
   // "Found on this machine": Ollama answers, everything else is closed.
+  await dialog.getByText('Use a local model (optional)').click();
   await dialog.getByRole('button', { name: 'Scan this machine' }).click();
   await expect(dialog.getByTestId('local-ollama')).toContainText('qwen3:8b');
 
@@ -250,6 +333,10 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
     '"enabledModels":["gemini-2.5-pro","lyria-3-clip-preview","gemini-2.5-flash"]',
   );
   expect(settingsJson).toContain('"credentialRef":"provider:gemini"');
+  expect(JSON.parse(settingsJson).routing).toMatchObject({
+    mode: 'automatic',
+    trustedProviderIds: ['gemini'],
+  });
 
   // One click adds the local Ollama found on this machine.
   await page.getByTestId('local-services-panel').getByRole('button', { name: 'Scan this machine' }).click();
@@ -294,8 +381,175 @@ test('connect Gemini with a pasted key, keep it across reloads, use it in a role
   await page.locator('.right-tabs .tab', { hasText: 'AI Edit' }).click();
   const picker = page.locator('.right-body').getByLabel('Provider');
   await expect(picker.locator('option', { hasText: 'Google Gemini · cloud' })).toHaveCount(1);
+  await expect(picker).toHaveValue('auto');
+  await picker.selectOption({ label: 'Google Gemini · cloud' });
+  const generated = page.waitForRequest((r) => r.url().endsWith(':generateContent'));
+  await page.getByLabel('Edit instruction').fill('Make the melody more playful.');
+  await page.getByRole('button', { name: 'Propose change' }).click();
+  expect((await generated).url()).toContain('gemini-2.5-pro');
+  await expect(page.locator('.right-body')).toContainText('Gemini is working with your song.');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await picker.selectOption({ label: 'Google Gemini · cloud' });
   await expect(picker).toHaveValue('gemini');
 
   expect(errors, errors.join('\n')).toEqual([]);
 });
+
+// An ambiguous key must work for every selectable service without a separate Check action.
+for (const [preset, url, response] of [
+  ['openai', 'https://api.openai.com/v1/models', { data: [{ id: 'gpt-4.1' }] }],
+  [
+    'anthropic',
+    'https://api.anthropic.com/v1/models',
+    { data: [{ id: 'claude-sonnet-4-20250514' }], has_more: false },
+  ],
+  ['groq', 'https://api.groq.com/openai/v1/models', { data: [{ id: 'llama-3.3-70b-versatile' }] }],
+  ['together', 'https://api.together.xyz/v1/models', [{ id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo' }]],
+  ['moonshot', 'https://api.moonshot.ai/v1/models', { data: [{ id: 'kimi-k2' }] }],
+  [
+    'llama-api',
+    'https://api.llama.com/compat/v1/models',
+    { data: [{ id: 'Llama-4-Maverick-17B-128E-Instruct-FP8' }] },
+  ],
+  ['elevenlabs-music', 'https://api.elevenlabs.io/v1/models', []],
+  ['stability-audio', 'https://api.stability.ai/v1/user/balance', { credits: 10 }],
+] as const) {
+  test(`connect ${preset} with a manually selected service`, async ({ page }) => {
+    await page.addInitScript(() =>
+      localStorage.setItem('songdeck:settings', JSON.stringify({ serverUrl: 'http://127.0.0.1:9' })),
+    );
+    await page.route(`${url}*`, (route) =>
+      route.request().method() === 'OPTIONS'
+        ? route.fulfill({ status: 204, headers: CORS })
+        : route.fulfill({ headers: CORS, json: response }),
+    );
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Connect an AI service' }).click();
+    const dialog = page.getByTestId('connect-service');
+    await dialog.getByLabel('API key').fill('custom-0123456789abcdefghijklmnop');
+    await dialog.getByLabel('Service', { exact: true }).selectOption(preset);
+    await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
+    await dialog.getByTestId('connect-add').click();
+    await expect(dialog).toBeHidden();
+    const settings = await page.evaluate(() => JSON.parse(localStorage.getItem('songdeck:settings')!));
+    expect(settings.providers[0]).toMatchObject({ presetId: preset, enabled: true });
+    expect(settings.providers[0].modelCatalog.length).toBeGreaterThan(0);
+    expect(settings.routing.trustedProviderIds).toContain(preset);
+  });
+}
+
+function prototypeWav(): string {
+  const samples = 8000;
+  const wav = Buffer.alloc(44 + samples * 2);
+  wav.write('RIFF', 0);
+  wav.writeUInt32LE(wav.length - 8, 4);
+  wav.write('WAVEfmt ', 8);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(8000, 24);
+  wav.writeUInt32LE(16000, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write('data', 36);
+  wav.writeUInt32LE(samples * 2, 40);
+  for (let i = 0; i < samples; i++)
+    wav.writeInt16LE(Math.round(Math.sin((i * Math.PI) / 10) * 6000), 44 + i * 2);
+  return wav.toString('base64');
+}
+
+for (const outcome of ['success', 'failure', 'edited'] as const) {
+  test(`quick prototype preserves MIDI with audio ${outcome}`, async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(() => {
+      if (!localStorage.getItem('songdeck:settings'))
+        localStorage.setItem('songdeck:settings', JSON.stringify({ serverUrl: 'http://127.0.0.1:9' }));
+    });
+    await fakeGemini(page, []);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Connect an AI service' }).click();
+    const dialog = page.getByTestId('connect-service');
+    await dialog.getByLabel('API key').fill(KEY);
+    await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
+    await dialog.getByTestId('connect-add').click();
+    await expect(dialog).toBeHidden();
+    // Reload before any discovery or generation: cached model capabilities must be sufficient.
+    await page.reload();
+    await page.getByTitle('Song Deck — projects').click();
+    const { openComposer } = await import('./compose-helpers');
+    await openComposer(page);
+    await page
+      .getByTestId('compose-builder')
+      .getByRole('button', { name: 'Laid-back hip-hop', exact: true })
+      .click();
+    await page.getByTestId('builder-actions').getByLabel('Provider').selectOption('internal');
+    const picker = page.getByLabel('Audio prototype model');
+    await expect(picker).toContainText('lyria-3-clip-preview');
+    await expect(picker).not.toContainText('gemini-2.5-pro');
+    if (outcome === 'success') {
+      await page.screenshot({ path: '/tmp/songdeck-compose-desktop.png', fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.screenshot({ path: '/tmp/songdeck-compose-mobile.png', fullPage: true });
+      await page.setViewportSize({ width: 1280, height: 800 });
+    }
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let requests = 0;
+    await page.route('**/models/lyria-3-clip-preview:generateContent', async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      requests++;
+      await gate;
+      if (outcome === 'failure')
+        return route.fulfill({
+          status: 400,
+          headers: CORS,
+          json: { error: { message: 'Audio unavailable for this account' } },
+        });
+      return route.fulfill({
+        headers: CORS,
+        json: {
+          candidates: [
+            { content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: prototypeWav() } }] } },
+          ],
+        },
+      });
+    });
+    await page.getByRole('button', { name: 'Quick prototype', exact: true }).click();
+    await expect.poll(() => requests).toBe(1);
+    const readSong = () =>
+      page.evaluate(
+        `import('/src/state/store.ts').then(({ useStudio }) => useStudio.getState().project.song)`,
+      );
+    const before = await readSong();
+    const midi = before.tracks.filter((t: { kind: string }) => t.kind === 'midi');
+    expect(midi.some((t: { notes: unknown[] }) => t.notes.length > 0)).toBe(true);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    if (outcome === 'edited') {
+      await page.evaluate(`import('/src/state/store.ts').then(({ useStudio }) => {
+        const st = useStudio.getState(); const song = structuredClone(st.project.song);
+        song.tempoMap[0].bpm = 111; st.commit(song, 'User changes tempo', 'edit');
+      })`);
+    }
+    release();
+    if (outcome === 'failure') {
+      await expect(page.getByText(/Audio unavailable for this account/).first()).toBeVisible({
+        timeout: 30_000,
+      });
+    } else {
+      await expect
+        .poll(async () => (await readSong()).production.candidates.length, { timeout: 30_000 })
+        .toBe(1);
+      if (outcome === 'success')
+        await expect
+          .poll(async () => (await readSong()).tracks.some((t: { kind: string }) => t.kind === 'audio'))
+          .toBe(true);
+    }
+    const after = await readSong();
+    expect(after.tracks.filter((t: { kind: string }) => t.kind === 'midi')).toEqual(midi);
+    if (outcome !== 'success')
+      expect(after.tracks.some((t: { kind: string }) => t.kind === 'audio')).toBe(false);
+    if (outcome === 'edited') expect(after.tempoMap[0].bpm).toBe(111);
+  });
+}

@@ -258,13 +258,13 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await editor.getByLabel('Structured output support').selectOption('json_object');
   await editor.getByLabel('Timeout seconds').fill('60');
   await editor.getByLabel('Concurrency').fill('2');
-  await editor.locator('.st-editor-bar').getByRole('button', { name: 'Save' }).click();
-  await expect(editor.locator('.st-editor-bar')).not.toContainText('Not saved yet');
-
   // The key goes to the server vault — never into settings or browser storage (spec §7).
   await editor.getByLabel('API key').fill(SECRET);
-  await editor.getByRole('button', { name: 'Save key' }).click();
-  await expect(editor.getByTestId('key-note')).toContainText('via the local Song Deck server');
+  await editor.getByRole('button', { name: 'Save and connect', exact: true }).click();
+  await expect(editor.getByTestId('provider-result')).toContainText('1 model available');
+  const connected = await page.evaluate(() => JSON.parse(localStorage.getItem('songdeck:settings')!));
+  expect(connected.routing.trustedProviderIds).toContain('mock-llm');
+  expect(connected.providers.find((p: { id: string }) => p.id === 'mock-llm').modelCatalog).toHaveLength(1);
   await expect(editor.getByLabel('API key')).toHaveValue('');
   await expect(editor.locator('.st-key-status')).toContainText('Key stored in the server vault');
   expect(await browserStorageDump(page)).not.toContain(SECRET);
@@ -300,7 +300,7 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await serverUrl.press('Enter');
   await expect(page.getByTestId('server-status')).toContainText('browser-only mode', { timeout: 15_000 });
   await openSettings(page, /^Providers/);
-  await expect(page.locator('.st-keys-callout')).toContainText('Browser-only mode');
+  await expect(page.locator('.st-keys-callout')).toContainText('Keys are saved encrypted in this browser');
   await page.getByTestId('provider-mock-llm').getByRole('button', { name: 'Configure' }).click();
   await expect(editor.locator('.st-key-status')).toContainText('No key stored yet');
   await editor.getByLabel('API key').fill(SESSION_SECRET);

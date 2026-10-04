@@ -22,6 +22,10 @@
   z-index: 2;
   box-shadow: var(--shadow);
 }
+.cb-actions .row > .select {
+  flex: 1;
+  min-width: 0;
+}
 .cb-side {
   grid-area: side;
   min-width: 0;
@@ -60,6 +64,33 @@
 
 .cb-starters {
   gap: 6px;
+}
+
+.cb-disclosure {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev-1);
+  margin-bottom: 12px;
+}
+.cb-disclosure > summary {
+  cursor: pointer;
+  padding: 14px;
+  font-weight: 600;
+}
+.cb-disclosure > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.cb-disclosure[open] > summary {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.cb-disclosure > .panel {
+  margin: 12px;
+}
+.cb-prototype {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
 }
 
 /* Pickers */
@@ -238,10 +269,6 @@
       'actions';
     grid-template-rows: auto;
   }
-  .cb-actions {
-    top: auto;
-    bottom: 0;
-  }
   .cb-side .grid-2 {
     grid-template-columns: 1fr;
   }
@@ -250,15 +277,13 @@
     grid-column: 1 / -1;
     grid-row: auto;
   }
-  /* Compact sticky action bar on phones. */
-  .cb-actions .panel-body {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 6px 8px;
-    padding: 8px 10px;
+  /* Keep the expanded prototype controls in normal flow on small screens. */
+  .cb-actions {
+    position: static;
   }
-  .cb-actions .cb-summary {
-    grid-column: 1 / -1;
+  .cb-actions .panel-body {
+    gap: 10px;
+    padding: 12px;
   }
   .cb-actions .ellipsis-2,
   .cb-actions .panel-body > .small.dim {

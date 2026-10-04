@@ -10,14 +10,36 @@ permissions:
 
 jobs:
   review:
-    # Dependency review needs the dependency graph with GitHub Advanced Security, which private
-    # repositories only have when it is enabled for them; CI's npm audit covers them meanwhile.
-    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Check dependency review availability
+        id: availability
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.request('GET /repos/{owner}/{repo}/dependency-graph/compare/{basehead}', {
+                ...context.repo,
+                basehead: `${context.payload.pull_request.base.sha}...${context.payload.pull_request.head.sha}`,
+              });
+              core.setOutput('supported', 'true');
+            } catch (error) {
+              // GitHub returns a generic 403 Forbidden when dependency review is disabled.
+              if (![403, 404].includes(error.status)) throw error;
+              core.notice('Dependency review is unavailable for this repository; running the production dependency audit instead.');
+              core.setOutput('supported', 'false');
+            }
       - uses: actions/dependency-review-action@v4
+        if: steps.availability.outputs.supported == 'true'
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
+      - uses: actions/setup-node@v4
+        if: steps.availability.outputs.supported != 'true'
+        with:
+          node-version: 22
+      - name: Audit production dependencies
+        if: steps.availability.outputs.supported != 'true'
+        run: npm audit --omit=dev --audit-level=high

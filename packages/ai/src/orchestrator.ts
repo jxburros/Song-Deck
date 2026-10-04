@@ -422,7 +422,8 @@ export class Orchestrator {
     }
     if (
       !task.skipConfirm &&
-      (needsPrivacyConfirmation(settings.privacyConfirm, flow) || this.opts.forceConfirm?.(flow))
+      (needsPrivacyConfirmation(settings.privacyConfirm, flow, settings.trustedProviderIds) ||
+        this.opts.forceConfirm?.(flow))
     ) {
       this.emit({ type: 'confirm', role: task.role, flow, estimate });
       if (!this.opts.confirm)

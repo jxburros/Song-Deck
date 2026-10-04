@@ -300,8 +300,8 @@ function ConnectNudge() {
       <div className="grow" style={{ minWidth: 0 }}>
         <strong>Works offline — add AI when you want it.</strong>
         <div className="small muted">
-          Paste an API key (Gemini, Claude, OpenAI, ElevenLabs…) or use a local model server; Song Deck lists
-          what each model can do here.
+          Paste a service API key, then click Connect and use. Song Deck discovers its text and audio models
+          and enables the recommended ones for compatible tasks.
         </div>
       </div>
       <Button variant="ai" icon="plug" onClick={() => openSettings('providers', 'connect')}>
