@@ -302,30 +302,33 @@ test('transcribe an uploaded WAV melody and start a project from the idea', asyn
   // New project from this idea → workbench, recording stored with provenance + analysis.
   await page.getByTestId('new-project-from-idea').click();
   await expect(page.getByTestId('piano-roll')).toBeVisible();
-  const meta = await page.evaluate(async () => {
-    const req = indexedDB.open('songdeck');
-    const db: IDBDatabase = await new Promise((res, rej) => {
-      req.onsuccess = () => res(req.result);
-      req.onerror = () => rej(req.error);
-    });
-    const all: {
-      meta: { assets: { kind: string }[]; provenance: unknown[] };
-      analysis: { kind: string }[];
-    }[] = await new Promise((res) => {
-      const r = db.transaction('projects').objectStore('projects').getAll();
-      r.onsuccess = () => res(r.result);
-    });
-    return all.map((p) => ({
-      assets: p.meta.assets.map((a) => a.kind),
-      provenance: p.meta.provenance.length,
-      analysis: p.analysis.map((a) => a.kind),
-    }));
-  });
-  expect(
-    meta.some(
-      (p) => p.assets.includes('recording') && p.provenance > 0 && p.analysis.includes('transcription'),
-    ),
-  ).toBe(true);
+  // The project is saved asynchronously after the workbench opens: wait for it to land.
+  await expect
+    .poll(async () => {
+      const meta = await page.evaluate(async () => {
+        const req = indexedDB.open('songdeck');
+        const db: IDBDatabase = await new Promise((res, rej) => {
+          req.onsuccess = () => res(req.result);
+          req.onerror = () => rej(req.error);
+        });
+        const all: {
+          meta: { assets: { kind: string }[]; provenance: unknown[] };
+          analysis: { kind: string }[];
+        }[] = await new Promise((res) => {
+          const r = db.transaction('projects').objectStore('projects').getAll();
+          r.onsuccess = () => res(r.result);
+        });
+        return all.map((p) => ({
+          assets: p.meta.assets.map((a) => a.kind),
+          provenance: p.meta.provenance.length,
+          analysis: p.analysis.map((a) => a.kind),
+        }));
+      });
+      return meta.some(
+        (p) => p.assets.includes('recording') && p.provenance > 0 && p.analysis.includes('transcription'),
+      );
+    })
+    .toBe(true);
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
