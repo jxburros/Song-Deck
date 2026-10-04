@@ -26,7 +26,8 @@ jobs:
               });
               core.setOutput('supported', 'true');
             } catch (error) {
-              if (error.status !== 404 && !(error.status === 403 && /dependency (graph|review)/i.test(error.message))) throw error;
+              // GitHub returns a generic 403 Forbidden when dependency review is disabled.
+              if (![403, 404].includes(error.status)) throw error;
               core.notice('Dependency review is unavailable for this repository; running the production dependency audit instead.');
               core.setOutput('supported', 'false');
             }
