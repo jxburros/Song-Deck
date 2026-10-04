@@ -17,6 +17,10 @@ test('builder: the instruments and counts you pick are exactly the tracks you ge
   await expect(page.getByLabel('Song description')).toHaveCount(0);
   await expect(page.getByLabel('Song prompt')).toHaveCount(0);
 
+  await expect(builder.getByLabel('Search genres')).toBeHidden();
+  await builder.getByTestId('sound-details').locator('summary').click();
+  await builder.getByTestId('builder-settings').locator('summary').click();
+
   // Genre: search, pick, see the influence slider.
   await builder.getByLabel('Search genres').fill('folk');
   await builder.getByTestId('builder-genres').getByRole('button', { name: 'Folk', exact: true }).click();

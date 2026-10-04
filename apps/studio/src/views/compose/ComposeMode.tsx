@@ -22,11 +22,14 @@ import { BlueprintEditor } from './BlueprintEditor';
 import { PlanTable } from './PlanTable';
 import { Builder } from './Builder';
 import { choicesForStart, draftLyrics, useComposeSession } from './session';
-import { aiDesignBlueprint, aiPlanSong, aiLyrics, useRoleRoute } from '../../engine/ai';
+import { aiDesignBlueprint, aiPlanSong, aiLyrics, useRoleRoute, useAiRuntime } from '../../engine/ai';
 import { attachLibraryAssets } from '../../state/library';
 import { InputsPanel } from './InputsPanel';
 import { interpretInput, mergeComposeInputs, useComposeInputs } from './inputs';
 import { ProviderPicker } from '../shared/ProviderPicker';
+import { prototypeTargets, queuePrototype } from '../../engine/prototype';
+import { useProduceUi } from '../produce/state';
+import { openSettings } from '../settings/nav';
 import './compose.css';
 
 type Step = 'build' | 'blueprint' | 'plan';
@@ -58,6 +61,10 @@ export default function ComposeMode() {
   const customInstruments = useCustomInstruments();
   const session = useComposeSession();
   const { seed, planner } = session;
+  useAiRuntime((s) => s.version);
+  useSettings((s) => s.routing);
+  const audioTargets = prototypeTargets();
+  const [audioTarget, setAudioTarget] = useState('auto');
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [plan, setPlan] = useState<CompositionPlan | null>(null);
   const [step, setStep] = useState<Step>('build');
@@ -191,16 +198,18 @@ export default function ComposeMode() {
     // Up-front lyrics are the user's words: credit them (not an AI) as the lyric writer.
     if (session.lyricsMode === 'provided' && bp.lyrics?.sections.some((s) => s.lines.length))
       st.updateProject((pr) => creditLyricWriter(pr, userName || 'Me'));
+    const projectId = useStudio.getState().project!.meta.id;
     st.selectTrack(song.tracks[0]?.id ?? null);
     st.setWorkbenchView('arrangement');
     st.toast(
       'success',
       `Composed ${song.tracks.length} tracks across ${song.sections.length} sections${song.lyrics.length ? ` · ${song.lyrics.length} lyric lines` : ''}`,
     );
+    return projectId;
   };
 
   /** Primary path: builder → blueprint → plan → MIDI in one go. */
-  const generateSong = async () => {
+  const generateSong = async (prototype = false) => {
     setBusy('Designing…');
     try {
       const b = await designBlueprint();
@@ -210,7 +219,17 @@ export default function ComposeMode() {
       const p = await planFor(b.bp);
       setPlan(p.plan);
       setBusy('Composing MIDI…');
-      await compose(b.bp, p.plan);
+      const projectId = await compose(b.bp, p.plan);
+      if (prototype) {
+        try {
+          const id = queuePrototype(projectId, audioTarget, seed);
+          useProduceUi.getState().set({ tab: 'candidates', batchTaskIds: [id] });
+          st.setMode('produce');
+          st.toast('info', 'MIDI saved. Producing your audio prototype — edit or regenerate it any time.');
+        } catch (err) {
+          st.toast('error', errText(err));
+        }
+      }
     } catch (err) {
       if (!aborted(err)) st.toast('error', `Composition failed: ${errText(err)}`);
     } finally {
@@ -305,6 +324,54 @@ export default function ComposeMode() {
     </Field>
   );
 
+  const lyricsControls = (
+    <section className="panel" style={{ marginBottom: 16 }}>
+      <div className="panel-header">
+        <h3>Lyrics</h3>
+      </div>
+      <div className="panel-body col">
+        <Select
+          aria-label="Lyrics starting point"
+          value={session.lyricsMode}
+          disabled={!!busy || inputLoading}
+          onChange={(lyricsMode) => {
+            session.set({ lyricsMode });
+            if (lyricsMode === 'instrumental') session.patch({ vocal: 'none' });
+            else if (lyricsMode === 'placeholder')
+              session.patch({ vocal: 'tenor', vocalMode: 'placeholder' });
+            else session.patch({ vocal: 'auto', vocalMode: 'default' });
+          }}
+          options={[
+            { value: 'provided', label: 'Use my lyrics' },
+            { value: 'generate', label: 'Generate lyrics from a prompt' },
+            { value: 'placeholder', label: 'Placeholder lyrics' },
+            { value: 'instrumental', label: 'Instrumental' },
+          ]}
+        />
+        {session.lyricsMode === 'generate' && (
+          <>
+            <Field label="Lyrics model">
+              <ProviderPicker
+                role="lyrics"
+                value={session.lyricsProvider}
+                onChange={(lyricsProvider) => session.set({ lyricsProvider })}
+              />
+            </Field>
+            <TextArea
+              aria-label="Lyrics prompt"
+              value={session.draft.lyricsTheme}
+              onChange={(lyricsTheme) => session.patch({ lyricsTheme })}
+              placeholder="What should the lyrics be about?"
+            />
+            {(!lyricsRoute || lyricsRoute.internal) && (
+              <p className="small muted">Connect a lyrics model in Settings, or choose placeholder lyrics.</p>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  );
+
   return (
     <div className="mode-page">
       <div className="mode-page narrow cb-page" style={{ padding: 0 }}>
@@ -312,26 +379,25 @@ export default function ComposeMode() {
           <div className="grow">
             <h1>Compose</h1>
             <div className="lede">
-              Start a song with any combination of a prompt, recordings, MIDI, lyrics, or the composer table.
-              Supplied material is preserved by default.
-              {model
-                ? ' A language model is attached: you can also describe the song in your own words.'
-                : ''}
+              Choose a starting sound or describe your song. Generate editable MIDI, or go straight to an
+              audio prototype.
             </div>
           </div>
-          <div className="row cb-steps">
-            {(['build', 'blueprint', 'plan'] as Step[]).map((s, i) => (
-              <Button
-                key={s}
-                size="sm"
-                active={step === s}
-                disabled={(s === 'blueprint' && !blueprint) || (s === 'plan' && !plan)}
-                onClick={() => setStep(s)}
-              >
-                {i + 1}. {s === 'build' ? 'Build' : s === 'blueprint' ? 'Fine-tune' : 'Plan'}
-              </Button>
-            ))}
-          </div>
+          {step !== 'build' && (
+            <div className="row cb-steps">
+              {(['build', 'blueprint', 'plan'] as Step[]).map((s, i) => (
+                <Button
+                  key={s}
+                  size="sm"
+                  active={step === s}
+                  disabled={(s === 'blueprint' && !blueprint) || (s === 'plan' && !plan)}
+                  onClick={() => setStep(s)}
+                >
+                  {i + 1}. {s === 'build' ? 'Build' : s === 'blueprint' ? 'Fine-tune' : 'Plan'}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
 
         {step === 'build' && (
@@ -341,83 +407,69 @@ export default function ComposeMode() {
                 {destination}
               </div>
             )}
-            <InputsPanel disabled={!!busy || inputLoading} onLoadingChange={setInputLoading} />
-            <section className="panel" style={{ marginBottom: 16 }}>
-              <div className="panel-header">
-                <h3>Lyrics</h3>
-              </div>
-              <div className="panel-body col">
-                <Select
-                  aria-label="Lyrics starting point"
-                  value={session.lyricsMode}
-                  disabled={!!busy || inputLoading}
-                  onChange={(lyricsMode) => {
-                    session.set({ lyricsMode });
-                    if (lyricsMode === 'instrumental') session.patch({ vocal: 'none' });
-                    else if (lyricsMode === 'placeholder')
-                      session.patch({ vocal: 'tenor', vocalMode: 'placeholder' });
-                    else session.patch({ vocal: 'auto', vocalMode: 'default' });
-                  }}
-                  options={[
-                    { value: 'provided', label: 'Use my lyrics (Lyrics tab below)' },
-                    { value: 'generate', label: 'Generate lyrics from a prompt' },
-                    { value: 'placeholder', label: 'Placeholder lyrics' },
-                    { value: 'instrumental', label: 'Instrumental' },
-                  ]}
-                />
-                {session.lyricsMode === 'generate' && (
-                  <>
-                    <Field label="Lyrics model">
-                      <ProviderPicker
-                        role="lyrics"
-                        value={session.lyricsProvider}
-                        onChange={(lyricsProvider) => session.set({ lyricsProvider })}
-                      />
-                    </Field>
-                    <TextArea
-                      aria-label="Lyrics prompt"
-                      value={session.draft.lyricsTheme}
-                      onChange={(lyricsTheme) => session.patch({ lyricsTheme })}
-                      placeholder="What should the lyrics be about?"
-                    />
-                    {(!lyricsRoute || lyricsRoute.internal) && (
-                      <p className="small muted">
-                        Connect a lyrics model in Settings, or choose placeholder lyrics.
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-            </section>
-            <div className="row wrap" style={{ marginBottom: 12 }}>
-              <Button
-                disabled={!!busy || inputLoading}
-                onClick={() =>
-                  void (async () => {
-                    setBusy('Preparing composer table…');
-                    try {
-                      const b = await designBlueprint();
-                      setBlueprint(b.bp);
-                      const result = await planFor(b.bp);
-                      setPlan(result.plan);
-                      setSource(result.source);
-                      setStep('plan');
-                    } catch (e) {
-                      st.toast('error', errText(e));
-                    } finally {
-                      setBusy(null);
-                    }
-                  })()
-                }
-              >
-                Start with composer table
-              </Button>
-            </div>
+            <details className="cb-disclosure" open={inputs.length > 0 || undefined}>
+              <summary>
+                Add recordings, MIDI or library material
+                {inputs.length ? ` (${inputs.length})` : ' (optional)'}
+              </summary>
+              <InputsPanel disabled={!!busy || inputLoading} onLoadingChange={setInputLoading} />
+            </details>
+
             <fieldset
               disabled={!!busy || inputLoading}
               style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
             >
               <Builder
+                lyricsControls={lyricsControls}
+                prototypeControls={
+                  <div className="col cb-prototype">
+                    {audioTargets.length > 0 ? (
+                      <>
+                        <Field label="Audio prototype model">
+                          <Select
+                            aria-label="Audio prototype model"
+                            value={audioTarget}
+                            onChange={setAudioTarget}
+                            options={[
+                              { value: 'auto', label: 'Auto · connected audio models' },
+                              ...audioTargets.map((t) => ({ value: t.value, label: t.label })),
+                              ...(audioTarget !== 'auto' && !audioTargets.some((t) => t.value === audioTarget)
+                                ? [
+                                    {
+                                      value: audioTarget,
+                                      label: 'Selected model unavailable',
+                                      disabled: true,
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                          />
+                        </Field>
+                        <Button
+                          variant="ai"
+                          size="lg"
+                          icon="wave"
+                          disabled={
+                            !!busy ||
+                            inputLoading ||
+                            (audioTarget !== 'auto' && !audioTargets.some((t) => t.value === audioTarget))
+                          }
+                          onClick={() => void generateSong(true)}
+                        >
+                          Quick prototype
+                        </Button>
+                        <div className="small muted">
+                          Generate MIDI, then produce and add audio automatically. Everything stays editable.
+                          Provider charges may apply.
+                        </div>
+                      </>
+                    ) : (
+                      <Button icon="plug" onClick={() => openSettings('providers', 'connect')}>
+                        Connect an audio model for quick prototypes
+                      </Button>
+                    )}
+                  </div>
+                }
                 route={route}
                 busy={busy ?? (inputLoading ? 'Analyzing inputs…' : null)}
                 onGenerate={() => void generateSong()}

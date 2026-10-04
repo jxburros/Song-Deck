@@ -79,6 +79,12 @@ and `SHA256SUMS.txt`. Existing older installations need a one-time manual upgrad
   has its own start bar and interpretation level: Preserve (the default), Light, Moderate, or Free.
   Preserved material retains its playback timing and is locked in the resulting song. Reinterpreting
   audio first reconstructs editable MIDI; the original recording is retained as a project asset.
+- **Quick prototype** in Compose saves editable MIDI, immediately queues a connected audio model, and
+  adds the resulting mix or stems automatically. Choose the audio model or let Auto pick one; models
+  that can follow MIDI or a rendered guide are preferred. Prompt-only models can reinterpret the song.
+  The MIDI and audio candidate remain available for editing and regeneration. If you edit the
+  composition during generation, the result is saved as a candidate for you to apply. Normal provider
+  charges apply. Sound customization, song settings, and optional inputs expand when needed.
 - **Lyrics** can be supplied, generated from a prompt with a configured lyrics model, replaced by
   clearly marked placeholders, or omitted for an instrumental song.
 - **Single Track** creates standalone MIDI, renders an instrument part to WAV, or converts recorded
@@ -94,7 +100,9 @@ and `SHA256SUMS.txt`. Existing older installations need a one-time manual upgrad
 - **Connect an AI service** from Home or Settings → Providers: paste a service API key and click
   **Connect and use**. Song Deck validates the key and enables recommended text and audio models for
   compatible tasks without repeated permission prompts. Connecting preserves your routing preferences;
-  model choices are optional. Existing connections have an **Allow requests** shortcut. Permissions
+  model choices are optional and remain available after reload. Choose the service when its key format
+  is ambiguous. Local and custom endpoints have a **Save and connect** action in the provider editor.
+  Existing connections have an **Allow requests** shortcut. Permissions
   can be changed in Settings → Privacy. Keys stay in the local server's vault or,
   without it, encrypted in the browser ([`docs/CREDENTIALS.md`](./docs/CREDENTIALS.md)).
 - Uploaded audio uses the existing rights attestation flow; see [`docs/RIGHTS.md`](./docs/RIGHTS.md).

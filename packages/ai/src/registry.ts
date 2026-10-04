@@ -171,6 +171,9 @@ export class ProviderRegistry {
           config,
           status: initialStatus(config),
           source: 'config',
+          models: config.modelCatalog?.filter(
+            (m) => !config.enabledModels?.length || config.enabledModels.includes(m.id),
+          ),
           ...(initialStatus(config) === 'unconfigured' ? { error: unconfiguredReason(config) } : {}),
         });
         result.created.push(config.id);

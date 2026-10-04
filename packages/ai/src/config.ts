@@ -7,7 +7,7 @@
 import { stableStringify } from '@songdeck/core';
 import { type Capability, isCapability } from './capabilities';
 import { ConfigurationError } from './errors';
-import type { AdapterKind, AuthSpec, PricingInfo } from './types';
+import type { AdapterKind, AuthSpec, PricingInfo, ModelInfo } from './types';
 import { fnvHex, isPlainObject } from './util';
 
 /**
@@ -87,6 +87,8 @@ export interface ProviderExtra {
 }
 
 export interface ProviderConfig {
+  /** Last connected model catalog, so text/audio capabilities remain available after reload. */
+  modelCatalog?: ModelInfo[];
   id: string;
   presetId?: string;
   name: string;

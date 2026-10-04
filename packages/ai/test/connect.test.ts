@@ -467,6 +467,12 @@ describe('connected provider configs', () => {
     // The registry keeps only the chosen models; the Lyria pick adds music generation.
     const reg = new ProviderRegistry();
     reg.configure([cfg], depsWith(m.fetch, { 'provider:gemini': GEMINI_KEY }));
+    // A reload must preserve per-model capabilities without another network request.
+    reg.configure([JSON.parse(JSON.stringify(cfg))], depsWith(m.fetch, { 'provider:gemini': GEMINI_KEY }));
+    expect(
+      reg.findCompatible(['TEXT_TO_MUSIC'], { interface: 'audioGeneration' })[0]?.models.map((x) => x.id),
+    ).toEqual(['lyria-3-clip-preview']);
+    expect(reg.capabilitiesOf('gemini', 'gemini-2.5-pro')).not.toContain('TEXT_TO_MUSIC');
     const models = await reg.discoverModels('gemini');
     expect(models.map((x) => x.id).sort()).toEqual([
       'gemini-2.5-flash',

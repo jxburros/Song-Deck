@@ -140,10 +140,8 @@ function KeyConnect({
     detection.matches.length === 1 && detection.matches[0].confidence !== 'possible'
       ? detection.matches[0].presetId
       : undefined;
-  const choices = detection.matches.length
-    ? detection.matches.map((m) => m.presetId)
-    : [...CONNECTABLE_PRESET_IDS];
-  const presetId = certain ?? (choices.includes(picked) ? picked : '');
+  const choices = [...CONNECTABLE_PRESET_IDS];
+  const presetId = picked || certain || '';
   const preset = getPreset(presetId);
   const existing = providers.find((p) => p.presetId === presetId);
 
@@ -171,12 +169,12 @@ function KeyConnect({
     [setPhase],
   );
 
-  // Recognised keys are checked as soon as they are pasted.
+  // Check automatically once the key and service are known.
   useEffect(() => {
     setPhase({ kind: 'idle' });
     abort.current?.abort();
-    if (!certain || detection.problem || offline) return;
-    const t = setTimeout(() => void check(certain, detection.key), 350);
+    if (!presetId || detection.problem || offline) return;
+    const t = setTimeout(() => void check(presetId, detection.key), 350);
     return () => clearTimeout(t);
   }, [certain, presetId, detection.key, detection.problem, offline, check]);
 
@@ -241,42 +239,30 @@ function KeyConnect({
           onChange={(e) => setRaw(e.target.value)}
           aria-label="API key"
         />
-        {!certain && (
-          <Select
-            value={presetId}
-            disabled={adding}
-            onChange={setPicked}
-            options={[
-              {
-                value: '',
-                label: detection.matches.length ? 'Which service is this?' : 'Choose the service…',
-              },
-              ...choices.map((id) => ({ value: id, label: getPreset(id)?.name ?? id })),
-            ]}
-            aria-label="Service"
-          />
-        )}
-        {!certain && (
-          <Button
-            variant="primary"
-            icon="check"
-            onClick={() => void check(presetId, detection.key)}
-            disabled={!presetId || !!detection.problem || phase.kind === 'checking' || offline}
-          >
-            Check key
-          </Button>
-        )}
+        <Select
+          value={presetId}
+          disabled={adding}
+          onChange={setPicked}
+          options={[
+            {
+              value: '',
+              label: detection.matches.length ? 'Which service is this?' : 'Choose the service…',
+            },
+            ...choices.map((id) => ({ value: id, label: getPreset(id)?.name ?? id })),
+          ]}
+          aria-label="Service"
+        />
       </div>
       <div className="small dim st-connect-hint" data-testid="connect-detected">
         {raw.trim() === '' ? (
           'Paste your key, then click Connect and use. Song Deck picks the models and sets up AI for you.'
         ) : detection.problem ? (
           detection.problem
-        ) : detection.unsupported ? (
+        ) : detection.unsupported && !picked ? (
           `This looks like a key for ${detection.unsupported}, which Song Deck cannot connect to with a key.`
-        ) : certain ? (
+        ) : presetId ? (
           <>
-            <Icon name="check" size={12} /> Looks like a <strong>{getPreset(certain)?.name}</strong> key.
+            <Icon name="check" size={12} /> Connecting to <strong>{preset?.name}</strong>.
           </>
         ) : detection.matches.length ? (
           'This key format is used by several services — pick the right one.'
@@ -597,6 +583,7 @@ export function configForLocalService(s: DetectedLocalService, taken: Set<string
   const presetPort = preset ? new URL(preset.baseUrl).port : '';
   if (new URL(s.baseUrl).port !== presetPort) config.baseUrl = s.baseUrl;
   const rec = recommendModels(s.models.map((m) => ({ ...m })));
+  config.modelCatalog = s.models.map((m) => ({ ...m }));
   if (rec.defaultModel && preset?.category === 'llm') config.defaultModel = rec.defaultModel;
   return config;
 }

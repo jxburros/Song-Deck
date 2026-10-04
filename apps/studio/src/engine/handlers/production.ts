@@ -30,6 +30,7 @@ import {
   type RunProvenance,
 } from '@songdeck/ai';
 import { useSettings } from '../../state/settings';
+import { useStudio } from '../../state/store';
 import { decodeAudioBytes } from '../../state/assets';
 import { aiAudio } from '../ai';
 import { collectAssets, renderableSong } from '../mix-render';
@@ -103,6 +104,8 @@ import { sampleRenderOptions } from '../produce-samples';
  */
 
 export interface CandidateInput {
+  /** Quick prototype: adopt the audio on success if its source composition is still current. */
+  autoAdopt?: boolean;
   projectId: string;
   /** Candidates queued together share consent for the same data flow. */
   batchId: string;
@@ -838,6 +841,21 @@ const produceCandidate: TaskHandler<CandidateInput, CandidateOutput> = async (ct
     (prod) => ({ ...prod, candidates: [...prod.candidates.filter((x) => x.id !== candidate.id), candidate] }),
     `Produced candidate ${input.label} — ${info.title} · ${providerInfo!.name} · seed ${input.seed}`,
   );
+  if (input.autoAdopt) {
+    const { adoptCandidate, provideProducedAudio } = await import('../../views/produce/adopt');
+    throwIfAborted(signal);
+    const current = requireProject(input.projectId);
+    if (compositionHash(current.song) === composition) {
+      const adopted = adoptCandidate(current.song, candidate, current.meta.assets);
+      useStudio.getState().commit(adopted.song, 'Added quick prototype audio (MIDI preserved)', 'production');
+      await provideProducedAudio(adopted.song);
+    } else {
+      ctx.log(
+        'warn',
+        'The composition changed while producing. Audio is saved as a candidate; your newer edits were kept.',
+      );
+    }
+  }
   ctx.progress(1, 'Done');
   const summary = `${input.label}: ${info.title}, ${Object.keys(stems).length || 1} ${Object.keys(stems).length ? 'stems' : 'mix'}, ${costUsd ? `$${costUsd.toFixed(3)}` : 'free'}`;
   return {

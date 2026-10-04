@@ -5,6 +5,9 @@ import {
   CAPABILITY_INFO,
   defaultCredentialRef,
   getPreset,
+  recommendModels,
+  connectedConfig,
+  CONNECTABLE_PRESET_IDS,
   validateProviderConfig,
   type AdapterKind,
   type AuthType,
@@ -335,6 +338,57 @@ export function ProviderEditor({
     }
   };
 
+  const connectNow = async () => {
+    if (cloudBlocked) return;
+    let config = cleanConfig({ ...draft, enabled: true, credentialRef });
+    setBusy('connect');
+    setResult(null);
+    try {
+      if (!(await save(true, config))) return;
+      if (keyInput.trim()) {
+        await saveCredential(credentialRef, keyInput.trim(), `${draft.name} API key`);
+        setKeyInput('');
+      }
+      const checked = await checkProvider(config);
+      if (checked.tone !== 'success') throw new Error(checked.text);
+      const discovered = getRegistry().models(config.id);
+      if (discovered.length) {
+        if (CONNECTABLE_PRESET_IDS.includes(config.presetId ?? '')) {
+          config = connectedConfig(config.presetId!, {
+            existing: config,
+            selected: config.enabledModels?.length
+              ? config.enabledModels
+              : recommendModels(discovered).selected,
+            probe: { models: discovered, listed: true },
+          });
+        } else {
+          config = {
+            ...config,
+            modelCatalog: discovered.map(({ id, name, capabilities, capabilitiesInferred, qualityTier }) => ({
+              id,
+              name,
+              capabilities,
+              capabilitiesInferred,
+              qualityTier,
+            })),
+            defaultModel: config.defaultModel || recommendModels(discovered).defaultModel,
+          };
+        }
+      }
+      upsertProvider(config);
+      setDraft(config);
+      useSettings.getState().allowProviderRequests(config.id);
+      await syncProvidersNow();
+      await refreshKey();
+      setResult(checked);
+      toast('success', `${config.name} connected and ready to use`);
+    } catch (err) {
+      setResult({ tone: 'danger', text: `Could not connect: ${errorMessage(err)}` });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const testPrompt = async () => {
     if (dirty && !(await save(true))) return;
     if (cloudBlocked) {
@@ -432,6 +486,14 @@ export function ProviderEditor({
           </div>
         </div>
         <div className="row wrap" style={{ justifyContent: 'flex-end' }}>
+          <Button
+            variant="primary"
+            icon="plug"
+            disabled={!!busy || problems.length > 0 || cloudBlocked}
+            onClick={() => void connectNow()}
+          >
+            {busy === 'connect' ? 'Connecting…' : 'Save and connect'}
+          </Button>
           <Button icon="rebuild" onClick={() => void discover('discover')} disabled={!!busy}>
             {busy === 'discover' ? 'Discovering…' : 'Discover models'}
           </Button>
@@ -449,6 +511,10 @@ export function ProviderEditor({
         </div>
       </div>
 
+      <p className="small muted">
+        Save and connect stores your key, discovers available models and allows routine requests to this
+        service. Your routing preferences stay in place.
+      </p>
       {problems.length > 0 && (
         <div className="callout danger st-problems" role="alert">
           <strong>Configuration problems</strong>
@@ -466,8 +532,16 @@ export function ProviderEditor({
       )}
       {cloudBlocked && (
         <div className="callout warning">
-          <Icon name="shield" size={14} /> Offline mode is on — this cloud provider is unavailable until you
-          turn it off under Privacy.
+          <Icon name="shield" size={14} /> Offline mode is on.
+          <Button
+            size="sm"
+            onClick={() => {
+              const settings = useSettings.getState();
+              settings.update({ routing: { ...settings.routing, offline: false } });
+            }}
+          >
+            Turn off offline mode
+          </Button>
         </div>
       )}
       {preset && (preset.setupNotes.length > 0 || preset.docsUrl) && (
