@@ -7,6 +7,7 @@ import {
   getTag,
   keyName,
   planComposition,
+  parseLyricSheet,
   type Blueprint,
   type CompositionPlan,
   type GenreProfile,
@@ -15,13 +16,17 @@ import {
 import { useStudio } from '../../state/store';
 import { useSettings } from '../../state/settings';
 import { useCustomGenres, useCustomInstruments } from '../../hooks';
-import { Badge, Button, Field, Select } from '../../ui/kit';
+import { Badge, Button, Field, Select, TextArea } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { BlueprintEditor } from './BlueprintEditor';
 import { PlanTable } from './PlanTable';
 import { Builder } from './Builder';
-import { choicesFromDraft, draftLyrics, useComposeSession } from './session';
-import { aiDesignBlueprint, aiPlanSong, useRoleRoute } from '../../engine/ai';
+import { choicesForStart, draftLyrics, useComposeSession } from './session';
+import { aiDesignBlueprint, aiPlanSong, aiLyrics, useRoleRoute } from '../../engine/ai';
+import { attachLibraryAssets } from '../../state/library';
+import { InputsPanel } from './InputsPanel';
+import { interpretInput, mergeComposeInputs, useComposeInputs } from './inputs';
+import { ProviderPicker } from '../shared/ProviderPicker';
 import './compose.css';
 
 type Step = 'build' | 'blueprint' | 'plan';
@@ -57,9 +62,12 @@ export default function ComposeMode() {
   const [plan, setPlan] = useState<CompositionPlan | null>(null);
   const [step, setStep] = useState<Step>('build');
   const [busy, setBusy] = useState<string | null>(null);
+  const [inputLoading, setInputLoading] = useState(false);
   const [source, setSource] = useState<string>('');
   const [target, setTarget] = useState<'new' | 'replace'>('new');
   const route = useRoleRoute('composition', planner);
+  const lyricsRoute = useRoleRoute('lyrics', session.lyricsProvider);
+  const inputs = useComposeInputs((s) => s.inputs);
   const model = Boolean(route && !route.internal);
   const allGenres = [...BUILTIN_GENRES, ...customGenres];
   const custom = { customGenres, customInstruments };
@@ -67,8 +75,32 @@ export default function ComposeMode() {
   /** Builder → blueprint: on-device, or with the model when the user also described the song in words. */
   const designBlueprint = async (): Promise<{ bp: Blueprint; source: string }> => {
     const draft = useComposeSession.getState().draft;
-    const choices = choicesFromDraft(draft, draftLyrics(draft));
-    const words = draft.describe.trim();
+    const choices = choicesForStart(draft, session.lyricsMode, inputs.find((i) => i.item.song)?.item.song);
+    const inputContext = inputs
+      .map((i) =>
+        JSON.stringify({
+          name: i.item.name,
+          interpretation: i.interpretation,
+          startBar: i.startBar,
+          tempo: i.item.song?.tempoMap,
+          key: i.item.song?.keyMap,
+          chords: i.item.song?.chords.slice(0, 64),
+          tracks: i.item.song?.tracks.map((t) => ({
+            name: t.name,
+            role: t.role,
+            ppq: i.item.song?.ppq,
+            notes: t.notes.slice(0, 128).map((n) => ({ pitch: n.pitch, tick: n.tick, duration: n.duration })),
+          })),
+        }),
+      )
+      .join('\n');
+    const words = [
+      draft.describe.trim(),
+      inputContext &&
+        `Compose around these supplied tracks, which will be inserted after generation. Fill out the arrangement around them.\n${inputContext}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
     if (model && words) {
       try {
         const res = await aiDesignBlueprint(words, { providerChoice: planner, seed, choices });
@@ -98,19 +130,66 @@ export default function ComposeMode() {
   };
 
   const compose = async (bp: Blueprint, p: CompositionPlan) => {
-    const composed = composeSong({ ...bp, seed }, p, { seed, customGenres, customInstruments });
+    let effectiveBlueprint = bp;
+    let generatedAuthor: string | undefined;
+    if (session.lyricsMode === 'generate') {
+      if (!lyricsRoute || lyricsRoute.internal)
+        throw new Error('Configure a lyrics model or choose placeholder lyrics.');
+      if (!session.draft.lyricsTheme.trim()) throw new Error('Describe the lyrics you want to generate.');
+      setBusy('Writing lyrics…');
+      const guide = composeSong({ ...bp, seed }, p, { seed, customGenres, customInstruments });
+      const result = await aiLyrics(
+        guide,
+        guide.sections.map((s) => ({
+          sectionId: s.id,
+          name: s.name,
+          kind: s.kind,
+          lines: Math.max(2, Math.min(8, Math.ceil(s.bars / 2))),
+        })),
+        { providerChoice: session.lyricsProvider, theme: session.draft.lyricsTheme, seed },
+      );
+      const text = result.sections
+        .map((s, i) => `[${guide.sections[i].kind}]\n${s.lines.join('\n')}`)
+        .join('\n\n');
+      if (!result.sections.some((s) => s.lines.length))
+        throw new Error('The lyrics model returned no lyrics. Try again or select placeholder lyrics.');
+      effectiveBlueprint = {
+        ...bp,
+        lyrics: { ...parseLyricSheet(text), lock: true },
+        vocal: bp.vocal ?? { voiceType: 'tenor', mode: 'ai-singer' },
+      };
+      generatedAuthor = result.provenance.providerId;
+    }
+    setBusy('Preparing supplied tracks…');
+    const prepared = [];
+    for (const input of inputs) prepared.push(await interpretInput(input, seed));
+    const generated = composeSong({ ...effectiveBlueprint, seed }, p, {
+      seed,
+      customGenres,
+      customInstruments,
+    });
+    if (generatedAuthor) generated.lyrics = generated.lyrics.map((l) => ({ ...l, author: generatedAuthor }));
+    const composed = mergeComposeInputs(generated, prepared);
     const song =
       composed.title && composed.title !== 'Untitled'
         ? composed
         : { ...composed, title: workingTitle(composed, allGenres) };
     if (target === 'replace' && project) {
+      if (useStudio.getState().project?.meta.id !== project.meta.id)
+        throw new Error(
+          'The active project changed. Return to the intended project before replacing its song.',
+        );
       st.commit({ ...song, id: project.song.id }, `Composed “${song.title}” (seed ${seed})`, 'generate');
     } else {
       const created = await st.newProject(song.title, song);
       st.commit(created.song, `Composed “${song.title}” (seed ${seed})`, 'generate');
     }
+    await attachLibraryAssets(
+      prepared.map((i) => i.item),
+      useStudio.getState().project!.meta.id,
+    );
     // Up-front lyrics are the user's words: credit them (not an AI) as the lyric writer.
-    if (bp.lyrics?.sections.some((s) => s.lines.length))
+    if (session.lyricsMode === 'provided' && bp.lyrics?.sections.some((s) => s.lines.length))
       st.updateProject((pr) => creditLyricWriter(pr, userName || 'Me'));
     st.selectTrack(song.tracks[0]?.id ?? null);
     st.setWorkbenchView('arrangement');
@@ -233,9 +312,8 @@ export default function ComposeMode() {
           <div className="grow">
             <h1>Compose</h1>
             <div className="lede">
-              Pick the <strong>instruments</strong>, <strong>genres</strong>, <strong>moods</strong> and
-              settings — or start from your <strong>lyrics</strong>. You get the composition first, as MIDI
-              you can edit.
+              Start a song with any combination of a prompt, recordings, MIDI, lyrics, or the composer table.
+              Supplied material is preserved by default.
               {model
                 ? ' A language model is attached: you can also describe the song in your own words.'
                 : ''}
@@ -263,15 +341,92 @@ export default function ComposeMode() {
                 {destination}
               </div>
             )}
-            <Builder
-              route={route}
-              busy={busy}
-              onGenerate={() => void generateSong()}
-              onFineTune={() => void fineTune()}
-              customGenres={customGenres}
-              customInstruments={customInstruments}
-              onSuggestFromLyrics={() => void suggestFromLyrics()}
-            />
+            <InputsPanel disabled={!!busy || inputLoading} onLoadingChange={setInputLoading} />
+            <section className="panel" style={{ marginBottom: 16 }}>
+              <div className="panel-header">
+                <h3>Lyrics</h3>
+              </div>
+              <div className="panel-body col">
+                <Select
+                  aria-label="Lyrics starting point"
+                  value={session.lyricsMode}
+                  disabled={!!busy || inputLoading}
+                  onChange={(lyricsMode) => {
+                    session.set({ lyricsMode });
+                    if (lyricsMode === 'instrumental') session.patch({ vocal: 'none' });
+                    else if (lyricsMode === 'placeholder')
+                      session.patch({ vocal: 'tenor', vocalMode: 'placeholder' });
+                    else session.patch({ vocal: 'auto', vocalMode: 'default' });
+                  }}
+                  options={[
+                    { value: 'provided', label: 'Use my lyrics (Lyrics tab below)' },
+                    { value: 'generate', label: 'Generate lyrics from a prompt' },
+                    { value: 'placeholder', label: 'Placeholder lyrics' },
+                    { value: 'instrumental', label: 'Instrumental' },
+                  ]}
+                />
+                {session.lyricsMode === 'generate' && (
+                  <>
+                    <Field label="Lyrics model">
+                      <ProviderPicker
+                        role="lyrics"
+                        value={session.lyricsProvider}
+                        onChange={(lyricsProvider) => session.set({ lyricsProvider })}
+                      />
+                    </Field>
+                    <TextArea
+                      aria-label="Lyrics prompt"
+                      value={session.draft.lyricsTheme}
+                      onChange={(lyricsTheme) => session.patch({ lyricsTheme })}
+                      placeholder="What should the lyrics be about?"
+                    />
+                    {(!lyricsRoute || lyricsRoute.internal) && (
+                      <p className="small muted">
+                        Connect a lyrics model in Settings, or choose placeholder lyrics.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </section>
+            <div className="row wrap" style={{ marginBottom: 12 }}>
+              <Button
+                disabled={!!busy || inputLoading}
+                onClick={() =>
+                  void (async () => {
+                    setBusy('Preparing composer table…');
+                    try {
+                      const b = await designBlueprint();
+                      setBlueprint(b.bp);
+                      const result = await planFor(b.bp);
+                      setPlan(result.plan);
+                      setSource(result.source);
+                      setStep('plan');
+                    } catch (e) {
+                      st.toast('error', errText(e));
+                    } finally {
+                      setBusy(null);
+                    }
+                  })()
+                }
+              >
+                Start with composer table
+              </Button>
+            </div>
+            <fieldset
+              disabled={!!busy || inputLoading}
+              style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+            >
+              <Builder
+                route={route}
+                busy={busy ?? (inputLoading ? 'Analyzing inputs…' : null)}
+                onGenerate={() => void generateSong()}
+                onFineTune={() => void fineTune()}
+                customGenres={customGenres}
+                customInstruments={customInstruments}
+                onSuggestFromLyrics={() => void suggestFromLyrics()}
+              />
+            </fieldset>
           </>
         )}
 
@@ -290,7 +445,7 @@ export default function ComposeMode() {
               <Button
                 variant="primary"
                 icon="layers"
-                disabled={!!busy}
+                disabled={!!busy || inputLoading}
                 onClick={() => void makePlan(blueprint)}
               >
                 {busy ?? 'Plan composition'}
@@ -319,7 +474,11 @@ export default function ComposeMode() {
               </span>
               <div className="spacer" />
               <Button onClick={() => setStep('blueprint')}>Back</Button>
-              <Button icon="rebuild" disabled={!!busy} onClick={() => void makePlan(blueprint)}>
+              <Button
+                icon="rebuild"
+                disabled={!!busy || inputLoading}
+                onClick={() => void makePlan(blueprint)}
+              >
                 Re-plan
               </Button>
             </div>
@@ -333,7 +492,7 @@ export default function ComposeMode() {
                   variant="primary"
                   size="lg"
                   icon="midi"
-                  disabled={!!busy}
+                  disabled={!!busy || inputLoading}
                   onClick={() => void generate()}
                 >
                   {busy ?? 'Generate MIDI composition'}

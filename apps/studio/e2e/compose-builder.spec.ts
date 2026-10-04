@@ -110,7 +110,7 @@ test('lyrics-first: pasted lyrics are sung, shown in Vocals and locked', async (
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
 
   await page
-    .getByRole('navigation', { name: 'Modes' })
+    .getByRole('navigation', { name: 'Project tools' })
     .getByRole('button', { name: 'Vocals', exact: true })
     .click();
   await page.getByRole('tab', { name: 'Lyrics' }).click();

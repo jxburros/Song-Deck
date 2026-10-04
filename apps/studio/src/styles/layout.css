@@ -1,7 +1,7 @@
 /* Application shell layout. */
 .app {
   display: grid;
-  grid-template-rows: var(--topbar-h) 1fr var(--statusbar-h);
+  grid-template-rows: auto minmax(0, 1fr) var(--statusbar-h);
   height: 100%;
 }
 
@@ -489,5 +489,157 @@
   }
   .transport .time {
     padding: 0 6px;
+  }
+}
+
+/* Workflow shell: project identity and playback remain visible across all areas. */
+.app-header {
+  min-width: 0;
+  max-height: 45vh;
+  overflow: auto;
+}
+.topbar {
+  min-height: var(--topbar-h);
+}
+.topbar-project {
+  flex-shrink: 0;
+}
+.project-navigation {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.project-timeline {
+  padding: 4px 12px 7px;
+  background: var(--bg-elev-1);
+  border-bottom: 1px solid var(--border);
+}
+.timeline-ruler {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.timeline-ruler > span {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.timeline-seek {
+  flex: 1;
+  min-width: 40px;
+}
+.timeline-seek input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.timeline-scroll {
+  max-height: 150px;
+  overflow-y: auto;
+}
+.timeline-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  height: 26px;
+}
+.timeline-track-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.timeline-sections,
+.timeline-lane {
+  position: relative;
+  height: 24px;
+  overflow: hidden;
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border);
+}
+.timeline-lane {
+  cursor: crosshair;
+}
+.timeline-lane svg {
+  width: 100%;
+  height: 24px;
+}
+.timeline-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 2px solid var(--accent);
+  pointer-events: none;
+}
+.timeline-sections button {
+  position: absolute;
+  height: 24px;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  cursor: pointer;
+}
+.single-track-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.single-track-intro {
+  padding: 16px 22px 0;
+}
+.single-track-intro h1 {
+  margin: 0;
+}
+.single-track-page > .mode-page {
+  flex: 1;
+  min-height: 0;
+}
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .timeline-row {
+    grid-template-columns: 90px minmax(0, 1fr);
+  }
+  .timeline-scroll {
+    max-height: 105px;
+  }
+  .project-name {
+    max-width: 160px;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 601px) {
+  .topbar .mode-tab .mode-label {
+    display: inline;
   }
 }

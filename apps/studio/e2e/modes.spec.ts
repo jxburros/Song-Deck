@@ -6,23 +6,24 @@ import { composeQuickSong } from './compose-helpers';
 const MODES = [
   'Compose',
   'Workbench',
-  'Generate',
-  'Transcribe',
-  'Rebuild',
+  'Add Track',
+  'Transcribe Track',
+  'Single Track',
+  'Library',
   'Produce',
   'Vocals',
   'Mix & Master',
   'Export',
 ] as const;
-const PROJECTLESS = new Set(['Compose', 'Generate', 'Transcribe', 'Rebuild']);
+const PROJECTLESS = new Set(['Compose', 'Single Track', 'Library']);
 
 test('every mode renders with and without a project', async ({ page }) => {
   test.setTimeout(180_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  await expect(page.getByText('AI that gives you the song back.')).toBeVisible();
-  const nav = page.getByRole('navigation', { name: 'Modes' });
+  await expect(page.getByRole('heading', { name: 'AI proposes. You shape it.' })).toBeVisible();
+  const nav = page.getByRole('navigation', { name: /Modes|Project tools/ });
 
   for (const mode of PROJECTLESS) {
     await nav.getByRole('button', { name: mode, exact: true }).click();
@@ -30,11 +31,12 @@ test('every mode renders with and without a project', async ({ page }) => {
   }
   for (const mode of MODES)
     if (!PROJECTLESS.has(mode))
-      await expect(nav.getByRole('button', { name: mode, exact: true })).toBeDisabled();
+      await expect(nav.getByRole('button', { name: mode, exact: true })).toHaveCount(0);
 
   await composeQuickSong(page, 'Cinematic orchestral');
 
   for (const mode of MODES) {
+    if (!PROJECTLESS.has(mode)) await page.getByRole('button', { name: 'Compose', exact: true }).click();
     await nav.getByRole('button', { name: mode, exact: true }).click();
     await expect(nav.getByRole('button', { name: mode, exact: true })).toHaveAttribute(
       'aria-current',
@@ -47,6 +49,7 @@ test('every mode renders with and without a project', async ({ page }) => {
   await expect(page.locator('main')).not.toContainText('This view ran into a problem');
 
   // Workbench views and side panels.
+  await page.getByRole('button', { name: 'Compose', exact: true }).click();
   await nav.getByRole('button', { name: 'Workbench', exact: true }).click();
   for (const view of ['Arrangement', 'Piano Roll', 'Pattern', 'Chords', 'Structure', 'Theory']) {
     await page.getByRole('tab', { name: view }).click();

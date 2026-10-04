@@ -82,26 +82,22 @@ export default function Home() {
         </section>
 
         <div className="creation-grid" aria-label="Ways to create">
-          <button
-            className="creation-card"
-            aria-label="Generate a MIDI part"
-            onClick={() => st.setMode('generate')}
-          >
+          <button className="creation-card" aria-label="Single Track" onClick={() => st.setMode('single')}>
             <span className="eyebrow">01 / Generate</span>
             <Icon name="midi" size={24} />
             <strong>A spark of something.</strong>
-            <span>Create a MIDI part. Make it your own.</span>
+            <span>Create MIDI, render audio, or convert audio to notes.</span>
             <span className="creation-link">
-              Generate a MIDI part <Icon name="chevronRight" />
+              Single Track <Icon name="chevronRight" />
             </span>
           </button>
-          <button className="creation-card" aria-label="Hum an idea" onClick={() => st.setMode('transcribe')}>
-            <span className="eyebrow">02 / Capture</span>
+          <button className="creation-card" aria-label="Browse Library" onClick={() => st.setMode('library')}>
+            <span className="eyebrow">02 / Library</span>
             <Icon name="mic" size={24} />
-            <strong>Start with a feeling.</strong>
-            <span>Turn the melody in your head into notes.</span>
+            <strong>Keep your ideas close.</strong>
+            <span>Save tracks and files. Reuse them across projects.</span>
             <span className="creation-link">
-              Hum an idea <Icon name="chevronRight" />
+              Browse Library <Icon name="chevronRight" />
             </span>
           </button>
           <button
@@ -123,7 +119,7 @@ export default function Home() {
 
         <div className="section-title">
           <div>
-            <span className="eyebrow">Your library</span>
+            <span className="eyebrow">Your projects</span>
             <h2>Recent projects</h2>
           </div>
           <div className="row wrap">

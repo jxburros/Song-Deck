@@ -464,6 +464,7 @@ export function FileButton({
   icon = 'upload',
   variant,
   multiple,
+  disabled,
 }: {
   accept?: string;
   onFile: (files: File[]) => void;
@@ -471,11 +472,12 @@ export function FileButton({
   icon?: IconName;
   variant?: Variant;
   multiple?: boolean;
+  disabled?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <>
-      <Button icon={icon} variant={variant} onClick={() => ref.current?.click()}>
+      <Button disabled={disabled} icon={icon} variant={variant} onClick={() => ref.current?.click()}>
         {children}
       </Button>
       <input
@@ -483,6 +485,7 @@ export function FileButton({
         type="file"
         accept={accept}
         multiple={multiple}
+        disabled={disabled}
         style={{ display: 'none' }}
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);

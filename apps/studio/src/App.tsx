@@ -1,7 +1,8 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { useStudio, type Mode } from './state/store';
 import { useSettings } from './state/settings';
-import { TopBar } from './views/shell/TopBar';
+import { ProjectTimeline } from './views/shell/ProjectTimeline';
+import { TopBar, ProjectNavigation } from './views/shell/TopBar';
 import { StatusBar } from './views/shell/StatusBar';
 import { Toasts } from './views/shell/Toasts';
 import { ConfirmDialog } from './views/shell/ConfirmDialog';
@@ -12,6 +13,8 @@ import { useHotkeys } from './hooks';
 import { Spinner } from './ui/kit';
 import { initRuntime } from './engine/runtime';
 
+const LibraryMode = lazy(() => import('./views/library/LibraryMode'));
+const SingleTrackMode = lazy(() => import('./views/single/SingleTrackMode'));
 const Home = lazy(() => import('./views/project/Home'));
 const ComposeMode = lazy(() => import('./views/compose/ComposeMode'));
 const Workbench = lazy(() => import('./views/workbench/Workbench'));
@@ -26,6 +29,8 @@ const SettingsMode = lazy(() => import('./views/settings/SettingsMode'));
 
 const VIEWS: Record<Mode, React.LazyExoticComponent<React.ComponentType>> = {
   home: Home,
+  library: LibraryMode,
+  single: SingleTrackMode,
   compose: ComposeMode,
   workbench: Workbench,
   generate: GenerateMode,
@@ -39,7 +44,16 @@ const VIEWS: Record<Mode, React.LazyExoticComponent<React.ComponentType>> = {
 };
 
 /** Modes usable without an open project. */
-const PROJECTLESS: Mode[] = ['home', 'settings', 'generate', 'transcribe', 'rebuild', 'compose'];
+const PROJECTLESS: Mode[] = [
+  'library',
+  'single',
+  'home',
+  'settings',
+  'generate',
+  'transcribe',
+  'rebuild',
+  'compose',
+];
 
 export function App() {
   const mode = useStudio((s) => s.mode);
@@ -68,7 +82,11 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar />
+      <div className="app-header">
+        <TopBar />
+        <ProjectTimeline />
+        <ProjectNavigation />
+      </div>
       <main className="main">
         <ModeErrorBoundary mode={effective}>
           <Suspense

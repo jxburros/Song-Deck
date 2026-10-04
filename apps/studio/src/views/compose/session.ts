@@ -9,6 +9,7 @@ import {
   type BuilderMood,
   type ModeName,
   type SectionKind,
+  type Song,
   type TempoFeel,
   type VocalMode,
   type VoiceType,
@@ -77,6 +78,8 @@ interface ComposeSession {
   tab: BuilderTab;
   seed: number;
   planner: string;
+  lyricsMode: 'provided' | 'generate' | 'placeholder' | 'instrumental';
+  lyricsProvider: string;
   patch(p: Partial<ComposeDraft>): void;
   set(p: Partial<Omit<ComposeSession, 'set' | 'patch'>>): void;
   reset(): void;
@@ -87,6 +90,8 @@ export const useComposeSession = create<ComposeSession>((set) => ({
   tab: 'sound',
   seed: randomSeed(),
   planner: 'auto',
+  lyricsMode: 'provided',
+  lyricsProvider: 'auto',
   patch: (p) => set((s) => ({ draft: withSinger(s.draft, { ...s.draft, ...p }, p) })),
   set: (p) => set(p),
   reset: () => set({ draft: EMPTY_DRAFT, tab: 'sound' }),
@@ -148,6 +153,28 @@ export function choicesFromDraft(d: ComposeDraft, lyrics = draftLyrics(d)): Buil
   if (d.lyricsTheme.trim()) c.lyricsTheme = d.lyricsTheme.trim();
   if (lyrics) c.lyrics = lyrics;
   return c;
+}
+
+/** Shared preview/generation choices, including source timing and the selected lyrics workflow. */
+export function choicesForStart(
+  draft: ComposeDraft,
+  lyricsMode: ComposeSession['lyricsMode'],
+  anchor?: Song,
+): BuilderChoices {
+  const choices = choicesFromDraft(draft);
+  if (lyricsMode !== 'provided') delete choices.lyrics;
+  if (lyricsMode === 'instrumental') choices.vocal = 'none';
+  else if (lyricsMode === 'placeholder') choices.vocal = { voiceType: 'tenor', mode: 'placeholder' };
+  if (anchor) {
+    if (draft.tempo === 'auto') choices.tempo = anchor.tempoMap[0]?.bpm;
+    if (draft.tonic === 'auto' && draft.mode === 'auto') choices.key = anchor.keyMap[0]?.key;
+    if (draft.meter === 'auto' && anchor.meterMap[0])
+      choices.meter = {
+        numerator: anchor.meterMap[0].numerator,
+        denominator: anchor.meterMap[0].denominator,
+      };
+  }
+  return choices;
 }
 
 /** Ready-made starting points: fill the builder in one click (and then adjust). */

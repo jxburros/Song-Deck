@@ -13,12 +13,16 @@ interface GenerateSession {
   set(patch: Partial<Omit<GenerateSession, 'set'>>): void;
 }
 
-export const useGenerateSession = create<GenerateSession>((set) => ({
-  prompt: '',
-  parsedPrompt: null,
-  request: null,
-  seed: randomSeed(),
-  alternatives: [],
-  note: null,
-  set: (patch) => set(patch),
-}));
+const createSession = () =>
+  create<GenerateSession>((set) => ({
+    prompt: '',
+    parsedPrompt: null,
+    request: null,
+    seed: randomSeed(),
+    alternatives: [],
+    note: null,
+    set: (patch) => set(patch),
+  }));
+
+export const useGenerateSession = createSession();
+export const useSingleGenerateSession = createSession();

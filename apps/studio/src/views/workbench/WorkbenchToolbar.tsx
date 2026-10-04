@@ -1,3 +1,4 @@
+import { SaveLibraryButton } from '../library/SaveLibraryButton';
 import { useState } from 'react';
 import { randomSeed, regenerateUnlocked, tickToMusical, lockCount } from '@songdeck/core';
 import { useStudio } from '../../state/store';
@@ -95,6 +96,19 @@ export function WorkbenchToolbar() {
       )}
       {selection.noteIds.length > 0 && <Badge>{selection.noteIds.length} notes selected</Badge>}
       <div className="spacer" />
+      {selectedTrackId && (
+        <SaveLibraryButton
+          song={song}
+          trackIds={
+            selection.trackIds && selection.trackIds.length > 1 ? selection.trackIds : [selectedTrackId]
+          }
+          label={
+            selection.trackIds && selection.trackIds.length > 1
+              ? 'Save selection to Library'
+              : 'Save track to Library'
+          }
+        />
+      )}
       <Badge tone="warning" title="Locked components">
         🔒 {lockCount(song.locks)}
       </Badge>

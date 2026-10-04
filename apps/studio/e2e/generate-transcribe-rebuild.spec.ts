@@ -176,14 +176,19 @@ function collectErrors(page: Page): string[] {
 
 /** Mode tabs in the top bar (matched by label prefix: "Generate" / "Generate MIDI"…). */
 function modeTab(page: Page, label: 'Generate' | 'Transcribe' | 'Rebuild') {
+  if (label === 'Rebuild') return page.getByRole('button', { name: 'Rebuild a recording', exact: true });
   return page
-    .getByRole('navigation', { name: 'Modes' })
-    .getByRole('button', { name: new RegExp(`^${label}`) });
+    .getByRole('navigation', { name: 'Project tools' })
+    .getByRole('button', { name: label === 'Generate' ? 'Add Track' : 'Transcribe Track', exact: true });
 }
 
 async function openMode(page: Page, label: 'Generate' | 'Transcribe' | 'Rebuild') {
   await page.goto('/');
-  await expect(page.getByText('AI that gives you the song back.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'AI proposes. You shape it.' })).toBeVisible();
+  if (label !== 'Rebuild') {
+    await page.getByRole('button', { name: 'Empty project', exact: true }).click();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
+  }
   await modeTab(page, label).click();
 }
 
@@ -249,8 +254,8 @@ test('generate drum pattern shows a step grid and inserts into a project as a pr
   await expect(cards.first()).toBeVisible();
   await expect(cards.first().getByTestId('drum-grid')).toBeVisible();
   await expect(page.getByLabel('Tempo')).toHaveValue('176');
-  // No project yet → "Insert into new project" creates one.
-  await cards.first().getByRole('button', { name: 'Insert A' }).click();
+  // Open this generated idea as its own project before testing a second-track insertion.
+  await cards.first().getByRole('button', { name: 'Open A as new project' }).click();
   await expect(page.getByTestId('piano-roll')).toBeVisible();
   // Back in Generate, insert alternative B into the now-open project as a new track (proposal).
   await modeTab(page, 'Generate').click();

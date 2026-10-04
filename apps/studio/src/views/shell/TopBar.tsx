@@ -5,62 +5,104 @@ import { Button, Select } from '../../ui/kit';
 import { formatTime, usePlayhead, usePlayerState } from '../../hooks';
 import { CollabPresence } from '../shared/CollabPresence';
 
-const MODES: { mode: Mode; label: string; icon: IconName; needsProject?: boolean; title: string }[] = [
+const PROJECT_MODES: { mode: Mode; label: string; icon: IconName; needsProject?: boolean; title: string }[] =
+  [
+    {
+      mode: 'compose',
+      label: 'Compose',
+      icon: 'compose',
+      title: 'Prompt → Blueprint → Plan → MIDI (spec §25 Compose)',
+    },
+    {
+      mode: 'workbench',
+      label: 'Workbench',
+      icon: 'workbench',
+      needsProject: true,
+      title: 'MIDI Workbench: arrangement, piano roll, patterns, chords, structure, theory',
+    },
+    { mode: 'generate', label: 'Generate', icon: 'midi', title: 'Create individual musical assets' },
+    {
+      mode: 'transcribe',
+      label: 'Transcribe',
+      icon: 'mic',
+      title: 'Audio → MIDI: humming, singing, instruments, taps',
+    },
+    {
+      mode: 'rebuild',
+      label: 'Rebuild',
+      icon: 'rebuild',
+      title: 'Reconstruct a recording as an editable project',
+    },
+    {
+      mode: 'produce',
+      label: 'Produce',
+      icon: 'produce',
+      needsProject: true,
+      title: 'Guide renders and AI production (A/B candidates)',
+    },
+    {
+      mode: 'vocals',
+      label: 'Vocals',
+      icon: 'music',
+      needsProject: true,
+      title: 'Lyrics, vocal melody, singing synthesis, recordings',
+    },
+    {
+      mode: 'mix',
+      label: 'Mix & Master',
+      icon: 'mixer',
+      needsProject: true,
+      title: 'Mixer, automation, AI mix assistant, mastering',
+    },
+    {
+      mode: 'export',
+      label: 'Export',
+      icon: 'export',
+      needsProject: true,
+      title: 'MIDI, audio, stems, sheets, MusicXML, DAW projects',
+    },
+  ];
+
+const MODES: typeof PROJECT_MODES = [
   {
     mode: 'compose',
     label: 'Compose',
     icon: 'compose',
-    title: 'Prompt → Blueprint → Plan → MIDI (spec §25 Compose)',
+    title: 'Compose and develop a song from any combination of inputs',
   },
   {
-    mode: 'workbench',
-    label: 'Workbench',
-    icon: 'workbench',
-    needsProject: true,
-    title: 'MIDI Workbench: arrangement, piano roll, patterns, chords, structure, theory',
-  },
-  { mode: 'generate', label: 'Generate', icon: 'midi', title: 'Create individual musical assets' },
-  {
-    mode: 'transcribe',
-    label: 'Transcribe',
-    icon: 'mic',
-    title: 'Audio → MIDI: humming, singing, instruments, taps',
+    mode: 'single',
+    label: 'Single Track',
+    icon: 'midi',
+    title: 'Create standalone MIDI or audio; convert audio to MIDI',
   },
   {
-    mode: 'rebuild',
-    label: 'Rebuild',
-    icon: 'rebuild',
-    title: 'Reconstruct a recording as an editable project',
-  },
-  {
-    mode: 'produce',
-    label: 'Produce',
-    icon: 'produce',
-    needsProject: true,
-    title: 'Guide renders and AI production (A/B candidates)',
-  },
-  {
-    mode: 'vocals',
-    label: 'Vocals',
-    icon: 'music',
-    needsProject: true,
-    title: 'Lyrics, vocal melody, singing synthesis, recordings',
-  },
-  {
-    mode: 'mix',
-    label: 'Mix & Master',
-    icon: 'mixer',
-    needsProject: true,
-    title: 'Mixer, automation, AI mix assistant, mastering',
-  },
-  {
-    mode: 'export',
-    label: 'Export',
-    icon: 'export',
-    needsProject: true,
-    title: 'MIDI, audio, stems, sheets, MusicXML, DAW projects',
+    mode: 'library',
+    label: 'Library',
+    icon: 'book',
+    title: 'Saved tracks, collections, audio and files across projects',
   },
 ];
+const PROJECT_AREA = ['workbench', 'generate', 'transcribe', 'rebuild', 'produce', 'vocals', 'mix', 'export'];
+export function ProjectNavigation() {
+  const mode = useStudio((s) => s.mode);
+  const project = useStudio((s) => s.project);
+  if (!project || !['compose', ...PROJECT_AREA].includes(mode)) return null;
+  return (
+    <nav className="project-navigation" aria-label="Project tools">
+      {PROJECT_MODES.filter((m) => m.mode !== 'compose' && m.mode !== 'rebuild').map((m) => (
+        <button
+          key={m.mode}
+          className={`mode-tab ${mode === m.mode || (m.mode === 'compose' && PROJECT_AREA.includes(mode)) ? 'active' : ''}`}
+          aria-current={mode === m.mode ? 'page' : undefined}
+          onClick={() => useStudio.getState().setMode(m.mode)}
+        >
+          {m.mode === 'generate' ? 'Add Track' : m.mode === 'transcribe' ? 'Transcribe Track' : m.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
 
 function Transport() {
   const song = useStudio((s) => s.project?.song ?? null);
@@ -141,7 +183,11 @@ export function TopBar() {
   // from the brand and the settings button but listed here too so the picker always has a value.
   const modeOptions = [
     { value: 'home' as Mode, label: 'Projects' },
-    ...MODES.map((m) => ({ value: m.mode, label: m.label, disabled: m.needsProject && !project })),
+    ...[...MODES, ...PROJECT_MODES.filter((m) => m.mode !== 'compose')].map((m) => ({
+      value: m.mode,
+      label: m.label,
+      disabled: m.needsProject && !project,
+    })),
     { value: 'settings' as Mode, label: 'Settings' },
   ];
 
@@ -179,7 +225,7 @@ export function TopBar() {
         {MODES.map((m) => (
           <button
             key={m.mode}
-            className={`mode-tab ${mode === m.mode ? 'active' : ''}`}
+            className={`mode-tab ${mode === m.mode || (m.mode === 'compose' && PROJECT_AREA.includes(mode)) ? 'active' : ''}`}
             onClick={() => setMode(m.mode)}
             disabled={m.needsProject && !project}
             aria-label={m.label}

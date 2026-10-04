@@ -72,16 +72,26 @@ and `SHA256SUMS.txt`. Existing older installations need a one-time manual upgrad
 
 ## Making a song
 
-- **Compose** starts with a builder: instruments and how many, genres and how much influence,
-  moods, and style, era and production tags. It needs no AI. With a model connected you can also
-  describe the song in your own words. The 57 genres and 487 tags are listed in
-  [`docs/GENRES.md`](./docs/GENRES.md).
-- **Start from lyrics** builds a song around words you already have.
-- **Connect an AI service** (Settings → Providers): paste an API key and pick from the models it can
-  use; running local servers are found automatically. Keys stay in the local server's vault or,
+- **Compose** accepts any combination of a model-backed text prompt, audio recordings or rough ideas,
+  MIDI files, saved library items, lyrics, and an editable composer table. Each recording or MIDI input
+  has its own start bar and interpretation level: Preserve (the default), Light, Moderate, or Free.
+  Preserved material retains its playback timing and is locked in the resulting song. Reinterpreting
+  audio first reconstructs editable MIDI; the original recording is retained as a project asset.
+- **Lyrics** can be supplied, generated from a prompt with a configured lyrics model, replaced by
+  clearly marked placeholders, or omitted for an instrumental song.
+- **Single Track** creates standalone MIDI, renders an instrument part to WAV, or converts recorded
+  audio to MIDI. It keeps separate settings from project track tools. Results can be exported or
+  explicitly saved to the Library.
+- **Library** keeps tracks, track collections, audio, and other files in browser storage independently
+  of projects. Reusing an item makes a fresh copy; deleting a project does not delete the saved item.
+  Save from generation results, workbench track selections, recent exports, or import files directly.
+- The header identifies the open project. Its compact arrangement timeline shows tracks, clips,
+  sections, and a live playhead, with click-to-seek and a keyboard-accessible seek control.
+- **Project tools** group the workbench, track generation/transcription, production, vocals, mixing,
+  and export beneath the project timeline.
+- **Connect an AI service** in Settings → Providers. Keys stay in the local server's vault or,
   without it, encrypted in the browser ([`docs/CREDENTIALS.md`](./docs/CREDENTIALS.md)).
-- **Uploaded audio** asks for a rights attestation; what is and isn't checked is in
-  [`docs/RIGHTS.md`](./docs/RIGHTS.md).
+- Uploaded audio uses the existing rights attestation flow; see [`docs/RIGHTS.md`](./docs/RIGHTS.md).
 
 ### Local AI models (optional)
 

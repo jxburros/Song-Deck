@@ -1,3 +1,4 @@
+import { SaveLibraryButton } from '../library/SaveLibraryButton';
 import { useMemo, useState } from 'react';
 import {
   BUILTIN_INSTRUMENTS,
@@ -35,19 +36,21 @@ const ORIGINAL_ID = 'transcribe-original';
 const MIDI_ID = 'transcribe-midi';
 
 export function ResultPanel({
+  standalone = false,
   capture,
   view,
   task,
   options,
   onRerun,
 }: {
+  standalone?: boolean;
   capture: Capture | null;
   view: TranscriptionView | null;
   task: TaskRecord | null;
   options: TranscribeOptions;
   onRerun: () => void;
 }) {
-  const project = useStudio((s) => s.project);
+  const project = useStudio((s) => (standalone ? null : s.project));
   const st = useStudio.getState();
   const customInstruments = useSettings((s) => s.customInstruments);
   const instruments: InstrumentProfile[] = useMemo(
@@ -393,30 +396,51 @@ export function ResultPanel({
                 />
               </Field>
               <div className="spacer" />
-              <Button
-                variant="ai"
-                icon="plus"
-                disabled={!view.notes.length}
-                onClick={() => (project ? setDialog('new-track') : void newProject())}
-                data-testid="insert-new-track"
-              >
-                {project ? 'Insert as new track…' : 'Insert as new track (new project)'}
-              </Button>
-              <Button
-                icon="scissors"
-                disabled={
-                  !view.notes.length || !project || !project.song.tracks.some((t) => t.kind === 'midi')
-                }
-                onClick={() => setDialog('replace')}
-                title={
-                  project
-                    ? 'Substitute a phrase of an existing track (spec §73)'
-                    : 'Open a project to replace a phrase in one of its tracks'
-                }
-                data-testid="replace-phrase"
-              >
-                Replace a phrase…
-              </Button>
+              <SaveLibraryButton song={ideaSong} />
+              {capture?.bytes && (
+                <SaveLibraryButton
+                  label="Save original audio"
+                  file={async () => ({
+                    name: capture.name,
+                    kind: 'audio',
+                    assets: [],
+                    attestation: capture.attestation,
+                    file: {
+                      name: capture.name,
+                      mime: capture.mimeType ?? 'audio/wav',
+                      bytes: capture.bytes!,
+                    },
+                  })}
+                />
+              )}
+              {!standalone && (
+                <>
+                  <Button
+                    variant="ai"
+                    icon="plus"
+                    disabled={!view.notes.length}
+                    onClick={() => (project ? setDialog('new-track') : void newProject())}
+                    data-testid="insert-new-track"
+                  >
+                    {project ? 'Insert as new track…' : 'Insert as new track (new project)'}
+                  </Button>
+                  <Button
+                    icon="scissors"
+                    disabled={
+                      !view.notes.length || !project || !project.song.tracks.some((t) => t.kind === 'midi')
+                    }
+                    onClick={() => setDialog('replace')}
+                    title={
+                      project
+                        ? 'Substitute a phrase of an existing track (spec §73)'
+                        : 'Open a project to replace a phrase in one of its tracks'
+                    }
+                    data-testid="replace-phrase"
+                  >
+                    Replace a phrase…
+                  </Button>
+                </>
+              )}
               <Button
                 icon="download"
                 disabled={!view.notes.length}
@@ -425,14 +449,16 @@ export function ResultPanel({
               >
                 Export MIDI
               </Button>
-              <Button
-                icon="folder"
-                disabled={!view.notes.length}
-                onClick={() => void newProject()}
-                data-testid="new-project-from-idea"
-              >
-                New project from this idea
-              </Button>
+              {!standalone && (
+                <Button
+                  icon="folder"
+                  disabled={!view.notes.length}
+                  onClick={() => void newProject()}
+                  data-testid="new-project-from-idea"
+                >
+                  New project from this idea
+                </Button>
+              )}
             </div>
           </>
         )}
