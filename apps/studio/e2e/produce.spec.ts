@@ -28,6 +28,10 @@ async function comparePosition(page: Page): Promise<number> {
 test('guide render, A/B candidates, adopt stems and regenerate a region', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  // Long renders: surface the page's own errors and warnings in the test output.
+  page.on('console', (m) => {
+    if (m.type() === 'error' || m.type() === 'warning') console.log(`[page ${m.type()}] ${m.text()}`);
+  });
 
   await composeSong(page);
 
