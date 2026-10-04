@@ -147,10 +147,15 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      <div className="brand" onClick={() => setMode('home')} title="Song Deck — projects">
+      <button
+        className="brand"
+        onClick={() => setMode('home')}
+        title="Song Deck — projects"
+        aria-label="Song Deck — projects"
+      >
         <BrandMark />
         {!project && <span>Song Deck</span>}
-      </div>
+      </button>
       {project && (
         <div className="row topbar-project">
           <span className="project-name ellipsis" title={project.meta.name}>

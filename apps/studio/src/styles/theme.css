@@ -1,45 +1,42 @@
-/* Song Deck design tokens — a dark, focused workstation theme with a light variant (docs/BRAND.md).
-   Brand palette: pink #ff299c (primary accent), blue #32cbff (AI), yellow #fdca40 (locks and
-   warnings), grays #4c4c4c / #636363 (borders and muted UI). Every text/background pair below is
-   checked for WCAG AA by apps/studio/test/theme-contrast.test.ts. */
+/* Song Deck: obsidian, graphite, slate, ice and fog. Both themes are contrast-tested. */
 :root {
+  --font-display: 'Sora Variable', 'Inter Variable', sans-serif;
   --font-ui:
     'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
     Arial, sans-serif;
   --font-mono:
     'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  --brand-pink: #ff299c;
-  --brand-blue: #32cbff;
+  --brand-ice: #7eebff;
+  --brand-fog: #e8ecef;
   --brand-yellow: #fdca40;
   --brand-gray: #4c4c4c;
   --brand-gray-light: #636363;
 
   /* Neutral surfaces, darkened from the brand grays (no blue tint). */
-  --bg: #121212;
-  --bg-elev-1: #191919;
-  --bg-elev-2: #202020;
-  --bg-elev-3: #2a2a2a;
-  --bg-input: #0e0e0e;
-  --border: #2f2f2f;
-  --border-strong: #4c4c4c;
-  --text: #ededed;
-  --text-muted: #b4b4b4;
-  --text-dim: #959595;
+  --bg: #0b0b0d;
+  --bg-elev-1: #121619;
+  --bg-elev-2: #1e2226;
+  --bg-elev-3: #292f34;
+  --bg-input: #090c0e;
+  --border: #30383e;
+  --border-strong: #59666f;
+  --text: #e8ecef;
+  --text-muted: #b5bfc6;
+  --text-dim: #9ca8b0;
 
-  /* Pink: primary buttons, playhead, focus ring, selected tabs. Fills carry dark text (--on-accent);
-     pink text and icons on surfaces use --accent-text. */
-  --accent: #ff299c;
-  --accent-strong: #ff52b0;
-  --accent-text: #ff5cb5;
-  --accent-soft: rgba(255, 41, 156, 0.15);
-  --accent-line: rgba(255, 41, 156, 0.5);
-  --on-accent: #1a000e;
-  /* Blue: anything the AI proposes or runs (proposals, suggestions, model/provider badges). */
-  --ai: #32cbff;
-  --ai-fill: #32cbff;
-  --ai-soft: rgba(50, 203, 255, 0.13);
-  --ai-line: rgba(50, 203, 255, 0.45);
+  /* Ice: user actions, edits, playhead and focus. */
+  --accent: #7eebff;
+  --accent-strong: #b3f4ff;
+  --accent-text: #7eebff;
+  --accent-soft: rgba(126, 235, 255, 0.12);
+  --accent-line: rgba(126, 235, 255, 0.5);
+  --on-accent: #07191e;
+  /* Fog/slate: AI proposals; labels and outlines distinguish them from user edits. */
+  --ai: #c5d1d9;
+  --ai-fill: #c5d1d9;
+  --ai-soft: rgba(197, 209, 217, 0.1);
+  --ai-line: rgba(197, 209, 217, 0.4);
   --on-ai: #00161f;
   --success: #3ecf8e;
   --success-soft: rgba(62, 207, 142, 0.14);
@@ -59,7 +56,7 @@
   --grid-line: rgba(255, 255, 255, 0.045);
   --grid-beat: rgba(255, 255, 255, 0.08);
   --grid-bar: rgba(255, 255, 255, 0.16);
-  --playhead: #ff299c;
+  --playhead: #7eebff;
   --row-hover: rgba(255, 255, 255, 0.025);
   --row-shade: rgba(0, 0, 0, 0.28);
   --overlay: rgba(0, 0, 0, 0.62);
@@ -69,13 +66,13 @@
   --key-label: #4c4c4c;
   --on-track: #121212;
 
-  --radius-sm: 4px;
-  --radius: 7px;
-  --radius-lg: 12px;
+  --radius-sm: 2px;
+  --radius: 3px;
+  --radius-lg: 4px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   --focus-ring: 0 0 0 2px var(--accent);
 
-  --topbar-h: 52px;
+  --topbar-h: 60px;
   --statusbar-h: 26px;
   --sidebar-w: 248px;
   --rightbar-w: 340px;
@@ -83,10 +80,11 @@
   color-scheme: dark;
 }
 
-/* Light theme: the same roles, with deeper pink/blue/yellow wherever they are text. Fills keep the
-   bright brand colours with dark text. */
+/* Light theme preserves the same roles with darker text and focus colours. */
 :root[data-theme='light'] {
   --bg: #f2f2f2;
+  --on-accent: #ffffff;
+  --playhead: #00677a;
   --bg-elev-1: #ffffff;
   --bg-elev-2: #f7f7f7;
   --bg-elev-3: #ebebeb;
@@ -96,15 +94,15 @@
   --text: #161616;
   --text-muted: #4c4c4c;
   --text-dim: #636363;
-  --accent: #ff299c;
-  --accent-strong: #ff4dab;
-  --accent-text: #c2006f;
-  --accent-soft: rgba(255, 41, 156, 0.11);
-  --accent-line: rgba(255, 41, 156, 0.55);
-  --ai: #0071a1;
-  --ai-fill: #32cbff;
-  --ai-soft: rgba(50, 203, 255, 0.16);
-  --ai-line: rgba(0, 113, 161, 0.45);
+  --accent: #00677a;
+  --accent-strong: #00576a;
+  --accent-text: #00677a;
+  --accent-soft: rgba(0, 103, 122, 0.09);
+  --accent-line: rgba(0, 103, 122, 0.5);
+  --ai: #475866;
+  --ai-fill: #c5d1d9;
+  --ai-soft: rgba(71, 88, 102, 0.1);
+  --ai-line: rgba(71, 88, 102, 0.45);
   --success: #0f7049;
   --success-soft: rgba(15, 112, 73, 0.1);
   --danger: #b82a2a;
@@ -154,8 +152,9 @@ h2,
 h3,
 h4 {
   margin: 0 0 8px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.03em;
 }
 h1 {
   font-size: 22px;

@@ -7,6 +7,7 @@ import { openSettings } from '../settings/nav';
 import { Badge, Button, FileButton, Modal, TextInput } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { useComposeSession } from '../compose/session';
+import './home.css';
 
 export default function Home() {
   const projects = useStudio((s) => s.projects);
@@ -33,67 +34,125 @@ export default function Home() {
   };
 
   return (
-    <div className="mode-page">
+    <div className="mode-page home-page">
       <div className="home">
-        <div className="hero">
-          <h1>AI that gives you the song back.</h1>
-          <p className="promise">
-            Generate a song. Keep the song. Change the notes. Change the instruments. Change the singer.
-            Change the production. Regenerate only what you want. Use whichever AI you want — or none at all:
-            everything here runs on this device until you choose a provider.
-          </p>
-          <div className="row wrap" style={{ marginTop: 14 }}>
-            <Button variant="primary" size="lg" icon="sparkles" onClick={() => st.setMode('compose')}>
-              Compose a new song
-            </Button>
-            <Button
-              size="lg"
-              icon="book"
-              onClick={() => {
-                useComposeSession.getState().set({ tab: 'lyrics' });
-                st.setMode('compose');
-              }}
-            >
-              Start from lyrics
-            </Button>
-            <Button size="lg" icon="plus" onClick={() => setNewName('Untitled project')}>
-              Empty project
-            </Button>
-            <FileButton accept=".songproject,.zip,.mid,.midi" onFile={importFile} icon="upload">
-              Import .songproject / MIDI
-            </FileButton>
-            <Button icon="rebuild" onClick={() => st.setMode('rebuild')}>
-              Rebuild a recording
-            </Button>
-            <Button icon="mic" onClick={() => st.setMode('transcribe')}>
-              Hum an idea
-            </Button>
-            <Button icon="midi" onClick={() => st.setMode('generate')}>
-              Generate a MIDI part
-            </Button>
+        <div className="home-heading">
+          <span className="eyebrow">Your personal music studio</span>
+          <span className="eyebrow home-edition">Song Deck / 01</span>
+        </div>
+        <section className="hero" aria-labelledby="home-title">
+          <div className="hero-copy">
+            <p className="eyebrow">Human creativity × artificial intelligence</p>
+            <h1 id="home-title">
+              AI proposes.
+              <br />
+              <span>You shape it.</span>
+            </h1>
+            <p className="promise">
+              Your idea. Every note. Entirely yours.
+              <br />
+              Compose, refine, and produce music you can keep changing.
+            </p>
+            <div className="hero-actions">
+              <Button variant="primary" size="lg" icon="sparkles" onClick={() => st.setMode('compose')}>
+                Compose a new song
+              </Button>
+              <Button
+                size="lg"
+                icon="book"
+                onClick={() => {
+                  useComposeSession.getState().set({ tab: 'lyrics' });
+                  st.setMode('compose');
+                }}
+              >
+                Start from lyrics
+              </Button>
+            </div>
+            <p className="hero-footnote">
+              Ideas become music <span /> You stay in control
+            </p>
           </div>
+          <div className="hero-art" aria-hidden="true">
+            <div className="hero-art-label eyebrow">More possible sounds</div>
+            <div className="hero-art-caption">
+              <span>SONG DECK</span>
+              <small>A new dimension for your ideas</small>
+            </div>
+          </div>
+        </section>
+
+        <div className="creation-grid" aria-label="Ways to create">
+          <button
+            className="creation-card"
+            aria-label="Generate a MIDI part"
+            onClick={() => st.setMode('generate')}
+          >
+            <span className="eyebrow">01 / Generate</span>
+            <Icon name="midi" size={24} />
+            <strong>A spark of something.</strong>
+            <span>Create a MIDI part. Make it your own.</span>
+            <span className="creation-link">
+              Generate a MIDI part <Icon name="chevronRight" />
+            </span>
+          </button>
+          <button className="creation-card" aria-label="Hum an idea" onClick={() => st.setMode('transcribe')}>
+            <span className="eyebrow">02 / Capture</span>
+            <Icon name="mic" size={24} />
+            <strong>Start with a feeling.</strong>
+            <span>Turn the melody in your head into notes.</span>
+            <span className="creation-link">
+              Hum an idea <Icon name="chevronRight" />
+            </span>
+          </button>
+          <button
+            className="creation-card"
+            aria-label="Rebuild a recording"
+            onClick={() => st.setMode('rebuild')}
+          >
+            <span className="eyebrow">03 / Reimagine</span>
+            <Icon name="rebuild" size={24} />
+            <strong>Find a new direction.</strong>
+            <span>Reconstruct a recording. Reshape the song.</span>
+            <span className="creation-link">
+              Rebuild a recording <Icon name="chevronRight" />
+            </span>
+          </button>
         </div>
 
         <ConnectNudge />
 
         <div className="section-title">
-          <h3>Recent projects</h3>
-          <span className="muted small">Stored on this device · autosaved with full version history</span>
+          <div>
+            <span className="eyebrow">Your library</span>
+            <h2>Recent projects</h2>
+          </div>
+          <div className="row wrap">
+            <FileButton accept=".songproject,.zip,.mid,.midi" onFile={importFile} icon="upload">
+              Import .songproject / MIDI
+            </FileButton>
+            <Button icon="plus" onClick={() => setNewName('Untitled project')}>
+              Empty project
+            </Button>
+          </div>
         </div>
         {projects.length === 0 ? (
-          <div className="card muted">
-            No projects yet. Start by composing a song from a prompt — no API key needed.
+          <div className="library-empty">
+            <Icon name="music" size={28} />
+            <div>
+              <h3>Your next sound starts here.</h3>
+              <p>No projects yet. Compose a song, capture an idea, or import your music.</p>
+            </div>
+            <span className="eyebrow">No API key needed</span>
           </div>
         ) : (
           <div className="project-grid">
             {projects.map((p) => (
-              <div
-                key={p.id}
-                className="card selectable"
-                onClick={() => void st.openProject(p.id)}
-                role="button"
-                tabIndex={0}
-              >
+              <div key={p.id} className="card project-card">
+                <button
+                  className="project-open"
+                  aria-label={`Open ${p.name}`}
+                  onClick={() => void st.openProject(p.id)}
+                />
                 <div className="row between">
                   <div style={{ fontWeight: 700 }} className="ellipsis">
                     {p.name}
@@ -130,9 +189,12 @@ export default function Home() {
         )}
 
         <div className="section-title" style={{ marginTop: 22 }}>
-          <h3>How Song Deck works</h3>
+          <div>
+            <span className="eyebrow">From idea to expression</span>
+            <h2>How Song Deck works</h2>
+          </div>
         </div>
-        <div className="grid-4">
+        <div className="grid-4 principles">
           {[
             [
               'compose',
@@ -164,6 +226,10 @@ export default function Home() {
             </div>
           ))}
         </div>
+        <footer className="home-footer">
+          <span>AI that gives you the song back.</span>
+          <span>Stored on this device · autosaved with full version history</span>
+        </footer>
       </div>
 
       {confirmDelete && (
@@ -209,7 +275,7 @@ export default function Home() {
             </>
           }
         >
-          <TextInput value={newName} onChange={setNewName} autoFocus />
+          <TextInput value={newName} onChange={setNewName} aria-label="Project name" autoFocus />
         </Modal>
       )}
     </div>
@@ -225,7 +291,7 @@ function ConnectNudge() {
   if (hasProviders || dismissed) return null;
   return (
     <div
-      className="card row"
+      className="card row connect-nudge"
       data-testid="connect-nudge"
       style={{
         gap: 12,
