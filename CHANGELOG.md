@@ -6,8 +6,14 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-04
+
 ### Added
 
+- **Library and Single Track workflows.** Save reusable tracks, collections, audio and files across
+  projects; create or transcribe individual tracks separately from composing a full song.
+- **Flexible Compose inputs.** Start a song with any combination of prompts, lyrics, imported audio,
+  MIDI and saved library assets, with a persistent project timeline.
 - **Expand MIDI.** Import MIDI, use an open project's MIDI, or transcribe a short audio clip;
   label source bar ranges (including overlapping hooks), arrange preserved and developed sections,
   adjust phrase variation and seed, preview, download MIDI, or open a new project. Source-conditioned
@@ -23,6 +29,7 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ### Changed
 
+- Refreshed studio identity with an obsidian and ice palette, updated typography and clearer navigation.
 - Deterministic composition engine version is now 1.1.0. Existing saved MIDI is unchanged;
   regenerating with an old seed can differ because planner probability handling has improved.
 
