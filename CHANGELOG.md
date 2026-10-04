@@ -6,6 +6,13 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-03
+
+Upgrade from v0.1.0 by downloading and unpacking this release, then start the new server at the
+same address and port. This installs the launcher needed for future in-app updates. Your browser
+projects and the server's existing data directory remain in place. Update controls are under
+**Settings → General → App updates**; automatic updates are optional and off by default.
+
 ### Added
 
 - **In-app updates.** Settings → General now checks stable GitHub releases, verifies and downloads
