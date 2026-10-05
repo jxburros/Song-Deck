@@ -155,7 +155,10 @@ export interface ModelPricing {
  */
 export interface PricingInfo extends ModelPricing {
   currency?: 'USD';
-  /** Per-model overrides. Keys match a model id exactly, otherwise the longest matching prefix. */
+  /**
+   * Per-model overrides. Keys match a model id exactly, otherwise the longest key the id is a dated
+   * snapshot of (`gpt-5` covers `gpt-5-2025-08-07`, not `gpt-5.5`).
+   */
   models?: Record<string, ModelPricing>;
   /** Free-form note, e.g. "List price; verify with the provider". */
   note?: string;

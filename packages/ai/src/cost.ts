@@ -61,7 +61,22 @@ export const ROLE_OUTPUT_TOKENS: Record<TaskRole, [number, number]> = {
   'instrument-rendering': [0, 0],
 };
 
-/** Pricing for a model: exact id, else the longest matching prefix, else provider-level rates. */
+/**
+ * A price-table key may stand in for a longer model id only when the rest of the id is a dated or
+ * snapshot suffix: `@…` (Vertex-style versions) or `-` followed by at least four digits
+ * (`-2025-08-07`, `-20250807`, `-0905`). Anything else (`.5`, `-mini`, `-pro`, `-turbo`) is a
+ * different model with its own price, so it must not inherit the shorter key's rate.
+ */
+const SNAPSHOT_SUFFIX = /^(?:@|-\d{4})/;
+
+export function isSnapshotOf(modelId: string, key: string): boolean {
+  return modelId.startsWith(key) && SNAPSHOT_SUFFIX.test(modelId.slice(key.length));
+}
+
+/**
+ * Pricing for a model: exact id, else the longest key the id is a dated snapshot of (see
+ * `isSnapshotOf`), else provider-level rates.
+ */
 export function modelPricing(pricing: PricingInfo | undefined, modelId?: string): ModelPricing | undefined {
   if (!pricing) return undefined;
   const base: ModelPricing = {
@@ -77,7 +92,7 @@ export function modelPricing(pricing: PricingInfo | undefined, modelId?: string)
     const exact = pricing.models[modelId];
     if (exact) return { ...base, ...exact };
     const prefix = Object.keys(pricing.models)
-      .filter((k) => modelId.startsWith(k))
+      .filter((k) => isSnapshotOf(modelId, k))
       .sort((a, b) => b.length - a.length)[0];
     if (prefix) return { ...base, ...pricing.models[prefix] };
   }

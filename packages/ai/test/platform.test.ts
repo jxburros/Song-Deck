@@ -83,7 +83,8 @@ describe('capabilities & presets', () => {
       inputPerMTok: 10,
       outputPerMTok: 50,
     });
-    expect(PROVIDER_PRESETS.find((p) => p.id === 'elevenlabs-music')!.pricing).toBeUndefined();
+    expect(PROVIDER_PRESETS.find((p) => p.id === 'elevenlabs-music')!.pricing!.perMinuteUsd).toBe(0.15);
+    expect(PROVIDER_PRESETS.find((p) => p.id === 'llama-api')!.pricing).toBeUndefined();
   });
 
   it('rejects secrets in configs (keys never live in project/settings files)', () => {
