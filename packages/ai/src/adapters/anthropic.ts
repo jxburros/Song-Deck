@@ -143,7 +143,8 @@ export function vertexFetch(
     delete body.model;
     if (!body.anthropic_version) body.anthropic_version = ANTHROPIC_VERTEX_VERSION;
     const verb = body.stream ? 'streamRawPredict' : 'rawPredict';
-    const base = opts.baseUrl.replace(/\/+$/, '');
+    let base = opts.baseUrl;
+    while (base.endsWith('/')) base = base.slice(0, -1);
     const target = `${base}/projects/${encodeURIComponent(opts.project)}/locations/${encodeURIComponent(
       opts.location,
     )}/publishers/anthropic/models/${encodeURIComponent(model)}:${verb}`;

@@ -592,7 +592,7 @@ function toFourStems(list: { name: string; audio: AudioData }[], fallback: Audio
   let other: AudioData | undefined;
   // Complements ("instrumental", "no_vocals") overlap the other stems: use them only as "other"
   // when nothing finer was returned.
-  const isComplement = (n: string) => /^no[_-]|instrumental|accompan|backing|karaoke/.test(n);
+  const isComplement = (n: string) => /^no[_-]/.test(n) || /instrumental|accompan|backing|karaoke/.test(n);
   const complements = list.filter((s) => isComplement(s.name.toLowerCase()));
   for (const s of list) {
     const n = s.name.toLowerCase();

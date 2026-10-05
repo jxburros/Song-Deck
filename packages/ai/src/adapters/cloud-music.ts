@@ -67,25 +67,32 @@ const SECTION_TAGS: Record<string, string> = {
   outro: 'Outro',
 };
 
+/** "Chorus 2" → "Chorus" (a linear scan; no backtracking regex on user text). */
+function withoutTrailingNumber(text: string): string {
+  let i = text.length;
+  while (i > 0 && text.charCodeAt(i - 1) >= 48 && text.charCodeAt(i - 1) <= 57) i--;
+  return text.slice(0, i).trim();
+}
+
 function tagFor(s: Pick<GenerationSection, 'kind' | 'name'>): string {
   const kind = (s.kind ?? '').toLowerCase();
   if (SECTION_TAGS[kind]) return SECTION_TAGS[kind];
-  const word = s.name
-    .toLowerCase()
-    .replace(/\s*\d+$/, '')
-    .trim();
-  return SECTION_TAGS[word] ?? (s.name.replace(/\s*\d+$/, '').trim() || 'Verse');
+  const word = withoutTrailingNumber(s.name.toLowerCase());
+  return SECTION_TAGS[word] ?? (withoutTrailingNumber(s.name) || 'Verse');
 }
 
 /** `[verse]` / `[CHORUS 2]` → `[Verse]` / `[Chorus]`. */
 export function normalizeLyricTags(lyrics: string): string {
-  return lyrics.replace(/^\s*\[([^\]]+)\]\s*$/gm, (_m, raw: string) => {
-    const word = raw
-      .toLowerCase()
-      .replace(/\s*\d+$/, '')
-      .trim();
-    return `[${SECTION_TAGS[word] ?? raw.trim()}]`;
-  });
+  return lyrics
+    .split('\n')
+    .map((line) => {
+      const t = line.trim();
+      if (!(t.startsWith('[') && t.endsWith(']')) || t.length < 3 || t.slice(1, -1).includes(']'))
+        return line;
+      const raw = t.slice(1, -1);
+      return `[${SECTION_TAGS[withoutTrailingNumber(raw.toLowerCase())] ?? raw.trim()}]`;
+    })
+    .join('\n');
 }
 
 /**

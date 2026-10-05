@@ -64,6 +64,18 @@ function cleanSyllable(s: string): string {
   return s.replace(/-$/, '');
 }
 
+const WORD_CHAR = /[\p{L}\p{N}']/u;
+
+/** "love," → "love" (linear scan from both ends; no backtracking regex on transcribed text). */
+function trimPunctuation(word: string): string {
+  const chars = Array.from(word);
+  let a = 0;
+  let b = chars.length;
+  while (a < b && !WORD_CHAR.test(chars[a])) a++;
+  while (b > a && !WORD_CHAR.test(chars[b - 1])) b--;
+  return chars.slice(a, b).join('');
+}
+
 /** Spread a word's syllables over its notes (melisma "_" for extra notes, merge extra syllables). */
 function syllablesForNotes(word: string, count: number): string[] {
   const tokens = lyricTokens(word).map((t) => t.text);
@@ -120,7 +132,7 @@ export function timedSyllables(
       continue;
     }
     matchedWords++;
-    const bare = s.word.replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, '') || s.word;
+    const bare = trimPunctuation(s.word) || s.word;
     const syl = syllablesForNotes(bare, mine.length);
     mine.forEach((n, k) => syllables.set(n.id, syl[k]));
   }

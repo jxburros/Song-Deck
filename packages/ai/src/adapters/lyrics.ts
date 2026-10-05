@@ -240,7 +240,13 @@ export class OpenAITranscription implements LyricTranscriptionProvider {
     if (typeof configured === 'string' && configured) return configured;
     if (this.config.adapter === 'openai-transcription' && this.config.defaultModel)
       return this.config.defaultModel;
-    return /groq\.com/.test(this.config.baseUrl) ? 'whisper-large-v3-turbo' : 'whisper-1';
+    let host = '';
+    try {
+      host = new URL(this.config.baseUrl).hostname.toLowerCase();
+    } catch {
+      /* relative or invalid base URL: not Groq */
+    }
+    return host === 'groq.com' || host.endsWith('.groq.com') ? 'whisper-large-v3-turbo' : 'whisper-1';
   }
 
   /** Multipart fields (exported for tests). */
