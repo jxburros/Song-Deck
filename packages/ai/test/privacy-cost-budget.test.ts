@@ -7,6 +7,7 @@ import {
   formatCostRange,
   formatDataFlow,
   getPreset,
+  isSnapshotOf,
   llmCostUsd,
   MemoryBudgetPersistence,
   modelPricing,
@@ -98,6 +99,11 @@ describe('cost estimates (spec §60)', () => {
       inputPerMTok: 5,
       outputPerMTok: 25,
     });
+    // Anthropic on Vertex uses `@` snapshot ids.
+    expect(modelPricing(anthropic.pricing, 'claude-haiku-4-5@20251001')).toMatchObject({
+      inputPerMTok: 1,
+      outputPerMTok: 5,
+    });
     expect(
       llmCostUsd(anthropic.pricing, 'claude-fable-5-1', { inputTokens: 1_000_000, outputTokens: 100_000 }),
     ).toBeCloseTo(15, 10);
@@ -122,6 +128,55 @@ describe('cost estimates (spec §60)', () => {
     );
     expect(lyria.minUsd).toBeCloseTo(0.24, 10); // 4 × 30 s clips
     expect(audioCostUsd(getPreset('google-lyria')!.pricing, 'lyria-002', 30, 2)).toBeCloseTo(0.12, 10);
+    // ElevenLabs Music bills per minute of output.
+    const eleven = estimateCost(
+      { location: 'cloud', pricing: getPreset('elevenlabs-music')!.pricing, defaultModel: 'music_v1' },
+      { kind: 'audio', durationSeconds: 180 },
+    );
+    expect(eleven.known).toBe(true);
+    expect(eleven.minUsd).toBeCloseTo(0.45, 10);
+    // Gemini-API Lyria 3: per 30 s clip (Clip) or per song (Pro / 3.5).
+    const gemini = getPreset('gemini')!.pricing;
+    expect(audioCostUsd(gemini, 'lyria-3-clip-preview', 30)).toBeCloseTo(0.04, 10);
+    expect(audioCostUsd(gemini, 'lyria-3-pro-preview', 180, 2)).toBeCloseTo(0.16, 10);
+  });
+
+  it('only lets a price key cover dated snapshots, not newer versions or variants', () => {
+    const openai = getPreset('openai')!.pricing;
+    const gpt5 = { inputPerMTok: 1.25, outputPerMTok: 10 };
+    expect(isSnapshotOf('gpt-5-2025-08-07', 'gpt-5')).toBe(true);
+    expect(isSnapshotOf('gpt-5.5', 'gpt-5')).toBe(false);
+    expect(modelPricing(openai, 'gpt-5-2025-08-07')).toMatchObject(gpt5);
+    // gpt-5.5 has its own row; a version continuation must never fall back to gpt-5.
+    expect(modelPricing(openai, 'gpt-5.5')).toMatchObject({ inputPerMTok: 5, outputPerMTok: 30 });
+    const withoutNewer = { models: { 'gpt-5': gpt5 } };
+    expect(modelPricing(withoutNewer, 'gpt-5.5')).toBeUndefined();
+    expect(modelPricing(withoutNewer, 'gpt-5.7')).toBeUndefined();
+    expect(modelPricing(withoutNewer, 'gpt-5-mini')).toBeUndefined();
+    expect(estimateCost({ location: 'cloud', pricing: withoutNewer }, { kind: 'llm' }, 'gpt-5.5').known).toBe(
+      false,
+    );
+    // Snapshots of a variant resolve to the variant, not the shorter family key.
+    expect(modelPricing(openai, 'gpt-5.4-mini-2026-03-17')).toMatchObject({
+      inputPerMTok: 0.75,
+      outputPerMTok: 4.5,
+    });
+    // Other families: kimi-k2 does not cover kimi-k2.6 / turbo; Gemini preview variants are not dated.
+    const kimi = { models: { 'kimi-k2': { inputPerMTok: 0.6, outputPerMTok: 2.5 } } };
+    expect(modelPricing(kimi, 'kimi-k2.6')).toBeUndefined();
+    expect(modelPricing(kimi, 'kimi-k2-turbo-preview')).toBeUndefined();
+    expect(modelPricing(kimi, 'kimi-k2-0905-preview')).toMatchObject({ inputPerMTok: 0.6 });
+    expect(modelPricing(getPreset('moonshot')!.pricing, 'kimi-k2.6')).toMatchObject({
+      inputPerMTok: 0.95,
+      outputPerMTok: 4,
+    });
+    const gemini = { models: { 'gemini-2.5-pro': { inputPerMTok: 1.25, outputPerMTok: 10 } } };
+    expect(modelPricing(gemini, 'gemini-2.5-pro-preview-tts')).toBeUndefined();
+    expect(modelPricing(gemini, 'gemini-2.5-pro@001')).toMatchObject({ inputPerMTok: 1.25 });
+    // Provider-level rates still apply when no model key fits.
+    expect(modelPricing({ ...withoutNewer, inputPerMTok: 9, outputPerMTok: 9 }, 'gpt-5.5')).toMatchObject({
+      inputPerMTok: 9,
+    });
   });
 
   it('local is free and unknown pricing is reported as unknown', () => {
@@ -129,7 +184,7 @@ describe('cost estimates (spec §60)', () => {
     expect(local).toMatchObject({ minUsd: 0, maxUsd: 0, known: true });
     expect(formatCostRange(local)).toBe('free (runs locally)');
     const unknown = estimateCost(
-      { location: 'cloud', pricing: getPreset('elevenlabs-music')!.pricing },
+      { location: 'cloud', pricing: getPreset('llama-api')!.pricing },
       { kind: 'audio', durationSeconds: 120 },
     );
     expect(unknown.known).toBe(false);

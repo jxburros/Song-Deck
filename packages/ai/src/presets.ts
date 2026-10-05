@@ -72,7 +72,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresCredential: true,
     credentialLabel: 'API key',
     capabilities: [...LLM_CLOUD],
-    suggestedModels: ['gpt-5', 'gpt-5-mini', 'gpt-4.1'],
+    suggestedModels: ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-5.5'],
     structuredOutput: 'json_schema',
     timeoutMs: 180_000,
     concurrency: 4,
@@ -80,8 +80,21 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     pricing: {
       currency: 'USD',
       note: PRICE_NOTE,
-      asOf: '2025-08',
+      asOf: '2026-10',
       models: {
+        'gpt-6.1-sol': { inputPerMTok: 2, outputPerMTok: 10 },
+        'gpt-6-sol': { inputPerMTok: 2, outputPerMTok: 10 },
+        'gpt-6-luna': { inputPerMTok: 0.1, outputPerMTok: 0.5 },
+        // GPT-5.6 Sol is on promotional pricing ($4/$20) through at least 2026-11-21.
+        'gpt-5.6-sol': { inputPerMTok: 4, outputPerMTok: 20 },
+        'gpt-5.6-terra': { inputPerMTok: 2, outputPerMTok: 12 },
+        'gpt-5.6-luna': { inputPerMTok: 0.2, outputPerMTok: 1.2 },
+        'gpt-5.5': { inputPerMTok: 5, outputPerMTok: 30 },
+        'gpt-5.4': { inputPerMTok: 2.5, outputPerMTok: 15 },
+        'gpt-5.4-mini': { inputPerMTok: 0.75, outputPerMTok: 4.5 },
+        'gpt-5.4-nano': { inputPerMTok: 0.2, outputPerMTok: 1.25 },
+        'gpt-5.2': { inputPerMTok: 1.75, outputPerMTok: 14 },
+        'gpt-5.1': { inputPerMTok: 1.25, outputPerMTok: 10 },
         'gpt-5': { inputPerMTok: 1.25, outputPerMTok: 10 },
         'gpt-5-mini': { inputPerMTok: 0.25, outputPerMTok: 2 },
         'gpt-5-nano': { inputPerMTok: 0.05, outputPerMTok: 0.4 },
@@ -155,7 +168,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresCredential: true,
     credentialLabel: 'API key',
     capabilities: [...LLM_CLOUD, 'AUDIO_INPUT', 'AUDIO_UNDERSTANDING'],
-    suggestedModels: ['gemini-2.5-pro', 'gemini-2.5-flash'],
+    suggestedModels: ['gemini-3.1-pro-preview', 'gemini-3.8-flash', 'gemini-3.5-flash'],
     structuredOutput: 'json_schema',
     timeoutMs: 180_000,
     concurrency: 4,
@@ -163,8 +176,18 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     pricing: {
       currency: 'USD',
       note: PRICE_NOTE,
-      asOf: '2025-08',
+      asOf: '2026-10',
       models: {
+        // Prompts over 200k tokens bill at $4/$18 on 3.1 Pro; the ≤200k rate is listed.
+        'gemini-3.1-pro-preview': { inputPerMTok: 2, outputPerMTok: 12 },
+        // 3.8 Flash doubles to $1.50/$7.50 on 2027-01-01.
+        'gemini-3.8-flash': { inputPerMTok: 0.75, outputPerMTok: 3.75 },
+        'gemini-3.5-flash': { inputPerMTok: 1.5, outputPerMTok: 9 },
+        'gemini-3-flash-preview': { inputPerMTok: 0.5, outputPerMTok: 3 },
+        // Lyria music models served by the same Gemini API key (see adapters/gemini.ts), per song.
+        'lyria-3.5': { perGenerationUsd: 0.08 },
+        'lyria-3-pro-preview': { perGenerationUsd: 0.08 },
+        'lyria-3-clip-preview': { perClipUsd: 0.04, clipSeconds: 30 },
         'gemini-2.5-pro': { inputPerMTok: 1.25, outputPerMTok: 10 },
         'gemini-2.5-flash-lite': { inputPerMTok: 0.1, outputPerMTok: 0.4 },
         'gemini-2.5-flash': { inputPerMTok: 0.3, outputPerMTok: 2.5 },
@@ -189,7 +212,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresCredential: true,
     credentialLabel: 'API key',
     capabilities: [...LLM_CLOUD],
-    suggestedModels: ['kimi-k2-0905-preview', 'kimi-k2-turbo-preview'],
+    suggestedModels: ['kimi-k3', 'kimi-k2.6'],
     structuredOutput: 'json_object',
     timeoutMs: 180_000,
     concurrency: 4,
@@ -197,8 +220,13 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     pricing: {
       currency: 'USD',
       note: PRICE_NOTE,
-      asOf: '2025-08',
-      models: { 'kimi-k2': { inputPerMTok: 0.6, outputPerMTok: 2.5 } },
+      asOf: '2026-10',
+      models: {
+        'kimi-k3': { inputPerMTok: 3, outputPerMTok: 15 },
+        'kimi-k2.6': { inputPerMTok: 0.95, outputPerMTok: 4 },
+        // Legacy K2 snapshots (e.g. kimi-k2-0905-preview).
+        'kimi-k2': { inputPerMTok: 0.6, outputPerMTok: 2.5 },
+      },
     },
     extra: { maxTokensParam: 'max_tokens', schemaDialect: 'openai-strict' },
     docsUrl: 'https://platform.moonshot.ai/docs/api/chat',
@@ -220,13 +248,17 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     credentialLabel: 'API key',
     capabilities: [...LLM_CLOUD],
     suggestedModels: ['Llama-4-Maverick-17B-128E-Instruct-FP8', 'Llama-3.3-70B-Instruct'],
+    // No pricing: the Llama API was a free preview and Meta announced its shutdown for 2026-07-06.
     structuredOutput: 'json_schema',
     timeoutMs: 180_000,
     concurrency: 4,
     qualityTier: 4,
     extra: { maxTokensParam: 'max_completion_tokens', schemaDialect: 'openai-strict' },
     docsUrl: 'https://llama.developer.meta.com/docs/features/compatibility',
-    setupNotes: ['Create an API key at llama.developer.meta.com.'],
+    setupNotes: [
+      'Create an API key at llama.developer.meta.com.',
+      'Meta announced the Llama API (a free preview) would shut down on 2026-07-06; use Together AI, Groq or a local server for Llama models if requests fail.',
+    ],
   },
   {
     id: 'together',
@@ -240,7 +272,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresCredential: true,
     credentialLabel: 'API key',
     capabilities: [...LLM, 'STRUCTURED_JSON', 'TOOL_CALLING'],
-    suggestedModels: ['meta-llama/Llama-3.3-70B-Instruct-Turbo', 'Qwen/Qwen2.5-72B-Instruct-Turbo'],
+    suggestedModels: ['openai/gpt-oss-120b', 'meta-llama/Llama-3.3-70B-Instruct-Turbo'],
     structuredOutput: 'json_object',
     timeoutMs: 180_000,
     concurrency: 4,
@@ -248,8 +280,11 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     pricing: {
       currency: 'USD',
       note: PRICE_NOTE,
-      asOf: '2025-08',
-      models: { 'meta-llama/Llama-3.3-70B-Instruct-Turbo': { inputPerMTok: 0.88, outputPerMTok: 0.88 } },
+      asOf: '2026-10',
+      models: {
+        'openai/gpt-oss-120b': { inputPerMTok: 0.15, outputPerMTok: 0.6 },
+        'meta-llama/Llama-3.3-70B-Instruct-Turbo': { inputPerMTok: 1.04, outputPerMTok: 1.04 },
+      },
     },
     extra: { maxTokensParam: 'max_tokens', schemaDialect: 'openai-strict' },
     docsUrl: 'https://docs.together.ai/docs/openai-api-compatibility',
@@ -268,7 +303,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresCredential: true,
     credentialLabel: 'API key',
     capabilities: [...LLM, 'STRUCTURED_JSON', 'TOOL_CALLING'],
-    suggestedModels: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
+    suggestedModels: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'],
     structuredOutput: 'json_object',
     timeoutMs: 120_000,
     concurrency: 4,
@@ -276,10 +311,12 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     pricing: {
       currency: 'USD',
       note: PRICE_NOTE,
-      asOf: '2025-08',
+      asOf: '2026-10',
+      // Llama 3.x models are Enterprise-only (price on request) since August 2026, so unpriced.
       models: {
-        'llama-3.3-70b-versatile': { inputPerMTok: 0.59, outputPerMTok: 0.79 },
-        'llama-3.1-8b-instant': { inputPerMTok: 0.05, outputPerMTok: 0.08 },
+        'openai/gpt-oss-120b': { inputPerMTok: 0.15, outputPerMTok: 0.6 },
+        'openai/gpt-oss-20b': { inputPerMTok: 0.075, outputPerMTok: 0.3 },
+        'qwen/qwen3.8-27b': { inputPerMTok: 0.8, outputPerMTok: 4 },
       },
     },
     extra: { maxTokensParam: 'max_completion_tokens', schemaDialect: 'openai-strict' },
@@ -438,6 +475,12 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     timeoutMs: 600_000,
     concurrency: 2,
     qualityTier: 5,
+    pricing: {
+      currency: 'USD',
+      perMinuteUsd: 0.15,
+      note: 'API usage is billed per minute of generated music ($0.15/min); plan-included minutes are not modelled.',
+      asOf: '2026-10',
+    },
     extra: { outputFormat: 'mp3_44100_128' },
     docsUrl: 'https://elevenlabs.io/docs/api-reference/music/compose',
     setupNotes: [
