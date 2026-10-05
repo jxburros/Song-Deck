@@ -213,7 +213,7 @@ export default function TranscribeMode({ standalone = false }: { standalone?: bo
               <Icon name="folder" size={11} /> {project.meta.name}
             </Badge>
           ) : (
-            <Badge>{standalone ? 'Standalone · save or export your result' : 'No project open'}</Badge>
+            <Badge>No project open</Badge>
           )}
         </div>
       )}
