@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check dependency review availability
         id: availability
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             try {
@@ -31,12 +31,12 @@ jobs:
               core.notice('Dependency review is unavailable for this repository; running the dependency audit instead.');
               core.setOutput('supported', 'false');
             }
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v5
         if: steps.availability.outputs.supported == 'true'
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.availability.outputs.supported != 'true'
         with:
           node-version: 22
