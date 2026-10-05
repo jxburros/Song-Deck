@@ -25,6 +25,12 @@ type Tab = 'console' | 'automation' | 'mastering';
 
 let lastTab: Tab = 'console';
 
+/** Open Mix and master on a tab (used by More tools and the Sound screen). */
+export function openMixTab(tab: Tab): void {
+  lastTab = tab;
+  useStudio.getState().setMode('mix');
+}
+
 /** Shared default strip object (stable identity keeps memoized strips from re-rendering). */
 const DEFAULT_STRIP = defaultChannelStrip();
 

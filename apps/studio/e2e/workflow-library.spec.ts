@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 const coreModule = '/@fs' + fileURLToPath(new URL('../../../packages/core/src/index.ts', import.meta.url));
 import { expect, test } from '@playwright/test';
+import { openArea } from './nav';
 
 test('standalone generation preserves the open project and saves persistent MIDI and audio', async ({
   page,
@@ -13,7 +14,8 @@ test('standalone generation preserves the open project and saves persistent MIDI
     await useStudio.getState().newProject('Keep this project');
     return JSON.stringify(useStudio.getState().project);
   })()`);
-  await page.getByRole('button', { name: 'Single Track', exact: true }).first().click();
+  await openArea(page, 'Single Track');
+  await page.getByRole('tab', { name: /Generate MIDI/ }).click();
   await page.getByLabel('Asset prompt').fill('Create a 2-bar piano melody in C major at 120 BPM.');
   await page.getByTestId('generate-run').click();
   const result = page.getByTestId('alternative-card').first();
@@ -26,7 +28,7 @@ test('standalone generation preserves the open project and saves persistent MIDI
       `import('/src/state/store.ts').then(({useStudio}) => JSON.stringify(useStudio.getState().project))`,
     ),
   ).toBe(before);
-  await page.getByRole('tab', { name: 'Create audio', exact: true }).click();
+  await page.getByRole('tab', { name: /Generate audio/ }).click();
   await result.getByRole('button', { name: 'Save to Library' }).click();
   await expect
     .poll(() =>
@@ -41,15 +43,23 @@ test('standalone generation preserves the open project and saves persistent MIDI
     ),
   ).toBe(before);
   await page.reload();
-  await page.getByRole('button', { name: 'Library', exact: true }).click();
+  await openArea(page, 'Library');
   await expect(page.getByTestId('library-item')).toHaveCount(2);
   const download = page.waitForEvent('download');
-  await page.getByTestId('library-item').first().getByRole('button', { name: 'Export', exact: true }).click();
+  await page
+    .getByTestId('library-item')
+    .first()
+    .getByRole('button', { name: /^Download / })
+    .click();
   expect((await download).suggestedFilename()).toMatch(/\.wav$/);
-  await page.getByTestId('library-item').first().getByRole('button', { name: 'Use in Compose' }).click();
+  await page
+    .getByTestId('library-item')
+    .first()
+    .getByRole('button', { name: 'Start a song with it' })
+    .click();
   await expect(page.getByTestId('compose-input')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Generate song', exact: true }).click();
-  await expect(page.getByTestId('project-timeline')).toBeVisible();
+  await page.getByRole('button', { name: 'Create now, rest on Auto', exact: true }).click();
+  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
   const audioPreserved = await page.evaluate(`(async () => {
     const { useStudio } = await import('/src/state/store.ts');
     const { useLibrary } = await import('/src/state/library.ts');
@@ -120,9 +130,9 @@ test('compose combines multiple MIDI inputs, preserves their timing, and display
   })()`);
   await expect(page.getByTestId('compose-input')).toHaveCount(2);
   await expect(page.getByLabel('Interpretation for Input 0')).toHaveValue('preserve');
-  await page.getByRole('button', { name: 'Generate song', exact: true }).click();
-  await expect(page.getByTestId('project-timeline')).toBeVisible();
-  await expect(page.locator('.project-name')).toHaveText('Combined song');
+  await page.getByRole('button', { name: 'Create now, rest on Auto', exact: true }).click();
+  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('.song-name')).toHaveText('Combined song');
   const result = await page.evaluate(`(async () => {
     const core = await import('${coreModule}');
     const { useStudio } = await import('/src/state/store.ts');
@@ -137,8 +147,11 @@ test('compose combines multiple MIDI inputs, preserves their timing, and display
   expect(result[1].duration).toBeCloseTo(120 / 150, 2);
   await page.getByLabel('Seek project playback').fill('1');
   await expect(page.getByLabel('Seek project playback')).toHaveValue('1');
-  await page.getByRole('button', { name: 'Library', exact: true }).click();
-  await expect(page.getByTestId('project-timeline')).toBeVisible();
+  // Library and back: the song and its playhead are where they were.
+  await openArea(page, 'Library');
+  await expect(page.getByRole('heading', { name: 'Everything you keep' })).toBeVisible();
+  await openArea(page, 'Songs');
+  await expect(page.getByLabel('Seek project playback')).toHaveValue('1');
 });
 
 test('reinterpretation changes independent copies while Preserve locks the original performance', async ({

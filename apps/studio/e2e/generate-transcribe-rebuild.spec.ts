@@ -3,6 +3,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { attestUpload } from './rights';
+import { composeQuickSong, openComposer } from './compose-helpers';
+import { openTool } from './nav';
 
 /**
  * Generate MIDI / Transcribe / Rebuild (spec §25-§27), entirely on-device:
@@ -174,22 +176,17 @@ function collectErrors(page: Page): string[] {
   return errors;
 }
 
-/** Mode tabs in the top bar (matched by label prefix: "Generate" / "Generate MIDI"…). */
-function modeTab(page: Page, label: 'Generate' | 'Transcribe' | 'Rebuild') {
-  if (label === 'Rebuild') return page.getByRole('button', { name: 'Rebuild a recording', exact: true });
-  return page
-    .getByRole('navigation', { name: 'Project tools' })
-    .getByRole('button', { name: label === 'Generate' ? 'Add Track' : 'Transcribe Track', exact: true });
-}
-
+/** Generate and Transcribe as song tools (More tools); Rebuild from Start a song. */
 async function openMode(page: Page, label: 'Generate' | 'Transcribe' | 'Rebuild') {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'AI proposes. You shape it.' })).toBeVisible();
-  if (label !== 'Rebuild') {
-    await page.getByRole('button', { name: 'Empty project', exact: true }).click();
-    await page.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Make a song' })).toBeVisible();
+  if (label === 'Rebuild') {
+    await openComposer(page);
+    await page.getByRole('button', { name: 'Rebuild a full recording', exact: true }).click();
+    return;
   }
-  await modeTab(page, label).click();
+  await composeQuickSong(page);
+  await openTool(page, label === 'Generate' ? 'Describe a part' : 'A part from audio');
 }
 
 const SHOTS = process.env.SHOTS_DIR ?? '/tmp/claude-0';
@@ -258,7 +255,7 @@ test('generate drum pattern shows a step grid and inserts into a project as a pr
   await cards.first().getByRole('button', { name: 'Open A as new project' }).click();
   await expect(page.getByTestId('piano-roll')).toBeVisible();
   // Back in Generate, insert alternative B into the now-open project as a new track (proposal).
-  await modeTab(page, 'Generate').click();
+  await openTool(page, 'Describe a part');
   await page.getByLabel('Asset prompt').fill('Make a pop-punk drum pattern at 176 BPM.');
   await page.getByTestId('generate-run').click();
   await expect(cards.first()).toBeVisible();
@@ -266,7 +263,6 @@ test('generate drum pattern shows a step grid and inserts into a project as a pr
   await expect(page.getByTestId('insert-dialog')).toBeVisible();
   await page.getByRole('button', { name: 'Create proposal' }).click();
   await expect(page.getByTestId('piano-roll')).toBeVisible();
-  await expect(page.locator('.right-tabs .tab', { hasText: 'Proposals' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Accept' }).first().click();
   expect(errors, errors.join('\n')).toEqual([]);
@@ -410,9 +406,9 @@ test('rebuild a synthesized mix and open it as a project with stems', async ({ p
   await page.screenshot({ path: `${SHOTS}/e2e-rebuild.png`, fullPage: false });
   await page.getByTestId('open-rebuild-project').click();
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 120_000 });
-  const rows = page.locator('.wb-left .track-row');
+  const rows = page.getByTestId('track-header');
   expect(await rows.count()).toBeGreaterThan(4);
-  await expect(page.locator('.wb-left .track-row', { hasText: 'stem' }).first()).toBeVisible();
+  await expect(rows.filter({ hasText: 'stem' }).first()).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/e2e-rebuild-project.png`, fullPage: false });
   expect(errors, errors.join('\n')).toEqual([]);
 });

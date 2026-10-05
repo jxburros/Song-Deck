@@ -66,14 +66,17 @@
   --key-label: #4c4c4c;
   --on-track: #121212;
 
-  --radius-sm: 2px;
-  --radius: 3px;
-  --radius-lg: 4px;
+  /* Geometric: square corners everywhere; cut corners come from styles/geometry.css. */
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-lg: 0;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   --focus-ring: 0 0 0 2px var(--accent);
 
-  --topbar-h: 60px;
-  --statusbar-h: 26px;
+  --rail-w: 84px;
+  --songbar-h: 72px;
+  --playerbar-h: 72px;
+  --phonebar-h: 64px;
   --sidebar-w: 248px;
   --rightbar-w: 340px;
 
@@ -196,7 +199,7 @@ code,
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 10px;
+  border-radius: 0;
   border: 2px solid var(--bg);
 }
 ::-webkit-scrollbar-track {

@@ -3,17 +3,90 @@ import { midiToSong } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { useSettings } from '../../state/settings';
 import { localGet, localSet } from '../../state/persistence';
+import type { ProjectSummary } from '../../state/persistence';
 import { openSettings } from '../settings/nav';
-import { Badge, Button, FileButton, Modal, TextInput } from '../../ui/kit';
-import { Icon } from '../../ui/icons';
-import { useComposeSession } from '../compose/session';
+import { Button, FileButton, Modal, TextInput } from '../../ui/kit';
+import { Icon, type IconName } from '../../ui/icons';
+import { useComposeSession, type StartFocus } from '../compose/session';
+import { SongTypeSwitch } from '../compose/SongType';
+import { useRoleRoute } from '../../engine/ai';
 import './home.css';
+
+/**
+ * Songs home: with vocals or instrumental, the ways to start a song (lyrics, audio, MIDI, a
+ * prompt, or style settings alone), opening a saved project or MIDI file, an empty project, and
+ * your songs.
+ */
+
+const STARTS: { focus: StartFocus; title: string; body: string; icon: IconName; label: string }[] = [
+  {
+    focus: 'lyrics',
+    title: 'Lyrics',
+    body: 'Full or partial. Sections like [Chorus] shape the song.',
+    icon: 'book',
+    label: 'Start from lyrics',
+  },
+  {
+    focus: 'audio',
+    title: 'Audio',
+    body: 'Hum, sing or play it live, or upload recordings. One track or several.',
+    icon: 'mic',
+    label: 'Start from audio',
+  },
+  {
+    focus: 'midi',
+    title: 'MIDI',
+    body: 'One or more tracks, from a few bars to a whole part.',
+    icon: 'midi',
+    label: 'Start from MIDI',
+  },
+  {
+    focus: 'prompt',
+    title: 'Prompt',
+    body: 'Describe the song in your own words.',
+    icon: 'sparkles',
+    label: 'Start from a prompt',
+  },
+];
+
+/** A small abstract arrangement for a song card, derived from its size (no audio is loaded). */
+function Thumb({ p }: { p: ProjectSummary }) {
+  let h = 0;
+  for (const c of p.id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const sections = Math.max(1, Math.min(8, p.sections || 1));
+  const lanes = Math.max(0, Math.min(4, p.tracks));
+  const widths = Array.from({ length: sections }, (_, i) => (i % 3 === 0 ? 1 : 2));
+  const kinds = ['--sec-a', '--sec-b', '--sec-c', '--sec-b', '--sec-c', '--sec-d', '--sec-c', '--sec-a'];
+  return (
+    <div className="song-thumb" aria-hidden="true">
+      <div className="song-thumb-row ribbon">
+        {widths.map((w, i) => (
+          <span key={i} style={{ flexGrow: w, background: `var(${kinds[i % kinds.length]})` }} />
+        ))}
+      </div>
+      {Array.from({ length: lanes }, (_, l) => (
+        <div key={l} className="song-thumb-row">
+          {widths.map((w, i) => (
+            <span
+              key={i}
+              style={{ flexGrow: w }}
+              className={(h >> ((l * 8 + i) % 31)) & 1 || i === 2 ? 'on' : ''}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
   const projects = useStudio((s) => s.projects);
   const st = useStudio.getState();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [newName, setNewName] = useState<string | null>(null);
+  const route = useRoleRoute('composition', 'auto');
+  const instrumental = useComposeSession((s) => s.instrumental);
+  const hasModel = Boolean(route && !route.internal);
 
   const importFile = async (files: File[]) => {
     const file = files[0];
@@ -33,199 +106,155 @@ export default function Home() {
     }
   };
 
-  return (
-    <div className="mode-page home-page">
-      <div className="home">
-        <div className="home-heading">
-          <span className="eyebrow">Your personal music studio</span>
-          <span className="eyebrow home-edition">Song Deck / 01</span>
-        </div>
-        <section className="hero" aria-labelledby="home-title">
-          <div className="hero-copy">
-            <p className="eyebrow">Human creativity × artificial intelligence</p>
-            <h1 id="home-title">
-              AI proposes.
-              <br />
-              <span>You shape it.</span>
-            </h1>
-            <p className="promise">
-              Your idea. Every note. Entirely yours.
-              <br />
-              Compose, refine, and produce music you can keep changing.
-            </p>
-            <div className="hero-actions">
-              <Button variant="primary" size="lg" icon="sparkles" onClick={() => st.setMode('compose')}>
-                Compose a new song
-              </Button>
-              <Button
-                size="lg"
-                icon="book"
-                onClick={() => {
-                  useComposeSession.getState().set({ tab: 'lyrics' });
-                  st.setMode('compose');
-                }}
-              >
-                Start from lyrics
-              </Button>
-            </div>
-            <p className="hero-footnote">
-              Ideas become music <span /> You stay in control
-            </p>
-          </div>
-          <div className="hero-art" aria-hidden="true">
-            <div className="hero-art-label eyebrow">More possible sounds</div>
-            <div className="hero-art-caption">
-              <span>SONG DECK</span>
-              <small>A new dimension for your ideas</small>
-            </div>
-          </div>
-        </section>
+  const start = (focus: StartFocus) => {
+    if (focus === 'prompt' && !hasModel) {
+      openSettings('providers', 'connect');
+      return;
+    }
+    useComposeSession.getState().start(focus);
+    st.setMode('compose');
+  };
+  const startFromStyle = () => {
+    useComposeSession.getState().startFromStyle();
+    st.setMode('compose');
+  };
 
-        <div className="creation-grid" aria-label="Ways to create">
-          <button className="creation-card" aria-label="Single Track" onClick={() => st.setMode('single')}>
-            <span className="eyebrow">01 / Generate</span>
-            <Icon name="midi" size={24} />
-            <strong>A spark of something.</strong>
-            <span>Create MIDI, render audio, or convert audio to notes.</span>
-            <span className="creation-link">
-              Single Track <Icon name="chevronRight" />
-            </span>
-          </button>
-          <button className="creation-card" aria-label="Browse Library" onClick={() => st.setMode('library')}>
-            <span className="eyebrow">02 / Library</span>
-            <Icon name="mic" size={24} />
-            <strong>Keep your ideas close.</strong>
-            <span>Save tracks and files. Reuse them across projects.</span>
-            <span className="creation-link">
-              Browse Library <Icon name="chevronRight" />
-            </span>
-          </button>
-          <button
-            className="creation-card"
-            aria-label="Rebuild a recording"
-            onClick={() => st.setMode('rebuild')}
-          >
-            <span className="eyebrow">03 / Reimagine</span>
-            <Icon name="rebuild" size={24} />
-            <strong>Find a new direction.</strong>
-            <span>Reconstruct a recording. Reshape the song.</span>
-            <span className="creation-link">
-              Rebuild a recording <Icon name="chevronRight" />
-            </span>
-          </button>
+  return (
+    <div className="area-page home-page">
+      <header className="songs-hero measure-grid">
+        <img className="songs-hero-art" src="/brand/sound-dimension.svg" alt="" aria-hidden="true" />
+        <svg className="songs-hero-edge" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M22 0 L0 100" vectorEffect="non-scaling-stroke" />
+          <path d="M26 0 L4 100" vectorEffect="non-scaling-stroke" className="soft" />
+        </svg>
+        <div className="songs-hero-copy">
+          <span className="eyebrow-rule">Songs</span>
+          <h1 id="home-title">Make a song</h1>
+          <p>
+            Start from words, a melody you hum, MIDI you already have, all of them at once, or just a style.
+          </p>
         </div>
+      </header>
+
+      <div className="area-body col" style={{ gap: 26 }}>
+        <div className="rule-title">
+          <span className="index">01</span>
+          <h2>Start from</h2>
+          <span className="line" />
+          <span className="note">Combine as many as you like on the next screen</span>
+        </div>
+        <SongTypeSwitch />
+        <div className="start-grid" aria-label="Ways to start a song">
+          {STARTS.filter((s) => !(instrumental && s.focus === 'lyrics')).map((s, i) => {
+            const locked = s.focus === 'prompt' && !hasModel;
+            return (
+              <button
+                key={s.focus}
+                type="button"
+                className={`start-tile ${locked ? 'locked' : ''}`}
+                aria-label={locked ? 'Connect an AI service to start from a prompt' : s.label}
+                onClick={() => start(s.focus)}
+              >
+                <span className="start-tile-top">
+                  <span className="start-tile-icon">
+                    <Icon name={s.icon} size={22} />
+                  </span>
+                  <span className="mono dim">{String(i + 1).padStart(2, '0')}</span>
+                </span>
+                <span className="start-tile-title">{s.title}</span>
+                <span className="start-tile-body">{s.body}</span>
+                {locked && (
+                  <span className="start-tile-note">
+                    <span className="diamond ai" /> Connect an AI service first
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          className="style-start"
+          aria-label="Start from style settings"
+          onClick={startFromStyle}
+        >
+          <span className="start-tile-icon">
+            <Icon name="sliders" size={20} />
+          </span>
+          <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
+            <span className="style-start-title">Nothing to bring? Start from style settings</span>
+            <span className="small muted">
+              Skip material: pick a starting point like Alt-rock band or Laid-back hip-hop, set a few basics
+              and create{instrumental ? ' an instrumental' : ''}.
+            </span>
+          </span>
+          <Icon name="chevronRight" />
+        </button>
 
         <ConnectNudge />
 
-        <div className="section-title">
-          <div>
-            <span className="eyebrow">Your projects</span>
-            <h2>Recent projects</h2>
-          </div>
+        <div className="rule-title" style={{ marginTop: 8 }}>
+          <span className="index">02</span>
+          <h2>Your songs</h2>
+          <span className="line" />
           <div className="row wrap">
             <FileButton accept=".songproject,.zip,.mid,.midi" onFile={importFile} icon="upload">
-              Import .songproject / MIDI
+              Open a .songproject or MIDI
             </FileButton>
-            <Button icon="plus" onClick={() => setNewName('Untitled project')}>
+            <Button icon="plus" onClick={() => setNewName('Untitled song')}>
               Empty project
             </Button>
           </div>
         </div>
         {projects.length === 0 ? (
-          <div className="library-empty">
+          <div className="songs-empty hatch-soft">
             <Icon name="music" size={28} />
             <div>
-              <h3>Your next sound starts here.</h3>
-              <p>No projects yet. Compose a song, capture an idea, or import your music.</p>
+              <h3>No songs yet</h3>
+              <p className="muted">
+                Pick a starting point above. Songs are saved on this device as you work.
+              </p>
             </div>
-            <span className="eyebrow">No API key needed</span>
           </div>
         ) : (
-          <div className="project-grid">
+          <div className="song-grid">
             {projects.map((p) => (
-              <div key={p.id} className="card project-card">
+              <div key={p.id} className="song-card card">
                 <button
-                  className="project-open"
+                  type="button"
+                  className="song-open"
                   aria-label={`Open ${p.name}`}
                   onClick={() => void st.openProject(p.id)}
                 />
-                <div className="row between">
-                  <div style={{ fontWeight: 700 }} className="ellipsis">
-                    {p.name}
+                <Thumb p={p} />
+                <div className="song-card-body">
+                  <div className="row between" style={{ gap: 8 }}>
+                    <strong className="ellipsis">{p.name}</strong>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon="trash"
+                      title="Delete project"
+                      className="song-delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDelete(p.id);
+                      }}
+                    />
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon="trash"
-                    title="Delete project"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setConfirmDelete(p.id);
-                    }}
-                  />
-                </div>
-                <div className="small muted" style={{ marginBottom: 8 }}>
-                  {p.title !== p.name ? `${p.title} · ` : ''}
-                  {p.keyName} · {Math.round(p.bpm)} BPM
-                </div>
-                <div className="row wrap">
-                  <Badge>{p.tracks} tracks</Badge>
-                  <Badge>{p.sections} sections</Badge>
-                  <Badge tone="accent">
-                    <Icon name="branch" size={11} /> {p.branch}
-                  </Badge>
-                  <Badge>v{p.revisions}</Badge>
-                </div>
-                <div className="small dim" style={{ marginTop: 8 }}>
-                  Edited {new Date(p.updatedAt).toLocaleString()}
+                  <span className="mono small muted">
+                    {p.keyName} · {Math.round(p.bpm)} BPM · {p.tracks} tracks
+                  </span>
+                  <span className="small dim">
+                    {p.branch !== 'main' ? `${p.branch} · ` : ''}v{p.revisions} · Edited{' '}
+                    {new Date(p.updatedAt).toLocaleString()}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
         )}
-
-        <div className="section-title" style={{ marginTop: 22 }}>
-          <div>
-            <span className="eyebrow">From idea to expression</span>
-            <h2>How Song Deck works</h2>
-          </div>
-        </div>
-        <div className="grid-4 principles">
-          {[
-            [
-              'compose',
-              'Composition first',
-              'Prompt → Song Blueprint → plan → MIDI. The song is structured data you own: key, chords, melodies, motifs, lyrics.',
-            ],
-            [
-              'lock',
-              'Lock & regenerate',
-              'Lock anything — tempo, chords, a drum section — then regenerate only unlocked material, reproducibly by seed.',
-            ],
-            [
-              'sparkles',
-              'AI proposes, you decide',
-              'Natural-language edits come back as visual note diffs to accept, reject or modify. Bad model output never corrupts a project.',
-            ],
-            [
-              'shield',
-              'Any AI, or none',
-              'Bring your own keys, run local models, or stay fully offline. Every request shows exactly what leaves the device.',
-            ],
-          ].map(([icon, title, body]) => (
-            <div className="card" key={title}>
-              <div className="row" style={{ marginBottom: 6, color: 'var(--accent-text)' }}>
-                <Icon name={icon} />
-                <strong style={{ color: 'var(--text)' }}>{title}</strong>
-              </div>
-              <div className="small muted">{body}</div>
-            </div>
-          ))}
-        </div>
-        <footer className="home-footer">
-          <span>AI that gives you the song back.</span>
-          <span>Stored on this device · autosaved with full version history</span>
-        </footer>
       </div>
 
       {confirmDelete && (
@@ -261,8 +290,9 @@ export default function Home() {
               <Button
                 variant="primary"
                 onClick={async () => {
-                  await st.newProject(newName || 'Untitled project');
+                  await st.newProject(newName || 'Untitled song');
                   setNewName(null);
+                  useComposeSession.getState().start(null);
                   st.setMode('compose');
                 }}
               >
@@ -286,16 +316,7 @@ function ConnectNudge() {
   const [dismissed, setDismissed] = useState(() => localGet<boolean>(NUDGE_KEY, false));
   if (hasProviders || dismissed) return null;
   return (
-    <div
-      className="card row connect-nudge"
-      data-testid="connect-nudge"
-      style={{
-        gap: 12,
-        marginBottom: 18,
-        borderColor: 'var(--ai-line)',
-        boxShadow: 'inset 3px 0 0 var(--ai)',
-      }}
-    >
+    <div className="connect-nudge callout row" data-testid="connect-nudge">
       <Icon name="plug" />
       <div className="grow" style={{ minWidth: 0 }}>
         <strong>Works offline — add AI when you want it.</strong>

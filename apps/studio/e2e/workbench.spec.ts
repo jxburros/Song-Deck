@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { composeQuickSong } from './compose-helpers';
+import { songStep, trackAction, trackHeader } from './nav';
 
 /**
  * Locking guarantee through the UI (spec §22): "Regenerate unlocked material" changes only
@@ -38,10 +39,9 @@ test('regenerating unlocked material never touches locked tracks, and undo resto
   expect(drums, 'composed song has a drum track').toBeTruthy();
   expect(before.length).toBeGreaterThan(3);
 
-  // Lock the drum track from its track row.
-  const drumRow = page.locator('.wb-left .track-row', { hasText: drums!.name }).first();
-  await drumRow.locator('.lock-btn').click();
-  await expect(drumRow.locator('.lock-btn')).toHaveAttribute('aria-pressed', 'true');
+  // Lock the drum track from its track menu.
+  await trackAction(page, drums!.name, 'Lock track');
+  await expect(trackHeader(page, drums!.name).getByLabel('Track state')).toBeVisible();
 
   // Regenerate everything that is unlocked.
   await page.getByRole('button', { name: 'Regenerate unlocked', exact: true }).click();
@@ -69,7 +69,7 @@ test('regenerating a single track leaves every other track untouched', async ({ 
   const bass = before.find((t) => /bass/i.test(t.name));
   expect(bass, 'composed song has a bass track').toBeTruthy();
 
-  await page.locator('.wb-left .track-row', { hasText: bass!.name }).first().click();
+  await trackHeader(page, bass!.name).click();
   await page.getByRole('button', { name: 'Regenerate track', exact: true }).click();
   await expect(page.getByText(/locked material unchanged/i)).toBeVisible();
 
@@ -87,14 +87,15 @@ test('accepting a proposal keeps edits made while it was pending', async ({ page
   const bass = before.find((t) => /bass/i.test(t.name))!;
   const drums = before.find((t) => /drum/i.test(t.name))!;
 
-  await page.locator('.wb-left .track-row', { hasText: bass.name }).first().click();
-  await page.locator('.right-tabs .tab', { hasText: 'AI Edit' }).click();
+  await trackHeader(page, bass.name).click();
   await page.getByLabel('Edit instruction').fill('Make the bass busier.');
   await page.getByRole('button', { name: 'Propose change' }).click();
   await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeVisible();
 
-  // While the proposal is pending, mute the drums (a separate revision).
-  await page.locator('.wb-left .track-row', { hasText: drums.name }).first().locator('.ms-btn.mute').click();
+  // While the proposal is pending, mute the drums on Sound (a separate revision).
+  await songStep(page, 'Sound');
+  await page.getByRole('button', { name: `Mute ${drums.name}`, exact: true }).click();
+  await songStep(page, 'Write');
   await page.getByRole('button', { name: 'Accept' }).first().click();
 
   const state = await page.evaluate(

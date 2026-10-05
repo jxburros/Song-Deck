@@ -24,7 +24,7 @@ async function taskState(page: Page, id: string): Promise<TaskView | null> {
 test('a rebuild interrupted by a reload resumes from its stored input and succeeds', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'AI proposes. You shape it.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Make a song' })).toBeVisible();
 
   // 60 s of a 120 BPM groove: kick on every beat, a bass line and a sustained chord.
   const id: string = await page.evaluate(`(async () => {
@@ -60,7 +60,7 @@ test('a rebuild interrupted by a reload resumes from its stored input and succee
     )
     .toBe('running');
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'AI proposes. You shape it.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Make a song' })).toBeVisible();
 
   await expect
     .poll(async () => (await taskState(page, id))?.status, { timeout: 180_000, intervals: [500] })

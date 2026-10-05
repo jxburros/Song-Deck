@@ -30,17 +30,58 @@ interface NavItem {
   hint: string;
 }
 
+/** Everyday settings first; the rest under Advanced. Tab ids stay stable for deep links. */
 const NAV: NavItem[] = [
-  { tab: 'providers', label: 'Providers', icon: 'plug', hint: 'Cloud keys, local models, custom endpoints' },
-  { tab: 'routing', label: 'Profiles & routing', icon: 'sliders', hint: 'Who handles each task, and why' },
-  { tab: 'privacy', label: 'Privacy', icon: 'shield', hint: 'Offline mode, never-upload, data flow' },
-  { tab: 'budget', label: 'Budget & spend', icon: 'tasks', hint: 'Limits and the spend ledger' },
-  { tab: 'models', label: 'Models & hardware', icon: 'cpu', hint: 'What runs well on this machine' },
-  { tab: 'nodes', label: 'Render nodes', icon: 'server', hint: 'Distribute stem renders' },
-  { tab: 'plugins', label: 'Plugins & profiles', icon: 'layers', hint: 'Plugins, genres, instruments' },
-  { tab: 'collab', label: 'Collaboration', icon: 'users', hint: 'Share projects, work together live' },
-  { tab: 'general', label: 'General', icon: 'settings', hint: 'Updates, theme, server, storage, about' },
+  {
+    tab: 'providers',
+    label: 'AI services',
+    icon: 'plug',
+    hint: 'Connect a service, local models, custom endpoints',
+  },
+  {
+    tab: 'privacy',
+    label: 'Privacy and spending',
+    icon: 'shield',
+    hint: 'Offline mode, what leaves, limits, spend',
+  },
+  { tab: 'general', label: 'General', icon: 'settings', hint: 'Theme, your name, updates, server, storage' },
 ];
+const ADVANCED: NavItem[] = [
+  {
+    tab: 'routing',
+    label: 'Which model does what',
+    icon: 'sliders',
+    hint: 'Profiles and routing rules per task',
+  },
+  { tab: 'models', label: 'Models and hardware', icon: 'cpu', hint: 'What runs well on this machine' },
+  { tab: 'nodes', label: 'Render nodes', icon: 'server', hint: 'Distribute stem renders' },
+  {
+    tab: 'plugins',
+    label: 'Plugins, genres, instruments',
+    icon: 'layers',
+    hint: 'Plugins and your own profiles',
+  },
+  { tab: 'collab', label: 'Collaboration', icon: 'users', hint: 'Share projects, comments, live rooms' },
+];
+const ALL_NAV = [...NAV, ...ADVANCED];
+
+/** Budget lives with Privacy; its own deep link still lands on it. */
+const navTab = (tab: SettingsTab): SettingsTab => (tab === 'budget' ? 'privacy' : tab);
+
+function PrivacyAndSpending({ focusBudget }: { focusBudget: boolean }) {
+  const budget = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focusBudget) budget.current?.scrollIntoView({ block: 'start' });
+  }, [focusBudget]);
+  return (
+    <>
+      <PrivacyTab />
+      <div ref={budget} className="st-joined" id="settings-budget">
+        <BudgetTab />
+      </div>
+    </>
+  );
+}
 
 function NavMeta({ tab }: { tab: SettingsTab }): ReactNode {
   const providers = useSettings((s) => s.providers);
@@ -56,7 +97,7 @@ function NavMeta({ tab }: { tab: SettingsTab }): ReactNode {
   const loaded = useExtensions((s) => Object.values(s.loaded).filter((p) => p.status === 'loaded').length);
   const [today, setToday] = useState(0);
   useEffect(() => {
-    if (tab !== 'budget') return;
+    if (tab !== 'privacy') return;
     const b = getBudget();
     void b.ready().then(() => setToday(b.totals().todayUsd));
   }, [tab, version]);
@@ -80,7 +121,11 @@ function NavMeta({ tab }: { tab: SettingsTab }): ReactNode {
     case 'routing':
       return <span className="st-nav-meta">{routing.mode === 'automatic' ? 'auto' : routing.mode}</span>;
     case 'privacy':
-      return routing.offline ? <span className="st-nav-meta on">Offline</span> : null;
+      return routing.offline ? (
+        <span className="st-nav-meta on">Offline</span>
+      ) : today > 0 ? (
+        <span className="st-nav-meta">{usd(today)}</span>
+      ) : null;
     case 'budget':
       return today > 0 ? <span className="st-nav-meta">{usd(today)}</span> : null;
     case 'models':
@@ -128,14 +173,34 @@ function NavMeta({ tab }: { tab: SettingsTab }): ReactNode {
 const VIEWS: Record<SettingsTab, () => ReactNode> = {
   providers: () => <ProvidersTab />,
   routing: () => <RoutingTab />,
-  privacy: () => <PrivacyTab />,
-  budget: () => <BudgetTab />,
+  privacy: () => <PrivacyAndSpending focusBudget={false} />,
+  budget: () => <PrivacyAndSpending focusBudget />,
   models: () => <ModelsTab />,
   nodes: () => <NodesTab />,
   plugins: () => <PluginsTab />,
   collab: () => <CollabTab />,
   general: () => <GeneralTab />,
 };
+
+function NavButton({ item, active, onPick }: { item: NavItem; active: boolean; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      className={`st-nav-item ${active ? 'active' : ''}`}
+      onClick={onPick}
+      title={item.hint}
+    >
+      <Icon name={item.icon} size={15} />
+      <span className="grow">
+        <span className="st-nav-label">{item.label}</span>
+        <span className="st-nav-hint">{item.hint}</span>
+      </span>
+      <NavMeta tab={item.tab} />
+    </button>
+  );
+}
 
 export default function SettingsMode() {
   const tab = useSettingsNav((s) => s.tab);
@@ -159,8 +224,9 @@ export default function SettingsMode() {
     <div className="st-page" data-testid="settings-mode">
       <aside className="st-nav">
         <div className="st-nav-head">
-          <h2>Settings</h2>
-          <p>Use whichever AI you want — or none.</p>
+          <span className="eyebrow-rule">Settings</span>
+          <h2>Song Deck works without AI</h2>
+          <p>Connect a service when you want prompts, changes in words and realistic audio.</p>
           <div className="st-nav-status">
             <span>
               <span
@@ -185,29 +251,20 @@ export default function SettingsMode() {
           aria-orientation="vertical"
         >
           {NAV.map((n) => (
-            <button
-              key={n.tab}
-              type="button"
-              role="tab"
-              aria-selected={tab === n.tab}
-              className={`st-nav-item ${tab === n.tab ? 'active' : ''}`}
-              onClick={() => setTab(n.tab)}
-              title={n.hint}
-            >
-              <Icon name={n.icon} size={15} />
-              <span className="grow">
-                <span className="st-nav-label">{n.label}</span>
-                <span className="st-nav-hint">{n.hint}</span>
-              </span>
-              <NavMeta tab={n.tab} />
-            </button>
+            <NavButton key={n.tab} item={n} active={navTab(tab) === n.tab} onPick={() => setTab(n.tab)} />
+          ))}
+          <div className="st-nav-group" role="presentation">
+            <span className="eyebrow-rule">Advanced</span>
+          </div>
+          {ADVANCED.map((n) => (
+            <NavButton key={n.tab} item={n} active={navTab(tab) === n.tab} onPick={() => setTab(n.tab)} />
           ))}
         </nav>
       </aside>
       <section
         className="st-content"
         role="tabpanel"
-        aria-label={NAV.find((n) => n.tab === tab)?.label}
+        aria-label={ALL_NAV.find((n) => n.tab === navTab(tab))?.label}
         ref={content}
       >
         <div className="st-inner" key={tab}>

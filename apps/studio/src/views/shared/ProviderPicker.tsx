@@ -20,7 +20,7 @@ export function ProviderPicker({
 }) {
   const options = useRoleOptions(role);
   return (
-    <div className="row">
+    <div className="row provider-picker">
       <Select
         size={size}
         value={options.some((o) => o.value === value) ? value : 'auto'}

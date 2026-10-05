@@ -90,7 +90,6 @@ export default function NodesTab() {
       <TabHeader
         icon="server"
         title="Render nodes"
-        spec="Phase 5"
         lede="Spread stem renders across this machine’s server and other computers running Song Deck. Renders are deterministic, so stems rendered on different nodes are identical to a single-machine render."
         actions={
           <Button

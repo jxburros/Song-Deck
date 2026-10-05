@@ -23,7 +23,7 @@ import {
 import { useStudio } from '../../state/store';
 import { usePlayhead } from '../../hooks';
 import { Badge, Button, Select } from '../../ui/kit';
-import { colorForRole } from './SidePanel';
+import { colorForRole } from './tracks';
 import { alpha, useThemeName } from '../../ui/theme';
 import { auditionNote } from '../../engine/audition';
 import { useLoopSync } from './useLoopSync';

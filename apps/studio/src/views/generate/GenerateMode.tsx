@@ -203,27 +203,23 @@ export default function GenerateMode({
 
   return (
     <div className="mode-page" data-testid="generate-mode">
-      <div className="page-header">
-        <div className="grow">
-          <h1>
-            {output === 'audio'
-              ? 'Create a single audio track'
-              : standalone
-                ? 'Create a MIDI file'
-                : 'Generate a project track'}
-          </h1>
-          <div className="lede">
-            Create individual musical assets — a melody, a drum pattern, a bass line — as editable MIDI with a{' '}
-            <strong>notation preview</strong> and an <strong>audio preview</strong>. Every alternative is
-            reproducible from its seed; nothing enters a project until you accept it.
+      {!standalone && (
+        <div className="page-header">
+          <div className="grow">
+            <h1>{output === 'audio' ? 'Create a single audio track' : 'Generate a project track'}</h1>
+            <div className="lede">
+              Create individual musical assets — a melody, a drum pattern, a bass line — as editable MIDI with
+              a <strong>notation preview</strong> and an <strong>audio preview</strong>. Every alternative is
+              reproducible from its seed; nothing enters a project until you accept it.
+            </div>
           </div>
+          {project && (
+            <Badge tone="accent" title="Insert targets this project">
+              <Icon name="folder" size={11} /> {project.meta.name}
+            </Badge>
+          )}
         </div>
-        {project && (
-          <Badge tone="accent" title="Insert targets this project">
-            <Icon name="folder" size={11} /> {project.meta.name}
-          </Badge>
-        )}
-      </div>
+      )}
 
       <div className="panel" style={{ marginBottom: 14 }}>
         <div className="panel-body col">

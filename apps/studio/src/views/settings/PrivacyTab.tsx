@@ -84,7 +84,6 @@ export default function PrivacyTab() {
       <TabHeader
         icon="shield"
         title="Privacy"
-        spec="§50 §51"
         lede="Connected services can run without repeated prompts. Manage permissions here, or turn on offline mode to keep requests on this device."
       />
 

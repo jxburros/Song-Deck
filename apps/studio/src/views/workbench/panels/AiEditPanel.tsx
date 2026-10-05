@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { tickToMusical } from '@songdeck/core';
 import { useStudio } from '../../../state/store';
-import { Badge, Button, Field, Spinner, TextArea } from '../../../ui/kit';
+import { Button, Field, Spinner, TextArea } from '../../../ui/kit';
 import { ProviderPicker } from '../../shared/ProviderPicker';
 import { aiEdit } from '../../../engine/ai';
 
@@ -16,7 +16,10 @@ const EXAMPLES = [
   'Turn these chords into something more harmonically ambiguous.',
 ];
 
-/** AI MIDI editing (spec §20): natural language → structured operations → proposal with a visual diff. */
+/**
+ * AI MIDI editing (spec §20): natural language → structured operations → proposal with a visual diff.
+ * The output stays MIDI; nothing is overwritten until the proposal is kept.
+ */
 export default function AiEditPanel() {
   const song = useStudio((s) => s.project?.song ?? null);
   const selection = useStudio((s) => s.selection);
@@ -25,6 +28,7 @@ export default function AiEditPanel() {
   const [instruction, setInstruction] = useState('');
   const [provider, setProvider] = useState('auto');
   const [busy, setBusy] = useState(false);
+  const [moreIdeas, setMoreIdeas] = useState(false);
   const [last, setLast] = useState<{ explanation: string; source: string } | null>(null);
   if (!song) return null;
 
@@ -55,49 +59,40 @@ export default function AiEditPanel() {
     }
   };
 
+  const scopeNames = scopeTracks.length
+    ? scopeTracks.map((id) => song.tracks.find((t) => t.id === id)?.name ?? id).join(', ')
+    : 'all tracks';
+  const examples = moreIdeas ? EXAMPLES : EXAMPLES.slice(0, 4);
+
   return (
-    <div className="col">
-      <div>
-        <h3>Change it with words</h3>
-        <div className="small muted">
-          The output stays MIDI. Nothing is overwritten until you accept the proposal.
-        </div>
+    <div className="col ai-edit" style={{ gap: 10 }}>
+      <TextArea
+        value={instruction}
+        onChange={setInstruction}
+        rows={3}
+        placeholder="Say what to change, e.g. Make the bass busier"
+        aria-label="Edit instruction"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            void run();
+          }
+        }}
+      />
+      <div className="small dim">
+        Applies to {scopeNames} · {range}
+        {selection.noteIds.length > 0 ? ` · ${selection.noteIds.length} notes` : ''}. Nothing changes until
+        you keep it.
       </div>
-      <div className="card small">
-        <div className="row wrap">
-          <span className="muted">Scope:</span>
-          {scopeTracks.length ? (
-            scopeTracks.map((id) => (
-              <Badge key={id}>{song.tracks.find((t) => t.id === id)?.name ?? id}</Badge>
-            ))
-          ) : (
-            <Badge>all tracks</Badge>
-          )}
-          <Badge tone="accent">{range}</Badge>
-          {selection.noteIds.length > 0 && <Badge>{selection.noteIds.length} notes</Badge>}
-        </div>
-      </div>
-      <Field label="Instruction">
-        <TextArea
-          value={instruction}
-          onChange={setInstruction}
-          rows={3}
-          placeholder="e.g. Make the bass busier"
-          aria-label="Edit instruction"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              void run();
-            }
-          }}
-        />
-      </Field>
       <div className="chip-list">
-        {EXAMPLES.map((ex) => (
-          <button key={ex} className="chip" onClick={() => setInstruction(ex)}>
+        {examples.map((ex) => (
+          <button key={ex} type="button" className="chip" onClick={() => setInstruction(ex)}>
             {ex}
           </button>
         ))}
+        <button type="button" className="link-btn small" onClick={() => setMoreIdeas(!moreIdeas)}>
+          {moreIdeas ? 'Fewer ideas' : 'More ideas'}
+        </button>
       </div>
       <Field label="Who edits">
         <ProviderPicker role="midi-editing" value={provider} onChange={setProvider} />

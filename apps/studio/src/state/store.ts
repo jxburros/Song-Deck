@@ -63,6 +63,8 @@ export type Mode =
   | 'single'
   | 'compose'
   | 'workbench'
+  | 'sound'
+  | 'tools'
   | 'generate'
   | 'expand'
   | 'transcribe'
@@ -72,6 +74,9 @@ export type Mode =
   | 'mix'
   | 'export'
   | 'settings';
+
+/** The three steps of a song, shown in the song header. */
+export type SongStep = 'workbench' | 'sound' | 'export';
 
 export type WorkbenchView = 'arrangement' | 'piano-roll' | 'pattern' | 'chords' | 'structure' | 'theory';
 
@@ -116,6 +121,8 @@ interface StudioState {
   activeProposalId: string | null;
 
   mode: Mode;
+  /** The song step (Write, Sound or Export) to return to when More tools closes. */
+  songStep: SongStep;
   workbenchView: WorkbenchView;
   rightPanel: RightPanel;
   selectedTrackId: string | null;
@@ -290,6 +297,7 @@ export const useStudio = create<StudioState>((set, get) => {
     proposals: [],
     activeProposalId: null,
     mode: 'home',
+    songStep: 'workbench',
     workbenchView: 'arrangement',
     rightPanel: 'ai-edit',
     selectedTrackId: null,
@@ -622,10 +630,11 @@ export const useStudio = create<StudioState>((set, get) => {
     },
 
     setMode(mode) {
-      set({ mode });
+      if (mode === 'workbench' || mode === 'sound' || mode === 'export') set({ mode, songStep: mode });
+      else set({ mode });
     },
     setWorkbenchView(workbenchView) {
-      set({ workbenchView, mode: 'workbench' });
+      set({ workbenchView, mode: 'workbench', songStep: 'workbench' });
     },
     setRightPanel(rightPanel) {
       set({ rightPanel });

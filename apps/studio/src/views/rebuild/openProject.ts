@@ -25,7 +25,7 @@ import {
 } from '../../engine/capture-song';
 import { slugify } from '../../engine/capture-files';
 import { recordAttestation, type PendingAttestation } from '../../engine/rights';
-import { colorForRole } from '../workbench/SidePanel';
+import { colorForRole } from '../workbench/tracks';
 
 export interface RebuildSource {
   name: string;

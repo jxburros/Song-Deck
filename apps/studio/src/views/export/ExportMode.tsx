@@ -51,6 +51,7 @@ import type {
 import { Badge, Button, EmptyState, Progress, Select, Spinner, Toggle } from '../../ui/kit';
 import { Icon, type IconName } from '../../ui/icons';
 import { careLabel } from '../../engine/rights';
+import { adoptedCandidateId } from '../produce/adopt';
 import './export.css';
 
 /**
@@ -115,6 +116,39 @@ function Row({ name, detail, children }: { name: ReactNode; detail?: ReactNode; 
   );
 }
 
+/** One of the five everyday exports: what it is, one choice, one button. */
+function QuickCard({
+  icon,
+  title,
+  body,
+  control,
+  children,
+  primary,
+}: {
+  icon: IconName;
+  title: string;
+  body: string;
+  control: ReactNode;
+  children: ReactNode;
+  primary?: boolean;
+}) {
+  return (
+    <section className={`panel ex-quick-card ${primary ? 'lit' : 'quiet'}`} aria-label={title}>
+      <div className="ex-quick-head">
+        <span className={`ex-quick-icon ${primary ? 'primary' : ''}`}>
+          <Icon name={icon} />
+        </span>
+        <h2>{title}</h2>
+      </div>
+      <p className="small muted">{body}</p>
+      <div className="ex-quick-foot">
+        {control}
+        {children}
+      </div>
+    </section>
+  );
+}
+
 /** A button bound to a queue task: shows live progress and a cancel control while it runs. */
 function TaskButton({
   taskId,
@@ -124,6 +158,7 @@ function TaskButton({
   disabled,
   title,
   variant,
+  block,
 }: {
   taskId?: string;
   label: string;
@@ -132,6 +167,8 @@ function TaskButton({
   disabled?: boolean;
   title?: string;
   variant?: 'primary';
+  /** Fill the width (the quick export cards). */
+  block?: boolean;
 }) {
   const t = useTaskRecord(taskId);
   if (ACTIVE(t)) {
@@ -163,7 +200,7 @@ function TaskButton({
     );
   }
   return (
-    <span className="col" style={{ gap: 2, alignItems: 'flex-end' }}>
+    <span className="col" style={{ gap: 2, alignItems: block ? 'stretch' : 'flex-end' }}>
       <Button size="sm" variant={variant} icon={icon} onClick={onStart} disabled={disabled} title={title}>
         {label}
       </Button>
@@ -204,6 +241,9 @@ export default function ExportMode() {
   const [includeAudio, setIncludeAudio] = useState(true);
   const [renderMidiAudio, setRenderMidiAudio] = useState(true);
   const [singleTrack, setSingleTrack] = useState<string>('');
+  const [midiLayout, setMidiLayout] = useState<'song' | 'tracks'>('song');
+  const [libraryTracks, setLibraryTracks] = useState<string>('all');
+  const [moreOpen, setMoreOpen] = useState(false);
   const [pdfTrack, setPdfTrack] = useState<string>('auto');
   const [pdfPage, setPdfPage] = useState<'letter' | 'a4'>('letter');
 
@@ -300,594 +340,730 @@ export default function ExportMode() {
   const everythingTask = running.everything;
   const needsCare = attestationsNeedingCare(project);
 
+  const adopted = adoptedCandidateId(song);
+  const adoptedLabel = adopted ? song.production.candidates.find((c) => c.id === adopted)?.label : undefined;
+  const hearing = adoptedLabel ? `audio version ${adoptedLabel}` : 'the built-in instruments';
+  const finish =
+    song.mastering.method === 'none' ? 'without mastering' : `polished for ${target.label.toLowerCase()}`;
+  const exportMidiSong = safe(
+    'MIDI export',
+    () =>
+      void deliverFile(`${base}.mid`, songToMidi(song, custom), MIME.midi, { detail: 'Multi-track MIDI' }),
+  );
+  const exportMidiTracks = safe('MIDI tracks export', async () => {
+    const entries = midiTracks.map((t) => ({
+      name: `${String(song.tracks.indexOf(t) + 1).padStart(2, '0')} ${sanitizeFileName(t.name, 'Track')}.mid`,
+      data: trackToMidi(song, t.id, custom),
+    }));
+    const zip = await zipEntries(entries);
+    deliverFile(`${base} - MIDI tracks.zip`, zip, MIME.zip, { detail: `${entries.length} MIDI files` });
+  });
+  const exportProject = safe('Project export', async () => {
+    const bytes = await st.exportProjectBytes();
+    deliverFile(`${base}.songproject`, bytes, MIME.songproject, { detail: 'Song Deck project package' });
+  });
+  const exportStems = () =>
+    begin<StemsExportInput>(
+      'stems',
+      'export.stems',
+      `Export stems (${stemsBy === 'stemGroup' ? 'by group' : 'per track'})`,
+      {
+        projectId: project.meta.id,
+        by: stemsBy,
+        wavBits: settings.wavBits,
+        sampleRate: settings.sampleRate,
+        includeAudioTracks: includeAudio,
+        fileBase: base,
+      },
+    );
+  const libraryTrackIds = libraryTracks === 'all' ? undefined : [libraryTracks];
+
   return (
-    <div className="mode-page ex-page">
-      <div className="page-header">
-        <div className="grow">
-          <h1>Export</h1>
-          <div className="lede">
-            Your work always leaves with you: the project, every MIDI part, the mix in any format, stems,
-            sheets and notation, and DAW-ready sessions. Renders run in the generation queue — keep working
-            while they finish.
-          </div>
+    <div className="area-page ex-page">
+      <header className="page-band split measure-grid">
+        <div className="grow col" style={{ gap: 6, minWidth: 0 }}>
+          <span className="eyebrow-rule">03 · Export</span>
+          <h1>Take it with you</h1>
+          <p className="lede">
+            Audio uses {hearing}, {finish}.{' '}
+            <button type="button" className="link-btn" onClick={() => st.setMode('sound')}>
+              Change
+            </button>
+          </p>
         </div>
         <Button icon="tasks" variant="ghost" onClick={() => st.setTaskDrawer(true)}>
           Queue{activeExportCount ? ` (${activeExportCount})` : ''}
         </Button>
-      </div>
-
-      {needsCare.length > 0 && (
-        <div className="callout warning" data-testid="export-rights-notice" role="note">
-          <strong>Rights reminder.</strong> This project contains uploaded audio that was attested as personal
-          study only, or flagged as a likely commercial release:{' '}
-          {needsCare.slice(0, 4).map(careLabel).join('; ')}
-          {needsCare.length > 4 ? ` and ${needsCare.length - 4} more` : ''}. Exporting is your call —
-          releasing it may need permission from the rights holders. The project package and “Export
-          everything” include a rights summary (RIGHTS.txt).
-        </div>
-      )}
-
-      <div className="panel ex-settings" aria-label="Export settings">
-        <div className="ex-settings-row">
-          <label className="ex-setting">
-            <span className="field-label">Sample rate</span>
-            <Select
-              size="sm"
-              value={String(settings.sampleRate)}
-              onChange={(v) => set({ sampleRate: Number(v) as SampleRate })}
-              options={[
-                { value: '44100', label: '44.1 kHz' },
-                { value: '48000', label: '48 kHz' },
-              ]}
-              aria-label="Sample rate"
-            />
-          </label>
-          <label className="ex-setting">
-            <span className="field-label">WAV</span>
-            <Select
-              size="sm"
-              value={String(settings.wavBits)}
-              onChange={(v) => set({ wavBits: Number(v) as WavBits })}
-              options={[
-                { value: '16', label: '16-bit' },
-                { value: '24', label: '24-bit' },
-                { value: '32', label: '32-bit float' },
-              ]}
-              aria-label="WAV bit depth"
-            />
-          </label>
-          <label className="ex-setting">
-            <span className="field-label">FLAC</span>
-            <Select
-              size="sm"
-              value={String(settings.flacBits)}
-              onChange={(v) => set({ flacBits: Number(v) as FlacBits })}
-              options={[
-                { value: '16', label: '16-bit' },
-                { value: '24', label: '24-bit' },
-              ]}
-              aria-label="FLAC bit depth"
-            />
-          </label>
-          <label className="ex-setting">
-            <span className="field-label">MP3</span>
-            <Select
-              size="sm"
-              value={String(settings.mp3Kbps)}
-              onChange={(v) => set({ mp3Kbps: Number(v) })}
-              options={MP3_KBPS.map((k) => ({ value: String(k), label: `${k} kbps` }))}
-              aria-label="MP3 bitrate"
-            />
-          </label>
-          <label className="ex-setting">
-            <span className="field-label">AAC</span>
-            <Select
-              size="sm"
-              value={String(settings.aacKbps)}
-              onChange={(v) => set({ aacKbps: Number(v) })}
-              options={AAC_KBPS.map((k) => ({ value: String(k), label: `${k} kbps` }))}
-              aria-label="AAC bitrate"
-            />
-          </label>
-          <div className="spacer" />
-          <span className="small dim" title="Solo is a monitoring control; mutes are part of the mix">
-            Solo ignored · mutes honored
-          </span>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={saveDefaults}
-            disabled={!differsFromPrefs}
-            title="Store these as the default export settings"
-          >
-            Save as default
-          </Button>
-        </div>
-      </div>
-
-      <section className="panel ex-hero" aria-label="Export everything">
-        <div className="ex-hero-body">
-          <div className="grow">
-            <div className="row" style={{ gap: 8, marginBottom: 4 }}>
-              <Icon name="layers" />
-              <h2 style={{ margin: 0 }}>Export everything</h2>
-            </div>
-            <div className="muted small" style={{ marginBottom: 8 }}>
-              One archive with every deliverable — exactly the set from the spec’s complete workflow.{' '}
-              {masterNote}
-            </div>
-            <div className="ex-filelist">
-              {[
-                song.mastering.method === 'none' ? 'Mix.wav' : 'Master.wav',
-                hasInstrumental ? 'Instrumental.wav' : null,
-                hasVocals ? 'Acapella.wav' : null,
-                'Stems.zip',
-                'Song.mid',
-                'Song.musicxml',
-                `${base}.songproject`,
-              ]
-                .filter(Boolean)
-                .map((f) => (
-                  <span key={f} className="ex-file">
-                    {f}
-                  </span>
-                ))}
-            </div>
+      </header>
+      <div className="area-body col ex-body" style={{ gap: 18 }}>
+        {needsCare.length > 0 && (
+          <div className="callout warning" data-testid="export-rights-notice" role="note">
+            <strong>Rights reminder.</strong> This project contains uploaded audio that was attested as
+            personal study only, or flagged as a likely commercial release:{' '}
+            {needsCare.slice(0, 4).map(careLabel).join('; ')}
+            {needsCare.length > 4 ? ` and ${needsCare.length - 4} more` : ''}. Exporting is your call —
+            releasing it may need permission from the rights holders. The project package and “Export
+            everything” include a rights summary (RIGHTS.txt).
           </div>
-          <div className="ex-hero-action">
-            <TaskButton
-              taskId={everythingTask}
-              label="Export everything (.zip)"
-              icon="export"
-              variant="primary"
-              onStart={() =>
-                begin<EverythingInput>('everything', 'export.everything', 'Export everything', {
-                  projectId: project.meta.id,
-                  wavBits: settings.wavBits,
-                  sampleRate: settings.sampleRate,
-                  fileBase: base,
-                })
-              }
-            />
-            <span className="small dim">
-              WAV {settings.wavBits === 32 ? '32-bit float' : `${settings.wavBits}-bit`} ·{' '}
-              {settings.sampleRate / 1000} kHz
-            </span>
-          </div>
-        </div>
-      </section>
+        )}
 
-      <div className="ex-grid">
-        <Card
-          icon="folder"
-          title="Project"
-          subtitle="The native package: song, full version history & branches, audio assets, provenance and rights metadata. Re-opens anywhere."
-        >
-          <Row
-            name={`${base}.songproject`}
-            detail={`${project.history.revisions.length} revisions · ${project.meta.assets.length} audio assets`}
+        <div className="ex-quick">
+          <QuickCard
+            primary
+            icon="wave"
+            title="The song"
+            body="One audio file of the finished mix, ready to share or upload."
+            control={
+              <Select
+                value={settings.format}
+                onChange={(v) => set({ format: v })}
+                options={[
+                  { value: 'mp3', label: 'MP3 · smaller file' },
+                  { value: 'wav', label: 'WAV · best quality' },
+                  { value: 'flac', label: 'FLAC · lossless, smaller' },
+                  {
+                    value: 'aac',
+                    label: `AAC · for Apple devices${aac && !aac.supported ? ' (unavailable)' : ''}`,
+                  },
+                ]}
+                aria-label="Song file format"
+              />
+            }
           >
-            <Button
-              size="sm"
-              icon="download"
-              onClick={safe('Project export', async () => {
-                const bytes = await st.exportProjectBytes();
-                deliverFile(`${base}.songproject`, bytes, MIME.songproject, {
-                  detail: 'Song Deck project package',
-                });
-              })}
-            >
-              .songproject
-            </Button>
-          </Row>
-        </Card>
-
-        <Card
-          icon="midi"
-          title="MIDI"
-          subtitle="Standard MIDI files with tempo map, meter, key, markers, lyrics and program changes."
-        >
-          <Row name="Multi-track MIDI" detail={`${midiTracks.length} tracks in one Type 1 file`}>
-            <Button
-              size="sm"
-              icon="download"
-              disabled={!midiTracks.length}
-              onClick={safe(
-                'MIDI export',
-                () =>
-                  void deliverFile(`${base}.mid`, songToMidi(song, custom), MIME.midi, {
-                    detail: 'Multi-track MIDI',
-                  }),
-              )}
-            >
-              Song.mid
-            </Button>
-          </Row>
-          <Row name="Individual tracks" detail="One .mid per track, zipped">
-            <Button
-              size="sm"
-              icon="download"
-              disabled={!midiTracks.length}
-              onClick={safe('MIDI tracks export', async () => {
-                const entries = midiTracks.map((t) => ({
-                  name: `${String(song.tracks.indexOf(t) + 1).padStart(2, '0')} ${sanitizeFileName(t.name, 'Track')}.mid`,
-                  data: trackToMidi(song, t.id, custom),
-                }));
-                const zip = await zipEntries(entries);
-                deliverFile(`${base} - MIDI tracks.zip`, zip, MIME.zip, {
-                  detail: `${entries.length} MIDI files`,
-                });
-              })}
-            >
-              Tracks .zip
-            </Button>
-          </Row>
-          <Row name="Single track" detail="Export one part">
-            <Select
-              size="sm"
-              value={singleTrack || midiTracks[0]?.id || ''}
-              onChange={setSingleTrack}
-              options={midiTracks.map((t) => ({ value: t.id, label: t.name }))}
-              aria-label="Track to export"
-              style={{ width: 140 }}
-              disabled={!midiTracks.length}
-            />
-            <Button
-              size="sm"
-              icon="download"
-              disabled={!midiTracks.length}
-              onClick={safe('Track export', () => {
-                const id = singleTrack || midiTracks[0]?.id;
-                const t = song.tracks.find((x) => x.id === id);
-                if (!t) return;
-                deliverFile(
-                  `${base} - ${sanitizeFileName(t.name, 'Track')}.mid`,
-                  trackToMidi(song, t.id, custom),
-                  MIME.midi,
-                  { detail: `MIDI · ${t.name}` },
-                );
-              })}
-            >
-              .mid
-            </Button>
-          </Row>
-        </Card>
-
-        <Card
-          icon="wave"
-          title="Audio"
-          subtitle="Rendered with the same engine you hear in playback: mixer, automation and master bus included."
-          badge={
-            <Select
-              size="sm"
-              value={settings.format}
-              onChange={(v) => set({ format: v })}
-              options={[
-                { value: 'wav', label: `WAV · ${settings.wavBits === 32 ? '32f' : settings.wavBits}` },
-                { value: 'flac', label: `FLAC · ${settings.flacBits}` },
-                { value: 'mp3', label: `MP3 · ${settings.mp3Kbps}k` },
-                {
-                  value: 'aac',
-                  label: `AAC · ${settings.aacKbps}k${aac && !aac.supported ? ' (unavailable)' : ''}`,
-                },
-              ]}
-              aria-label="Audio format"
-              style={{ width: 130 }}
-            />
-          }
-        >
-          {settings.format === 'aac' && aac && !aac.supported && (
-            <div className="callout warning small">{aac.reason}</div>
-          )}
-          <Row name="Mix" detail="Full mix through the master bus (unmastered)">
-            <TaskButton
-              taskId={running['audio-mix']}
-              label={`Mix.${settings.format}`}
-              onStart={() => exportAudio('mix', 'mix')}
-              disabled={audioFormatDisabled}
-              title={audioFormatDisabled ? aac?.reason : undefined}
-            />
-          </Row>
-          <Row name="Master" detail={masterNote}>
             <TaskButton
               taskId={running['audio-master']}
-              label={`Master.${settings.format}`}
+              label="Download song"
+              block
+              variant="primary"
               onStart={() => exportAudio('master', 'master')}
               disabled={audioFormatDisabled}
               title={audioFormatDisabled ? aac?.reason : undefined}
             />
-          </Row>
-          <Row name="Instrumental" detail="Every track except vocals">
-            <TaskButton
-              taskId={running['audio-instrumental']}
-              label={`Instrumental.${settings.format}`}
-              onStart={() => exportAudio('instrumental', 'instrumental')}
-              disabled={audioFormatDisabled || !hasInstrumental}
-              title={!hasInstrumental ? 'No instrumental tracks' : undefined}
-            />
-          </Row>
-          <Row name="Acapella" detail={hasVocals ? 'Vocal tracks only' : 'No vocal tracks in this song'}>
-            <TaskButton
-              taskId={running['audio-acapella']}
-              label={`Acapella.${settings.format}`}
-              onStart={() => exportAudio('acapella', 'acapella')}
-              disabled={audioFormatDisabled || !hasVocals}
-              title={!hasVocals ? 'No vocal tracks' : undefined}
-            />
-          </Row>
-        </Card>
-
-        <Card
-          icon="layers"
-          title="Stems"
-          subtitle="Time-aligned WAV stems from bar 1 — channel processing and sends included, master bus excluded."
-        >
-          <div className="row wrap" style={{ gap: 14 }}>
-            <Toggle
-              on={stemsBy === 'track'}
-              onChange={(v) => setStemsBy(v ? 'track' : 'stemGroup')}
-              label="One stem per track"
-            />
-            <Toggle on={includeAudio} onChange={setIncludeAudio} label="Include audio tracks individually" />
-          </div>
-          <Row
-            name="Stems.zip"
-            detail={
-              stemsBy === 'stemGroup'
-                ? 'Vocals · Drums · Bass · Guitars · Keys · Strings · Others'
-                : `${song.tracks.length} track stems`
+          </QuickCard>
+          <QuickCard
+            icon="layers"
+            title="Stems"
+            body="One audio file per part, for mixing somewhere else."
+            control={
+              <Select
+                value={stemsBy}
+                onChange={setStemsBy}
+                options={[
+                  { value: 'stemGroup', label: 'By instrument group' },
+                  { value: 'track', label: 'One per track' },
+                ]}
+                aria-label="Stems layout"
+              />
             }
           >
-            <TaskButton
-              taskId={running.stems}
-              label="Stems.zip"
-              onStart={() =>
-                begin<StemsExportInput>(
-                  'stems',
-                  'export.stems',
-                  `Export stems (${stemsBy === 'stemGroup' ? 'by group' : 'per track'})`,
-                  {
-                    projectId: project.meta.id,
-                    by: stemsBy,
-                    wavBits: settings.wavBits,
-                    sampleRate: settings.sampleRate,
-                    includeAudioTracks: includeAudio,
-                    fileBase: base,
-                  },
-                )
-              }
-            />
-          </Row>
-        </Card>
-
-        <Card
-          icon="book"
-          title="Composition"
-          subtitle="Readable documents of the music itself: chords, lyrics, notation."
-        >
-          <Row name="Chord sheet" detail="Sections with chord symbols per bar (.txt)">
-            <Button
-              size="sm"
-              icon="download"
-              onClick={safe(
-                'Chord sheet',
-                () =>
-                  void deliverFile(`${base} - Chords.txt`, songToChordSheet(song), MIME.text, {
-                    detail: 'Chord sheet',
-                  }),
-              )}
-            >
-              Chords.txt
-            </Button>
-          </Row>
-          <Row
-            name="Lyric sheet"
-            detail={
-              song.lyrics.length
-                ? `${song.lyrics.length} lyric lines`
-                : 'No lyrics yet — exports section headings'
+            <TaskButton taskId={running.stems} label="Download stems" block onStart={exportStems} />
+          </QuickCard>
+          <QuickCard
+            icon="midi"
+            title="MIDI"
+            body="The notes, for any DAW, notation app or instrument."
+            control={
+              <Select
+                value={midiLayout}
+                onChange={setMidiLayout}
+                options={[
+                  { value: 'song', label: 'All tracks · one file' },
+                  { value: 'tracks', label: 'One file per track' },
+                ]}
+                aria-label="MIDI layout"
+                disabled={!midiTracks.length}
+              />
             }
           >
             <Button
               size="sm"
               icon="download"
-              onClick={safe(
-                'Lyric sheet',
-                () =>
-                  void deliverFile(`${base} - Lyrics.txt`, songToLyricSheet(song), MIME.text, {
-                    detail: 'Lyric sheet',
-                  }),
-              )}
+              disabled={!midiTracks.length}
+              onClick={midiLayout === 'song' ? exportMidiSong : exportMidiTracks}
             >
-              Lyrics.txt
+              Download MIDI
             </Button>
-          </Row>
-          <Row name="MusicXML" detail="All parts for MuseScore, Sibelius, Finale, Dorico">
-            <Button
-              size="sm"
-              icon="download"
-              onClick={safe(
-                'MusicXML',
-                () =>
-                  void deliverFile(`${base}.musicxml`, songToMusicXML(song, custom), MIME.musicxml, {
-                    detail: 'MusicXML score',
-                  }),
-              )}
-            >
-              .musicxml
-            </Button>
-          </Row>
-          <Row name="Notation PDF" detail="Lead sheet: melody, chords and lyrics">
-            <Select
-              size="sm"
-              value={pdfTrack}
-              onChange={setPdfTrack}
-              options={[
-                { value: 'auto', label: 'Lead (auto)' },
-                ...midiTracks.map((t) => ({ value: t.id, label: t.name })),
-              ]}
-              aria-label="Notation track"
-              style={{ width: 120 }}
-            />
-            <Select
-              size="sm"
-              value={pdfPage}
-              onChange={setPdfPage}
-              options={[
-                { value: 'letter', label: 'Letter' },
-                { value: 'a4', label: 'A4' },
-              ]}
-              aria-label="Page size"
-              style={{ width: 76 }}
-            />
-            <Button
-              size="sm"
-              icon="download"
-              onClick={safe('Notation PDF', () => {
-                const pdf = songToNotationPdf(song, {
-                  ...custom,
-                  trackId: pdfTrack === 'auto' ? undefined : pdfTrack,
-                  pageSize: pdfPage,
-                  title: song.title,
-                  composer: useSettings.getState().userName || 'Song Deck',
-                });
-                deliverFile(`${base} - Lead Sheet.pdf`, pdf, MIME.pdf, { detail: 'Notation PDF' });
-              })}
-            >
-              .pdf
-            </Button>
-          </Row>
-        </Card>
-
-        <Card
-          icon="plug"
-          title="DAW interoperability"
-          subtitle="Ableton Live, Logic Pro, FL Studio, Reaper, Studio One, Cubase, Pro Tools — via projects, multitrack MIDI, stems, tempo map and markers."
-        >
-          <Toggle
-            on={renderMidiAudio}
-            onChange={setRenderMidiAudio}
-            label="Render MIDI tracks to audio too (playable without instruments)"
-          />
-          <Row name="DAWproject" detail="Open format for Bitwig, Studio One, Cubase">
-            <TaskButton
-              taskId={running.dawproject}
-              label=".dawproject"
-              onStart={() =>
-                begin<DawExportInput>('dawproject', 'export.daw', 'Export DAWproject', {
-                  projectId: project.meta.id,
-                  target: 'dawproject',
-                  wavBits: settings.wavBits,
-                  sampleRate: settings.sampleRate,
-                  renderMidi: renderMidiAudio,
-                  fileBase: base,
-                })
-              }
-            />
-          </Row>
-          <Row
-            name="Reaper project"
-            detail=".rpp with embedded MIDI, markers & tempo, plus referenced audio and per-track .mid"
+          </QuickCard>
+          <QuickCard
+            icon="folder"
+            title="Project backup"
+            body="Everything, with its version history. Opens in Song Deck anywhere."
+            control={
+              <span className="small dim mono ex-quick-note">
+                .songproject · {project.history.revisions.length} versions
+              </span>
+            }
           >
-            <TaskButton
-              taskId={running.reaper}
-              label="Reaper .zip"
-              onStart={() =>
-                begin<DawExportInput>('reaper', 'export.daw', 'Export Reaper project', {
-                  projectId: project.meta.id,
-                  target: 'reaper',
-                  wavBits: settings.wavBits,
-                  sampleRate: settings.sampleRate,
-                  renderMidi: renderMidiAudio,
-                  fileBase: base,
-                })
-              }
+            <Button size="sm" icon="download" onClick={exportProject}>
+              Download backup
+            </Button>
+          </QuickCard>
+          <QuickCard
+            icon="book"
+            title="Save to Library"
+            body="Keep tracks from this song to reuse in other songs."
+            control={
+              <Select
+                value={libraryTracks}
+                onChange={setLibraryTracks}
+                options={[
+                  { value: 'all', label: `All ${song.tracks.length} tracks · as a set` },
+                  ...song.tracks.map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                aria-label="Tracks to save"
+              />
+            }
+          >
+            <SaveLibraryButton
+              song={song}
+              trackIds={libraryTrackIds}
+              label={libraryTracks === 'all' ? 'Save all tracks' : 'Save track'}
             />
-          </Row>
-          <Row name="Tempo map" detail="Bar, beat, time and BPM (.csv)">
-            <Button
-              size="sm"
-              icon="download"
-              onClick={safe(
-                'Tempo map',
-                () =>
-                  void deliverFile(`${base} - Tempo map.csv`, tempoMapCsv(song), MIME.csv, {
-                    detail: 'Tempo map',
-                  }),
-              )}
-            >
-              .csv
-            </Button>
-          </Row>
-          <Row name="Markers" detail="Section markers for any DAW (.csv)">
-            <Button
-              size="sm"
-              icon="download"
-              onClick={safe(
-                'Markers',
-                () =>
-                  void deliverFile(`${base} - Markers.csv`, markersCsv(song), MIME.csv, {
-                    detail: 'Section markers',
-                  }),
-              )}
-            >
-              .csv
-            </Button>
-          </Row>
-          <Row name="Audacity labels" detail="Section label track (.txt)">
-            <Button
-              size="sm"
-              icon="download"
-              onClick={safe(
-                'Audacity labels',
-                () =>
-                  void deliverFile(`${base} - Labels.txt`, audacityLabels(song), MIME.text, {
-                    detail: 'Audacity labels',
-                  }),
-              )}
-            >
-              .txt
-            </Button>
-          </Row>
-        </Card>
+          </QuickCard>
+        </div>
 
-        <Card
-          icon="plug"
-          title="Plugin exporters"
-          subtitle="Formats contributed by enabled plugins (Settings → Plugins)."
+        <details
+          className="ex-more"
+          open={moreOpen}
+          onToggle={(e) => setMoreOpen((e.currentTarget as HTMLDetailsElement).open)}
         >
-          {exporters.length === 0 ? (
-            <div className="small dim">
-              No exporter plugins are loaded. Enable one (e.g. “ABC notation exporter”) in Settings → Plugins
-              and it appears here.
-              <div style={{ marginTop: 6 }}>
-                <Button size="sm" variant="ghost" icon="settings" onClick={() => st.setMode('settings')}>
-                  Open Settings
+          <summary>
+            <span className="ex-more-title">More formats</span>
+            <span className="small dim">
+              Everything at once, sheet music, MusicXML, DAW projects, instrumental and a cappella, quality
+              settings
+            </span>
+          </summary>
+          <div className="col" style={{ gap: 14, paddingTop: 14 }}>
+            <div className="panel ex-settings" aria-label="Export settings">
+              <div className="ex-settings-row">
+                <label className="ex-setting">
+                  <span className="field-label">Sample rate</span>
+                  <Select
+                    size="sm"
+                    value={String(settings.sampleRate)}
+                    onChange={(v) => set({ sampleRate: Number(v) as SampleRate })}
+                    options={[
+                      { value: '44100', label: '44.1 kHz' },
+                      { value: '48000', label: '48 kHz' },
+                    ]}
+                    aria-label="Sample rate"
+                  />
+                </label>
+                <label className="ex-setting">
+                  <span className="field-label">WAV</span>
+                  <Select
+                    size="sm"
+                    value={String(settings.wavBits)}
+                    onChange={(v) => set({ wavBits: Number(v) as WavBits })}
+                    options={[
+                      { value: '16', label: '16-bit' },
+                      { value: '24', label: '24-bit' },
+                      { value: '32', label: '32-bit float' },
+                    ]}
+                    aria-label="WAV bit depth"
+                  />
+                </label>
+                <label className="ex-setting">
+                  <span className="field-label">FLAC</span>
+                  <Select
+                    size="sm"
+                    value={String(settings.flacBits)}
+                    onChange={(v) => set({ flacBits: Number(v) as FlacBits })}
+                    options={[
+                      { value: '16', label: '16-bit' },
+                      { value: '24', label: '24-bit' },
+                    ]}
+                    aria-label="FLAC bit depth"
+                  />
+                </label>
+                <label className="ex-setting">
+                  <span className="field-label">MP3</span>
+                  <Select
+                    size="sm"
+                    value={String(settings.mp3Kbps)}
+                    onChange={(v) => set({ mp3Kbps: Number(v) })}
+                    options={MP3_KBPS.map((k) => ({ value: String(k), label: `${k} kbps` }))}
+                    aria-label="MP3 bitrate"
+                  />
+                </label>
+                <label className="ex-setting">
+                  <span className="field-label">AAC</span>
+                  <Select
+                    size="sm"
+                    value={String(settings.aacKbps)}
+                    onChange={(v) => set({ aacKbps: Number(v) })}
+                    options={AAC_KBPS.map((k) => ({ value: String(k), label: `${k} kbps` }))}
+                    aria-label="AAC bitrate"
+                  />
+                </label>
+                <div className="spacer" />
+                <span className="small dim" title="Solo is a monitoring control; mutes are part of the mix">
+                  Solo ignored · mutes honored
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={saveDefaults}
+                  disabled={!differsFromPrefs}
+                  title="Store these as the default export settings"
+                >
+                  Save as default
                 </Button>
               </div>
             </div>
-          ) : (
-            exporters.map((x) => (
-              <Row key={x.id} name={x.name} detail={x.description ?? `.${x.extension}`}>
-                <Button
-                  size="sm"
-                  icon="download"
-                  onClick={safe(x.name, async () => {
-                    const out = await x.export(song);
-                    deliverFile(`${base}.${x.extension}`, out, x.mimeType || 'application/octet-stream', {
-                      detail: `Plugin · ${x.name}`,
-                    });
-                  })}
-                >
-                  .{x.extension}
-                </Button>
-              </Row>
-            ))
-          )}
-        </Card>
-      </div>
 
-      <RecentExports files={files} />
+            <section className="panel ex-hero" aria-label="Export everything">
+              <div className="ex-hero-body">
+                <div className="grow">
+                  <div className="row" style={{ gap: 8, marginBottom: 4 }}>
+                    <Icon name="layers" />
+                    <h2 style={{ margin: 0 }}>Export everything</h2>
+                  </div>
+                  <div className="muted small" style={{ marginBottom: 8 }}>
+                    One archive with every deliverable — exactly the set from the spec’s complete workflow.{' '}
+                    {masterNote}
+                  </div>
+                  <div className="ex-filelist">
+                    {[
+                      song.mastering.method === 'none' ? 'Mix.wav' : 'Master.wav',
+                      hasInstrumental ? 'Instrumental.wav' : null,
+                      hasVocals ? 'Acapella.wav' : null,
+                      'Stems.zip',
+                      'Song.mid',
+                      'Song.musicxml',
+                      `${base}.songproject`,
+                    ]
+                      .filter(Boolean)
+                      .map((f) => (
+                        <span key={f} className="ex-file">
+                          {f}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+                <div className="ex-hero-action">
+                  <TaskButton
+                    taskId={everythingTask}
+                    label="Export everything (.zip)"
+                    icon="export"
+                    variant="primary"
+                    onStart={() =>
+                      begin<EverythingInput>('everything', 'export.everything', 'Export everything', {
+                        projectId: project.meta.id,
+                        wavBits: settings.wavBits,
+                        sampleRate: settings.sampleRate,
+                        fileBase: base,
+                      })
+                    }
+                  />
+                  <span className="small dim">
+                    WAV {settings.wavBits === 32 ? '32-bit float' : `${settings.wavBits}-bit`} ·{' '}
+                    {settings.sampleRate / 1000} kHz
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <div className="ex-grid">
+              <Card
+                icon="folder"
+                title="Project"
+                subtitle="The native package: song, full version history & branches, audio assets, provenance and rights metadata. Re-opens anywhere."
+              >
+                <Row
+                  name={`${base}.songproject`}
+                  detail={`${project.history.revisions.length} revisions · ${project.meta.assets.length} audio assets`}
+                >
+                  <Button size="sm" icon="download" onClick={exportProject}>
+                    .songproject
+                  </Button>
+                </Row>
+              </Card>
+
+              <Card
+                icon="midi"
+                title="MIDI"
+                subtitle="Standard MIDI files with tempo map, meter, key, markers, lyrics and program changes."
+              >
+                <Row name="Multi-track MIDI" detail={`${midiTracks.length} tracks in one Type 1 file`}>
+                  <Button size="sm" icon="download" disabled={!midiTracks.length} onClick={exportMidiSong}>
+                    Song.mid
+                  </Button>
+                </Row>
+                <Row name="Individual tracks" detail="One .mid per track, zipped">
+                  <Button size="sm" icon="download" disabled={!midiTracks.length} onClick={exportMidiTracks}>
+                    Tracks .zip
+                  </Button>
+                </Row>
+                <Row name="Single track" detail="Export one part">
+                  <Select
+                    size="sm"
+                    value={singleTrack || midiTracks[0]?.id || ''}
+                    onChange={setSingleTrack}
+                    options={midiTracks.map((t) => ({ value: t.id, label: t.name }))}
+                    aria-label="Track to export"
+                    style={{ width: 140 }}
+                    disabled={!midiTracks.length}
+                  />
+                  <Button
+                    size="sm"
+                    icon="download"
+                    disabled={!midiTracks.length}
+                    onClick={safe('Track export', () => {
+                      const id = singleTrack || midiTracks[0]?.id;
+                      const t = song.tracks.find((x) => x.id === id);
+                      if (!t) return;
+                      deliverFile(
+                        `${base} - ${sanitizeFileName(t.name, 'Track')}.mid`,
+                        trackToMidi(song, t.id, custom),
+                        MIME.midi,
+                        { detail: `MIDI · ${t.name}` },
+                      );
+                    })}
+                  >
+                    .mid
+                  </Button>
+                </Row>
+              </Card>
+
+              <Card
+                icon="wave"
+                title="Audio"
+                subtitle="Rendered with the same engine you hear in playback: mixer, automation and master bus included."
+                badge={
+                  <Select
+                    size="sm"
+                    value={settings.format}
+                    onChange={(v) => set({ format: v })}
+                    options={[
+                      { value: 'wav', label: `WAV · ${settings.wavBits === 32 ? '32f' : settings.wavBits}` },
+                      { value: 'flac', label: `FLAC · ${settings.flacBits}` },
+                      { value: 'mp3', label: `MP3 · ${settings.mp3Kbps}k` },
+                      {
+                        value: 'aac',
+                        label: `AAC · ${settings.aacKbps}k${aac && !aac.supported ? ' (unavailable)' : ''}`,
+                      },
+                    ]}
+                    aria-label="Audio format"
+                    style={{ width: 130 }}
+                  />
+                }
+              >
+                {settings.format === 'aac' && aac && !aac.supported && (
+                  <div className="callout warning small">{aac.reason}</div>
+                )}
+                <Row name="Mix" detail="Full mix through the master bus (unmastered)">
+                  <TaskButton
+                    taskId={running['audio-mix']}
+                    label={`Mix.${settings.format}`}
+                    onStart={() => exportAudio('mix', 'mix')}
+                    disabled={audioFormatDisabled}
+                    title={audioFormatDisabled ? aac?.reason : undefined}
+                  />
+                </Row>
+                <Row name="Master" detail={masterNote}>
+                  <TaskButton
+                    taskId={running['audio-master']}
+                    label={`Master.${settings.format}`}
+                    onStart={() => exportAudio('master', 'master')}
+                    disabled={audioFormatDisabled}
+                    title={audioFormatDisabled ? aac?.reason : undefined}
+                  />
+                </Row>
+                <Row name="Instrumental" detail="Every track except vocals">
+                  <TaskButton
+                    taskId={running['audio-instrumental']}
+                    label={`Instrumental.${settings.format}`}
+                    onStart={() => exportAudio('instrumental', 'instrumental')}
+                    disabled={audioFormatDisabled || !hasInstrumental}
+                    title={!hasInstrumental ? 'No instrumental tracks' : undefined}
+                  />
+                </Row>
+                <Row
+                  name="Acapella"
+                  detail={hasVocals ? 'Vocal tracks only' : 'No vocal tracks in this song'}
+                >
+                  <TaskButton
+                    taskId={running['audio-acapella']}
+                    label={`Acapella.${settings.format}`}
+                    onStart={() => exportAudio('acapella', 'acapella')}
+                    disabled={audioFormatDisabled || !hasVocals}
+                    title={!hasVocals ? 'No vocal tracks' : undefined}
+                  />
+                </Row>
+              </Card>
+
+              <Card
+                icon="layers"
+                title="Stems"
+                subtitle="Time-aligned WAV stems from bar 1 — channel processing and sends included, master bus excluded."
+              >
+                <div className="row wrap" style={{ gap: 14 }}>
+                  <Toggle
+                    on={stemsBy === 'track'}
+                    onChange={(v) => setStemsBy(v ? 'track' : 'stemGroup')}
+                    label="One stem per track"
+                  />
+                  <Toggle
+                    on={includeAudio}
+                    onChange={setIncludeAudio}
+                    label="Include audio tracks individually"
+                  />
+                </div>
+                <Row
+                  name="Stems.zip"
+                  detail={
+                    stemsBy === 'stemGroup'
+                      ? 'Vocals · Drums · Bass · Guitars · Keys · Strings · Others'
+                      : `${song.tracks.length} track stems`
+                  }
+                >
+                  <TaskButton taskId={running.stems} label="Stems.zip" onStart={exportStems} />
+                </Row>
+              </Card>
+
+              <Card
+                icon="book"
+                title="Composition"
+                subtitle="Readable documents of the music itself: chords, lyrics, notation."
+              >
+                <Row name="Chord sheet" detail="Sections with chord symbols per bar (.txt)">
+                  <Button
+                    size="sm"
+                    icon="download"
+                    onClick={safe(
+                      'Chord sheet',
+                      () =>
+                        void deliverFile(`${base} - Chords.txt`, songToChordSheet(song), MIME.text, {
+                          detail: 'Chord sheet',
+                        }),
+                    )}
+                  >
+                    Chords.txt
+                  </Button>
+                </Row>
+                <Row
+                  name="Lyric sheet"
+                  detail={
+                    song.lyrics.length
+                      ? `${song.lyrics.length} lyric lines`
+                      : 'No lyrics yet — exports section headings'
+                  }
+                >
+                  <Button
+                    size="sm"
+                    icon="download"
+                    onClick={safe(
+                      'Lyric sheet',
+                      () =>
+                        void deliverFile(`${base} - Lyrics.txt`, songToLyricSheet(song), MIME.text, {
+                          detail: 'Lyric sheet',
+                        }),
+                    )}
+                  >
+                    Lyrics.txt
+                  </Button>
+                </Row>
+                <Row name="MusicXML" detail="All parts for MuseScore, Sibelius, Finale, Dorico">
+                  <Button
+                    size="sm"
+                    icon="download"
+                    onClick={safe(
+                      'MusicXML',
+                      () =>
+                        void deliverFile(`${base}.musicxml`, songToMusicXML(song, custom), MIME.musicxml, {
+                          detail: 'MusicXML score',
+                        }),
+                    )}
+                  >
+                    .musicxml
+                  </Button>
+                </Row>
+                <Row name="Notation PDF" detail="Lead sheet: melody, chords and lyrics">
+                  <Select
+                    size="sm"
+                    value={pdfTrack}
+                    onChange={setPdfTrack}
+                    options={[
+                      { value: 'auto', label: 'Lead (auto)' },
+                      ...midiTracks.map((t) => ({ value: t.id, label: t.name })),
+                    ]}
+                    aria-label="Notation track"
+                    style={{ width: 120 }}
+                  />
+                  <Select
+                    size="sm"
+                    value={pdfPage}
+                    onChange={setPdfPage}
+                    options={[
+                      { value: 'letter', label: 'Letter' },
+                      { value: 'a4', label: 'A4' },
+                    ]}
+                    aria-label="Page size"
+                    style={{ width: 76 }}
+                  />
+                  <Button
+                    size="sm"
+                    icon="download"
+                    onClick={safe('Notation PDF', () => {
+                      const pdf = songToNotationPdf(song, {
+                        ...custom,
+                        trackId: pdfTrack === 'auto' ? undefined : pdfTrack,
+                        pageSize: pdfPage,
+                        title: song.title,
+                        composer: useSettings.getState().userName || 'Song Deck',
+                      });
+                      deliverFile(`${base} - Lead Sheet.pdf`, pdf, MIME.pdf, { detail: 'Notation PDF' });
+                    })}
+                  >
+                    .pdf
+                  </Button>
+                </Row>
+              </Card>
+
+              <Card
+                icon="plug"
+                title="DAW interoperability"
+                subtitle="Ableton Live, Logic Pro, FL Studio, Reaper, Studio One, Cubase, Pro Tools — via projects, multitrack MIDI, stems, tempo map and markers."
+              >
+                <Toggle
+                  on={renderMidiAudio}
+                  onChange={setRenderMidiAudio}
+                  label="Render MIDI tracks to audio too (playable without instruments)"
+                />
+                <Row name="DAWproject" detail="Open format for Bitwig, Studio One, Cubase">
+                  <TaskButton
+                    taskId={running.dawproject}
+                    label=".dawproject"
+                    onStart={() =>
+                      begin<DawExportInput>('dawproject', 'export.daw', 'Export DAWproject', {
+                        projectId: project.meta.id,
+                        target: 'dawproject',
+                        wavBits: settings.wavBits,
+                        sampleRate: settings.sampleRate,
+                        renderMidi: renderMidiAudio,
+                        fileBase: base,
+                      })
+                    }
+                  />
+                </Row>
+                <Row
+                  name="Reaper project"
+                  detail=".rpp with embedded MIDI, markers & tempo, plus referenced audio and per-track .mid"
+                >
+                  <TaskButton
+                    taskId={running.reaper}
+                    label="Reaper .zip"
+                    onStart={() =>
+                      begin<DawExportInput>('reaper', 'export.daw', 'Export Reaper project', {
+                        projectId: project.meta.id,
+                        target: 'reaper',
+                        wavBits: settings.wavBits,
+                        sampleRate: settings.sampleRate,
+                        renderMidi: renderMidiAudio,
+                        fileBase: base,
+                      })
+                    }
+                  />
+                </Row>
+                <Row name="Tempo map" detail="Bar, beat, time and BPM (.csv)">
+                  <Button
+                    size="sm"
+                    icon="download"
+                    onClick={safe(
+                      'Tempo map',
+                      () =>
+                        void deliverFile(`${base} - Tempo map.csv`, tempoMapCsv(song), MIME.csv, {
+                          detail: 'Tempo map',
+                        }),
+                    )}
+                  >
+                    .csv
+                  </Button>
+                </Row>
+                <Row name="Markers" detail="Section markers for any DAW (.csv)">
+                  <Button
+                    size="sm"
+                    icon="download"
+                    onClick={safe(
+                      'Markers',
+                      () =>
+                        void deliverFile(`${base} - Markers.csv`, markersCsv(song), MIME.csv, {
+                          detail: 'Section markers',
+                        }),
+                    )}
+                  >
+                    .csv
+                  </Button>
+                </Row>
+                <Row name="Audacity labels" detail="Section label track (.txt)">
+                  <Button
+                    size="sm"
+                    icon="download"
+                    onClick={safe(
+                      'Audacity labels',
+                      () =>
+                        void deliverFile(`${base} - Labels.txt`, audacityLabels(song), MIME.text, {
+                          detail: 'Audacity labels',
+                        }),
+                    )}
+                  >
+                    .txt
+                  </Button>
+                </Row>
+              </Card>
+
+              <Card
+                icon="plug"
+                title="Plugin exporters"
+                subtitle="Formats contributed by enabled plugins (Settings → Plugins)."
+              >
+                {exporters.length === 0 ? (
+                  <div className="small dim">
+                    No exporter plugins are loaded. Enable one (e.g. “ABC notation exporter”) in Settings →
+                    Plugins and it appears here.
+                    <div style={{ marginTop: 6 }}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon="settings"
+                        onClick={() => st.setMode('settings')}
+                      >
+                        Open Settings
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  exporters.map((x) => (
+                    <Row key={x.id} name={x.name} detail={x.description ?? `.${x.extension}`}>
+                      <Button
+                        size="sm"
+                        icon="download"
+                        onClick={safe(x.name, async () => {
+                          const out = await x.export(song);
+                          deliverFile(
+                            `${base}.${x.extension}`,
+                            out,
+                            x.mimeType || 'application/octet-stream',
+                            {
+                              detail: `Plugin · ${x.name}`,
+                            },
+                          );
+                        })}
+                      >
+                        .{x.extension}
+                      </Button>
+                    </Row>
+                  ))
+                )}
+              </Card>
+            </div>
+          </div>
+        </details>
+
+        <RecentExports files={files} />
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   getInstrument,
   keyName,
+  randomId,
   secondsToTick,
   songToMidi,
   type AssetRequest,
@@ -9,6 +10,8 @@ import {
 } from '@songdeck/core';
 import { encodeWav, type AudioData } from '@songdeck/audio';
 import { SaveLibraryButton } from '../library/SaveLibraryButton';
+import { useComposeInputs } from '../compose/inputs';
+import { useComposeSession } from '../compose/session';
 import { jobs } from '../../engine/jobs';
 import { previewPlayer, usePreviewId, usePreviewPosition } from '../../engine/capture-playback';
 import { downloadBytes, slugify } from '../../engine/capture-files';
@@ -209,6 +212,28 @@ export function AlternativeCard({
         </Button>
         {output === 'audio' ? <SaveLibraryButton file={audioFile} /> : <SaveLibraryButton song={alt.song} />}
         <div className="spacer" />
+        {standalone && output !== 'audio' && (
+          <Button
+            size="sm"
+            variant="primary"
+            icon="sparkles"
+            aria-label={`Start a song with ${alt.label}`}
+            onClick={() => {
+              useComposeInputs.getState().add({
+                id: randomId('part'),
+                name: alt.song.title || inst.name,
+                kind: 'midi',
+                createdAt: new Date().toISOString(),
+                song: structuredClone(alt.song),
+                assets: [],
+              });
+              useComposeSession.getState().start('midi');
+              useStudio.getState().setMode('compose');
+            }}
+          >
+            Start a song with it
+          </Button>
+        )}
         {!standalone && (
           <>
             <Button

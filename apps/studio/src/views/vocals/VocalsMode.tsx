@@ -16,7 +16,7 @@ import { defaultVocalTrack, vocalMidiTracks, type VocalTab } from '../../engine/
 import { usePlayerState } from '../../hooks';
 import { Badge, Button, EmptyState, Select, Tabs } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
-import { colorForRole } from '../workbench/SidePanel';
+import { colorForRole } from '../workbench/tracks';
 import { ConversionPanel } from './ConversionPanel';
 import { ExpressionPanel } from './ExpressionPanel';
 import { LyricsPanel } from './LyricsPanel';

@@ -210,7 +210,7 @@ test('connect text and audio models in two clicks without changing routing', asy
   );
   await fakeGemini(page, []);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Connect an AI service' }).click();
+  await page.getByRole('button', { name: 'Connect an AI service', exact: true }).click();
   const dialog = page.getByTestId('connect-service');
   await dialog.getByLabel('API key').fill(KEY);
   await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
@@ -244,7 +244,7 @@ test('offline setup can be enabled directly in the connect dialog', async ({ pag
   const seen: string[] = [];
   await fakeGemini(page, seen);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Connect an AI service' }).click();
+  await page.getByRole('button', { name: 'Connect an AI service', exact: true }).click();
   const dialog = page.getByTestId('connect-service');
   await dialog.getByLabel('API key').fill(KEY);
   await expect(dialog).toContainText('Offline mode is on.');
@@ -273,7 +273,7 @@ test('connect Gemini with a pasted key, keep it across reloads, and generate wit
   await page.goto('/');
   const nudge = page.getByTestId('connect-nudge');
   await expect(nudge).toContainText('Works offline');
-  await nudge.getByRole('button', { name: 'Connect an AI service' }).click();
+  await nudge.getByRole('button', { name: 'Connect an AI service', exact: true }).click();
 
   const dialog = page.getByTestId('connect-service');
   await expect(dialog).toBeVisible();
@@ -347,7 +347,7 @@ test('connect Gemini with a pasted key, keep it across reloads, and generate wit
   // Reload: provider and key persist, and the decrypted key is what reaches the API.
   await page.reload();
   await page.getByTitle(/^Settings/).click();
-  await page.getByRole('tab', { name: /^Providers/ }).click();
+  await page.getByRole('tab', { name: /^AI services/ }).click();
   await expect(page.getByTestId('provider-gemini')).toContainText('Key in browser');
   seen.length = 0;
   await page.getByTestId('provider-gemini').getByRole('button', { name: 'Test Google Gemini' }).click();
@@ -364,7 +364,7 @@ test('connect Gemini with a pasted key, keep it across reloads, and generate wit
   await page.keyboard.press('Escape');
 
   // The new provider is offered in role pickers right away (no first-run card any more).
-  await page.getByTitle('Song Deck — projects').click();
+  await page.getByTitle('Song Deck — songs').click();
   await expect(page.getByTestId('connect-nudge')).toHaveCount(0);
   // A one-note MIDI file opens straight into the Workbench (no Compose step needed).
   const midi = Buffer.from([
@@ -378,7 +378,6 @@ test('connect Gemini with a pasted key, keep it across reloads, and generate wit
     .locator('input[type=file][accept*=".mid"]')
     .setInputFiles({ name: 'riff.mid', mimeType: 'audio/midi', buffer: midi });
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 30_000 });
-  await page.locator('.right-tabs .tab', { hasText: 'AI Edit' }).click();
   const picker = page.locator('.right-body').getByLabel('Provider');
   await expect(picker.locator('option', { hasText: 'Google Gemini · cloud' })).toHaveCount(1);
   await expect(picker).toHaveValue('auto');
@@ -424,7 +423,7 @@ for (const [preset, url, response] of [
         : route.fulfill({ headers: CORS, json: response }),
     );
     await page.goto('/');
-    await page.getByRole('button', { name: 'Connect an AI service' }).click();
+    await page.getByRole('button', { name: 'Connect an AI service', exact: true }).click();
     const dialog = page.getByTestId('connect-service');
     await dialog.getByLabel('API key').fill('custom-0123456789abcdefghijklmnop');
     await dialog.getByLabel('Service', { exact: true }).selectOption(preset);
@@ -467,7 +466,7 @@ for (const outcome of ['success', 'failure', 'edited'] as const) {
     });
     await fakeGemini(page, []);
     await page.goto('/');
-    await page.getByRole('button', { name: 'Connect an AI service' }).click();
+    await page.getByRole('button', { name: 'Connect an AI service', exact: true }).click();
     const dialog = page.getByTestId('connect-service');
     await dialog.getByLabel('API key').fill(KEY);
     await expect(dialog.getByTestId('connect-ready')).toContainText('Key accepted');
@@ -475,14 +474,16 @@ for (const outcome of ['success', 'failure', 'edited'] as const) {
     await expect(dialog).toBeHidden();
     // Reload before any discovery or generation: cached model capabilities must be sufficient.
     await page.reload();
-    await page.getByTitle('Song Deck — projects').click();
-    const { openComposer } = await import('./compose-helpers');
+    await page.getByTitle('Song Deck — songs').click();
+    const { openComposer, openShape, usePlaceholderLyrics } = await import('./compose-helpers');
     await openComposer(page);
+    await usePlaceholderLyrics(page);
+    await openShape(page);
     await page
       .getByTestId('compose-builder')
       .getByRole('button', { name: 'Laid-back hip-hop', exact: true })
       .click();
-    await page.getByTestId('builder-actions').getByLabel('Provider').selectOption('internal');
+    await page.locator('#shape-advanced').getByLabel('Provider').selectOption('internal');
     const picker = page.getByLabel('Audio prototype model');
     await expect(picker).toContainText('lyria-3-clip-preview');
     await expect(picker).not.toContainText('gemini-2.5-pro');
@@ -516,7 +517,8 @@ for (const outcome of ['success', 'failure', 'edited'] as const) {
         },
       });
     });
-    await page.getByRole('button', { name: 'Quick prototype', exact: true }).click();
+    await page.getByRole('checkbox', { name: /Also make an audio version/ }).check();
+    await page.getByRole('button', { name: 'Create song', exact: true }).click();
     await expect.poll(() => requests).toBe(1);
     const readSong = () =>
       page.evaluate(

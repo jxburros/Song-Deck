@@ -1,72 +1,87 @@
 import { expect, test } from '@playwright/test';
 import { composeQuickSong } from './compose-helpers';
+import { openArea, openMoreTools, openTool, rail, songStep, stepButton, type Area } from './nav';
 
-/** Every mode opens with a song loaded (and without one where allowed) and never throws. */
+/** Every area, song step and detailed tool opens with a song loaded (and without one where allowed). */
 
-const MODES = [
-  'Compose',
-  'Workbench',
-  'Add Track',
-  'Transcribe Track',
-  'Single Track',
-  'Library',
-  'Produce',
-  'Vocals',
-  'Mix & Master',
-  'Export',
-] as const;
-const PROJECTLESS = new Set(['Compose', 'Single Track', 'Library']);
+const AREAS: Area[] = ['Single Track', 'Library', 'Settings', 'Songs'];
 
-test('every mode renders with and without a project', async ({ page }) => {
-  test.setTimeout(180_000);
+const TOOLS = [
+  'Piano roll',
+  'Pattern editor',
+  'Chords',
+  'Structure editor',
+  'Theory',
+  'Macros',
+  'Locks',
+  'Lyrics',
+  'Vocal melody',
+  'Expression',
+  'Singer and render',
+  'Change the vocals in words',
+  'Record a take',
+  'Voice library',
+  'Voice conversion',
+  'Guide sound',
+  'Production plan',
+  'Audio versions',
+  'Regenerate a region',
+  'Full console',
+  'Mix assistant',
+  'Automation',
+  'Mastering',
+  'History and branches',
+  'Variations and Song DNA',
+  'Inspector',
+  'Provenance, rights and credits',
+  'Assistant',
+  'Proposal history',
+  'Describe a part',
+  'A part from audio',
+];
+
+test('every area, step and tool renders with and without a song', async ({ page }) => {
+  test.setTimeout(240_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'AI proposes. You shape it.' })).toBeVisible();
-  const nav = page.getByRole('navigation', { name: /Modes|Project tools/ });
+  await expect(page.getByRole('heading', { name: 'Make a song' })).toBeVisible();
 
-  for (const mode of PROJECTLESS) {
-    await nav.getByRole('button', { name: mode, exact: true }).click();
+  for (const area of AREAS) {
+    await openArea(page, area);
+    await expect(rail(page, area)).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('main')).not.toContainText('This view ran into a problem');
   }
-  for (const mode of MODES)
-    if (!PROJECTLESS.has(mode))
-      await expect(nav.getByRole('button', { name: mode, exact: true })).toHaveCount(0);
+  // No song yet: no song steps.
+  await expect(page.getByRole('navigation', { name: 'Song steps' })).toHaveCount(0);
 
   await composeQuickSong(page, 'Cinematic orchestral');
 
-  for (const mode of MODES) {
-    if (!PROJECTLESS.has(mode)) await page.getByRole('button', { name: 'Compose', exact: true }).click();
-    await nav.getByRole('button', { name: mode, exact: true }).click();
-    await expect(nav.getByRole('button', { name: mode, exact: true })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+  for (const step of ['Write', 'Sound', 'Export'] as const) {
+    await songStep(page, step);
     await expect(page.locator('main')).not.toContainText('This view ran into a problem');
-    await page.waitForTimeout(300);
   }
-  await page.getByTitle(/^Settings/).click();
-  await expect(page.locator('main')).not.toContainText('This view ran into a problem');
 
-  // Workbench views and side panels.
-  await page.getByRole('button', { name: 'Compose', exact: true }).click();
-  await nav.getByRole('button', { name: 'Workbench', exact: true }).click();
-  for (const view of ['Arrangement', 'Piano Roll', 'Pattern', 'Chords', 'Structure', 'Theory']) {
+  // Leaving for another area and coming back returns to the song.
+  await openArea(page, 'Library');
+  await openArea(page, 'Songs');
+  await expect(stepButton(page, 'Export')).toHaveAttribute('aria-current', 'page');
+
+  for (const tool of TOOLS) {
+    await openTool(page, tool);
+    await expect(page.locator('main')).not.toContainText('This view ran into a problem');
+    await page.waitForTimeout(150);
+  }
+
+  // Write's editors, then the More tools search.
+  await songStep(page, 'Write');
+  for (const view of ['Arrangement', 'Piano Roll']) {
     await page.getByRole('tab', { name: view }).click();
     await page.waitForTimeout(150);
   }
-  for (const panel of [
-    'AI Edit',
-    'Assistant',
-    'Proposals',
-    'Macros',
-    'Locks',
-    'Variation',
-    'History',
-    'Inspector',
-  ]) {
-    await page.locator('.right-tabs .tab', { hasText: panel }).click();
-    await page.waitForTimeout(100);
-  }
+  await openMoreTools(page);
+  await page.getByLabel('Find a tool').fill('loudness');
+  await expect(page.locator('.tools-item')).toHaveCount(1);
+  await expect(page.locator('.tools-item')).toContainText('Mastering');
   expect(errors, errors.join('\n')).toEqual([]);
 });

@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { openSettingsTab, openTool } from './nav';
 
 /**
  * Settings mode and real-time collaboration, end to end:
@@ -183,8 +184,7 @@ async function studio(
 }
 
 async function openSettings(page: Page, tab: RegExp): Promise<void> {
-  if (!(await page.getByTestId('settings-mode').isVisible())) await page.getByTitle(/^Settings/).click();
-  await page.getByRole('tab', { name: tab }).click();
+  await openSettingsTab(page, tab);
 }
 
 async function expectServerOnline(page: Page): Promise<void> {
@@ -225,7 +225,7 @@ async function composeSong(page: Page): Promise<void> {
 
 test('providers: custom OpenAI-compatible endpoint, key in the server vault, model discovery', async () => {
   const { page } = ada;
-  await openSettings(page, /^Providers/);
+  await openSettings(page, /^AI services/);
   await expectServerOnline(page);
   await expect(page.locator('.st-keys-callout')).toContainText('Keys are stored by the local server');
 
@@ -299,7 +299,7 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await serverUrl.fill('http://127.0.0.1:9');
   await serverUrl.press('Enter');
   await expect(page.getByTestId('server-status')).toContainText('browser-only mode', { timeout: 15_000 });
-  await openSettings(page, /^Providers/);
+  await openSettings(page, /^AI services/);
   await expect(page.locator('.st-keys-callout')).toContainText('Keys are saved encrypted in this browser');
   await page.getByTestId('provider-mock-llm').getByRole('button', { name: 'Configure' }).click();
   await expect(editor.locator('.st-key-status')).toContainText('No key stored yet');
@@ -318,7 +318,7 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
   await expect(page.getByTestId('server-status')).toContainText('Online', { timeout: 15_000 });
 
   // With the server back, the browser-held key can move into the server vault.
-  await openSettings(page, /^Providers/);
+  await openSettings(page, /^AI services/);
   const browserKeys = page.getByTestId('browser-keys');
   await expect(browserKeys).toContainText('move them into its vault');
   await browserKeys.getByRole('button', { name: 'Move to server vault' }).click();
@@ -329,9 +329,9 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
 
 test('routing: Rules mode with “Never upload vocals”, live preview, offline mode', async () => {
   const { page } = ada;
-  await openSettings(page, /^Profiles & routing/);
+  await openSettings(page, /^Which model does what/);
   await page.getByRole('radio', { name: /^Rules/ }).click();
-  await expect(page.locator('.st-nav-item', { hasText: 'Profiles & routing' })).toContainText('rules');
+  await expect(page.locator('.st-nav-item', { hasText: 'Which model does what' })).toContainText('rules');
 
   const rules = page.getByTestId('routing-rules');
   await rules.getByRole('button', { name: 'Never upload vocals' }).click();
@@ -381,35 +381,35 @@ test('routing: Rules mode with “Never upload vocals”, live preview, offline 
   await preview.screenshot({ path: `${SHOTS}/settings-e2e-routing-preview.png` });
 
   // Offline mode: cloud providers become unavailable (spec §51).
-  await openSettings(page, /^Privacy/);
+  await openSettings(page, /^Privacy and spending/);
   const offline = page.getByTestId('offline-panel');
   await expect(offline.getByTestId('offline-unavailable')).toContainText('Mock LLM');
   await offline.getByRole('switch').click();
   await expect(offline.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('.statusbar')).toContainText('Offline mode — nothing leaves this device');
+  await expect(page.getByRole('button', { name: 'Offline mode — nothing leaves this device' })).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/settings-e2e-privacy.png` });
 
-  await openSettings(page, /^Profiles & routing/);
+  await openSettings(page, /^Which model does what/);
   await expect(composition.locator('.st-route-name')).not.toHaveText('Mock LLM');
   await composition.getByRole('button', { name: /excluded/ }).click();
   await expect(composition.getByTestId('excluded-provider').filter({ hasText: 'Mock LLM' })).toContainText(
     'offline mode: cloud providers are disabled',
   );
 
-  await openSettings(page, /^Providers/);
+  await openSettings(page, /^AI services/);
   await expect(page.getByTestId('provider-mock-llm')).toContainText('Unavailable offline');
 
   // Back online; leave routing automatic for the rest of the run.
-  await openSettings(page, /^Privacy/);
+  await openSettings(page, /^Privacy and spending/);
   await page.getByTestId('offline-panel').getByRole('switch').click();
-  await openSettings(page, /^Profiles & routing/);
+  await openSettings(page, /^Which model does what/);
   await page.getByRole('radio', { name: /^Automatic/ }).click();
   expect(ada.errors).toEqual([]);
 });
 
 test('models & hardware from the local server', async () => {
   const { page } = ada;
-  await openSettings(page, /^Models & hardware/);
+  await openSettings(page, /^Models and hardware/);
   const hw = page.getByTestId('hardware');
   await expect(hw).toContainText('CPU');
   await expect(hw).toContainText(/\d+ cores/);
@@ -435,7 +435,7 @@ test('models & hardware from the local server', async () => {
 
 test('plugins: enable the lo-fi hip-hop genre plugin and edit a custom genre profile', async () => {
   const { page } = ada;
-  await openSettings(page, /^Plugins & profiles/);
+  await openSettings(page, /^Plugins, genres, instruments/);
   const card = page.getByTestId('plugin-lofi-hiphop-genre');
   await expect(card).toContainText('Lo-fi Hip-Hop Genre Profile');
   await expect(card).toContainText('Genre profile');
@@ -509,27 +509,11 @@ test('collaboration: two people in one room — a commit by Alice appears in Bob
   await expect(a.getByTestId('collab-peers')).toContainText('Bob');
 
   // Alice commits (locks the tempo) in the workbench …
-  await a
-    .getByRole('navigation', { name: 'Modes' })
-    .getByRole('button', { name: 'Compose', exact: true })
-    .click();
-  await a
-    .getByRole('navigation', { name: 'Project tools' })
-    .getByRole('button', { name: 'Workbench', exact: true })
-    .click();
-  await a.locator('.right-tabs .tab', { hasText: 'Locks' }).click();
+  await openTool(a, 'Locks');
   await a.locator('.right-body .row', { hasText: 'Tempo' }).first().getByRole('button').click();
 
   // … and it reaches Bob's version history.
-  await b
-    .getByRole('navigation', { name: 'Modes' })
-    .getByRole('button', { name: 'Compose', exact: true })
-    .click();
-  await b
-    .getByRole('navigation', { name: 'Project tools' })
-    .getByRole('button', { name: 'Workbench', exact: true })
-    .click();
-  await b.locator('.right-tabs .tab', { hasText: 'History' }).click();
+  await openTool(b, 'History and branches');
   await expect(b.locator('.right-body')).toContainText('Locked tempo', { timeout: 20_000 });
   await expect(b.locator('.right-body')).toContainText('Alice');
 

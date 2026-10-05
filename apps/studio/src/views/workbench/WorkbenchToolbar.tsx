@@ -1,32 +1,74 @@
-import { SaveLibraryButton } from '../library/SaveLibraryButton';
 import { useState } from 'react';
 import { randomSeed, regenerateUnlocked, tickToMusical, lockCount } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { useCustomInstruments } from '../../hooks';
 import { Badge, Button } from '../../ui/kit';
+import { Icon } from '../../ui/icons';
 
-/** Toolbar actions shared by all workbench views: zoom, selection scope, "Regenerate unlocked material". */
-export function WorkbenchToolbar() {
+/** Selection scope as text ("bars 9–16"), or null. */
+export function useRangeLabel(): string | null {
   const song = useStudio((s) => s.project?.song ?? null);
-  const view = useStudio((s) => s.view);
   const selection = useStudio((s) => s.selection);
-  const selectedTrackId = useStudio((s) => s.selectedTrackId);
-  const customInstruments = useCustomInstruments();
-  const [busy, setBusy] = useState(false);
-  const st = useStudio.getState();
   if (!song) return null;
-
   const hasRange =
     selection.startTick !== undefined &&
     selection.endTick !== undefined &&
     selection.endTick > selection.startTick;
-  const rangeLabel = hasRange
-    ? (() => {
-        const a = tickToMusical(song, selection.startTick!);
-        const b = tickToMusical(song, Math.max(selection.startTick!, selection.endTick! - 1));
-        return `bars ${a.bar}–${b.bar}`;
-      })()
-    : null;
+  if (!hasRange) return null;
+  const a = tickToMusical(song, selection.startTick!);
+  const b = tickToMusical(song, Math.max(selection.startTick!, selection.endTick! - 1));
+  return `bars ${a.bar}–${b.bar}`;
+}
+
+/** Toolbar for the editors: zoom, the selection scope and the lock count. */
+export function WorkbenchToolbar() {
+  const song = useStudio((s) => s.project?.song ?? null);
+  const view = useStudio((s) => s.view);
+  const selection = useStudio((s) => s.selection);
+  const rangeLabel = useRangeLabel();
+  const st = useStudio.getState();
+  if (!song) return null;
+  return (
+    <>
+      <div className="row">
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="zoomOut"
+          title="Zoom out"
+          onClick={() => st.setView({ pxPerBeat: Math.max(4, view.pxPerBeat / 1.4) })}
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="zoomIn"
+          title="Zoom in"
+          onClick={() => st.setView({ pxPerBeat: Math.min(240, view.pxPerBeat * 1.4) })}
+        />
+      </div>
+      {rangeLabel && (
+        <Badge tone="accent" title="Selected region">
+          {rangeLabel}
+        </Badge>
+      )}
+      {selection.noteIds.length > 0 && <Badge>{selection.noteIds.length} notes selected</Badge>}
+      <Badge tone="warning" title="Locked components">
+        <Icon name="lock" size={11} /> {lockCount(song.locks)}
+      </Badge>
+    </>
+  );
+}
+
+/** "Another version": regenerate the selected bars, the selected track, or all unlocked material. */
+export function RegenerateActions() {
+  const song = useStudio((s) => s.project?.song ?? null);
+  const selection = useStudio((s) => s.selection);
+  const selectedTrackId = useStudio((s) => s.selectedTrackId);
+  const customInstruments = useCustomInstruments();
+  const rangeLabel = useRangeLabel();
+  const [busy, setBusy] = useState(false);
+  const st = useStudio.getState();
+  if (!song) return null;
 
   const regenerate = (scope: 'all' | 'track' | 'region') => {
     setBusy(true);
@@ -73,74 +115,31 @@ export function WorkbenchToolbar() {
 
   return (
     <>
-      <div className="row">
-        <Button
-          size="sm"
-          variant="ghost"
-          icon="zoomOut"
-          title="Zoom out"
-          onClick={() => st.setView({ pxPerBeat: Math.max(4, view.pxPerBeat / 1.4) })}
-        />
-        <Button
-          size="sm"
-          variant="ghost"
-          icon="zoomIn"
-          title="Zoom in"
-          onClick={() => st.setView({ pxPerBeat: Math.min(240, view.pxPerBeat * 1.4) })}
-        />
-      </div>
       {rangeLabel && (
-        <Badge tone="accent" title="Selected region">
-          {rangeLabel}
-        </Badge>
-      )}
-      {selection.noteIds.length > 0 && <Badge>{selection.noteIds.length} notes selected</Badge>}
-      <div className="spacer" />
-      {selectedTrackId && (
-        <SaveLibraryButton
-          song={song}
-          trackIds={
-            selection.trackIds && selection.trackIds.length > 1 ? selection.trackIds : [selectedTrackId]
-          }
-          label={
-            selection.trackIds && selection.trackIds.length > 1
-              ? 'Save selection to Library'
-              : 'Save track to Library'
-          }
-        />
-      )}
-      <Badge tone="warning" title="Locked components">
-        🔒 {lockCount(song.locks)}
-      </Badge>
-      {hasRange && (
         <Button
-          size="sm"
           icon="dice"
           disabled={busy}
           onClick={() => regenerate('region')}
-          title="Regenerate only the selected bars (spec §39)"
+          title="A new version of only the selected bars"
         >
           Regenerate {rangeLabel}
         </Button>
       )}
       {selectedTrackId && (
         <Button
-          size="sm"
           icon="dice"
           disabled={busy}
           onClick={() => regenerate('track')}
-          title="Regenerate the selected track's unlocked material"
+          title="A new version of the selected track's unlocked material"
         >
           Regenerate track
         </Button>
       )}
       <Button
-        size="sm"
-        variant="primary"
         icon="dice"
         disabled={busy}
         onClick={() => regenerate('all')}
-        title="Regenerate unlocked material (spec §22)"
+        title="A new version of everything that is not locked"
       >
         Regenerate unlocked
       </Button>

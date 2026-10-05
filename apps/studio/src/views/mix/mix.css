@@ -184,7 +184,7 @@
   min-width: 0;
   height: 19px;
   padding: 0;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid var(--border-strong);
   background: var(--bg-input);
   color: var(--text-dim);
@@ -222,7 +222,7 @@
   padding: 0;
   line-height: 0;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--bg-input);
   cursor: pointer;
   align-self: center;
@@ -269,7 +269,7 @@
   width: 50px;
   height: 21px;
   padding: 0 3px;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid var(--border);
   background: var(--bg-input);
   color: var(--text);
@@ -399,7 +399,7 @@
   position: relative;
   width: 28px;
   height: 100%;
-  border-radius: 5px;
+  border-radius: 0;
   cursor: ns-resize;
   touch-action: none;
   outline: none;
@@ -417,7 +417,7 @@
   bottom: 14px;
   width: 4px;
   margin-left: -2px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--bg-input);
   box-shadow: inset 0 0 0 1px var(--border-strong);
 }
@@ -426,7 +426,7 @@
   left: 50%;
   width: 4px;
   margin-left: -2px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--strip-color, var(--accent));
   opacity: 0.4;
 }
@@ -435,7 +435,7 @@
   left: 1px;
   right: 1px;
   height: 28px;
-  border-radius: 5px;
+  border-radius: 0;
   background: linear-gradient(
     180deg,
     var(--brand-gray-light) 0%,
@@ -453,7 +453,7 @@
   top: 50%;
   height: 2px;
   margin-top: -1px;
-  border-radius: 1px;
+  border-radius: 0;
   background: var(--strip-color, var(--accent));
 }
 :root[data-theme='light'] .mx-fader-thumb {
@@ -482,7 +482,7 @@
   height: 5px;
   padding: 0;
   border: none;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--bg-input);
   cursor: pointer;
 }
@@ -493,7 +493,7 @@
 .mx-meter-body {
   position: relative;
   flex: 1;
-  border-radius: 2px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--bg-input);
   box-shadow: inset 0 0 0 1px var(--border);
@@ -565,7 +565,7 @@
 }
 .mx-eq-plot canvas {
   display: block;
-  border-radius: 6px;
+  border-radius: 0;
 }
 .mx-eq.disabled .mx-eq-plot {
   opacity: 0.6;
@@ -578,7 +578,7 @@
 }
 .mx-eq-band {
   padding: 6px 4px 4px;
-  border-radius: 6px;
+  border-radius: 0;
   border: 1px solid var(--border);
   border-top: 2px solid var(--band);
   background: var(--bg-elev-2);
@@ -622,7 +622,7 @@
 }
 .mx-transfer {
   flex: none;
-  border-radius: 6px;
+  border-radius: 0;
   border: 1px solid var(--border);
 }
 .mx-comp-knobs {
@@ -863,7 +863,7 @@
   height: 26px;
   padding: 0 9px;
   border: none;
-  border-radius: 5px;
+  border-radius: 0;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
@@ -952,7 +952,7 @@
   position: relative;
   height: 10px;
   margin: 4px 0;
-  border-radius: 5px;
+  border-radius: 0;
   background: linear-gradient(
     90deg,
     var(--bg-elev-3) 0%,
@@ -975,7 +975,7 @@
   width: 10px;
   height: 16px;
   margin-left: -5px;
-  border-radius: 3px;
+  border-radius: 0;
   border: 2px solid var(--bg-elev-1);
 }
 .mx-lufs-mark.mix {
@@ -1023,7 +1023,7 @@
   place-items: center;
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--bg-input);
   font-weight: 800;
 }

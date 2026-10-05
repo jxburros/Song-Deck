@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { composeQuickSong } from './compose-helpers';
 import { mkdirSync } from 'node:fs';
+import { openTool } from './nav';
 
 /**
  * Produce mode (Phase 3, spec §28-§31, §38, §39, §54, §60, §64), end to end and entirely on-device:
@@ -36,7 +37,7 @@ test('guide render, A/B candidates, adopt stems and regenerate a region', async 
   await composeSong(page);
 
   // ---- Produce: guide render (spec §28) -----------------------------------------------------
-  await page.getByRole('button', { name: 'Produce', exact: true }).click();
+  await openTool(page, 'Guide sound');
   await expect(page.getByRole('heading', { name: 'Produce', exact: true })).toBeVisible();
   await expect(page.getByRole('radio', { name: /Built-in instrument library/ })).toHaveAttribute(
     'aria-checked',
@@ -148,13 +149,13 @@ test('guide render, A/B candidates, adopt stems and regenerate a region', async 
   await page.screenshot({ path: `${SHOTS}/produce-candidates.png`, fullPage: true });
 
   // The produced stems are ordinary audio tracks in Mix & Master.
-  await page.getByRole('button', { name: 'Mix & Master', exact: true }).click();
+  await openTool(page, 'Full console');
   await expect(page.getByRole('heading', { name: 'Mix & Master' })).toBeVisible();
   await expect(page.getByText('Bass · B').first()).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: `${SHOTS}/produce-mix.png` });
 
   // ---- Selective regeneration (spec §39) -----------------------------------------------------
-  await page.getByRole('button', { name: 'Produce', exact: true }).click();
+  await openTool(page, 'Guide sound');
   await page.getByRole('tab', { name: /Regenerate region/ }).click();
   const which = page.getByLabel('Candidate to regenerate');
   const options = await which.locator('option').allTextContents();

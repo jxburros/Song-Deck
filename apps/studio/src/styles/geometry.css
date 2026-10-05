@@ -1,0 +1,559 @@
+/*
+ * Song Deck's geometric language, layered over the component kit.
+ *
+ * - Cut corners: controls, cards and panels lose their bottom-right corner, like the front card of
+ *   the stacked-card mark. A ::after hairline redraws the border along the cut.
+ * - Lit corners: panels and cards carry a short accent bracket on their top-left corner.
+ * - Slants: tabs, chips and badges are parallelograms.
+ * - Rhythm: diagonal hatching marks active and drop states; a fine measure grid sits behind headers.
+ *
+ * clip-path clips outer box-shadows, so clipped controls show focus as an inset ring instead.
+ */
+
+:root {
+  --cut-xs: 6px;
+  --cut-sm: 9px;
+  --cut: 12px;
+  --cut-lg: 20px;
+  --slant: 7px;
+  --hatch: color-mix(in srgb, var(--accent) 16%, transparent);
+  --hatch-soft: color-mix(in srgb, var(--text) 5%, transparent);
+  --measure: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+/* --- Cut corners ---------------------------------------------------------------------------- */
+
+.btn,
+.card,
+.panel,
+.modal,
+.cut {
+  --cut-size: var(--cut-sm);
+  --cut-line: var(--border);
+  position: relative;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--cut-size)),
+    calc(100% - var(--cut-size)) 100%,
+    0 100%
+  );
+}
+.btn::after,
+.card::after,
+.panel::after,
+.modal::after,
+.cut::after {
+  content: '';
+  position: absolute;
+  right: calc(var(--cut-size) / 2 - var(--cut-size) * 0.7071 - 1px);
+  bottom: calc(var(--cut-size) / 2 - 1px);
+  width: calc(var(--cut-size) * 1.4142);
+  height: 2px;
+  background: var(--cut-line);
+  transform: rotate(-45deg);
+  pointer-events: none;
+}
+.card,
+.cut-md {
+  --cut-size: var(--cut);
+}
+.panel,
+.modal,
+.cut-lg {
+  --cut-size: var(--cut-lg);
+}
+.panel::after,
+.modal::after {
+  bottom: calc(var(--cut-size) / 2 - 1px);
+}
+
+/* Lit corner: a short accent bracket on the top-left corner. */
+.panel::before,
+.modal::before,
+.lit::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  border-top: 1px solid var(--accent);
+  border-left: 1px solid var(--accent);
+  pointer-events: none;
+  z-index: 1;
+}
+.lit {
+  position: relative;
+}
+.panel.quiet::before {
+  border-color: var(--border-strong);
+}
+
+/* Buttons: borders follow the cut. */
+.btn {
+  --cut-line: var(--border-strong);
+  border-radius: 0;
+}
+.btn.sm {
+  --cut-size: var(--cut-xs);
+}
+.btn.lg {
+  --cut-size: var(--cut);
+  height: 40px;
+  padding: 0 20px;
+}
+.btn.primary {
+  --cut-line: var(--accent);
+}
+.btn.ai {
+  --cut-line: var(--ai-line);
+}
+.btn.ghost {
+  --cut-line: transparent;
+}
+.btn.active {
+  --cut-line: var(--accent);
+}
+.btn:focus-visible,
+.cut:focus-visible,
+.chip:focus-visible,
+.tab:focus-visible,
+.badge:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.btn.primary:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--on-accent);
+}
+
+/* --- Slants --------------------------------------------------------------------------------- */
+
+.chip,
+.badge,
+.tab,
+.slant {
+  border-radius: 0;
+  clip-path: polygon(var(--slant) 0, 100% 0, calc(100% - var(--slant)) 100%, 0 100%);
+}
+.chip {
+  height: 30px;
+  padding: 0 calc(var(--slant) + 8px);
+  border: 0;
+  background: var(--bg-elev-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+.chip:hover {
+  background: color-mix(in srgb, var(--bg-elev-3) 70%, var(--text) 10%);
+}
+.chip.on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.badge {
+  --slant: 5px;
+  padding: 0 calc(var(--slant) + 5px);
+  border: 0;
+}
+.tabs {
+  border-radius: 0;
+  padding: 3px 4px;
+  gap: 0;
+}
+.tab {
+  height: 30px;
+  padding: 0 calc(var(--slant) + 10px);
+  border-radius: 0;
+}
+.tab.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+.tab.active .icon-svg {
+  color: var(--on-accent);
+}
+
+/* Toggles, sliders, progress and scrollbars lose their curves. */
+.toggle,
+.toggle::after {
+  border-radius: 0;
+}
+.toggle {
+  clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+  width: 36px;
+}
+.toggle.on::after {
+  transform: translateX(16px);
+}
+.slider {
+  border-radius: 0;
+}
+.slider::-webkit-slider-thumb {
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+.slider::-moz-range-thumb {
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+.progress,
+.meter,
+.lock-btn {
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 0;
+}
+
+/* Callouts: hatched instead of a coloured side stripe. */
+.callout {
+  position: relative;
+  border-left-width: 1px;
+  border-radius: 0;
+  background-color: var(--bg-elev-2);
+  background-image: repeating-linear-gradient(135deg, var(--hatch-soft) 0 1px, transparent 1px 10px);
+}
+.callout::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  width: 12px;
+  height: 12px;
+  border-top: 2px solid var(--ai);
+  border-left: 2px solid var(--ai);
+  pointer-events: none;
+}
+.callout.warning::before {
+  border-color: var(--warning);
+}
+.callout.danger::before {
+  border-color: var(--danger);
+}
+.callout.success::before {
+  border-color: var(--success);
+}
+
+/* --- Ornaments ------------------------------------------------------------------------------ */
+
+/* Diagonal rhythm hatching (active and drop states). */
+.hatch {
+  background-image: repeating-linear-gradient(135deg, var(--hatch) 0 1px, transparent 1px 7px);
+}
+.hatch-soft {
+  background-image: repeating-linear-gradient(135deg, var(--hatch-soft) 0 1px, transparent 1px 12px);
+}
+
+/* Fine measure grid behind page headers. */
+.measure-grid {
+  background-image:
+    linear-gradient(var(--measure) 1px, transparent 1px),
+    linear-gradient(90deg, var(--measure) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Diamond marker. */
+.diamond {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.diamond.ok {
+  background: var(--success);
+}
+.diamond.ai {
+  background: var(--ai);
+}
+.diamond.warn {
+  background: var(--warning);
+}
+.diamond.off {
+  background: var(--border-strong);
+}
+
+/* "01 — SECTION ———" heading row. */
+.rule-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.rule-title .index {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-text);
+}
+.rule-title h2,
+.rule-title h3 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.rule-title .line {
+  flex: 1 1 40px;
+  height: 1px;
+  background: var(--border);
+}
+.rule-title .note {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Eyebrow above page titles: a short accent rule plus a mono label. */
+.eyebrow-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+.eyebrow-rule::before {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: var(--accent);
+}
+
+/* Page header band: measure grid, display title, short lede. */
+.page-band {
+  position: relative;
+  overflow: hidden;
+  padding: 28px 40px 26px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.page-band.split {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 32px;
+}
+.page-band h1 {
+  margin: 0;
+  font-weight: 300;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.page-band .lede {
+  margin: 0;
+  max-width: 680px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+.page-band > * {
+  position: relative;
+}
+.page-band .band-art {
+  position: absolute;
+  right: 24px;
+  top: -12px;
+  pointer-events: none;
+}
+
+/* Slanted step tabs (Write · Sound · Export, Material · Shape). */
+.steps {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 24px;
+  border: 0;
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  clip-path: polygon(11px 0, 100% 0, calc(100% - 11px) 100%, 0 100%);
+}
+.step .num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.step:hover {
+  background: var(--bg-elev-3);
+}
+.step[aria-current],
+.step.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.step[aria-current] .num,
+.step.active .num {
+  color: var(--on-accent);
+}
+.step:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.step[aria-current]:focus-visible,
+.step.active:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--on-accent);
+}
+.step.done .num {
+  color: var(--success);
+}
+
+/* --- Shared pieces -------------------------------------------------------------------------- */
+
+/* "Back" buttons reuse the chevron, pointing left. */
+.back-btn .icon-svg {
+  transform: rotate(180deg);
+}
+
+/* Pop-up menus (track options, Add track, Library "Use"). */
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+.menu {
+  position: fixed;
+  z-index: 61;
+  min-width: 240px;
+  padding: 6px 0 14px;
+  background: var(--bg-elev-2);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+.menu-title {
+  padding: 6px 16px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.menu > button,
+.menu > a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.menu > button:hover,
+.menu > a:hover,
+.menu > button:focus-visible,
+.menu > a:focus-visible {
+  background: var(--bg-elev-3);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.menu .icon-svg {
+  color: var(--text-muted);
+}
+
+/* Inline text button. */
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* A filled slanted label for the current scope. */
+.scope-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--on-accent);
+  background: var(--accent);
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+}
+
+/* Who-does-it picker: the select shrinks so the Connect button stays in narrow panels. */
+.provider-picker {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.provider-picker > .select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.provider-picker > .btn {
+  flex: none;
+}
+
+/* Song type: With vocals / Instrumental, two slanted halves of one control. */
+.song-type {
+  display: inline-flex;
+  gap: 3px;
+}
+.song-type-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 20px;
+  border: 0;
+  background: var(--bg-elev-2);
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+}
+.song-type-opt:first-child {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+}
+.song-type-opt:last-child {
+  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%);
+}
+.song-type-opt:hover {
+  color: var(--text);
+  background: var(--bg-elev-3);
+}
+.song-type-opt.on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.song-type-opt:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent-text);
+}
+.song-type-opt.on:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--on-accent);
+}

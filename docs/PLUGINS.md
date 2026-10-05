@@ -15,7 +15,7 @@ working examples live in [`plugins/`](../plugins):
 - The local server (`apps/server`) **finds and validates** plugin manifests and **serves** plugin
   files. It never executes plugin code.
 - The studio imports a plugin's entry module **only after the user enables it** in
-  Settings → Plugins, which shows a trust warning. Plugin code then runs in the studio with the
+  Settings → Plugins, genres, instruments, which shows a trust warning. Plugin code then runs in the studio with the
   same rights as the studio itself, so only enable plugins you trust.
 - Providers contributed by plugins go through the same orchestrator as built-in ones. A
   provider declared as `location: 'cloud'` is subject to the privacy confirmation, offline mode
@@ -68,7 +68,7 @@ export async function register(api) {
 | `registerGenre(profile)`                     | Add a `GenreProfile` (spec §14) that Compose, Generate MIDI and the composer use like the built-in genres                                                                                                 |
 | `registerInstrument(profile)`                | Add an `InstrumentProfile` (spec §17); its `patchId` picks the built-in synth patch used to play it                                                                                                       |
 | `registerSampleInstrument({ profile, sfz })` | Add a sampled instrument from an SFZ file and its WAV or FLAC samples; see below                                                                                                                          |
-| `registerExporter(exporter)`                 | Add a format to Export mode: `{ id, name, extension, mimeType, description?, export(song) }`, where `export` returns a string or `Uint8Array` (sync or async)                                             |
+| `registerExporter(exporter)`                 | Add a format to Export → More formats: `{ id, name, extension, mimeType, description?, export(song) }`, where `export` returns a string or `Uint8Array` (sync or async)                                   |
 | `ai.createProvider(spec)`                    | Build a provider instance from provider interfaces (`llm`, `composition`, `audioGeneration`, `singing`, `transcription`, `separation`, `voiceConversion`, `mastering`) plus `capabilities` and `location` |
 | `registerProvider(instance)`                 | Make a provider available to routing (spec §49) and the provider pickers                                                                                                                                  |
 

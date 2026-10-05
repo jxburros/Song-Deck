@@ -222,13 +222,11 @@ export default function ProvidersTab() {
     <>
       <TabHeader
         icon="plug"
-        title="Providers"
-        spec="§3–§8"
+        title="AI services"
         lede={
           <>
-            Connect any mix of cloud models (your own keys), local model servers and custom endpoints.
-            Workflows ask for <em>capabilities</em>, not vendors — and Song Deck’s on-device engine is always
-            there, so a project never depends on one provider.
+            Connect a service to start songs from a prompt, ask for changes in words and make realistic audio.
+            Use cloud keys, local model servers or custom endpoints; the on-device engine is always there.
           </>
         }
         actions={

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './icons';
 
 type Variant = 'default' | 'primary' | 'ai' | 'danger' | 'success' | 'ghost';
@@ -329,7 +330,8 @@ export function Modal({
     ref.current?.focus();
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return (
+  // Portaled to <body>: a panel's cut-corner clip-path would otherwise clip the fixed backdrop.
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         className={`modal ${wide ? 'wide' : ''}`}
@@ -349,7 +351,8 @@ export function Modal({
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

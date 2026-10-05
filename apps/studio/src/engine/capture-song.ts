@@ -31,7 +31,7 @@ import type { RunProvenance } from '@songdeck/ai';
 import { useStudio } from '../state/store';
 import { useSettings } from '../state/settings';
 import { propose, type ProposalMeta } from './proposals';
-import { colorForRole } from '../views/workbench/SidePanel';
+import { colorForRole } from '../views/workbench/tracks';
 import { extensionFor, slugify } from './capture-files';
 
 /**

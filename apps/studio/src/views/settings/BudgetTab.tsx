@@ -75,8 +75,7 @@ export default function BudgetTab() {
     <>
       <TabHeader
         icon="tasks"
-        title="Budget & spend"
-        spec="§60"
+        title="Spending"
         lede="Cloud models report estimated cost before a request and actual cost after it. Limits are checked before anything is sent; local and on-device work is always free."
         actions={
           <Button
