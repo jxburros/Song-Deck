@@ -80,6 +80,8 @@ export interface IdeaSongOptions {
   sectionName?: string;
   origin?: string;
   customInstruments?: InstrumentProfile[];
+  /** Lyric lines sung on the track (e.g. transcribed lyrics). */
+  lyrics?: string[];
 }
 
 export function makeMidiTrack(
@@ -133,6 +135,14 @@ export function buildIdeaSong(o: IdeaSongOptions): Song {
   });
   song.tracks = [track];
   song.mixer = { ...song.mixer, channels: { ...song.mixer.channels, [track.id]: defaultChannelStrip() } };
+  if (o.lyrics?.length)
+    song.lyrics = o.lyrics.map((text) => ({
+      id: randomId('ly'),
+      sectionId: song.sections[0].id,
+      text,
+      trackId: track.id,
+      author: 'transcription',
+    }));
   return song;
 }
 

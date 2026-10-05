@@ -1425,7 +1425,44 @@ function AdapterOptions({
                 label={x.refusalFallback !== false ? 'On' : 'Off'}
               />
             </Field>
+            <Field label="Platform">
+              <Select
+                value={x.anthropicPlatform ?? 'first-party'}
+                onChange={(anthropicPlatform) => setExtra({ anthropicPlatform })}
+                options={[
+                  { value: 'first-party', label: 'Claude API (Anthropic)' },
+                  { value: 'bedrock', label: 'Amazon Bedrock (set Region above)' },
+                  { value: 'vertex', label: 'Google Cloud Vertex AI' },
+                ]}
+                aria-label="Platform"
+              />
+            </Field>
+            {x.anthropicPlatform === 'vertex' && (
+              <>
+                <Field label="GCP project id">
+                  <TextInput
+                    mono
+                    value={x.vertexProject ?? ''}
+                    onChange={(vertexProject) => setExtra({ vertexProject })}
+                    aria-label="GCP project id"
+                  />
+                </Field>
+                <Field label="Location">
+                  <TextInput
+                    mono
+                    value={x.vertexLocation ?? 'global'}
+                    onChange={(vertexLocation) => setExtra({ vertexLocation })}
+                  />
+                </Field>
+              </>
+            )}
           </div>
+          {x.anthropicPlatform && x.anthropicPlatform !== 'first-party' && (
+            <div className="small muted">
+              Server-side refusal fallbacks are only available on the Claude API; they are skipped on this
+              platform.
+            </div>
+          )}
         </Panel>
       );
     case 'openai-compatible':
@@ -1486,6 +1523,32 @@ function AdapterOptions({
               />
             </Field>
           </div>
+        </Panel>
+      );
+    case 'mureka':
+    case 'audioshake':
+    case 'lalal':
+      return (
+        <Panel
+          title="Result downloads"
+          icon="download"
+          sub="Finished files come from signed links on the provider's storage. Through the Song Deck server they are fetched without your key, and only from these hosts (*.domain allowed)."
+        >
+          <Field label="Download hosts">
+            <TextInput
+              mono
+              value={(Array.isArray(x.downloadHosts) ? (x.downloadHosts as string[]) : []).join(', ')}
+              onChange={(v) =>
+                setExtra({
+                  downloadHosts: v
+                    .split(/[,\s]+/)
+                    .map((h) => h.trim().toLowerCase())
+                    .filter(Boolean),
+                })
+              }
+              aria-label="Download hosts"
+            />
+          </Field>
         </Panel>
       );
     case 'custom-http':

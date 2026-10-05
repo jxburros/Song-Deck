@@ -37,6 +37,10 @@ import type {
   ExplainMusicResult,
   GenerateLyricsRequest,
   GenerateLyricsResult,
+  InstrumentRenderRequest,
+  InstrumentRenderResult,
+  LyricTranscriptionRequest,
+  LyricTranscriptionResult,
   MasteringRequest,
   MasteringResult,
   MixAssistRequest,
@@ -818,6 +822,57 @@ export class Orchestrator {
       signal: opts.signal,
       execute: (inst, model, signal) =>
         inst.transcription!.transcribeNotes({ ...req, model: req.model ?? model, signal, hints }),
+    });
+  }
+
+  /** Words (and word timings) from sung or spoken audio. */
+  transcribeLyrics(
+    req: LyricTranscriptionRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<LyricTranscriptionResult>> {
+    const kinds = opts.dataKinds ?? ['recorded-vocals'];
+    const hints = this.hints('lyric-transcription', opts, kinds);
+    return this.run({
+      role: 'lyric-transcription',
+      capabilities: ['LYRIC_TRANSCRIPTION'],
+      dataKinds: kinds,
+      quality: opts.quality,
+      estimateInput: { kind: 'audio', durationSeconds: req.audio.durationSeconds ?? 180 },
+      providerId: opts.providerId,
+      modelId: opts.modelId,
+      neverUpload: opts.neverUpload,
+      routing: opts.routing,
+      excludeProviderIds: opts.excludeProviderIds,
+      skipConfirm: opts.skipConfirm,
+      timeoutMs: opts.timeoutMs,
+      signal: opts.signal,
+      execute: (inst, model, signal) =>
+        inst.lyricTranscription!.transcribeLyrics({ ...req, model: req.model ?? model, signal, hints }),
+    });
+  }
+
+  /** Render MIDI through an instrument plugin on a plugin host (the host is chosen by the caller). */
+  renderInstrument(
+    req: InstrumentRenderRequest,
+    opts: RunOptions = {},
+  ): Promise<OrchestratorResult<InstrumentRenderResult>> {
+    const kinds = opts.dataKinds ?? ['midi'];
+    const hints = this.hints('instrument-rendering', opts, kinds);
+    return this.run({
+      role: 'instrument-rendering',
+      capabilities: ['INSTRUMENT_PLUGIN_HOST'],
+      dataKinds: kinds,
+      quality: opts.quality,
+      estimateInput: { kind: 'audio', durationSeconds: req.durationSeconds },
+      providerId: opts.providerId,
+      modelId: opts.modelId,
+      neverUpload: opts.neverUpload,
+      routing: opts.routing,
+      excludeProviderIds: opts.excludeProviderIds,
+      skipConfirm: opts.skipConfirm,
+      timeoutMs: opts.timeoutMs,
+      signal: opts.signal,
+      execute: (inst, _model, signal) => inst.instrumentHost!.renderInstrument({ ...req, signal, hints }),
     });
   }
 

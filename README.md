@@ -136,6 +136,16 @@ Track**, **Library** and **Settings**.
   Existing connections have an **Allow requests** shortcut. Permissions
   can be changed in Settings → Privacy and spending. Keys stay in the local server's vault or,
   without it, encrypted in the browser ([`docs/CREDENTIALS.md`](./docs/CREDENTIALS.md)).
+- **Lyrics from a recording**: in Audio to MIDI, choose Singing (or Full mix / Isolated) and turn
+  on **Also transcribe the lyrics**. A lyrics engine (local Whisper, OpenAI, Groq or ElevenLabs
+  Scribe) recognises the words with their timing, and each word lands as syllables on the notes
+  sung under it; the lines become the song's lyrics.
+- **Instrument plugins**, like a DAW: in the track inspector (More tools → Inspector), pick any
+  installed **VST3, Audio Unit, VST2, CLAP, LV2, SoundFont (SF2) or SFZ** instrument from the local
+  plugin host, or a **Web Audio Module** that runs in the browser. Open the plugin's own editor,
+  set parameters and presets; the track is rendered through the plugin ("frozen") and that audio
+  plays in Write, Sound and every export. After edits the built-in sound plays until the automatic
+  re-render lands. See [`docs/PLUGINS.md`](./docs/PLUGINS.md#instrument-plugins-vst3-au-clap-lv2-sf2).
 - Uploaded audio uses the existing rights attestation flow; see [`docs/RIGHTS.md`](./docs/RIGHTS.md).
 
 ### Local AI models (optional)
@@ -144,11 +154,22 @@ Local engines plug in through small JSON/HTTP contracts. To try the whole pipeli
 model, run the dependency-free mock bridge and add a local preset under Settings → AI services:
 
 ```bash
-python3 bridges/mock_bridge.py --role all   # music, singing, separation, transcription, voice, mastering on :8810-8815
+python3 bridges/mock_bridge.py --role all   # music, singing, separation, transcription, voice, mastering,
+                                            # lyrics and a mock plugin host on :8810-8817
 ```
 
-Reference bridges for ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC and Matchering are in
+Reference bridges for ACE-Step, YuE, DiffRhythm, Stable Audio Open, MusicGen, DiffSinger, Demucs,
+Basic Pitch, Whisper (lyrics), RVC, Matchering and the instrument plugin host are in
 [`bridges/`](./bridges); Ollama, LM Studio, llama.cpp and vLLM work through their own presets.
+
+### Cloud AI services
+
+Bring your own key for any of: OpenAI, Anthropic (Claude API, or Claude in Amazon Bedrock and on
+Google Cloud Vertex AI), Google Gemini, OpenRouter, DeepSeek, Mistral, xAI, Moonshot, Meta Llama
+API, Together AI and Groq for composing and lyrics; ElevenLabs Music, Stable Audio, Google Lyria,
+MiniMax Music and Mureka for audio; ElevenLabs, AudioShake and LALAL.AI for stems; OpenAI, Groq and
+ElevenLabs Scribe for lyrics transcription. Each preset carries its list prices where known
+(editable), and Song Deck asks before sending anything to a cloud service.
 
 ### Plugins
 
@@ -158,17 +179,17 @@ write your own: [`docs/PLUGINS.md`](./docs/PLUGINS.md).
 
 ## Repository layout
 
-| Path               | What it is                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core`    | Music Engine: Music IR, theory engine, composition engine (genres, blueprint, planner, role generators, arrangement, macros, locks, regeneration, variation, Song DNA), musical intelligence (natural-language edits, theory explanations, lyrics, mix assistant), validation engine & proposals, MIDI/MusicXML/PDF/DAWproject/Reaper serialization, `.songproject` packages, version history & branches, task engine |
-| `packages/audio`   | Audio Engine in pure TypeScript: synthesis & guide rendering, streaming renderer, mixer & effects & automation, mastering & EBU R128 loudness, WAV/FLAC codecs, singing synthesis, and analysis (tempo, key, chords, pitch, transcription, source separation, structure, Rebuild)                                                                                                                                     |
-| `packages/ai`      | AI Orchestrator: capability taxonomy, provider registry & capability router, profiles, routing rules, privacy data-flow, cost & budgets, MusicContext, structured output, adapters (OpenAI-compatible, Anthropic, Gemini, Ollama, custom HTTP, ElevenLabs Music, Stable Audio, Lyria, local model bridges)                                                                                                            |
-| `apps/studio`      | The workstation UI (React + Vite)                                                                                                                                                                                                                                                                                                                                                                                     |
-| `apps/server`      | Local runtime server (Node)                                                                                                                                                                                                                                                                                                                                                                                           |
-| `plugins/`         | Example plugins: a genre profile, an exporter (ABC notation) and an SFZ sampled instrument                                                                                                                                                                                                                                                                                                                            |
-| `bridges/`         | Reference HTTP bridges for local models (ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC, Matchering) and a dependency-free mock bridge                                                                                                                                                                                                                                                                                |
-| `docs/`            | Architecture, phases, genres and tags, brand, credentials, rights, plugins and releasing                                                                                                                                                                                                                                                                                                                              |
-| `scripts/release/` | Release tooling (version checks, packaging, smoke test) used by `.github/workflows/release.yml`                                                                                                                                                                                                                                                                                                                       |
+| Path               | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/core`    | Music Engine: Music IR, theory engine, composition engine (genres, blueprint, planner, role generators, arrangement, macros, locks, regeneration, variation, Song DNA), musical intelligence (natural-language edits, theory explanations, lyrics, mix assistant), validation engine & proposals, MIDI/MusicXML/PDF/DAWproject/Reaper serialization, `.songproject` packages, version history & branches, task engine                      |
+| `packages/audio`   | Audio Engine in pure TypeScript: synthesis & guide rendering, streaming renderer, mixer & effects & automation, mastering & EBU R128 loudness, WAV/FLAC codecs, singing synthesis, and analysis (tempo, key, chords, pitch, transcription, source separation, structure, Rebuild)                                                                                                                                                          |
+| `packages/ai`      | AI Orchestrator: capability taxonomy, provider registry & capability router, profiles, routing rules, privacy data-flow, cost & budgets, MusicContext, structured output, adapters (OpenAI-compatible, Anthropic incl. Bedrock and Vertex, Gemini, Ollama, custom HTTP, ElevenLabs Music + stems + Scribe, Stable Audio, Lyria, MiniMax Music, Mureka, AudioShake, LALAL.AI, speech-to-text, local model bridges, instrument plugin hosts) |
+| `apps/studio`      | The workstation UI (React + Vite)                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `apps/server`      | Local runtime server (Node)                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `plugins/`         | Example plugins: a genre profile, an exporter (ABC notation) and an SFZ sampled instrument                                                                                                                                                                                                                                                                                                                                                 |
+| `bridges/`         | Reference HTTP bridges for local models (ACE-Step, YuE, DiffRhythm, Stable Audio Open, MusicGen, DiffSinger, Demucs, Basic Pitch, Whisper, RVC, Matchering), the instrument plugin host (VST3/AU/VST2/CLAP/LV2/SF2/SFZ) and a dependency-free mock bridge                                                                                                                                                                                  |
+| `docs/`            | Architecture, phases, genres and tags, brand, credentials, rights, plugins and releasing                                                                                                                                                                                                                                                                                                                                                   |
+| `scripts/release/` | Release tooling (version checks, packaging, smoke test) used by `.github/workflows/release.yml`                                                                                                                                                                                                                                                                                                                                            |
 
 ## License
 

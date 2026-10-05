@@ -239,11 +239,13 @@ test('providers: custom OpenAI-compatible endpoint, key in the server vault, mod
     'Music generation',
     'Singing synthesis',
     'Transcription',
+    'Lyrics transcription',
     'Source separation',
     'Voice conversion',
     'Mastering',
+    'Instrument plugins',
   ]) {
-    await expect(gallery.getByRole('heading', { name: group })).toBeVisible();
+    await expect(gallery.getByRole('heading', { name: group, exact: true })).toBeVisible();
   }
   await expect(gallery.getByRole('article', { name: 'Ollama' })).toBeVisible();
   await gallery.getByRole('button', { name: 'Add OpenAI-compatible endpoint' }).click();

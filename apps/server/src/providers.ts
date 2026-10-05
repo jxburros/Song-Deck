@@ -35,6 +35,19 @@ export interface AllowRule {
   pathPrefix: string;
   providerId: string;
   credentialRef?: string;
+  /**
+   * Result-download rule (`extra.downloadHosts`): https GET/HEAD to a host (or `*.domain`
+   * pattern) where a provider stores generated files. Never carries a credential.
+   */
+  downloadHost?: string;
+}
+
+/** `cdn.example.com` or `*.example.com` (at least two labels after the wildcard). */
+export function isValidDownloadHost(pattern: string): boolean {
+  return (
+    /^(\*\.)?([a-z0-9-]+\.)+[a-z]{2,}$/i.test(pattern) &&
+    (!pattern.startsWith('*.') || pattern.split('.').length >= 3)
+  );
 }
 
 const ID_RE = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -154,11 +167,17 @@ export function computeAllowlist(configs: readonly StoredProviderConfig[]): Allo
     const add = (origin: string, pathPrefix: string) =>
       rules.push({ origin, pathPrefix, providerId: c.id, ...(credentialRef ? { credentialRef } : {}) });
     const extra = (c.extra ?? {}) as Record<string, unknown>;
-    // Vertex AI (Lyria) base URLs may contain a {location} placeholder.
-    const location = String(extra.vertexLocation ?? c.region ?? 'us-central1')
-      .trim()
-      .replace(/[^a-z0-9-]/gi, '');
-    const baseUrl = c.baseUrl ? c.baseUrl.replace(/\{location\}/g, location) : '';
+    // Vertex AI base URLs may contain a {location} placeholder (`global` uses the global host) and
+    // Claude in Amazon Bedrock a {region} placeholder.
+    const clean = (v: unknown) =>
+      String(v ?? '')
+        .trim()
+        .replace(/[^a-z0-9-]/gi, '');
+    const location = clean(extra.vertexLocation ?? c.region) || 'us-central1';
+    const region = clean(c.region) || 'us-east-1';
+    let baseUrl = c.baseUrl ?? '';
+    if (location === 'global') baseUrl = baseUrl.replace('{location}-aiplatform.', 'aiplatform.');
+    baseUrl = baseUrl.replace(/\{location\}/g, location).replace(/\{region\}/g, region);
     const base = baseUrl ? splitBase(baseUrl) : undefined;
     if (base) {
       add(base.origin, base.pathPrefix);
@@ -167,11 +186,24 @@ export function computeAllowlist(configs: readonly StoredProviderConfig[]): Allo
     }
     if (c.adapter === 'google-lyria' && !base && location)
       add(`https://${location}-aiplatform.googleapis.com`, '/v1');
+    const hosts = Array.isArray(extra.downloadHosts) ? extra.downloadHosts : [];
+    for (const h of hosts) {
+      const host = typeof h === 'string' ? h.trim().toLowerCase() : '';
+      if (host && isValidDownloadHost(host))
+        rules.push({ origin: '', pathPrefix: '', providerId: c.id, downloadHost: host });
+    }
   }
   return rules;
 }
 
 export function ruleMatches(rule: AllowRule, url: URL): boolean {
+  if (rule.downloadHost) {
+    if (url.protocol !== 'https:') return false;
+    const host = url.hostname.toLowerCase();
+    return rule.downloadHost.startsWith('*.')
+      ? host.endsWith(rule.downloadHost.slice(1))
+      : host === rule.downloadHost;
+  }
   if (url.origin !== rule.origin) return false;
   if (!rule.pathPrefix) return true;
   return url.pathname === rule.pathPrefix || url.pathname.startsWith(`${rule.pathPrefix}/`);

@@ -12,6 +12,7 @@
  * If the endpoint rejects the structured-output feature, the adapter downgrades
  * json_schema → json_object → prompt once and remembers it.
  */
+import { OpenAITranscription } from './lyrics';
 import { LLM_BASE_CAPABILITIES } from '../capabilities';
 import type { ProviderConfig, SchemaDialect, StructuredOutputMode } from '../config';
 import { ProviderError } from '../errors';
@@ -64,6 +65,8 @@ export class OpenAICompatibleLLM implements LLMProvider {
   private mode: StructuredOutputMode;
   private modelsCache?: ModelInfo[];
   skippedModels: ModelInfo[] = [];
+  /** List speech-to-text models (whisper…, …transcribe) as lyrics-transcription models. */
+  listTranscriptionModels = false;
 
   constructor(
     readonly config: ProviderConfig,
@@ -120,6 +123,10 @@ export class OpenAICompatibleLLM implements LLMProvider {
         entry.max_model_len ??
         entry.meta?.n_ctx ??
         entry.meta?.n_ctx_train;
+      if (this.listTranscriptionModels && /whisper|transcribe/i.test(id) && !/tts|realtime/i.test(id)) {
+        models.push({ id, capabilities: ['LYRIC_TRANSCRIPTION'], capabilitiesInferred: true });
+        continue;
+      }
       const inferred = inferModelCapabilities(id, { contextLength, structuredOutput: structured });
       if (!inferred) {
         skipped.push({ id, capabilities: [] });
@@ -273,5 +280,12 @@ export function createOpenAICompatibleProvider(
 ): ProviderInstance {
   const http = createHttpClient(config, deps);
   const llm = new OpenAICompatibleLLM(config, http);
-  return { descriptor: buildDescriptor(config, [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON']), config, llm };
+  const descriptor = buildDescriptor(config, [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON']);
+  const instance: ProviderInstance = { descriptor, config, llm };
+  // OpenAI, Groq and other servers with /audio/transcriptions also transcribe lyrics.
+  if (descriptor.capabilities.includes('LYRIC_TRANSCRIPTION')) {
+    llm.listTranscriptionModels = true;
+    instance.lyricTranscription = new OpenAITranscription(config, http);
+  }
+  return instance;
 }

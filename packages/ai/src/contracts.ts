@@ -246,3 +246,189 @@ export interface MasteringBridgeRequest {
   target: string;
   reference_audio_base64?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Lyrics transcription bridge (Whisper / faster-whisper / WhisperX)
+// ---------------------------------------------------------------------------
+
+export const LYRICS_BRIDGE_PATHS = {
+  /** POST LyricsBridgeRequest → LyricsBridgeResponse */
+  transcribe: '/transcribe_lyrics',
+} as const;
+
+export interface LyricsBridgeRequest {
+  audio_base64: string;
+  /** BCP-47 / ISO-639-1 language hint ("en"); omitted = auto-detect. */
+  language?: string;
+  /** Known words or the expected lyrics, to bias recognition (Whisper `initial_prompt`). */
+  prompt?: string;
+  /** Return per-word timings (default true). */
+  word_timestamps?: boolean;
+  /** Optional model id from /info. */
+  model?: string;
+}
+
+export interface LyricsBridgeWord {
+  word: string;
+  start: number;
+  end: number;
+  /** 0..1 */
+  confidence?: number;
+}
+
+export interface LyricsBridgeSegment {
+  start: number;
+  end: number;
+  text: string;
+  words?: LyricsBridgeWord[];
+}
+
+export interface LyricsBridgeResponse {
+  text: string;
+  language?: string;
+  segments: LyricsBridgeSegment[];
+  model?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Instrument plugin host bridge (VST3, AU, VST2, CLAP, LV2, SF2, SFZ)
+// ---------------------------------------------------------------------------
+
+/**
+ * A plugin host renders MIDI through installed instrument plugins, offline ("freeze"). Plugin ids
+ * are opaque strings chosen by the host (they usually embed the format and the file path) and are
+ * stable on one machine. Plugin state is the host's opaque base64 blob (VST3 component state,
+ * AU ClassInfo, SF2 program…); Song Deck stores it in the project and sends it back unchanged.
+ */
+export const PLUGIN_HOST_PATHS = {
+  /** GET → PluginHostInfo */
+  info: '/info',
+  /** GET → { plugins: PluginHostPlugin[] } (cached scan); POST PluginHostScanRequest → same, rescanned */
+  plugins: '/plugins',
+  /** POST { plugin_id } → PluginHostDescription */
+  describe: '/plugins/describe',
+  /**
+   * POST PluginHostRenderRequest → audio/wav of exactly `duration_seconds`, already latency
+   * compensated (X-Plugin-Latency: <frames> is informational; X-Model: <plugin id>).
+   */
+  render: '/render',
+  /** POST PluginHostStateRequest → PluginHostState (open the native editor; returns when it closes) */
+  editor: '/editor',
+  /** POST PluginHostStateRequest → PluginHostState (apply state/parameters/preset, read them back) */
+  state: '/state',
+  /** POST { job_id? } → 204 */
+  cancel: '/cancel',
+} as const;
+
+export type PluginFormat = 'vst3' | 'au' | 'vst2' | 'clap' | 'lv2' | 'sf2' | 'sfz' | 'wam';
+
+export const PLUGIN_FORMATS: readonly PluginFormat[] = [
+  'vst3',
+  'au',
+  'vst2',
+  'clap',
+  'lv2',
+  'sf2',
+  'sfz',
+  'wam',
+];
+
+export interface PluginHostFormatInfo {
+  format: PluginFormat;
+  /** True when the host can load and render this format right now. */
+  available: boolean;
+  /** Library or tool that hosts it ("pedalboard", "dawdreamer", "fluidsynth", "sfizz", "command"). */
+  backend?: string;
+  /** Why it is unavailable, or a hint ("pip install pedalboard"). */
+  note?: string;
+}
+
+export interface PluginHostInfo {
+  name: string;
+  version: string;
+  formats: PluginHostFormatInfo[];
+  /** Song Deck capability names; plugin hosts report ["INSTRUMENT_PLUGIN_HOST"]. */
+  capabilities: Capability[] | string[];
+  /** True when the host can open native plugin editor windows on this machine. */
+  editor?: boolean;
+  /** Directories scanned for plugins. */
+  search_paths?: string[];
+}
+
+export interface PluginHostPlugin {
+  id: string;
+  name: string;
+  format: PluginFormat;
+  vendor?: string;
+  version?: string;
+  /** "instrument" | "effect" | "unknown" — Song Deck lists instruments (and unknown) in instrument slots. */
+  category?: string;
+  path?: string;
+  /** Whether this plugin can be rendered by an available backend. */
+  loadable?: boolean;
+}
+
+export interface PluginHostScanRequest {
+  /** Extra files or directories to scan (in addition to the host's search paths). */
+  paths?: string[];
+}
+
+export interface PluginHostParameter {
+  /** Stable parameter id (name when the format has no ids). */
+  id: string;
+  name: string;
+  /** Current value (normalized 0..1 unless `min`/`max` say otherwise). */
+  value: number;
+  min?: number;
+  max?: number;
+  default?: number;
+  label?: string;
+}
+
+export interface PluginHostDescription extends PluginHostPlugin {
+  parameters: PluginHostParameter[];
+  /** Factory presets / programs, by name. */
+  presets?: string[];
+  has_editor?: boolean;
+  /** Output latency in frames. */
+  latency_samples?: number;
+}
+
+/** One raw MIDI message at a time in seconds (status byte first; channel in the low nibble). */
+export interface PluginHostMidiEvent {
+  time_seconds: number;
+  data: number[];
+}
+
+export interface PluginHostRenderRequest {
+  plugin_id: string;
+  /** Opaque state from /editor or /state. */
+  state_base64?: string;
+  /** Parameter id → value, applied after the state. */
+  parameters?: Record<string, number>;
+  /** Factory preset / program name, applied before parameters. */
+  preset?: string;
+  sample_rate: number;
+  /** Output channels (default 2). */
+  channels?: number;
+  /** Length of the output in seconds (events beyond it are ignored). */
+  duration_seconds: number;
+  /** MIDI events sorted by time. */
+  events: PluginHostMidiEvent[];
+  /** Host block size in frames (default 512). */
+  block_size?: number;
+}
+
+export interface PluginHostStateRequest {
+  plugin_id: string;
+  state_base64?: string;
+  parameters?: Record<string, number>;
+  preset?: string;
+}
+
+export interface PluginHostState {
+  plugin_id: string;
+  state_base64?: string;
+  parameters: Record<string, number>;
+  preset?: string;
+}

@@ -19,6 +19,10 @@ Common flags (``build_parser``)::
 (``songdeck-bridge ready {json}``), and shuts down gracefully on SIGINT/SIGTERM: new jobs are
 refused, running jobs are cancelled, the listening sockets close and close hooks run. A second
 Ctrl+C exits immediately.
+
+Bridges that must run code on the process's main thread (native GUI windows such as plugin
+editors: macOS only allows them there) pass a :class:`MainThreadRunner` to ``serve()``, which then
+services it while it waits for a signal. Request threads call ``runner.call(fn)``.
 """
 
 from __future__ import annotations
@@ -29,11 +33,12 @@ import importlib.util
 import json
 import logging
 import os
+import queue
 import signal
 import sys
 import threading
 import time
-from typing import Any, Dict, List, NoReturn, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, NoReturn, Optional, Sequence, Tuple
 
 from . import __version__
 from .server import DEFAULT_CORS_ORIGINS, BridgeApp, is_loopback_host
@@ -49,6 +54,7 @@ __all__ = [
     "module_available",
     "require_module",
     "resolve_device",
+    "MainThreadRunner",
 ]
 
 TOKEN_ENV = "SONGDECK_BRIDGE_TOKEN"
@@ -210,10 +216,106 @@ def resolve_device(device: Optional[str]) -> str:
     return "cpu"
 
 
+class MainThreadRunner:
+    """Runs callables on the main thread while :func:`serve` waits for a shutdown signal.
+
+    ``call(fn)`` (from any other thread) queues ``fn`` and blocks until it ran on the main thread,
+    returning its result or raising its exception. ``poll`` is called about every 0.2 s while
+    waiting (e.g. ``ctx.check_cancelled``). Long main-thread calls (a plugin editor window) should
+    register an interrupt with :meth:`add_interrupt` so a shutdown signal can end them.
+    """
+
+    def __init__(self) -> None:
+        self._queue: "queue.Queue[Any]" = queue.Queue()
+        self._interrupts: List[Callable[[], None]] = []
+        self._lock = threading.Lock()
+        self.active = False
+        self.busy = False
+
+    def call(self, fn: Callable[[], Any], *, poll: Optional[Callable[[], None]] = None) -> Any:
+        if not self.active:
+            raise RuntimeError("the main-thread runner is not being serviced (serve() was not given it)")
+        if threading.current_thread() is threading.main_thread():
+            return fn()
+        done = threading.Event()
+        box: Dict[str, Any] = {}
+        self._queue.put((fn, done, box))
+        while not done.wait(0.2):
+            if not self.active:
+                raise RuntimeError("the bridge is shutting down")
+            if poll is not None:
+                poll()  # may raise (e.g. JobCancelled); the queued call still runs or is dropped at shutdown
+        if "error" in box:
+            raise box["error"]
+        return box.get("value")
+
+    def run_pending(self, timeout: float) -> None:
+        """Run queued calls (main thread only); wait up to ``timeout`` seconds for the first one."""
+        try:
+            item = self._queue.get(timeout=timeout)
+        except queue.Empty:
+            return
+        while item is not None:
+            fn, done, box = item
+            self.busy = True
+            try:
+                box["value"] = fn()
+            except Exception as e:  # handed to the caller
+                box["error"] = e
+            except (KeyboardInterrupt, SystemExit):
+                # Wake the waiting caller with an error, then let the interrupt stop the bridge.
+                box["error"] = RuntimeError("the bridge is shutting down")
+                raise
+            finally:
+                self.busy = False
+                done.set()
+            try:
+                item = self._queue.get_nowait()
+            except queue.Empty:
+                item = None
+
+    def add_interrupt(self, fn: Callable[[], None]) -> None:
+        with self._lock:
+            self._interrupts.append(fn)
+
+    def remove_interrupt(self, fn: Callable[[], None]) -> None:
+        with self._lock:
+            if fn in self._interrupts:
+                self._interrupts.remove(fn)
+
+    def interrupt(self) -> None:
+        """Ask long main-thread calls to return (called from the signal handler)."""
+        with self._lock:
+            hooks = list(self._interrupts)
+        for fn in hooks:
+            try:
+                fn()
+            except Exception:  # pragma: no cover - defensive
+                log.exception("main-thread interrupt hook failed")
+
+    def close(self) -> None:
+        self.active = False
+        self.interrupt()
+        while True:
+            try:
+                _fn, done, box = self._queue.get_nowait()
+            except queue.Empty:
+                break
+            box["error"] = RuntimeError("the bridge is shutting down")
+            done.set()
+
+
 def serve(
-    bindings: Sequence[Tuple[BridgeApp, str, int]], *, shutdown_timeout: float = 10.0, announce: bool = True
+    bindings: Sequence[Tuple[BridgeApp, str, int]],
+    *,
+    shutdown_timeout: float = 10.0,
+    announce: bool = True,
+    main_thread: Optional[MainThreadRunner] = None,
 ) -> int:
-    """Serve each ``(app, host, port)`` on its own thread until SIGINT/SIGTERM; returns an exit code."""
+    """Serve each ``(app, host, port)`` on its own thread until SIGINT/SIGTERM; returns an exit code.
+
+    With ``main_thread``, queued main-thread calls run here while waiting (see :class:`MainThreadRunner`).
+    """
     servers: List[Tuple[BridgeApp, Any]] = []
     for app, host, port in bindings:
         try:
@@ -245,6 +347,8 @@ def serve(
             print("forced exit", file=sys.stderr, flush=True)
             os._exit(130)
         stop.set()
+        if main_thread is not None:
+            main_thread.interrupt()  # e.g. close an open plugin editor window
 
     for name in ("SIGINT", "SIGTERM", "SIGBREAK"):
         sig = getattr(signal, name, None)
@@ -254,12 +358,22 @@ def serve(
             except (ValueError, OSError):  # not the main thread / unsupported
                 pass
     try:
-        while not stop.wait(0.5):
-            if not all(t.is_alive() for t in threads):
-                log.error("a server thread stopped unexpectedly")
-                break
+        if main_thread is None:
+            while not stop.wait(0.5):
+                if not all(t.is_alive() for t in threads):
+                    log.error("a server thread stopped unexpectedly")
+                    break
+        else:
+            main_thread.active = True
+            while not stop.is_set():
+                main_thread.run_pending(0.25)
+                if not all(t.is_alive() for t in threads):
+                    log.error("a server thread stopped unexpectedly")
+                    break
     except KeyboardInterrupt:
         pass
+    if main_thread is not None:
+        main_thread.close()
     log.info("shutting down …")
     for app, _ in servers:
         app.begin_shutdown()

@@ -16,11 +16,12 @@ import { scanPluginRecords, type PluginScan } from './api';
 import { GenreEditor, normalizeGenre } from './GenreEditor';
 import { InstrumentEditor, normalizeInstrument } from './InstrumentEditor';
 import { useSettingsNav } from './nav';
+import { InstrumentHostsSection } from './InstrumentHostsSection';
 import { ConfirmModal, Empty, Panel, TabHeader, downloadJson, errorMessage, readJsonFile } from './ui';
 
 /** Plugin ecosystem (spec §57, Phase 5) and custom genre / instrument profiles (spec §14, §17, Phase 2). */
 
-type Sub = 'plugins' | 'genres' | 'instruments';
+type Sub = 'plugins' | 'instrument-plugins' | 'genres' | 'instruments';
 
 const KIND_LABEL: Record<string, string> = {
   'ai-provider': 'AI provider',
@@ -48,7 +49,7 @@ let lastSub: Sub = 'plugins';
 export default function PluginsTab() {
   const focus = useSettingsNav((s) => s.focus);
   const [sub, setSub] = useState<Sub>(() =>
-    focus === 'genres' || focus === 'instruments' ? focus : lastSub,
+    focus === 'genres' || focus === 'instruments' || focus === 'instrument-plugins' ? focus : lastSub,
   );
   useEffect(() => {
     lastSub = sub;
@@ -58,7 +59,7 @@ export default function PluginsTab() {
       <TabHeader
         icon="layers"
         title="Plugins, genres, instruments"
-        lede="Extend Song Deck with community plugins — AI providers, music models, singing and transcription engines, instruments, genre profiles, exporters — and shape composition with your own genre and instrument profiles."
+        lede="Extend Song Deck with community plugins — AI providers, music models, singing and transcription engines, instruments, genre profiles, exporters — play tracks through your VST3, Audio Unit, CLAP, LV2, SoundFont and Web Audio Module instruments, and shape composition with your own genre and instrument profiles."
       />
       <Tabs
         value={sub}
@@ -66,11 +67,13 @@ export default function PluginsTab() {
         className="st-subtabs"
         tabs={[
           { value: 'plugins', label: 'Plugins', icon: 'plug' },
+          { value: 'instrument-plugins', label: 'Instrument plugins', icon: 'wave' },
           { value: 'genres', label: 'Genre profiles', icon: 'music' },
           { value: 'instruments', label: 'Instrument profiles', icon: 'midi' },
         ]}
       />
       {sub === 'plugins' && <PluginsSection />}
+      {sub === 'instrument-plugins' && <InstrumentHostsSection />}
       {sub === 'genres' && <GenresSection />}
       {sub === 'instruments' && <InstrumentsSection />}
     </>

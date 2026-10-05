@@ -226,6 +226,11 @@ const RUNTIME_LABELS: Record<LocalModelEntry['runtime'], string> = {
   'basic-pitch-bridge': 'Basic Pitch bridge',
   'rvc-bridge': 'RVC bridge',
   'mastering-bridge': 'Mastering bridge',
+  'whisper-bridge': 'Whisper lyrics bridge',
+  'yue-bridge': 'YuE bridge',
+  'diffrhythm-bridge': 'DiffRhythm bridge',
+  'stable-audio-open-bridge': 'Stable Audio Open bridge',
+  'musicgen-bridge': 'MusicGen bridge',
 };
 
 /** `ollama pull llama3.1:8b` → `llama3.1:8b` (the name Ollama lists once installed). */

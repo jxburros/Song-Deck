@@ -19,6 +19,8 @@ export const ASSET_FOLDERS: Record<AssetKind, string> = {
   recording: 'audio/recordings',
   import: 'audio/imports',
   analysis: 'analysis/files',
+  'plugin-render': 'audio/plugin-renders',
+  'plugin-state': 'plugins/states',
 };
 
 /** Safe file name: no directories, control characters or reserved characters. */

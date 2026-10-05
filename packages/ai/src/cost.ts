@@ -57,6 +57,8 @@ export const ROLE_OUTPUT_TOKENS: Record<TaskRole, [number, number]> = {
   vocals: [0, 0],
   'voice-conversion': [0, 0],
   mastering: [0, 0],
+  'lyric-transcription': [0, 0],
+  'instrument-rendering': [0, 0],
 };
 
 /**

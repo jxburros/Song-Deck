@@ -3,6 +3,8 @@ import { parseKey, type KeySignature, type Song, type TaskHandler } from '@songd
 import {
   enforceMonophony,
   gridOrigin,
+  resample,
+  toMono,
   transcribedToNotes,
   type AudioData,
   type KeyResult,
@@ -12,7 +14,7 @@ import {
   type TranscribedNote,
   type TranscriptionSource,
 } from '@songdeck/audio';
-import type { DataKind, RunProvenance } from '@songdeck/ai';
+import type { DataKind, LyricSegment, RunProvenance } from '@songdeck/ai';
 import { jobs } from '../jobs';
 import { getOrchestrator, getRouter, initAi } from '../ai';
 import { INTERNAL_FOR_ROLE } from '../internalDescriptors';
@@ -51,6 +53,18 @@ export interface TranscribeTaskInput {
   label?: string;
   /** Provider choice for the 'transcription' role: 'auto' | 'internal' | provider id. */
   provider?: string;
+  /** Also transcribe the sung words (lyrics transcription provider: 'auto' | provider id). */
+  lyrics?: { provider?: string; language?: string; prompt?: string };
+}
+
+/** Words recognised in the recording (seconds on the recording's clock). */
+export interface TranscribedLyrics {
+  segments: LyricSegment[];
+  text: string;
+  language?: string;
+  wordTimestamps: boolean;
+  method: string;
+  provenance?: RunProvenance;
 }
 
 export interface SeparateTaskInput {
@@ -70,7 +84,10 @@ export interface RebuildTaskInput {
   separationProvider?: string;
 }
 
-export type TranscribeTaskOutput = TranscribeAudioResult & { provenance?: RunProvenance };
+export type TranscribeTaskOutput = TranscribeAudioResult & {
+  provenance?: RunProvenance;
+  lyrics?: TranscribedLyrics;
+};
 
 export interface RebuildTaskOutput {
   song: Song;
@@ -475,10 +492,57 @@ const transcribe: TaskHandler<TranscribeTaskInput, TranscribeTaskOutput> = async
     'info',
     `${result.notes.length} ${opts.source === 'drums' ? 'hits' : 'notes'} in ${((performance.now() - started) / 1000).toFixed(1)} s · ${result.method} · ${Math.round(result.bpm)} BPM (${Math.round(result.bpmConfidence * 100)}%) · confidence ${Math.round(result.confidence * 100)}%`,
   );
+  if (ctx.input.lyrics && opts.source !== 'drums') {
+    try {
+      result = { ...result, lyrics: await transcribeLyricsStep(ctx, audio, ctx.input.lyrics) };
+      ctx.log(
+        'info',
+        `Lyrics: ${result.lyrics!.segments.length} phrase(s) · ${result.lyrics!.method}${result.lyrics!.wordTimestamps ? '' : ' (no word timings)'}`,
+      );
+    } catch (err) {
+      if ((err as { name?: string }).name === 'AbortError' || ctx.signal.aborted) throw err;
+      const msg = `Lyrics could not be transcribed: ${err instanceof Error ? err.message : String(err)}`;
+      result = { ...result, warnings: [...(result.warnings ?? []), msg] };
+    }
+  }
   for (const w of result.warnings ?? []) ctx.log('warn', w);
   ctx.progress(1, 'Done');
   return result;
 };
+
+/** Speech-ready audio: mono 16 kHz 16-bit WAV keeps uploads small (25 MB limits) and models happy. */
+async function speechWav(audio: AudioData, signal: AbortSignal) {
+  const mono = resample(toMono(audio), 16_000);
+  return toWav(mono, signal);
+}
+
+async function transcribeLyricsStep(
+  ctx: Parameters<TaskHandler<TranscribeTaskInput, TranscribeTaskOutput>>[0],
+  audio: AudioData,
+  opts: NonNullable<TranscribeTaskInput['lyrics']>,
+): Promise<TranscribedLyrics> {
+  initAi();
+  ctx.progress(0.9, 'Transcribing the lyrics…');
+  const encoded = await speechWav(audio, ctx.signal);
+  const run = await getOrchestrator().transcribeLyrics(
+    { audio: encoded, language: opts.language, prompt: opts.prompt, wordTimestamps: true },
+    {
+      providerId: !opts.provider || opts.provider === 'auto' ? undefined : opts.provider,
+      signal: ctx.signal,
+      dataKinds: ['recorded-vocals'],
+      neverUpload: neverUpload(),
+    },
+  );
+  const r = run.result;
+  return {
+    segments: r.segments,
+    text: r.text,
+    language: r.language,
+    wordTimestamps: r.wordTimestamps,
+    method: `${run.provenance.providerName}${r.model ? ` · ${r.model}` : ''}`,
+    provenance: run.provenance,
+  };
+}
 
 /** Stems from an orchestrated provider (any names) → the four-stem layout of the Rebuild pipeline. */
 async function separateWithProvider(
@@ -526,12 +590,30 @@ function toFourStems(list: { name: string; audio: AudioData }[], fallback: Audio
   let bass: AudioData | undefined;
   let vocals: AudioData | undefined;
   let other: AudioData | undefined;
+  // Complements ("instrumental", "no_vocals") overlap the other stems: use them only as "other"
+  // when nothing finer was returned.
+  const isComplement = (n: string) => /^no[_-]/.test(n) || /instrumental|accompan|backing|karaoke/.test(n);
+  const complements = list.filter((s) => isComplement(s.name.toLowerCase()));
   for (const s of list) {
     const n = s.name.toLowerCase();
+    if (isComplement(n)) continue;
     if (/drum|perc/.test(n)) drums = mixInto(drums, s.audio);
     else if (/bass/.test(n)) bass = mixInto(bass, s.audio);
     else if (/voc|voice|sing/.test(n)) vocals = mixInto(vocals, s.audio);
     else other = mixInto(other, s.audio);
+  }
+  if (!other && !drums && !bass && complements.length) other = complements[0].audio;
+  else if (!other && (drums || bass || vocals)) {
+    // Providers that isolate single stems (LALAL.AI…): "other" is what remains of the mix.
+    const parts = [drums, bass, vocals].filter((x): x is AudioData => !!x);
+    if (parts.every((p) => p.sampleRate === fallback.sampleRate)) {
+      other = mixInto(undefined, fallback);
+      for (const p of parts)
+        other.channels.forEach((c, ci) => {
+          const src = p.channels[Math.min(ci, p.channels.length - 1)];
+          for (let i = 0; i < Math.min(c.length, src.length); i++) c[i] -= src[i];
+        });
+    }
   }
   return {
     drums: drums ?? silent(),

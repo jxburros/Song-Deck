@@ -201,6 +201,13 @@ export const ADAPTER_LABELS: Record<AdapterKind, string> = {
   'separation-http': 'Separation bridge',
   'voice-conversion-http': 'Voice conversion bridge',
   'mastering-http': 'Mastering bridge',
+  'lyrics-http': 'Lyrics bridge',
+  'openai-transcription': 'OpenAI-style speech-to-text',
+  'plugin-host-http': 'Plugin host bridge',
+  'minimax-music': 'MiniMax Music',
+  mureka: 'Mureka',
+  audioshake: 'AudioShake',
+  lalal: 'LALAL.AI',
   managed: 'Managed gateway',
   internal: 'On-device engine',
 };
@@ -254,6 +261,12 @@ export const GALLERY_GROUPS: GalleryGroup[] = [
     match: (p) => p.category === 'transcription',
   },
   {
+    id: 'lyrics',
+    label: 'Lyrics transcription',
+    description: 'Sung words → lyrics with word timings, attached to the vocal notes.',
+    match: (p) => p.category === 'lyrics',
+  },
+  {
     id: 'separation',
     label: 'Source separation',
     description: 'Mix → stems (spec §25 Rebuild).',
@@ -272,6 +285,12 @@ export const GALLERY_GROUPS: GalleryGroup[] = [
     match: (p) => p.category === 'mastering',
   },
   {
+    id: 'instrument-host',
+    label: 'Instrument plugins',
+    description: 'Render MIDI tracks through VST3, Audio Units, CLAP, LV2 and SoundFont instruments.',
+    match: (p) => p.category === 'instrument-host',
+  },
+  {
     id: 'managed',
     label: 'Managed “Automatic”',
     description: 'Let the Song Deck service route for you (spec §8).',
@@ -287,6 +306,8 @@ export const PRESET_CATEGORY_LABEL: Record<PresetCategory, string> = {
   separation: 'Separation',
   'voice-conversion': 'Voice conversion',
   mastering: 'Mastering',
+  lyrics: 'Lyrics transcription',
+  'instrument-host': 'Instrument plugins',
   managed: 'Managed',
 };
 

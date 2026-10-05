@@ -2,6 +2,7 @@
  * Provider registry & capability negotiation (spec §5, §59): "Which installed provider can
  * perform this?" — never "Is provider X installed?".
  */
+import { pluginModels } from './adapters/plugin-host';
 import { type Capability, hasCapabilities, missingCapabilities, unionCapabilities } from './capabilities';
 import type { ProviderConfig } from './config';
 import { toProviderError } from './errors';
@@ -78,9 +79,11 @@ const INTERFACES: ProviderInterfaceName[] = [
   'separation',
   'voiceConversion',
   'mastering',
+  'lyricTranscription',
+  'instrumentHost',
 ];
 /** Adapters whose discovered capabilities replace preset defaults (bridges report what they really do). */
-const SELF_DESCRIBING_ADAPTERS = new Set(['local-music']);
+const SELF_DESCRIBING_ADAPTERS = new Set(['local-music', 'plugin-host-http']);
 
 type Listener = () => void;
 
@@ -332,6 +335,15 @@ export class ProviderRegistry {
       };
       if (inst.llm) add(await inst.llm.listModels(opts.signal));
       if (inst.audioGeneration) add(await inst.audioGeneration.discoverModels(opts.signal));
+      // Plugin hosts list their installed instrument plugins.
+      if (inst.instrumentHost)
+        add(
+          pluginModels(
+            (await inst.instrumentHost.listPlugins({ signal: opts.signal })).filter(
+              (p) => (p.category ?? 'instrument') !== 'effect',
+            ),
+          ),
+        );
       // Voices are not models; listing them checks reachability and feeds voice pickers.
       if (inst.singing) e.voices = await inst.singing.listVoices(opts.signal);
       else if (inst.voiceConversion?.listVoices)

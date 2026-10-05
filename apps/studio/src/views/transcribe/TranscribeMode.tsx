@@ -8,7 +8,7 @@ import { AUDIO_ACCEPT, baseName, readFileBytes } from '../../engine/capture-file
 import { requestAttestation } from '../../engine/rights';
 import { externalProvider, type TranscribeTaskInput } from '../../engine/handlers/analysis';
 import { ProviderPicker } from '../shared/ProviderPicker';
-import { Badge, Button, Field, FileButton, NumberInput, Select, Tabs, Toggle } from '../../ui/kit';
+import { Badge, Button, Field, FileButton, NumberInput, Select, Tabs, TextInput, Toggle } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { RecordPanel } from './RecordPanel';
 import { TapPad, TAP_SOUNDS } from './TapPad';
@@ -26,6 +26,9 @@ import {
 } from './model';
 import { tapsToTranscription } from './taps';
 import { useTranscribeSession, useSingleTranscribeSession, type InputTab, type RunContext } from './session';
+
+/** Sources that can carry sung words. */
+const LYRIC_SOURCES = new Set(['singing', 'isolated', 'full-mix']);
 
 export default function TranscribeMode({ standalone = false }: { standalone?: boolean }) {
   const project = useStudio((s) => (standalone ? null : s.project));
@@ -95,6 +98,10 @@ export default function TranscribeMode({ standalone = false }: { standalone?: bo
       snapToKey: o.snapToKey && source !== 'drums' ? true : undefined,
       label: c.name,
       provider: o.provider,
+      lyrics:
+        o.lyrics && LYRIC_SOURCES.has(source)
+          ? { provider: o.lyricsProvider ?? 'auto', language: o.lyricsLanguage?.trim() || undefined }
+          : undefined,
     };
     const ext = externalProvider('transcription', o.provider);
     const rec = enqueueTask({
@@ -396,6 +403,36 @@ export default function TranscribeMode({ standalone = false }: { standalone?: bo
                 onChange={(snapToKey) => set({ snapToKey })}
                 label="Snap out-of-key notes to the key"
               />
+              {LYRIC_SOURCES.has(options.source) && (
+                <>
+                  <Toggle
+                    on={!!options.lyrics}
+                    onChange={(lyrics) => set({ lyrics })}
+                    label="Also transcribe the lyrics (words with timings → syllables on the notes)"
+                  />
+                  {options.lyrics && (
+                    <div className="grid-2">
+                      <Field
+                        label="Lyrics engine"
+                        hint="Whisper (local bridge, OpenAI, Groq) or ElevenLabs Scribe. Cloud engines receive the vocal audio."
+                      >
+                        <ProviderPicker
+                          role="lyric-transcription"
+                          value={options.lyricsProvider ?? 'auto'}
+                          onChange={(lyricsProvider) => set({ lyricsProvider })}
+                        />
+                      </Field>
+                      <Field label="Language" hint="e.g. en, es, ja — empty detects it.">
+                        <TextInput
+                          value={options.lyricsLanguage ?? ''}
+                          onChange={(lyricsLanguage) => set({ lyricsLanguage })}
+                          aria-label="Lyrics language"
+                        />
+                      </Field>
+                    </div>
+                  )}
+                </>
+              )}
               <Field
                 label="Transcription engine"
                 hint="Auto follows your routing rules; the on-device engine never uploads anything. Taps are always converted on-device."

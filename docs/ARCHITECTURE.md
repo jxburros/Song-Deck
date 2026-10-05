@@ -235,10 +235,15 @@ routing rules (§49), `describeDataFlow` (§50), `BudgetManager` + `estimateCost
 `buildMusicContext` (§45), structured schemas + `parseOperations` (§46), `CompositionService`
 (plan_song / modify_composition / analyze_music / explain_music, §58), `Orchestrator`
 (route → privacy confirm → budget → execute → record), `PROVIDER_PRESETS`, transports
-(`DirectTransport`, `ServerProxyTransport`), adapters for OpenAI-compatible (OpenAI, Moonshot,
-Llama API, Together, Groq, LM Studio, vLLM, llama.cpp), Anthropic, Gemini, Ollama, custom HTTP,
-ElevenLabs Music, Stability Stable Audio, Google Lyria (Vertex), local music HTTP (ACE-Step bridge),
-singing HTTP (DiffSinger bridge), transcription/separation/voice-conversion/mastering HTTP,
+(`DirectTransport`, `ServerProxyTransport`), adapters for OpenAI-compatible (OpenAI, OpenRouter,
+DeepSeek, Mistral, xAI, Moonshot, Llama API, Together, Groq, LM Studio, vLLM, llama.cpp), Anthropic
+(Claude API, Claude in Amazon Bedrock, Claude on Vertex AI — `extra.anthropicPlatform`), Gemini,
+Ollama, custom HTTP, ElevenLabs (Music, stem separation, Scribe speech-to-text), Stability Stable
+Audio, Google Lyria (Vertex), MiniMax Music, Mureka, AudioShake, LALAL.AI, OpenAI-style
+speech-to-text (`/audio/transcriptions`), local music HTTP (ACE-Step, YuE, DiffRhythm, Stable Audio
+Open, MusicGen bridges), singing HTTP (DiffSinger bridge), transcription/separation/voice-conversion/
+mastering/lyrics HTTP, the instrument plugin host (`plugin-host-http`: VST3, AU, VST2, CLAP, LV2,
+SF2, SFZ),
 `LOCAL_MODEL_CATALOG` + `classifyCompatibility` (§61-§62). Connecting services:
 `detectKeyProvider` (key formats), `probeProvider` (validate a key, list its models),
 `groupModels` / `recommendModels` (models → Song Deck uses, best per use), `connectedConfig`,
@@ -261,6 +266,11 @@ singing HTTP (DiffSinger bridge), transcription/separation/voice-conversion/mast
 - `engine/credentials.ts` — browser-held keys (encrypted IndexedDB store, memory fallback) used when
   the server vault is not; `views/settings/ConnectService.tsx` — the "Connect a service" flow.
 - `engine/plugins.ts` — plugin loading and the plugin API (`docs/PLUGINS.md`).
+- `engine/instrument-plugins.ts` + `wam-host.ts` — instrument plugins on MIDI tracks
+  (`Track.instrumentPlugin`): hosts (native bridge, in-browser Web Audio Modules), editors, the
+  `instrument.render` task that freezes a track into a `plugin-render` asset, and automatic
+  re-renders. `@songdeck/core` `trackMidiEvents` / `pluginRenderKey` define the MIDI sent and when a
+  render is current; the audio renderer plays a current render instead of the track's patch.
 - `engine/collab.ts`, `collab-render.ts` — collaboration client and distributed stem renders.
 - `engine/midi-input.ts`, `midi-take.ts` — MIDI keyboard capture into the piano roll (§27).
 - `views/*` — one folder per mode (compose, workbench, generate, expand, transcribe, rebuild, produce,

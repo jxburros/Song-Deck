@@ -78,6 +78,10 @@ export * from './adapters/voice-conversion-http';
 export * from './adapters/mastering-http';
 export * from './adapters/managed';
 export * from './adapters/acoustid';
+export * from './adapters/lyrics';
+export * from './adapters/cloud-music';
+export * from './adapters/cloud-stems';
+export * from './adapters/plugin-host';
 export {
   audioFromJson,
   audioToJson,

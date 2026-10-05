@@ -1,4 +1,5 @@
 import {
+  pluginRenderIsCurrent,
   songDurationSeconds,
   stableStringify,
   type MasteringSettings,
@@ -10,6 +11,7 @@ import type { AudioData, LoudnessReport } from '@songdeck/audio';
 import { jobs } from './jobs';
 import { assetStore } from '../state/assets';
 import { useStudio } from '../state/store';
+import { songAudioAssetIds } from './clip-assets';
 
 /**
  * Offline rendering helpers shared by Mix & Master and Export: asset collection for audio
@@ -133,22 +135,19 @@ export function instrumentalTrackIds(song: Song): string[] {
   return song.tracks.filter((t) => !isVocalTrack(t)).map((t) => t.id);
 }
 
-/** Decoded audio for every clip of every audio track (stems, recordings, produced audio). */
+/** Decoded audio for every clip of every audio track and every instrument-plugin render. */
 export async function collectAssets(
   song: Song,
   project: Project | null = useStudio.getState().project,
 ): Promise<Record<string, AudioData>> {
   const out: Record<string, AudioData> = {};
   if (!project) return out;
-  for (const t of song.tracks) {
-    if (t.kind !== 'audio') continue;
-    for (const c of t.clips) {
-      if (out[c.assetId]) continue;
-      const meta = project.meta.assets.find((a) => a.id === c.assetId);
-      if (!meta) continue;
-      const audio = await assetStore.audio(meta);
-      if (audio) out[c.assetId] = audio;
-    }
+  for (const assetId of songAudioAssetIds(song)) {
+    if (out[assetId]) continue;
+    const meta = project.meta.assets.find((a) => a.id === assetId);
+    if (!meta) continue;
+    const audio = await assetStore.audio(meta);
+    if (audio) out[assetId] = audio;
   }
   return out;
 }
@@ -301,6 +300,12 @@ function computeMixHash(song: Song): string {
         instrumentId: t.instrumentId,
         notes: t.notes,
         clips: t.clips,
+        plugin: t.instrumentPlugin
+          ? {
+              render: pluginRenderIsCurrent(s, t) ? t.instrumentPlugin.render?.assetId : null,
+              bypass: !!t.instrumentPlugin.bypass,
+            }
+          : undefined,
         stemGroup: t.stemGroup,
         macros: t.macros,
       })),

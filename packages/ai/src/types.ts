@@ -39,7 +39,9 @@ export type TaskRole =
   | 'voice-conversion'
   | 'mixing'
   | 'mastering'
-  | 'chat';
+  | 'chat'
+  | 'lyric-transcription'
+  | 'instrument-rendering';
 
 export const TASK_ROLES: readonly TaskRole[] = [
   'composition',
@@ -55,6 +57,8 @@ export const TASK_ROLES: readonly TaskRole[] = [
   'voice-conversion',
   'mixing',
   'mastering',
+  'lyric-transcription',
+  'instrument-rendering',
 ];
 
 /** Kinds of project data that may be sent to a provider (spec §50 data-flow indicator). */
@@ -106,6 +110,13 @@ export type AdapterKind =
   | 'separation-http'
   | 'voice-conversion-http'
   | 'mastering-http'
+  | 'lyrics-http'
+  | 'openai-transcription'
+  | 'plugin-host-http'
+  | 'minimax-music'
+  | 'mureka'
+  | 'audioshake'
+  | 'lalal'
   | 'managed'
   | 'internal';
 
@@ -758,6 +769,159 @@ export interface MasteringProvider {
 }
 
 // ---------------------------------------------------------------------------
+// Lyrics transcription (speech-to-text with word timings)
+// ---------------------------------------------------------------------------
+
+export interface LyricTranscriptionRequest extends AudioInputRequest {
+  /** BCP-47 / ISO-639-1 language hint ("en"); omitted = auto-detect. */
+  language?: string;
+  /** Expected lyrics or vocabulary to bias recognition. */
+  prompt?: string;
+  /** Ask for per-word timings (default true). Some models only return text. */
+  wordTimestamps?: boolean;
+}
+
+export interface LyricWord {
+  word: string;
+  /** Seconds from the start of the audio. */
+  start: number;
+  end: number;
+  /** 0..1 */
+  confidence?: number;
+}
+
+export interface LyricSegment {
+  start: number;
+  end: number;
+  text: string;
+  words?: LyricWord[];
+}
+
+export interface LyricTranscriptionResult {
+  text: string;
+  language?: string;
+  /** Phrases in time order; `words` are present when the provider returned word timings. */
+  segments: LyricSegment[];
+  /** True when every segment carries word timings. */
+  wordTimestamps: boolean;
+  model?: string;
+  costUsd?: number;
+}
+
+export interface LyricTranscriptionProvider {
+  transcribeLyrics(req: LyricTranscriptionRequest): Promise<LyricTranscriptionResult>;
+}
+
+// ---------------------------------------------------------------------------
+// Instrument plugin hosts (VST3 / AU / CLAP / LV2 / SF2 / SFZ / WAM)
+// ---------------------------------------------------------------------------
+
+export type InstrumentPluginFormat = 'vst3' | 'au' | 'vst2' | 'clap' | 'lv2' | 'sf2' | 'sfz' | 'wam';
+
+export interface InstrumentPluginFormatInfo {
+  format: InstrumentPluginFormat;
+  available: boolean;
+  backend?: string;
+  note?: string;
+}
+
+export interface InstrumentPluginInfo {
+  /** Host-specific id (stable on one machine). */
+  id: string;
+  name: string;
+  format: InstrumentPluginFormat;
+  vendor?: string;
+  version?: string;
+  /** 'instrument' | 'effect' | 'unknown' */
+  category?: string;
+  path?: string;
+  loadable?: boolean;
+}
+
+export interface InstrumentPluginParameter {
+  id: string;
+  name: string;
+  value: number;
+  min?: number;
+  max?: number;
+  default?: number;
+  label?: string;
+}
+
+export interface InstrumentPluginDescription extends InstrumentPluginInfo {
+  parameters: InstrumentPluginParameter[];
+  presets?: string[];
+  hasEditor?: boolean;
+  latencySamples?: number;
+}
+
+/** Plugin state as the host returns it (opaque base64 + readable parameters). */
+export interface InstrumentPluginState {
+  stateBase64?: string;
+  parameters: Record<string, number>;
+  preset?: string;
+}
+
+export interface InstrumentHostStatus {
+  name: string;
+  version?: string;
+  formats: InstrumentPluginFormatInfo[];
+  /** Native editor windows can be opened (they appear on the machine running the host). */
+  editor: boolean;
+  searchPaths?: string[];
+}
+
+export interface MidiEventSeconds {
+  /** Seconds from the start of the render. */
+  time: number;
+  /** Raw MIDI bytes, status first. */
+  data: number[];
+}
+
+export interface InstrumentRenderRequest {
+  pluginId: string;
+  state?: InstrumentPluginState;
+  sampleRate: number;
+  channels?: number;
+  durationSeconds: number;
+  events: MidiEventSeconds[];
+  blockSize?: number;
+  signal?: AbortSignal;
+  hints?: RequestHints;
+}
+
+export interface InstrumentRenderResult {
+  audio: EncodedAudio;
+  /** Output latency the host reported (frames) — already compensated when `latencyCompensated`. */
+  latencySamples?: number;
+  latencyCompensated?: boolean;
+  pluginId: string;
+}
+
+export interface InstrumentHostProvider {
+  status(signal?: AbortSignal): Promise<InstrumentHostStatus>;
+  listPlugins(opts?: {
+    rescan?: boolean;
+    paths?: string[];
+    signal?: AbortSignal;
+  }): Promise<InstrumentPluginInfo[]>;
+  describePlugin(pluginId: string, signal?: AbortSignal): Promise<InstrumentPluginDescription>;
+  renderInstrument(req: InstrumentRenderRequest): Promise<InstrumentRenderResult>;
+  /** Apply state/parameters/preset and read the resulting state back. */
+  captureState?(
+    pluginId: string,
+    state?: InstrumentPluginState,
+    signal?: AbortSignal,
+  ): Promise<InstrumentPluginState>;
+  /** Open the plugin's own editor; resolves with the edited state when the window closes. */
+  openEditor?(
+    pluginId: string,
+    state?: InstrumentPluginState,
+    signal?: AbortSignal,
+  ): Promise<InstrumentPluginState>;
+}
+
+// ---------------------------------------------------------------------------
 // Provider instances
 // ---------------------------------------------------------------------------
 
@@ -769,7 +933,9 @@ export type ProviderInterfaceName =
   | 'transcription'
   | 'separation'
   | 'voiceConversion'
-  | 'mastering';
+  | 'mastering'
+  | 'lyricTranscription'
+  | 'instrumentHost';
 
 /**
  * A usable provider. Apps register INTERNAL providers (location 'internal', zero cost, offline)
@@ -788,6 +954,8 @@ export interface ProviderInstance {
   separation?: SeparationProvider;
   voiceConversion?: VoiceConversionProvider;
   mastering?: MasteringProvider;
+  lyricTranscription?: LyricTranscriptionProvider;
+  instrumentHost?: InstrumentHostProvider;
   dispose?(): void;
 }
 

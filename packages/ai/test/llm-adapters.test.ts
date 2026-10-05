@@ -196,7 +196,9 @@ describe('OpenAI-compatible adapter', () => {
     const models = await inst.llm!.listModels();
     expect(m.calls[0].url).toBe('https://api.openai.com/v1/models');
     expect(m.calls[0].method).toBe('GET');
-    expect(models.map((x) => x.id)).toEqual(['gpt-4o-audio-preview', 'gpt-5']);
+    // Speech-to-text models are listed for lyrics transcription only.
+    expect(models.map((x) => x.id)).toEqual(['gpt-4o-audio-preview', 'gpt-5', 'whisper-1']);
+    expect(models.find((x) => x.id === 'whisper-1')!.capabilities).toEqual(['LYRIC_TRANSCRIPTION']);
     const gpt5 = models.find((x) => x.id === 'gpt-5')!;
     expect(gpt5.capabilitiesInferred).toBe(true);
     expect(gpt5.capabilities).toEqual(

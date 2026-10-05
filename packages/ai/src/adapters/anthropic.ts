@@ -9,6 +9,15 @@
  * Refusal fallbacks (default on for supported models, first-party API only):
  * `beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' })`.
  * `stop_reason === 'refusal'` is checked before reading content; `max_tokens` with JSON → 'truncated'.
+ *
+ * Cloud platforms (`extra.anthropicPlatform`):
+ * - `bedrock` — Claude in Amazon Bedrock: the same Messages API at
+ *   `https://bedrock-mantle.{region}.api.aws/anthropic/v1/messages`, a Bedrock API key (bearer token)
+ *   in `x-api-key`, model ids with an `anthropic.` prefix. No Models API: a static list is reported.
+ * - `vertex` — Claude on Vertex AI: `POST {base}/projects/{project}/locations/{location}/publishers/
+ *   anthropic/models/{model}:rawPredict` with an OAuth access token; the model moves from the body
+ *   into the URL and the body carries `anthropic_version: 'vertex-2023-10-16'`. No Models API.
+ * Server-side fallbacks are first-party only; options a platform rejects are learned and dropped.
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { type Capability, LLM_BASE_CAPABILITIES } from '../capabilities';
@@ -51,13 +60,103 @@ export const ANTHROPIC_PLACEHOLDER_KEY = 'proxy-managed';
 
 export type AnthropicEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
+export type AnthropicPlatform = 'first-party' | 'bedrock' | 'vertex';
+
+export const ANTHROPIC_VERTEX_VERSION = 'vertex-2023-10-16';
+
+/** Claude in Amazon Bedrock model ids (the platform has no Models API). */
+export const ANTHROPIC_BEDROCK_MODELS = [
+  'anthropic.claude-opus-5-5',
+  'anthropic.claude-sonnet-5-5',
+  'anthropic.claude-haiku-4-5',
+  'anthropic.claude-fable-5-1',
+  'anthropic.claude-opus-5',
+  'anthropic.claude-sonnet-5',
+  'anthropic.claude-opus-4-8',
+  'anthropic.claude-opus-4-7',
+];
+
+/** Claude on Vertex AI model ids (no Models API; dated snapshots use `@`). */
+export const ANTHROPIC_VERTEX_MODELS = [
+  'claude-opus-5-5',
+  'claude-sonnet-5-5',
+  'claude-haiku-4-5@20251001',
+  'claude-opus-5',
+  'claude-sonnet-5',
+  'claude-opus-4-8',
+];
+
+export function anthropicPlatform(config: Pick<ProviderConfig, 'extra'>): AnthropicPlatform {
+  const p = config.extra?.anthropicPlatform;
+  return p === 'bedrock' || p === 'vertex' ? p : 'first-party';
+}
+
+/**
+ * Fill `{region}` (AWS region, default us-east-1) and `{location}` (Vertex location, default
+ * us-east5; `global` uses the global host) in a base URL.
+ */
+export function resolveAnthropicBaseUrl(
+  config: Pick<ProviderConfig, 'baseUrl' | 'region' | 'extra'>,
+): string {
+  const clean = (v: unknown, d: string) =>
+    String(v ?? '')
+      .trim()
+      .replace(/[^a-z0-9-]/gi, '') || d;
+  const region = clean(config.region, 'us-east-1');
+  const location = clean(config.extra?.vertexLocation ?? config.region, 'us-east5');
+  let b = (config.baseUrl || ANTHROPIC_FIRST_PARTY_BASE_URL).trim();
+  if (location === 'global') b = b.replace('{location}-aiplatform.', 'aiplatform.');
+  return b.replace(/\{region\}/g, region).replace(/\{location\}/g, location);
+}
+
 /** SDK baseURL (no trailing slash, no /v1 — the SDK appends /v1/messages). */
 export function anthropicSdkBaseUrl(baseUrl: string | undefined): string {
   const b = (baseUrl || ANTHROPIC_FIRST_PARTY_BASE_URL).trim().replace(/\/+$/, '');
   return b.replace(/\/v1$/, '');
 }
 
+/**
+ * Wrap a fetch so Messages API calls the SDK makes become Vertex AI `rawPredict` calls (the
+ * request shape the official Vertex SDK produces).
+ */
+export function vertexFetch(
+  inner: (input: string | URL | Request, init?: RequestInit) => Promise<Response>,
+  opts: { baseUrl: string; project: string; location: string; providerId?: string },
+) {
+  return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === 'string' || input instanceof URL ? String(input) : input.url;
+    if (!/\/v1\/messages(\?|$)/.test(url)) return inner(input, init);
+    if (!opts.project)
+      throw new ProviderError(
+        'auth',
+        'Claude on Vertex AI needs a Google Cloud project id (Settings → provider)',
+        {
+          providerId: opts.providerId,
+        },
+      );
+    const raw =
+      init?.body ?? (typeof input === 'object' && 'arrayBuffer' in input ? await input.text() : undefined);
+    const text =
+      typeof raw === 'string' ? raw : raw instanceof Uint8Array ? new TextDecoder().decode(raw) : '';
+    const body = (text ? JSON.parse(text) : {}) as Record<string, unknown>;
+    const model = String(body.model ?? '');
+    delete body.model;
+    if (!body.anthropic_version) body.anthropic_version = ANTHROPIC_VERTEX_VERSION;
+    const verb = body.stream ? 'streamRawPredict' : 'rawPredict';
+    let base = opts.baseUrl;
+    while (base.endsWith('/')) base = base.slice(0, -1);
+    const target = `${base}/projects/${encodeURIComponent(opts.project)}/locations/${encodeURIComponent(
+      opts.location,
+    )}/publishers/anthropic/models/${encodeURIComponent(model)}:${verb}`;
+    const method = init?.method ?? (typeof input === 'object' && 'method' in input ? input.method : 'POST');
+    const headers =
+      init?.headers ?? (typeof input === 'object' && 'headers' in input ? input.headers : undefined);
+    return inner(target, { ...(init ?? {}), method, headers, body: JSON.stringify(body) });
+  };
+}
+
 export function isAnthropicFirstParty(baseUrl: string | undefined): boolean {
+  if (baseUrl && /\{(region|location)\}/.test(baseUrl)) return false;
   return anthropicSdkBaseUrl(baseUrl) === ANTHROPIC_FIRST_PARTY_BASE_URL;
 }
 
@@ -199,6 +298,7 @@ export class AnthropicLLM implements LLMProvider {
   private readonly noEffort = new Set<string>();
   private readonly noFormat = new Set<string>();
   private fallbackDisabled = false;
+  readonly platform: AnthropicPlatform;
 
   constructor(
     readonly config: ProviderConfig,
@@ -208,13 +308,21 @@ export class AnthropicLLM implements LLMProvider {
       ...config.auth,
       credentialRef: config.auth.type === 'none' ? undefined : config.credentialRef,
     };
+    this.platform = anthropicPlatform(config);
+    const resolvedBase = resolveAnthropicBaseUrl(config);
+    let fetchFn = transportFetch(opts.transport, auth);
+    if (this.platform === 'vertex') {
+      const project = String(config.extra?.vertexProject ?? config.project ?? '').trim();
+      const location = String(config.extra?.vertexLocation ?? config.region ?? 'us-east5').trim();
+      fetchFn = vertexFetch(fetchFn, { baseUrl: resolvedBase, project, location, providerId: config.id });
+    }
     this.client =
       opts.client ??
       new Anthropic({
         apiKey: ANTHROPIC_PLACEHOLDER_KEY,
         authToken: null,
-        baseURL: anthropicSdkBaseUrl(config.baseUrl),
-        fetch: transportFetch(opts.transport, auth),
+        baseURL: anthropicSdkBaseUrl(resolvedBase),
+        fetch: fetchFn,
         dangerouslyAllowBrowser: true,
         maxRetries: 0,
         timeout: config.timeoutMs,
@@ -245,6 +353,24 @@ export class AnthropicLLM implements LLMProvider {
   }
 
   async listModels(signal?: AbortSignal): Promise<ModelInfo[]> {
+    if (this.platform !== 'first-party') {
+      // Bedrock and Vertex have no Models API: report the known Claude ids (plus manual models).
+      const ids = this.platform === 'bedrock' ? ANTHROPIC_BEDROCK_MODELS : ANTHROPIC_VERTEX_MODELS;
+      const known = ids.map((id) => ({
+        id,
+        capabilities: [
+          ...LLM_BASE_CAPABILITIES,
+          'STRUCTURED_JSON',
+          'TOOL_CALLING',
+          'LONG_CONTEXT',
+        ] as Capability[],
+        qualityTier: inferQualityTier(id.replace(/^anthropic\./, '')),
+        contextLength: id.includes('haiku') ? 200_000 : 1_000_000,
+      }));
+      const merged = mergeManualModels(known, this.config, [...LLM_BASE_CAPABILITIES, 'STRUCTURED_JSON']);
+      this.models = new Map(merged.map((m) => [m.id, m]));
+      return merged;
+    }
     const models = await this.call(async (s) => {
       const out: ModelInfo[] = [];
       for await (const m of this.client.models.list({ limit: 100 }, { signal: s }))
@@ -313,13 +439,17 @@ export class AnthropicLLM implements LLMProvider {
     return (
       !this.fallbackDisabled &&
       (this.config.extra?.refusalFallback ?? true) &&
+      this.platform === 'first-party' &&
       isAnthropicFirstParty(this.config.baseUrl) &&
       supportsRefusalFallback(model)
     );
   }
 
   async complete(req: LLMRequest): Promise<LLMResponse> {
-    const model = req.model ?? this.config.defaultModel ?? ANTHROPIC_DEFAULT_MODEL;
+    const model =
+      req.model ??
+      this.config.defaultModel ??
+      (this.platform === 'bedrock' ? `anthropic.${ANTHROPIC_DEFAULT_MODEL}` : ANTHROPIC_DEFAULT_MODEL);
     for (let attempt = 0; attempt < 4; attempt++) {
       try {
         return await this.send(req, model);

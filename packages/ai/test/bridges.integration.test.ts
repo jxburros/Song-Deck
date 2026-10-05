@@ -58,6 +58,8 @@ const ROLE = {
   transcription: 3,
   voiceConversion: 4,
   mastering: 5,
+  lyrics: 6,
+  instruments: 7,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -335,9 +337,9 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
     createProvider(configFromPreset(presetId, { baseUrl: url(offset) }), deps);
 
   beforeAll(async () => {
-    base = await freePortBase(6);
+    base = await freePortBase(8);
     bridge = await startBridge(['--role', 'all', '--base-port', String(base)]);
-    expect(bridge.urls).toEqual([0, 1, 2, 3, 4, 5].map(url));
+    expect(bridge.urls).toEqual([0, 1, 2, 3, 4, 5, 6, 7].map(url));
   }, 40_000);
 
   afterAll(async () => {
@@ -714,6 +716,71 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
       await expect(
         vc.convertVoice({ audio, targetVoice: { id: 'nobody', kind: 'stock' } }),
       ).rejects.toMatchObject({ kind: 'bad-request', status: 404 });
+    });
+  });
+
+  describe('lyrics bridge (whisper-local preset)', () => {
+    it('transcribes sung phrases into words with timings; the prompt supplies the words', async () => {
+      const sr = 22050;
+      const sung = tones(
+        [
+          { midi: 64, start: 0.2, dur: 0.4 },
+          { midi: 67, start: 0.8, dur: 0.4 },
+          { midi: 69, start: 2.2, dur: 0.5 },
+        ],
+        sr,
+        3.2,
+      );
+      const audio = wavAudio(encodeWav([sung], sr));
+      const lt = provider('whisper-local', ROLE.lyrics).lyricTranscription!;
+      const res = await lt.transcribeLyrics({ audio, prompt: 'hello there friend', language: 'en-US' });
+      expect(res.model).toBe('mock-whisper');
+      expect(res.language).toBe('en');
+      expect(res.wordTimestamps).toBe(true);
+      const words = res.segments.flatMap((s) => s.words ?? []);
+      expect(words.length).toBeGreaterThan(0);
+      expect(words[0].word.toLowerCase()).toContain('hello');
+      for (let i = 1; i < words.length; i++)
+        expect(words[i].start).toBeGreaterThanOrEqual(words[i - 1].start);
+      const plain = await lt.transcribeLyrics({ audio, wordTimestamps: false });
+      expect(plain.wordTimestamps).toBe(false);
+      await expect(lt.transcribeLyrics({ audio, model: 'nope' })).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  describe('instrument plugin host (plugin-host-local preset)', () => {
+    it('lists plugins, describes one, renders MIDI to a WAV of the requested length, round-trips state', async () => {
+      const h = provider('plugin-host-local', ROLE.instruments).instrumentHost!;
+      const status = await h.status();
+      expect(status.formats.find((f) => f.format === 'vst3')?.available).toBe(true);
+      const plugins = await h.listPlugins();
+      expect(plugins.map((p) => p.id)).toEqual(
+        expect.arrayContaining(['mock:sine-synth', 'mock:square-bass']),
+      );
+      const d = await h.describePlugin('mock:sine-synth');
+      expect(d.parameters.map((p) => p.id)).toEqual(expect.arrayContaining(['gain', 'waveform']));
+      const state = await h.captureState!('mock:sine-synth', { parameters: { gain: 0.5 } });
+      expect(state.parameters.gain).toBeCloseTo(0.5, 6);
+      expect(state.stateBase64).toBeTruthy();
+      const sr = 22050;
+      const r = await h.renderInstrument({
+        pluginId: 'mock:sine-synth',
+        state,
+        sampleRate: sr,
+        channels: 2,
+        durationSeconds: 1.5,
+        events: [
+          { time: 0, data: [0x90, 69, 100] },
+          { time: 0.5, data: [0x80, 69, 64] },
+        ],
+      });
+      const w = parseWav(r.audio.data);
+      expect([w.channels, w.sampleRate, w.frames]).toEqual([2, sr, 1.5 * sr]);
+      expect(rms(w.samples[0].subarray(0, Math.round(0.4 * sr)))).toBeGreaterThan(0.01);
+      expect(rms(w.samples[0].subarray(Math.round(1.2 * sr)))).toBeLessThan(0.01);
+      await expect(
+        h.renderInstrument({ pluginId: 'mock:nothing', sampleRate: sr, durationSeconds: 1, events: [] }),
+      ).rejects.toMatchObject({ status: 404 });
     });
   });
 

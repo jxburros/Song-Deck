@@ -66,7 +66,12 @@ export interface LocalModelEntry {
     | 'demucs-bridge'
     | 'basic-pitch-bridge'
     | 'rvc-bridge'
-    | 'mastering-bridge';
+    | 'mastering-bridge'
+    | 'whisper-bridge'
+    | 'yue-bridge'
+    | 'diffrhythm-bridge'
+    | 'stable-audio-open-bridge'
+    | 'musicgen-bridge';
   /** Provider preset that connects to it. */
   presetId: string;
   version: string;

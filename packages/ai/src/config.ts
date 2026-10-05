@@ -76,6 +76,12 @@ export interface ProviderExtra {
   /** Vertex AI (Lyria): GCP project id and location. */
   vertexProject?: string;
   vertexLocation?: string;
+  /**
+   * Anthropic adapter: where Claude is served. `bedrock` = Claude in Amazon Bedrock (Messages API at
+   * `https://bedrock-mantle.{region}.api.aws/anthropic`, Bedrock API key in `x-api-key`); `vertex` =
+   * Claude on Google Cloud Vertex AI (`rawPredict`, OAuth access token). Default `first-party`.
+   */
+  anthropicPlatform?: 'first-party' | 'bedrock' | 'vertex';
   /** Custom HTTP LLM template. */
   customTemplate?: CustomHttpTemplate;
   /** Audio output format (ElevenLabs `output_format`, Stability `output_format`). */

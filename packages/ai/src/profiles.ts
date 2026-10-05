@@ -36,6 +36,8 @@ export const BUILTIN_PROFILES: ProviderProfile[] = [
       'voice-conversion': 'disabled',
       mixing: 'internal',
       mastering: 'internal',
+      'lyric-transcription': { providerId: 'openai' },
+      'instrument-rendering': { providerId: 'plugin-host-local' },
     },
   },
   {
@@ -58,6 +60,8 @@ export const BUILTIN_PROFILES: ProviderProfile[] = [
       'voice-conversion': { providerId: 'rvc-local' },
       mixing: 'internal',
       mastering: 'internal',
+      'lyric-transcription': { providerId: 'whisper-local' },
+      'instrument-rendering': { providerId: 'plugin-host-local' },
     },
   },
   {
@@ -79,6 +83,8 @@ export const BUILTIN_PROFILES: ProviderProfile[] = [
       separation: 'internal',
       mixing: 'internal',
       mastering: 'internal',
+      'lyric-transcription': { providerId: 'groq' },
+      'instrument-rendering': { providerId: 'plugin-host-local' },
     },
   },
   {
@@ -101,6 +107,8 @@ export const BUILTIN_PROFILES: ProviderProfile[] = [
       separation: { providerId: 'demucs-local' },
       mixing: 'internal',
       mastering: { providerId: 'mastering-local' },
+      'lyric-transcription': { providerId: 'elevenlabs-music' },
+      'instrument-rendering': { providerId: 'plugin-host-local' },
     },
   },
 ];

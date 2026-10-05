@@ -425,6 +425,49 @@ export interface Track {
   sourceTrackId?: Id;
   /** Generation parameters for reproducibility. */
   generator?: { id: string; seed?: number; params?: Record<string, unknown> };
+  /**
+   * Instrument plugin that plays this MIDI track (VST3, AU, CLAP, LV2, SF2, SFZ or a Web Audio
+   * Module), like an instrument insert in a DAW. Its audio is rendered by a plugin host and
+   * "frozen" into a project asset; while the render is missing or out of date, playback uses
+   * the built-in patch of `instrumentId`.
+   */
+  instrumentPlugin?: InstrumentPluginSlot;
+}
+
+export type InstrumentPluginFormat = 'vst3' | 'au' | 'vst2' | 'clap' | 'lv2' | 'sf2' | 'sfz' | 'wam';
+
+export interface InstrumentPluginSlot {
+  format: InstrumentPluginFormat;
+  /** Host-specific plugin id (file path based for native hosts, module URL for WAM). */
+  pluginId: string;
+  name: string;
+  vendor?: string;
+  /** Provider id of the host that loads it ('wam' = the in-browser Web Audio Module host). */
+  hostId: string;
+  /** Opaque plugin state (VST3/AU chunk, WAM state…) stored as a project asset. */
+  stateAssetId?: string;
+  /** Readable parameter values (applied after the state). */
+  parameters?: Record<string, number>;
+  /** Factory preset / program. */
+  preset?: string;
+  /** Use the built-in patch instead of the plugin (keeps the slot). */
+  bypass?: boolean;
+  /** Re-render automatically after edits (default true). */
+  autoRender?: boolean;
+  /** The current frozen render. */
+  render?: InstrumentPluginRender;
+}
+
+export interface InstrumentPluginRender {
+  /** Audio asset (WAV) rendered from song time 0. */
+  assetId: Id;
+  /** `pluginRenderKey` of the inputs it was rendered from; stale when it differs. */
+  key: string;
+  sampleRate: number;
+  durationSeconds: number;
+  /** Seconds to skip at the start of the asset (plugin latency). */
+  offsetSeconds?: number;
+  renderedAt: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1290,7 +1333,11 @@ export type AssetKind =
   | 'stem'
   | 'recording'
   | 'import'
-  | 'analysis';
+  | 'analysis'
+  /** A frozen instrument-plugin render of a MIDI track. */
+  | 'plugin-render'
+  /** Opaque instrument-plugin state (not audio: sampleRate/channels/duration are 0). */
+  | 'plugin-state';
 
 export interface AudioAssetMeta {
   id: Id;

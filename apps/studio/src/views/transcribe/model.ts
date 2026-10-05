@@ -1,4 +1,13 @@
-import { PPQ, randomId, type KeySignature, type Note, type TrackRole } from '@songdeck/core';
+import {
+  createEmptySong,
+  PPQ,
+  randomId,
+  timedSyllables,
+  type KeySignature,
+  type Note,
+  type TimedLyricPhrase,
+  type TrackRole,
+} from '@songdeck/core';
 import type { AudioData } from '@songdeck/audio';
 import type { RunProvenance } from '@songdeck/ai';
 import type { PendingAttestation } from '../../engine/rights';
@@ -41,6 +50,24 @@ export interface TranscribeOptions {
   grid: GridChoice;
   snapToKey: boolean;
   keyMode: KeyMode;
+  /** Also transcribe the sung words and attach them to the notes. */
+  lyrics?: boolean;
+  /** Lyrics transcription provider: 'auto' | provider id. */
+  lyricsProvider?: string;
+  /** Language hint ("en"); empty = detect. */
+  lyricsLanguage?: string;
+}
+
+/** Sung words recognised in the take (times on the recording's clock). */
+export interface TranscribedLyricsView {
+  phrases: TimedLyricPhrase[];
+  text: string;
+  language?: string;
+  method: string;
+  wordTimestamps: boolean;
+  matchedWords: number;
+  unmatchedWords: string[];
+  provenance?: RunProvenance;
 }
 
 export interface TranscriptionView {
@@ -66,6 +93,8 @@ export interface TranscriptionView {
   raw?: unknown;
   /** Set when an orchestrated provider (not the on-device engine) transcribed the audio. */
   provenance?: RunProvenance;
+  /** Lyrics transcription (syllables are already on `notes`). */
+  lyrics?: TranscribedLyricsView;
 }
 
 export const SOURCES: { value: TranscribeSource; label: string; hint: string }[] = [
@@ -275,7 +304,29 @@ export function normalizeTranscription(
       'No notes were detected. Try a louder, cleaner take, a different source type, or turn quantization off.',
     );
   }
+  const lyrics = drums ? undefined : lyricsFromRaw(r.lyrics);
+  if (lyrics) {
+    // Recording second s sits at song second s − offset (tick 0 = the transcription's bar 1).
+    const timing = createEmptySong({ title: 'timing', bpm, meter });
+    const words = lyrics.phrases.flatMap((p) => p.words ?? []);
+    const assigned = timedSyllables(timing, notes, words, { offsetSeconds: -offset });
+    notes = notes.map((n) => {
+      const syl = assigned.syllables.get(n.id);
+      return syl ? { ...n, syllable: syl } : n;
+    });
+    lyrics.matchedWords = assigned.matchedWords;
+    lyrics.unmatchedWords = assigned.unmatchedWords;
+    if (words.length && assigned.unmatchedWords.length)
+      warnings.push(
+        `${assigned.unmatchedWords.length} sung word${assigned.unmatchedWords.length === 1 ? '' : 's'} had no detected note under ${assigned.unmatchedWords.length === 1 ? 'it' : 'them'}.`,
+      );
+    if (!lyrics.wordTimestamps)
+      warnings.push(
+        'The lyrics provider returned no word timings: the words are kept as lyric lines; use Vocals → Lyrics → Align to place them on notes.',
+      );
+  }
   return {
+    lyrics,
     notes,
     drums,
     ppq: PPQ,
@@ -301,6 +352,47 @@ export function normalizeTranscription(
     raw,
     provenance:
       r.provenance && typeof r.provenance === 'object' ? (r.provenance as RunProvenance) : undefined,
+  };
+}
+
+function lyricsFromRaw(raw: unknown): TranscribedLyricsView | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const l = raw as Record<string, unknown>;
+  const segs = Array.isArray(l.segments) ? (l.segments as Record<string, unknown>[]) : [];
+  const phrases: TimedLyricPhrase[] = segs
+    .map((sg) => {
+      const words = Array.isArray(sg.words)
+        ? (sg.words as Record<string, unknown>[])
+            .filter(
+              (w) => typeof w.word === 'string' && num(w.start) !== undefined && num(w.end) !== undefined,
+            )
+            .map((w) => ({
+              word: String(w.word),
+              startSeconds: num(w.start)!,
+              endSeconds: num(w.end)!,
+              ...(num(w.confidence) !== undefined ? { confidence: num(w.confidence) } : {}),
+            }))
+        : [];
+      const p: TimedLyricPhrase = {
+        text: typeof sg.text === 'string' ? sg.text.trim() : words.map((w) => w.word).join(' '),
+        startSeconds: num(sg.start) ?? words[0]?.startSeconds ?? 0,
+        endSeconds: num(sg.end) ?? words[words.length - 1]?.endSeconds ?? 0,
+      };
+      if (words.length) p.words = words;
+      return p;
+    })
+    .filter((p) => p.text);
+  if (!phrases.length) return undefined;
+  return {
+    phrases,
+    text: typeof l.text === 'string' ? l.text : phrases.map((p) => p.text).join('\n'),
+    language: typeof l.language === 'string' ? l.language : undefined,
+    method: typeof l.method === 'string' ? l.method : 'Lyrics transcription',
+    wordTimestamps: l.wordTimestamps === true,
+    matchedWords: 0,
+    unmatchedWords: [],
+    provenance:
+      l.provenance && typeof l.provenance === 'object' ? (l.provenance as RunProvenance) : undefined,
   };
 }
 

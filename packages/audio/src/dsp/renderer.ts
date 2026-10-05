@@ -15,6 +15,7 @@ import {
   defaultChannelStrip,
   defaultMixer,
   meterAtBar,
+  pluginRenderIsCurrent,
   songLengthTicks,
   ticksPerBeat,
   type TimeMap,
@@ -94,6 +95,35 @@ interface TrackState {
 }
 
 const CLICK_MS = 30;
+
+/**
+ * The frozen render of a MIDI track's instrument plugin as an audio track (one clip from song
+ * time 0), or null when the plugin is bypassed, the render is stale or its audio is not loaded —
+ * the track then plays its built-in patch.
+ */
+export function frozenPluginTrack(song: Song, track: Track, assets: AssetResolver | undefined): Track | null {
+  const render = track.instrumentPlugin?.render;
+  if (!render || !assets || !pluginRenderIsCurrent(song, track)) return null;
+  const audio = assets(render.assetId);
+  if (!audio || !audio.channels.length) return null;
+  return {
+    ...track,
+    kind: 'audio',
+    notes: [],
+    clips: [
+      {
+        id: `plugin-render:${track.id}`,
+        assetId: render.assetId,
+        tick: 0,
+        offsetSeconds: Math.max(0, render.offsetSeconds ?? 0),
+        durationSeconds: render.durationSeconds,
+        gainDb: 0,
+        fadeInSeconds: 0,
+        fadeOutSeconds: 0,
+      },
+    ],
+  };
+}
 
 /** Streaming, allocation-free (in process()) song renderer. */
 export class SongRenderer {
@@ -306,7 +336,10 @@ export class SongRenderer {
     for (const track of song.tracks) {
       if (!track || seen.has(track.id)) continue;
       seen.add(track.id);
-      const isAudio = track.kind === 'audio';
+      // A MIDI track with a current instrument-plugin render plays that audio (DAW "freeze").
+      const frozen = track.kind === 'audio' ? null : frozenPluginTrack(song, track, this.opts.assets);
+      const srcTrack = frozen ?? track;
+      const isAudio = track.kind === 'audio' || !!frozen;
       const { id: patchId, patch } = isAudio
         ? { id: 'audio', patch: null as PatchDefinition | null }
         : this.resolvePatch(track);
@@ -316,7 +349,9 @@ export class SongRenderer {
       const key = !render
         ? 'skip'
         : isAudio
-          ? 'audio'
+          ? frozen
+            ? `plugin|${frozen.clips[0]?.assetId}`
+            : 'audio'
           : `${patchId}|${patch!.engine}|${silent ? 'silent' : ''}|${this.opts.vocalVoiceId ?? ''}|${track.vocal?.voiceId ?? ''}|${track.vocal?.voiceType ?? ''}`;
       let ts = this.trackMap.get(track.id);
       if (ts && ts.key === key) {
@@ -324,7 +359,7 @@ export class SongRenderer {
         ts.render = render;
         if (ts.poly) ts.poly.setEvents(buildNoteEvents(track, ts.patch!, ctx), frame);
         else if (ts.vocal) ts.vocal.update(song, track, this.startSec, frame);
-        else if (ts.clips) ts.clips.build(track, tm, this.startSec, this.opts.assets);
+        else if (ts.clips) ts.clips.build(srcTrack, tm, this.startSec, this.opts.assets);
       } else {
         const old = ts;
         let source: TrackSource;
@@ -334,7 +369,7 @@ export class SongRenderer {
         if (!render) {
           source = new SilentSource();
         } else if (isAudio) {
-          clips = new ClipPlayer(track, tm, this.startSec, sr, this.opts.assets, this.assetCache);
+          clips = new ClipPlayer(srcTrack, tm, this.startSec, sr, this.opts.assets, this.assetCache);
           source = clips;
         } else if (silent) {
           source = new SilentSource();

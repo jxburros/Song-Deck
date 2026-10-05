@@ -288,6 +288,10 @@ export class CapabilityRouter {
             modelTier = best.qualityTier;
             if (dm)
               modelNote = `default model ${defaultModel} lacks ${missingCapabilities(this.registry.capabilitiesOf(d.id, dm.id), requirements).map(capabilityLabel).join(', ')}`;
+          } else if (iface === 'lyricTranscription' && !providerMissing().length) {
+            // Speech-to-text endpoints pick their own model (whisper-1, scribe_v1…) when the
+            // listed models are chat models only.
+            modelId = undefined;
           } else {
             const missing = providerMissing();
             reasons.push(
