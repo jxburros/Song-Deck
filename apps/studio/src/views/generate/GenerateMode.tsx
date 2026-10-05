@@ -207,11 +207,7 @@ export default function GenerateMode({
         <div className="page-header">
           <div className="grow">
             <h1>
-              {output === 'audio'
-                ? 'Create a single audio track'
-                : standalone
-                  ? 'Create a MIDI file'
-                  : 'Generate a project track'}
+              {output === 'audio' ? 'Create a single audio track' : 'Generate a project track'}
             </h1>
             <div className="lede">
               Create individual musical assets — a melody, a drum pattern, a bass line — as editable MIDI with
