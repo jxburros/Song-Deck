@@ -21,6 +21,8 @@ import type { ProviderConfig } from '../config';
 import { audioCostUsd } from '../cost';
 import { energyDescriptor, sectionLyricLines, songStyleTags } from '../production';
 import type { HttpClient } from '../transport/http';
+import { ElevenLabsStemSeparation } from './cloud-stems';
+import { ElevenLabsSpeechToText } from './lyrics';
 import type {
   AudioGenerationProvider,
   AudioGenerationResult,
@@ -305,9 +307,17 @@ export class ElevenLabsMusicProvider implements AudioGenerationProvider {
 
 export function createElevenLabsProvider(config: ProviderConfig, deps: CreateProviderDeps): ProviderInstance {
   const http = createHttpClient(config, deps);
-  return {
-    descriptor: buildDescriptor(config, ELEVENLABS_MUSIC_CAPABILITIES),
+  const descriptor = buildDescriptor(config, ELEVENLABS_MUSIC_CAPABILITIES);
+  const instance: ProviderInstance = {
+    descriptor,
     config,
     audioGeneration: new ElevenLabsMusicProvider(config, http),
   };
+  // The same key reaches Scribe (speech-to-text) for lyrics.
+  if (descriptor.capabilities.includes('LYRIC_TRANSCRIPTION'))
+    instance.lyricTranscription = new ElevenLabsSpeechToText(config, http);
+  // …and stem separation (two or six stems).
+  if (descriptor.capabilities.includes('SOURCE_SEPARATION'))
+    instance.separation = new ElevenLabsStemSeparation(config, http);
+  return instance;
 }

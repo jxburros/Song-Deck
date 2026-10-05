@@ -71,6 +71,8 @@ describe('capabilities & presets', () => {
         'separation',
         'voiceConversion',
         'mastering',
+        'lyricTranscription',
+        'instrumentHost',
       ].filter((k) => (inst as unknown as Record<string, unknown>)[k]);
       expect(ifaces.length, preset.id).toBeGreaterThan(0);
       if (inst.llm) expect(inst.composition, preset.id).toBeDefined();

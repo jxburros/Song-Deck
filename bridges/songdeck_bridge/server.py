@@ -825,6 +825,8 @@ class BridgeApp:
         self.detect_disconnect = detect_disconnect
         self.disconnect_poll = disconnect_poll
         self.log = logging.getLogger(f"songdeck_bridge.{role}")
+        #: response headers a browser may read (CORS); bridges with extra headers append to it
+        self.expose_headers = EXPOSED_HEADERS
         self.loaders: List[ModelLoader] = []
         self.health_extra: Optional[Callable[[], Dict[str, Any]]] = None
         self.server: Optional[ThreadingHTTPServer] = None
@@ -1267,7 +1269,7 @@ class BridgeApp:
             if cors_origin is not None:
                 headers["Access-Control-Allow-Origin"] = cors_origin
                 headers["Vary"] = "Origin"
-                headers["Access-Control-Expose-Headers"] = EXPOSED_HEADERS
+                headers["Access-Control-Expose-Headers"] = self.expose_headers
             headers.update(resp.headers)
             if close:
                 headers["Connection"] = "close"

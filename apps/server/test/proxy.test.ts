@@ -272,6 +272,59 @@ describe('provider proxy', () => {
         ),
       ),
     ).toBe(true);
+    const claudeClouds = computeAllowlist([
+      {
+        ...provider(
+          'bedrock',
+          'https://bedrock-mantle.{region}.api.aws/anthropic',
+          { type: 'header', name: 'x-api-key' },
+          'provider:bedrock',
+        ),
+        adapter: 'anthropic',
+        region: 'eu-west-1',
+      } as never,
+      {
+        ...provider(
+          'vertex',
+          'https://{location}-aiplatform.googleapis.com/v1',
+          { type: 'bearer' },
+          'provider:vertex',
+        ),
+        adapter: 'anthropic',
+        extra: { vertexLocation: 'global' },
+      } as never,
+    ]);
+    const allowed = (url: string) => claudeClouds.find((r) => ruleMatches(r, new URL(url)))?.providerId;
+    expect(allowed('https://bedrock-mantle.eu-west-1.api.aws/anthropic/v1/messages')).toBe('bedrock');
+    expect(
+      allowed(
+        'https://aiplatform.googleapis.com/v1/projects/p/locations/global/publishers/anthropic/models/claude-opus-5-5:rawPredict',
+      ),
+    ).toBe('vertex');
+    expect(allowed('https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages')).toBeUndefined();
+  });
+
+  it('download hosts allow credential-free https GETs of result files only', async () => {
+    const { computeAllowlist, isValidDownloadHost } = await import('../src/providers');
+    const { credentialInScope, isAllowlisted } = await import('../src/proxy');
+    const rules = computeAllowlist([
+      {
+        ...provider('mureka', 'https://api.mureka.ai', { type: 'bearer' }, 'provider:mureka'),
+        extra: { downloadHosts: ['*.mureka.ai', 'files.example.net', '*.com', 'not a host'] },
+      } as never,
+    ]);
+    const u = (s: string) => new URL(s);
+    expect(isAllowlisted(u('https://cdn.mureka.ai/song.mp3'), rules, 'GET')).toBe(true);
+    expect(isAllowlisted(u('https://files.example.net/x.wav'), rules, 'GET')).toBe(true);
+    expect(isAllowlisted(u('https://cdn.mureka.ai/song.mp3'), rules, 'POST')).toBe(false);
+    expect(isAllowlisted(u('http://cdn.mureka.ai/song.mp3'), rules, 'GET')).toBe(false);
+    expect(isAllowlisted(u('https://evil.com/x'), rules, 'GET')).toBe(false);
+    expect(credentialInScope(u('https://cdn.mureka.ai/song.mp3'), 'provider:mureka', rules)).toBe(false);
+    expect(credentialInScope(u('https://api.mureka.ai/v1/song/generate'), 'provider:mureka', rules)).toBe(
+      true,
+    );
+    expect(isValidDownloadHost('*.com')).toBe(false);
+    expect(isValidDownloadHost('*.cloudfront.net')).toBe(true);
   });
 
   it('only sends a credential to its own provider', async () => {

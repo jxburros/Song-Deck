@@ -10,13 +10,17 @@ import { ConfigurationError } from './errors';
 import { createAnthropicProvider } from './adapters/anthropic';
 import type { CreateProviderDeps } from './adapters/common';
 import { createCustomHttpProvider } from './adapters/custom-http';
+import { createMiniMaxMusicProvider, createMurekaProvider } from './adapters/cloud-music';
+import { createAudioShakeProvider, createLalalProvider } from './adapters/cloud-stems';
 import { createElevenLabsProvider } from './adapters/elevenlabs';
 import { createGeminiProvider } from './adapters/gemini';
 import { createLocalMusicProvider } from './adapters/local-music';
 import { createLyriaProvider } from './adapters/lyria';
+import { createLyricsHttpProvider, createOpenAITranscriptionProvider } from './adapters/lyrics';
 import { createManagedProvider } from './adapters/managed';
 import { createMasteringHttpProvider } from './adapters/mastering-http';
 import { createOllamaProvider } from './adapters/ollama';
+import { createPluginHostProvider } from './adapters/plugin-host';
 import { createOpenAICompatibleProvider } from './adapters/openai-compatible';
 import { createSeparationHttpProvider } from './adapters/separation-http';
 import { createSingingHttpProvider } from './adapters/singing-http';
@@ -26,7 +30,9 @@ import { createVoiceConversionHttpProvider } from './adapters/voice-conversion-h
 import type {
   AudioGenerationProvider,
   CompositionProvider,
+  InstrumentHostProvider,
   LLMProvider,
+  LyricTranscriptionProvider,
   MasteringProvider,
   PricingInfo,
   ProviderInstance,
@@ -107,6 +113,27 @@ export function createProvider(config: ProviderConfig, deps: CreateProviderDeps)
     case 'mastering-http':
       instance = createMasteringHttpProvider(config, deps);
       break;
+    case 'lyrics-http':
+      instance = createLyricsHttpProvider(config, deps);
+      break;
+    case 'openai-transcription':
+      instance = createOpenAITranscriptionProvider(config, deps);
+      break;
+    case 'minimax-music':
+      instance = createMiniMaxMusicProvider(config, deps);
+      break;
+    case 'mureka':
+      instance = createMurekaProvider(config, deps);
+      break;
+    case 'plugin-host-http':
+      instance = createPluginHostProvider(config, deps);
+      break;
+    case 'audioshake':
+      instance = createAudioShakeProvider(config, deps);
+      break;
+    case 'lalal':
+      instance = createLalalProvider(config, deps);
+      break;
     case 'managed':
       instance = createManagedProvider(config, deps);
       break;
@@ -137,6 +164,8 @@ export interface InternalProviderSpec {
   separation?: SeparationProvider;
   voiceConversion?: VoiceConversionProvider;
   mastering?: MasteringProvider;
+  lyricTranscription?: LyricTranscriptionProvider;
+  instrumentHost?: InstrumentHostProvider;
 }
 
 const FREE: PricingInfo = {

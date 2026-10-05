@@ -151,15 +151,16 @@ export function validateEnvelope(body: unknown): ProxyEnvelope {
 }
 
 /** Whether `url` may be contacted at all (loopback, or inside a registered provider's base URL). */
-export function isAllowlisted(url: URL, rules: readonly AllowRule[]): boolean {
+export function isAllowlisted(url: URL, rules: readonly AllowRule[], method = 'GET'): boolean {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
   if (isLoopbackHost(url.hostname)) return true;
-  return rules.some((r) => ruleMatches(r, url));
+  const download = method === 'GET' || method === 'HEAD';
+  return rules.some((r) => (download || !r.downloadHost) && ruleMatches(r, url));
 }
 
-/** Whether the secret behind `credentialRef` may be sent to `url`. */
+/** Whether the secret behind `credentialRef` may be sent to `url` (never to download hosts). */
 export function credentialInScope(url: URL, credentialRef: string, rules: readonly AllowRule[]): boolean {
-  return rules.some((r) => r.credentialRef === credentialRef && ruleMatches(r, url));
+  return rules.some((r) => !r.downloadHost && r.credentialRef === credentialRef && ruleMatches(r, url));
 }
 
 interface Prepared {
@@ -291,7 +292,7 @@ export function registerProxyRoutes(router: Router, deps: ProxyDeps): void {
       throw proxyError(400, 'invalid-url', 'URLs with embedded credentials are not proxied');
 
     const rules = deps.providers.allowlist();
-    if (!isAllowlisted(target, rules)) {
+    if (!isAllowlisted(target, rules, (envelope.method ?? 'GET').toUpperCase())) {
       throw proxyError(
         403,
         'not-allowlisted',
@@ -396,7 +397,7 @@ export function registerProxyRoutes(router: Router, deps: ProxyDeps): void {
       }
       if (next.username || next.password)
         throw proxyError(502, 'bad-redirect', 'Redirect URLs with embedded credentials are not proxied');
-      if (!isAllowlisted(next, rules)) {
+      if (!isAllowlisted(next, rules, currentMethod)) {
         throw proxyError(
           502,
           'redirect-not-allowlisted',

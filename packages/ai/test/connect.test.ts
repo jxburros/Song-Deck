@@ -54,7 +54,15 @@ describe('key format detection', () => {
       'moonshot:possible',
     ]);
     expect(one('LLM|1234567890|abcdefghijklmnop')).toEqual([]);
-    expect(detectKeyProvider('xai-abcdefghijklmnopqrstuvwxyz').unsupported).toBe('xAI');
+    expect(one('xai-abcdefghijklmnopqrstuvwxyz')).toEqual(['xai:certain']);
+    expect(one(`sk-or-v1-${'ab'.repeat(32)}`)).toEqual(['openrouter:certain']);
+    expect(one(`sk-${'0123456789abcdef'.repeat(2)}`)).toEqual([
+      'deepseek:possible',
+      'openai:possible',
+      'moonshot:possible',
+    ]);
+    expect(one('AbCdEfGhIjKlMnOpQrStUvWxYz012345')).toEqual(['mistral:possible']);
+    expect(detectKeyProvider('hf_abcdefghijklmnopqrstuvwxyz').unsupported).toBe('Hugging Face');
   });
 
   it('cleans pasted text and rejects things that are not keys', () => {

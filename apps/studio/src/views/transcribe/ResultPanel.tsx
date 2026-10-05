@@ -106,6 +106,7 @@ export function ResultPanel({
       bars: view!.bars,
       origin: `transcription:${options.source}`,
       customInstruments,
+      lyrics: view!.lyrics?.phrases.map((p) => p.text),
     });
 
   const exportMidi = () => {
@@ -302,6 +303,23 @@ export function ResultPanel({
                 confidence {pct(view.confidence)}
               </Badge>
             </div>
+            {view.lyrics && (
+              <div className="callout small" data-testid="transcription-lyrics">
+                <div className="row" style={{ gap: 8 }}>
+                  <Icon name="book" />
+                  <strong className="grow">Lyrics</strong>
+                  <Badge tone="ai">{view.lyrics.method}</Badge>
+                </div>
+                {view.lyrics.phrases.map((p, i) => (
+                  <div key={i}>{p.text}</div>
+                ))}
+                <div className="dim">
+                  {view.lyrics.wordTimestamps
+                    ? `${view.lyrics.matchedWords} word${view.lyrics.matchedWords === 1 ? '' : 's'} placed on notes as syllables.`
+                    : 'No word timings — the lines are kept as lyrics without syllables.'}
+                </div>
+              </div>
+            )}
             {view.warnings.length > 0 && (
               <div className="callout warning small" data-testid="transcription-warnings">
                 {view.warnings.map((w, i) => (

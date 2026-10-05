@@ -21,6 +21,7 @@ export const CAPABILITIES = [
   'PITCH_TRACKING',
   'AUDIO_TO_MIDI',
   'CONTENT_IDENTIFICATION',
+  'LYRIC_TRANSCRIPTION',
   // Production (spec §5, §30)
   'TEXT_TO_MUSIC',
   'AUDIO_TO_AUDIO',
@@ -43,6 +44,8 @@ export const CAPABILITIES = [
   // Post-production (spec §40-§42)
   'MIXING',
   'MASTERING',
+  // Instruments: render MIDI through installed instrument plugins (VST3, AU, CLAP, LV2, SF2…)
+  'INSTRUMENT_PLUGIN_HOST',
   // Model I/O traits (spec §3.1 example: text_input, structured_output, tool_calling, audio_input, long_context)
   'TEXT_INPUT',
   'TOOL_CALLING',
@@ -113,6 +116,11 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
   AUDIO_UNDERSTANDING: {
     label: 'Audio understanding',
     description: 'Listens to audio and describes or analyzes it.',
+    group: 'audio-analysis',
+  },
+  LYRIC_TRANSCRIPTION: {
+    label: 'Lyrics transcription',
+    description: 'Turns sung or spoken words into text, ideally with per-word timings.',
     group: 'audio-analysis',
   },
   AUDIO_TRANSCRIPTION: {
@@ -235,6 +243,12 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
     label: 'Mastering',
     description: 'Masters a mix to a loudness/tonal target.',
     group: 'post-production',
+  },
+  INSTRUMENT_PLUGIN_HOST: {
+    label: 'Instrument plugin host',
+    description:
+      'Renders MIDI through installed instrument plugins (VST3, Audio Units, CLAP, LV2, SoundFonts…), like a DAW freeze.',
+    group: 'production',
   },
   TEXT_INPUT: { label: 'Text input', description: 'Accepts text prompts.', group: 'model-io' },
   TOOL_CALLING: { label: 'Tool calling', description: 'Supports function/tool calling.', group: 'model-io' },

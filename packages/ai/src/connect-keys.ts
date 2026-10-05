@@ -15,6 +15,10 @@
  *  - Together AI        `tgp_v1_…` (community-observed prefix; not in Together's docs)
  *  - Stability AI, Moonshot: plain `sk-…` like other OpenAI-style keys → ambiguous
  *  - Meta Llama API: no documented prefix → not recognised (pick the provider by hand)
+ *  - OpenRouter         `sk-or-v1-…`
+ *  - xAI                `xai-…`
+ *  - DeepSeek           `sk-` + 32 hex characters → possible (other `sk-` services look alike)
+ *  - Mistral            32 alphanumeric characters, no prefix → possible
  */
 
 export type KeyConfidence = 'certain' | 'likely' | 'possible';
@@ -44,12 +48,15 @@ export const CONNECTABLE_PRESET_IDS: readonly string[] = [
   'together',
   'moonshot',
   'llama-api',
+  'openrouter',
+  'deepseek',
+  'mistral',
+  'xai',
   'elevenlabs-music',
   'stability-audio',
 ];
 
 const UNSUPPORTED: { re: RegExp; name: string }[] = [
-  { re: /^xai-/, name: 'xAI' },
   { re: /^hf_/, name: 'Hugging Face' },
   { re: /^r8_/, name: 'Replicate' },
   { re: /^pplx-/, name: 'Perplexity' },
@@ -84,10 +91,22 @@ export function detectKeyProvider(raw: string): KeyDetection {
   if (/^sk-(proj|svcacct|admin)-/.test(key) || (key.startsWith('sk-') && key.includes('T3BlbkFJ')))
     return certain('openai');
   if (key.startsWith('tgp_v1_')) return certain('together');
+  if (key.startsWith('sk-or-v1-')) return certain('openrouter');
+  if (key.startsWith('xai-')) return certain('xai');
   if (/^sk_[0-9a-f]{40,}$/i.test(key)) return certain('elevenlabs-music');
   if (key.startsWith('sk_'))
     return { ...out, matches: [{ presetId: 'elevenlabs-music', confidence: 'likely' }] };
   for (const u of UNSUPPORTED) if (u.re.test(key)) return { ...out, unsupported: u.name };
+  if (/^sk-[0-9a-f]{32}$/i.test(key)) {
+    return {
+      ...out,
+      matches: [
+        { presetId: 'deepseek', confidence: 'possible' },
+        { presetId: 'openai', confidence: 'possible' },
+        { presetId: 'moonshot', confidence: 'possible' },
+      ],
+    };
+  }
   if (key.startsWith('sk-')) {
     return {
       ...out,
@@ -100,6 +119,8 @@ export function detectKeyProvider(raw: string): KeyDetection {
   }
   if (/^[0-9a-f]{32}$/i.test(key))
     return { ...out, matches: [{ presetId: 'elevenlabs-music', confidence: 'possible' }] };
+  if (/^[A-Za-z0-9]{32}$/.test(key))
+    return { ...out, matches: [{ presetId: 'mistral', confidence: 'possible' }] };
   if (/^[0-9a-f]{64}$/i.test(key))
     return { ...out, matches: [{ presetId: 'together', confidence: 'possible' }] };
   return out;

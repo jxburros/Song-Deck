@@ -145,6 +145,8 @@ export async function initRuntime(): Promise<void> {
   const ai = import('./ai').then(({ initAi }) => initAi());
   const instruments = import('./render-instruments').then(({ initInstrumentSync }) => initInstrumentSync());
   const clips = import('./clip-assets').then(({ initClipAssetSync }) => initClipAssetSync());
+  // Instrument plugins: re-render stale plugin tracks after edits.
+  void import('./instrument-plugins').then(({ initPluginAutoRender }) => initPluginAutoRender());
   void checkServer();
   setInterval(() => void checkServer(), 15000);
   await Promise.all([handlers, ai, instruments, clips]);

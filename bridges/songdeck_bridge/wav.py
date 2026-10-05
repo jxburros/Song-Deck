@@ -36,6 +36,7 @@ __all__ = [
     "read_wav",
     "write_wav",
     "wav_info",
+    "wav_layout",
     "decode_base64",
     "encode_base64",
     "audio_from_base64",
@@ -212,6 +213,26 @@ def wav_info(data: bytes) -> dict:
         "format_tag": tag,
         "frames": frames,
         "duration": frames / float(rate),
+    }
+
+
+def wav_layout(data: bytes) -> dict:
+    """Where the samples are, for decoders that use NumPy (``numpy.frombuffer``) instead of lists:
+    ``format_tag`` (1 PCM, 3 float), ``channels``, ``sample_rate``, ``container`` (bytes per
+    sample), ``offset`` and ``frames``."""
+    if not isinstance(data, bytes):
+        data = bytes(data)
+    (tag, nch, rate, block_align, bits), off, length = _parse_chunks(data)
+    if not nch or not rate:
+        raise WavError("fmt chunk has zero channels or sample rate")
+    container = (block_align // nch) if block_align and block_align % nch == 0 else (bits + 7) // 8
+    return {
+        "format_tag": tag,
+        "channels": nch,
+        "sample_rate": rate,
+        "container": container,
+        "offset": off,
+        "frames": length // max(1, container * nch),
     }
 
 

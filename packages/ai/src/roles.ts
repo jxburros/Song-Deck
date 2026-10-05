@@ -108,4 +108,18 @@ export const ROLE_INFO: Record<TaskRole, RoleInfo> = {
     capabilities: ['MASTERING'],
     dataKinds: ['stems'],
   },
+  'lyric-transcription': {
+    label: 'Lyrics transcription',
+    description: 'Sung or spoken audio → words with timings, to attach lyrics to vocal notes.',
+    interface: 'lyricTranscription',
+    capabilities: ['LYRIC_TRANSCRIPTION'],
+    dataKinds: ['recorded-vocals'],
+  },
+  'instrument-rendering': {
+    label: 'Instrument plugins',
+    description: 'Render MIDI tracks through installed instrument plugins (VST3, AU, CLAP, LV2, SF2…).',
+    interface: 'instrumentHost',
+    capabilities: ['INSTRUMENT_PLUGIN_HOST'],
+    dataKinds: ['midi'],
+  },
 };

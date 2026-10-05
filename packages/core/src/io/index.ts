@@ -22,3 +22,5 @@ export type { DawProjectOptions, DawAudioFile } from './dawproject';
 export { songToReaperProject } from './reaper';
 export type { ReaperOptions, ReaperAudioFile } from './reaper';
 export { tempoMapCsv, markersCsv, audacityLabels } from './markers';
+export { trackMidiEvents, pluginRenderKey, pluginRenderIsCurrent } from './plugin-midi';
+export type { PluginMidiEvent, PluginMidiOptions } from './plugin-midi';

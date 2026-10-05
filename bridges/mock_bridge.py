@@ -30,6 +30,12 @@ voice-conversion   8814   rvc-local               /voices; /convert: pitch shift
                                                   overlap-add) + per-voice tone colour
 mastering          8815   mastering-local         /master: BS.1770 loudness normalization to the
                                                   target (or the reference's loudness) + limiter
+lyrics             8816   whisper-local           /transcribe_lyrics: voiced regions/onsets get the
+                                                  prompt's words in order (else "la"), one segment
+                                                  per silence-separated phrase
+instruments        8817   plugin-host-local       plugin host with fake plugins mock:sine-synth
+                                                  (vst3), mock:square-bass (clap), mock:reverb
+                                                  (effect); /render plays the MIDI notes; JSON state
 =================  =====  ======================  ==================================================
 
 Every role also answers ``GET /info`` (what Song Deck's "Test connection" and model manager
@@ -38,12 +44,13 @@ probe), ``GET /health`` and ``POST /cancel``. Audio responses carry ``X-Seed`` a
 Examples::
 
     python3 bridges/mock_bridge.py --role music                    # http://127.0.0.1:8810
-    python3 bridges/mock_bridge.py --role all --base-port 8810     # all six roles, 8810-8815
+    python3 bridges/mock_bridge.py --role all --base-port 8810     # all eight roles, 8810-8817
     python3 bridges/mock_bridge.py --role singing --token s3cret   # bearer token required
 """
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
@@ -71,6 +78,17 @@ from songdeck_bridge.server import (  # noqa: E402
     req_str,
     wav_response,
 )
+from songdeck_bridge.midi import note_spans  # noqa: E402
+from songdeck_bridge.pluginhost import (  # noqa: E402
+    CAPABILITY as PLUGIN_CAPABILITY,
+    PLUGIN_FORMATS,
+    RenderRequest,
+    StateRequest,
+    parse_render_request,
+    parse_scan_paths,
+    parse_state_request,
+    state_response,
+)
 from songdeck_bridge.singing import SingingJob, SungNote, parse_singing_request  # noqa: E402
 from songdeck_bridge.wav import Audio, encode_base64, fit_length, resample_audio, write_wav  # noqa: E402
 
@@ -82,6 +100,8 @@ ROLES: Dict[str, Tuple[int, str]] = {
     "transcription": (8813, "basic-pitch-local"),
     "voice-conversion": (8814, "rvc-local"),
     "mastering": (8815, "mastering-local"),
+    "lyrics": (8816, "whisper-local"),
+    "instruments": (8817, "plugin-host-local"),
 }
 
 
@@ -1133,6 +1153,308 @@ def build_mastering_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
     return app
 
 
+# ===========================================================================
+# Lyrics transcription
+# ===========================================================================
+
+_WORD_RE = re.compile(r"[^\W_]+(?:['’][^\W_]+)*", re.UNICODE)
+
+
+def voiced_units(x: List[float], sr: int, check: Callable[[], None]) -> List[Tuple[float, float, float]]:
+    """Syllable-like units ``(start, end, confidence)``: pitched notes when the input is tonal,
+    otherwise energy regions (10 ms frames above a gate)."""
+    track = dsp.track_pitch(x, sr, 70.0, 1100.0, check=check)
+    notes = dsp.notes_from_pitch(track)
+    if notes:
+        return [(n["start"], n["end"], n["confidence"]) for n in notes]
+    hop = max(1, int(0.01 * sr))
+    levels = [dsp.rms(x[i : i + hop]) for i in range(0, len(x), hop)]
+    loudest = max(levels, default=0.0)
+    if loudest <= 1e-6:
+        return []
+    gate = max(dsp.db_to_gain(-50.0), loudest * dsp.db_to_gain(-30.0))
+    units: List[Tuple[float, float, float]] = []
+    start: Optional[int] = None
+    for i, lv in enumerate(levels + [0.0]):
+        if lv >= gate and start is None:
+            start = i
+        elif lv < gate and start is not None:
+            if (i - start) * hop / sr >= 0.05:
+                units.append((round(start * hop / sr, 4), round(i * hop / sr, 4), 0.5))
+            start = None
+    return units
+
+
+def assign_words(
+    units: List[Tuple[float, float, float]], words: List[str], phrase_gap: float = 0.3
+) -> List[Dict[str, Any]]:
+    """One word per unit (``words`` in order, then "la"); extra words share the last unit.
+    Units separated by more than ``phrase_gap`` seconds start a new segment."""
+    timed: List[Dict[str, Any]] = []
+    for i, (s, e, c) in enumerate(units):
+        last = i == len(units) - 1
+        names = words[i:] if last and len(words) > len(units) else [words[i] if i < len(words) else "la"]
+        step = (e - s) / len(names)
+        for k, w in enumerate(names):
+            timed.append(
+                {
+                    "word": w,
+                    "start": round(s + k * step, 3),
+                    "end": round(s + (k + 1) * step, 3),
+                    "confidence": round(c, 3),
+                }
+            )
+    segments: List[Dict[str, Any]] = []
+    for w in timed:
+        if not segments or w["start"] - segments[-1]["end"] > phrase_gap:
+            segments.append({"start": w["start"], "end": w["end"], "words": []})
+        seg = segments[-1]
+        seg["words"].append(w)
+        seg["end"] = w["end"]
+    for seg in segments:
+        seg["text"] = " ".join(w["word"] for w in seg["words"])
+    return segments
+
+
+def build_lyrics_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
+    app = BridgeApp("Song Deck mock lyrics bridge", role="lyrics", **common)
+    model_id = "mock-whisper"
+
+    @app.route("GET", "/info")
+    def info(ctx: RequestContext):
+        return json_response(
+            _info(
+                app.name,
+                "lyrics",
+                [{"id": model_id, "name": "Mock lyrics aligner (onsets + prompt words)"}],
+                ["LYRIC_TRANSCRIPTION"],
+            )
+        )
+
+    @app.job("POST", "/transcribe_lyrics")
+    def transcribe_lyrics(ctx: RequestContext):
+        body = ctx.json_object()
+        audio = req_audio(body, "audio_base64")
+        language = req_str(body, "language", required=False, max_len=32) or "en"
+        prompt = req_str(body, "prompt", required=False, default="", max_len=100_000) or ""
+        with_words = req_bool(body, "word_timestamps", default=True)
+        model = req_str(body, "model", required=False)
+        if model and model != model_id:
+            raise NotFound(f"unknown model '{model}' (available: {model_id})")
+        _check_length(audio, opts)
+
+        def work():
+            ctx.sleep(opts.delay)
+            units = voiced_units(audio.mono(), audio.sample_rate, ctx.check_cancelled)
+            segments = assign_words(units, _WORD_RE.findall(prompt))
+            if not with_words:
+                for seg in segments:
+                    del seg["words"]
+            text = " ".join(seg["text"] for seg in segments)
+            result = {"text": text, "language": language, "segments": segments, "model": model_id}
+            return json_response(result, headers={"X-Model": model_id})
+
+        return work
+
+    return app
+
+
+# ===========================================================================
+# Instrument plugin host
+# ===========================================================================
+
+
+def _param(pid: str, name: str, default: float, label: str = "") -> Dict[str, Any]:
+    return {"id": pid, "name": name, "min": 0.0, "max": 1.0, "default": default, "label": label}
+
+
+MOCK_PLUGINS: Dict[str, Dict[str, Any]] = {
+    "mock:sine-synth": {
+        "name": "Mock Sine Synth",
+        "format": "vst3",
+        "category": "instrument",
+        "latency": 0,
+        "params": [
+            _param("gain", "Gain", 0.8),
+            _param("waveform", "Waveform (<0.5 sine, else saw)", 0.0),
+            _param("release", "Release", 0.2, "x 1 s"),
+        ],
+        "presets": {"Init": {"gain": 0.8, "waveform": 0.0, "release": 0.2}, "Bright Saw": {"waveform": 1.0}},
+    },
+    "mock:square-bass": {
+        "name": "Mock Square Bass",
+        "format": "clap",
+        "category": "instrument",
+        "latency": 64,
+        "params": [_param("gain", "Gain", 0.8), _param("release", "Release", 0.1, "x 1 s")],
+        "presets": {"Init": {"gain": 0.8, "release": 0.1}},
+    },
+    "mock:reverb": {
+        "name": "Mock Reverb",
+        "format": "vst3",
+        "category": "effect",
+        "latency": 0,
+        "params": [_param("mix", "Mix", 0.3)],
+        "presets": {},
+    },
+}
+_SQUARE = dsp.wavetable(tuple((k, 1.0 / k) for k in range(1, 16, 2)))
+
+
+def _mock_plugin_public(pid: str) -> Dict[str, Any]:
+    p = MOCK_PLUGINS[pid]
+    return {
+        "id": pid,
+        "name": p["name"],
+        "format": p["format"],
+        "vendor": "Song Deck",
+        "version": __version__,
+        "category": p["category"],
+        "loadable": True,
+    }
+
+
+def _mock_state(pid: str, req: StateRequest) -> Tuple[Dict[str, float], Optional[str]]:
+    """Defaults ← state JSON ← preset ← parameters (contract order); 400 on unknown ids/values."""
+    spec = MOCK_PLUGINS[pid]
+    values = {p["id"]: p["default"] for p in spec["params"]}
+
+    def merge(src: Dict[str, Any], what: str) -> None:
+        for k, v in src.items():
+            if k not in values:
+                raise BadRequest(f"{what}: unknown parameter '{k}' for {pid} (known: {', '.join(values)})")
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0.0 <= v <= 1.0:
+                raise BadRequest(f"{what}: parameter '{k}' must be a number in 0..1")
+            values[k] = float(v)
+
+    if req.state is not None:
+        try:
+            loaded = json.loads(req.state.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError):
+            raise BadRequest("'state_base64' is not a state of this host") from None
+        if not isinstance(loaded, dict):
+            raise BadRequest("'state_base64' is not a state of this host")
+        merge(loaded, "state_base64")
+    if req.preset is not None:
+        if req.preset not in spec["presets"]:
+            raise BadRequest(f"unknown preset '{req.preset}' (available: {', '.join(spec['presets']) or 'none'})")
+        merge(spec["presets"][req.preset], "preset")
+    merge(req.parameters, "parameters")
+    return values, req.preset
+
+
+def _mock_state_bytes(values: Dict[str, float]) -> bytes:
+    return json.dumps(values, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def render_mock_instrument(pid: str, values: Dict[str, float], req: RenderRequest, check: Callable[[], None]) -> Audio:
+    sr = req.sample_rate
+    n = req.frames
+    mono = [0.0] * n
+    if MOCK_PLUGINS[pid]["category"] == "instrument":
+        gain = values.get("gain", 0.8)
+        release = 0.01 + values.get("release", 0.2)
+        for i, note in enumerate(note_spans(req.events, req.duration)):
+            if i % 16 == 0:
+                check()
+            f = dsp.midi_to_hz(note.pitch)
+            if pid == "mock:square-bass":
+                table = _SQUARE
+            elif values.get("waveform", 0.0) < 0.5:
+                table = dsp.wavetable(dsp.SINE)
+            else:
+                table = dsp.saw_table(f, sr, limit=30)
+            a = int(round(note.start * sr))
+            held = max(1, int(round((note.end - note.start) * sr)))
+            tail = int(round(release * sr))
+            length = min(held + tail, n - a)
+            if length <= 0:
+                continue
+            seg = dsp.osc(table, f, length, sr)
+            amp = 0.5 * gain * (note.velocity / 127.0)
+            attack = max(1, int(0.005 * sr))
+            for j in range(length):
+                env = min(1.0, (j + 1) / attack)
+                if j >= held:
+                    env *= max(0.0, 1.0 - (j - held) / max(1, tail))
+                seg[j] *= env * amp
+            dsp.add_into(mono, seg, a)
+    return Audio(sr, [list(mono) for _ in range(req.channels)], 32, True)
+
+
+def build_instruments_app(opts: MockOptions, common: Dict[str, Any]) -> BridgeApp:
+    app = BridgeApp("Song Deck mock instrument plugin host", role="instruments", **common)
+    app.expose_headers += ", X-Plugin-Latency"
+
+    def plugin_of(body: Dict[str, Any]) -> str:
+        pid = req_str(body, "plugin_id", allow_empty=False, max_len=4096)
+        if pid not in MOCK_PLUGINS:
+            raise NotFound(f"unknown plugin_id '{pid}' (available: {', '.join(MOCK_PLUGINS)})")
+        return pid
+
+    @app.route("GET", "/info")
+    def info(ctx: RequestContext):
+        formats = [
+            {"format": f, "available": f in ("vst3", "clap"), "backend": "mock"}
+            if f in ("vst3", "clap")
+            else {"format": f, "available": False, "backend": "mock", "note": "the mock host only fakes vst3 and clap"}
+            for f in PLUGIN_FORMATS
+        ]
+        body = _info(
+            app.name, "instruments", [{"id": "mock-plugin-host", "name": "Mock plugin host"}], [PLUGIN_CAPABILITY]
+        )
+        body.update(formats=formats, editor=False, search_paths=[])
+        return json_response(body)
+
+    @app.route("GET", "/plugins")
+    def plugins(ctx: RequestContext):
+        return json_response({"plugins": [_mock_plugin_public(p) for p in MOCK_PLUGINS]})
+
+    @app.route("POST", "/plugins")
+    def rescan(ctx: RequestContext):
+        parse_scan_paths(ctx.json_object(allow_empty=True))  # validated, then ignored: nothing to scan
+        return json_response({"plugins": [_mock_plugin_public(p) for p in MOCK_PLUGINS]})
+
+    @app.route("POST", "/plugins/describe")
+    def describe(ctx: RequestContext):
+        pid = plugin_of(ctx.json_object())
+        spec = MOCK_PLUGINS[pid]
+        out = _mock_plugin_public(pid)
+        out.update(
+            parameters=[dict(p, value=p["default"]) for p in spec["params"]],
+            presets=list(spec["presets"]),
+            has_editor=False,
+            latency_samples=spec["latency"],
+        )
+        return json_response(out)
+
+    def state_route(ctx: RequestContext):
+        body = ctx.json_object()
+        pid = plugin_of(body)
+        values, preset = _mock_state(pid, parse_state_request(body))
+        return json_response(state_response(pid, _mock_state_bytes(values), values, preset))
+
+    app.add_route("POST", "/state", state_route)
+    app.add_route("POST", "/editor", state_route)  # no GUI: the state comes back unchanged
+
+    @app.job("POST", "/render")
+    def render(ctx: RequestContext):
+        body = ctx.json_object()
+        pid = plugin_of(body)
+        req = parse_render_request(body, opts.max_duration)
+        values, _ = _mock_state(pid, req)
+
+        def work():
+            ctx.sleep(opts.delay)
+            audio = render_mock_instrument(pid, values, req, ctx.check_cancelled)
+            latency = MOCK_PLUGINS[pid]["latency"]
+            return wav_response(write_wav(audio), model=pid, headers={"X-Plugin-Latency": str(latency)})
+
+        return work
+
+    return app
+
+
 BUILDERS: Dict[str, Callable[[MockOptions, Dict[str, Any]], BridgeApp]] = {
     "music": build_music_app,
     "singing": build_singing_app,
@@ -1140,6 +1462,8 @@ BUILDERS: Dict[str, Callable[[MockOptions, Dict[str, Any]], BridgeApp]] = {
     "transcription": build_transcription_app,
     "voice-conversion": build_voice_conversion_app,
     "mastering": build_mastering_app,
+    "lyrics": build_lyrics_app,
+    "instruments": build_instruments_app,
 }
 
 
@@ -1161,8 +1485,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--base-port",
         type=int,
         default=8810,
-        help="with --role all: first port; roles use base+0 … base+5 in preset order "
-        "(music, singing, separation, transcription, voice-conversion, mastering); 0 = any free ports",
+        help="with --role all: first port; roles use base+0 … base+7 in preset order "
+        "(music, singing, separation, transcription, voice-conversion, mastering, lyrics, instruments); "
+        "0 = any free ports",
     )
     m.add_argument("--sample-rate", type=int, default=44100, help="sample rate of generated music (default 44100)")
     m.add_argument(

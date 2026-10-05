@@ -33,6 +33,14 @@ export { applyTheoryControl, suggestChordSubstitutions } from './theory-controls
 export { syllabify, syllabifyText, countSyllables, lyricTokens } from './lyrics/syllables';
 export { textToPhonemes, syllableToPhonemes, wordsToPhonemes, wordStress, lyricStress } from './lyrics/g2p';
 export { alignLyrics, validateLyricAlignment } from './lyrics/align';
+export {
+  applyTimedLyrics,
+  timedSyllables,
+  type TimedLyricWord,
+  type TimedLyricPhrase,
+  type TimedLyricsOptions,
+  type TimedLyricsResult,
+} from './lyrics/timed';
 export { generatePlaceholderLyrics } from './lyrics/placeholder';
 export {
   parseLyricSheet,

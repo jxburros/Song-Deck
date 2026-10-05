@@ -34,6 +34,10 @@ export interface StudioSettings {
   enabledPlugins: string[];
   customGenres: GenreProfile[];
   customInstruments: InstrumentProfile[];
+  /** Web Audio Module (WAM 2) instrument plugins, by module URL. */
+  wamPlugins: { url: string; name: string; vendor?: string }[];
+  /** Re-render instrument plugins automatically after edits (debounced). */
+  autoRenderPlugins: boolean;
 }
 
 export const DEFAULT_ROUTING: RoutingSettings = {
@@ -61,6 +65,8 @@ const DEFAULTS: StudioSettings = {
   enabledPlugins: [],
   customGenres: [],
   customInstruments: [],
+  wamPlugins: [],
+  autoRenderPlugins: true,
 };
 
 interface SettingsState extends StudioSettings {

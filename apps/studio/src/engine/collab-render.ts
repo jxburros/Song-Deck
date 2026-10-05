@@ -1,4 +1,4 @@
-import { ENGINE_VERSION, type Song } from '@songdeck/core';
+import { ENGINE_VERSION, pluginRenderIsCurrent, type Song } from '@songdeck/core';
 import { decodeWav, encodeWav, type AudioData } from '@songdeck/audio';
 import { base64ToBytes, bytesToBase64 } from '@songdeck/ai';
 import { serverBase, useSettings, type RenderNodeConfig } from '../state/settings';
@@ -289,6 +289,15 @@ export async function renderStemsDistributed(
     job.weight += t.kind === 'audio' ? t.clips.length * 50 : t.notes.length + 20;
     for (const c of t.clips ?? [])
       if (assets[c.assetId] && !job.assetIds.includes(c.assetId)) job.assetIds.push(c.assetId);
+    // A frozen instrument-plugin render is audio too (nodes have neither the plugin nor the render).
+    const plugin = t.instrumentPlugin?.render;
+    if (
+      plugin &&
+      pluginRenderIsCurrent(s, t) &&
+      assets[plugin.assetId] &&
+      !job.assetIds.includes(plugin.assetId)
+    )
+      job.assetIds.push(plugin.assetId);
     groups.set(key, job);
   }
   const all = [...groups.values()].sort((a, b) => b.weight - a.weight);

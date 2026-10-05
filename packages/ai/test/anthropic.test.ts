@@ -328,3 +328,89 @@ describe('Anthropic adapter (official SDK + custom fetch)', () => {
     expect(n).toBe(2);
   });
 });
+
+describe('Claude on cloud platforms', () => {
+  it('Bedrock: Messages API on bedrock-mantle.{region} with the Bedrock key in x-api-key, no fallbacks', async () => {
+    const m = mockFetch(() => jsonResponse(message({ model: 'anthropic.claude-opus-5-5' })));
+    const config = configFromPreset('anthropic-bedrock', { region: 'eu-west-1' });
+    const inst = createProvider(config, depsWith(m.fetch, { 'provider:anthropic-bedrock': 'bedrock-token' }));
+    const models = await inst.llm!.listModels();
+    expect(models.map((x) => x.id)).toContain('anthropic.claude-sonnet-5-5');
+    expect(m.calls).toHaveLength(0); // no Models API on Bedrock
+    const res = await inst.llm!.complete({
+      messages: [{ role: 'user', content: 'hi' }],
+      responseSchema: OPERATIONS_SCHEMA,
+    });
+    const call = m.calls[0];
+    expect(call.url).toBe('https://bedrock-mantle.eu-west-1.api.aws/anthropic/v1/messages');
+    expect(call.headers.get('x-api-key')).toBe('bedrock-token');
+    const body = bodyJson(call);
+    expect(body.model).toBe('anthropic.claude-opus-5-5');
+    expect(body).not.toHaveProperty('fallbacks');
+    expect(res.costUsd).toBeCloseTo((1000 * 4 + 200 * 20) / 1e6, 8);
+  });
+
+  it('Bedrock: drops structured output when the platform rejects it and retries in prompt mode', async () => {
+    let n = 0;
+    const m = mockFetch(() =>
+      n++ === 0
+        ? jsonResponse(
+            {
+              type: 'error',
+              error: { type: 'invalid_request_error', message: 'output_config.format: not supported' },
+            },
+            400,
+          )
+        : jsonResponse(message()),
+    );
+    const inst = createProvider(
+      configFromPreset('anthropic-bedrock'),
+      depsWith(m.fetch, { 'provider:anthropic-bedrock': 'tok' }),
+    );
+    const res = await inst.llm!.complete({
+      messages: [{ role: 'user', content: 'hi' }],
+      responseSchema: OPERATIONS_SCHEMA,
+    });
+    expect(m.calls).toHaveLength(2);
+    expect(m.calls[0].url).toBe('https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages');
+    expect((bodyJson(m.calls[1]).output_config as { format?: unknown } | undefined)?.format).toBeUndefined();
+    expect(res.structured).toBe('prompt');
+  });
+
+  it('Vertex: rawPredict URL with the model in the path and anthropic_version in the body', async () => {
+    const m = mockFetch(() => jsonResponse(message()));
+    const config = configFromPreset('anthropic-vertex', {
+      extra: { vertexProject: 'my-proj', vertexLocation: 'global' },
+    });
+    const inst = createProvider(config, depsWith(m.fetch, { 'provider:anthropic-vertex': 'ya29.token' }));
+    await inst.llm!.complete({ messages: [{ role: 'user', content: 'hi' }] });
+    const call = m.calls[0];
+    expect(call.url).toBe(
+      'https://aiplatform.googleapis.com/v1/projects/my-proj/locations/global/publishers/anthropic/models/claude-opus-5-5:rawPredict',
+    );
+    expect(call.headers.get('authorization')).toBe('Bearer ya29.token');
+    const body = bodyJson(call);
+    expect(body).not.toHaveProperty('model');
+    expect(body.anthropic_version).toBe('vertex-2023-10-16');
+    expect(body).not.toHaveProperty('fallbacks');
+  });
+
+  it('Vertex: regional host and a clear error without a project id', async () => {
+    const m = mockFetch(() => jsonResponse(message()));
+    const regional = createProvider(
+      configFromPreset('anthropic-vertex', { extra: { vertexProject: 'p', vertexLocation: 'us-east5' } }),
+      depsWith(m.fetch, { 'provider:anthropic-vertex': 'ya29.token' }),
+    );
+    await regional.llm!.complete({ model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'hi' }] });
+    expect(m.calls[0].url).toBe(
+      'https://us-east5-aiplatform.googleapis.com/v1/projects/p/locations/us-east5/publishers/anthropic/models/claude-sonnet-5-5:rawPredict',
+    );
+    const noProject = createProvider(
+      configFromPreset('anthropic-vertex'),
+      depsWith(m.fetch, { 'provider:anthropic-vertex': 'ya29.token' }),
+    );
+    await expect(noProject.llm!.complete({ messages: [{ role: 'user', content: 'hi' }] })).rejects.toThrow(
+      /project id/,
+    );
+  });
+});

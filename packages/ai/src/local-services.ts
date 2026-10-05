@@ -32,7 +32,13 @@ export const DEFAULT_LOCAL_SERVICE_TARGETS: readonly LocalServiceTarget[] = [
   { presetId: 'basic-pitch-local', baseUrl: 'http://127.0.0.1:8813', kind: 'bridge' },
   { presetId: 'rvc-local', baseUrl: 'http://127.0.0.1:8814', kind: 'bridge' },
   { presetId: 'mastering-local', baseUrl: 'http://127.0.0.1:8815', kind: 'bridge' },
+  { presetId: 'whisper-local', baseUrl: 'http://127.0.0.1:8816', kind: 'bridge' },
+  { presetId: 'plugin-host-local', baseUrl: 'http://127.0.0.1:8817', kind: 'bridge' },
   { presetId: 'custom-audio-http', baseUrl: 'http://127.0.0.1:8820', kind: 'bridge' },
+  { presetId: 'yue-local', baseUrl: 'http://127.0.0.1:8821', kind: 'bridge' },
+  { presetId: 'diffrhythm-local', baseUrl: 'http://127.0.0.1:8822', kind: 'bridge' },
+  { presetId: 'stable-audio-open-local', baseUrl: 'http://127.0.0.1:8823', kind: 'bridge' },
+  { presetId: 'musicgen-local', baseUrl: 'http://127.0.0.1:8824', kind: 'bridge' },
 ];
 
 export interface LocalServiceModel {

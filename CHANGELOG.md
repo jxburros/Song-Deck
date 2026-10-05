@@ -6,6 +6,37 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Instrument plugins like a DAW.** Any MIDI track can be played by an installed **VST3, Audio
+  Unit, VST2, CLAP, LV2, SoundFont (SF2/SF3) or SFZ** instrument through the new local plugin host
+  bridge (`bridges/plugin_host_bridge.py`), or by a **Web Audio Module (WAM 2)** running in the
+  browser. Choose the plugin in the track inspector, edit it in its own editor (state is saved in the
+  project), set parameters and presets, bypass or remove it. The track is rendered through the plugin
+  and frozen to audio that playback, stems, mastering and every export use; after edits the built-in
+  sound plays until the automatic re-render. Settings → Plugins → Instrument plugins lists hosts,
+  formats and installed plugins, and manages WAM module URLs.
+- **Lyrics transcription.** Audio to MIDI can also transcribe the sung words (Singing, Isolated,
+  Full mix): each word becomes syllables on the notes sung under it and the lines become the song's
+  lyrics. Engines: a local Whisper bridge (`bridges/whisper_bridge.py`, faster-whisper/WhisperX),
+  OpenAI (`whisper-1`, `gpt-4o-transcribe`), Groq Whisper, ElevenLabs Scribe and any OpenAI-style
+  speech-to-text server.
+- **New AI services:** OpenRouter, DeepSeek, Mistral and xAI (Grok) language models; Claude in
+  **Amazon Bedrock** and on **Google Cloud Vertex AI**; **MiniMax Music** and **Mureka** full songs
+  with vocals; cloud stem separation with **ElevenLabs**, **AudioShake** and **LALAL.AI**.
+- **New local music models:** YuE, DiffRhythm, Stable Audio Open and MusicGen bridges (music bridge
+  contract) with presets and Model Manager entries.
+- Mock bridge roles `lyrics` (8816) and `instruments` (8817) for testing without models.
+
+### Changed
+
+- Pasting an OpenRouter (`sk-or-v1-…`) or xAI (`xai-…`) key connects it directly; DeepSeek and
+  Mistral keys are offered as candidates.
+- The server proxy can fetch generated files from a provider's declared download hosts (credential-free
+  HTTPS GET only), for services that return signed result URLs.
+- A provider that returns single stems (or "instrumental") no longer doubles audio in Rebuild: a
+  missing "other" stem is derived from what remains of the mix.
+
 ## [0.4.0] - 2026-10-05
 
 ### Changed
