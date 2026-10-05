@@ -57,6 +57,37 @@
   text-wrap: pretty;
 }
 
+.style-start {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: -12px;
+  padding: 14px 18px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+}
+.style-start:hover {
+  background: var(--bg-elev-1);
+  border-color: var(--accent);
+}
+.style-start:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.style-start > .icon-svg {
+  flex: none;
+  color: var(--accent-text);
+}
+.style-start-title {
+  font-weight: 600;
+}
+
 .start-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));

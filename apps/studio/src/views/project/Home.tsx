@@ -8,49 +8,46 @@ import { openSettings } from '../settings/nav';
 import { Button, FileButton, Modal, TextInput } from '../../ui/kit';
 import { Icon, type IconName } from '../../ui/icons';
 import { useComposeSession, type StartFocus } from '../compose/session';
+import { SongTypeSwitch } from '../compose/SongType';
 import { useRoleRoute } from '../../engine/ai';
 import './home.css';
 
 /**
- * Songs home: the four ways to start a song (lyrics, audio, MIDI, a prompt), opening a saved
- * project or MIDI file, an empty project, and your songs.
+ * Songs home: with vocals or instrumental, the ways to start a song (lyrics, audio, MIDI, a
+ * prompt, or style settings alone), opening a saved project or MIDI file, an empty project, and
+ * your songs.
  */
 
-const STARTS: { focus: StartFocus; n: string; title: string; body: string; icon: IconName; label: string }[] =
-  [
-    {
-      focus: 'lyrics',
-      n: '01',
-      title: 'Lyrics',
-      body: 'Full or partial. Sections like [Chorus] shape the song.',
-      icon: 'book',
-      label: 'Start from lyrics',
-    },
-    {
-      focus: 'audio',
-      n: '02',
-      title: 'Audio',
-      body: 'Hum, sing or play it live, or upload recordings. One track or several.',
-      icon: 'mic',
-      label: 'Start from audio',
-    },
-    {
-      focus: 'midi',
-      n: '03',
-      title: 'MIDI',
-      body: 'One or more tracks, from a few bars to a whole part.',
-      icon: 'midi',
-      label: 'Start from MIDI',
-    },
-    {
-      focus: 'prompt',
-      n: '04',
-      title: 'Prompt',
-      body: 'Describe the song in your own words.',
-      icon: 'sparkles',
-      label: 'Start from a prompt',
-    },
-  ];
+const STARTS: { focus: StartFocus; title: string; body: string; icon: IconName; label: string }[] = [
+  {
+    focus: 'lyrics',
+    title: 'Lyrics',
+    body: 'Full or partial. Sections like [Chorus] shape the song.',
+    icon: 'book',
+    label: 'Start from lyrics',
+  },
+  {
+    focus: 'audio',
+    title: 'Audio',
+    body: 'Hum, sing or play it live, or upload recordings. One track or several.',
+    icon: 'mic',
+    label: 'Start from audio',
+  },
+  {
+    focus: 'midi',
+    title: 'MIDI',
+    body: 'One or more tracks, from a few bars to a whole part.',
+    icon: 'midi',
+    label: 'Start from MIDI',
+  },
+  {
+    focus: 'prompt',
+    title: 'Prompt',
+    body: 'Describe the song in your own words.',
+    icon: 'sparkles',
+    label: 'Start from a prompt',
+  },
+];
 
 /** A small abstract arrangement for a song card, derived from its size (no audio is loaded). */
 function Thumb({ p }: { p: ProjectSummary }) {
@@ -88,6 +85,7 @@ export default function Home() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [newName, setNewName] = useState<string | null>(null);
   const route = useRoleRoute('composition', 'auto');
+  const instrumental = useComposeSession((s) => s.instrumental);
   const hasModel = Boolean(route && !route.internal);
 
   const importFile = async (files: File[]) => {
@@ -116,6 +114,10 @@ export default function Home() {
     useComposeSession.getState().start(focus);
     st.setMode('compose');
   };
+  const startFromStyle = () => {
+    useComposeSession.getState().startFromStyle();
+    st.setMode('compose');
+  };
 
   return (
     <div className="area-page home-page">
@@ -128,7 +130,9 @@ export default function Home() {
         <div className="songs-hero-copy">
           <span className="eyebrow-rule">Songs</span>
           <h1 id="home-title">Make a song</h1>
-          <p>Start from words, a melody you hum, MIDI you already have, or all of them at once.</p>
+          <p>
+            Start from words, a melody you hum, MIDI you already have, all of them at once, or just a style.
+          </p>
         </div>
       </header>
 
@@ -139,8 +143,9 @@ export default function Home() {
           <span className="line" />
           <span className="note">Combine as many as you like on the next screen</span>
         </div>
+        <SongTypeSwitch />
         <div className="start-grid" aria-label="Ways to start a song">
-          {STARTS.map((s) => {
+          {STARTS.filter((s) => !(instrumental && s.focus === 'lyrics')).map((s, i) => {
             const locked = s.focus === 'prompt' && !hasModel;
             return (
               <button
@@ -154,7 +159,7 @@ export default function Home() {
                   <span className="start-tile-icon">
                     <Icon name={s.icon} size={22} />
                   </span>
-                  <span className="mono dim">{s.n}</span>
+                  <span className="mono dim">{String(i + 1).padStart(2, '0')}</span>
                 </span>
                 <span className="start-tile-title">{s.title}</span>
                 <span className="start-tile-body">{s.body}</span>
@@ -167,6 +172,25 @@ export default function Home() {
             );
           })}
         </div>
+
+        <button
+          type="button"
+          className="style-start"
+          aria-label="Start from style settings"
+          onClick={startFromStyle}
+        >
+          <span className="start-tile-icon">
+            <Icon name="sliders" size={20} />
+          </span>
+          <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
+            <span className="style-start-title">Nothing to bring? Start from style settings</span>
+            <span className="small muted">
+              Skip material: pick a starting point like Alt-rock band or Laid-back hip-hop, set a few basics
+              and create{instrumental ? ' an instrumental' : ''}.
+            </span>
+          </span>
+          <Icon name="chevronRight" />
+        </button>
 
         <ConnectNudge />
 

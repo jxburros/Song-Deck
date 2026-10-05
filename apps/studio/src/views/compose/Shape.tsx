@@ -6,7 +6,6 @@ import {
   blueprintFromChoices,
   builderGenre,
   defaultMacros,
-  genreExpectsVocal,
   getGenre,
   getTag,
   structureTemplateNames,
@@ -28,7 +27,9 @@ import { FUNCTIONS, MACRO_INFO, MODES, TRACK_ROLES } from './BlueprintEditor';
 import { ChipPicker, genreItems, instrumentItems, tagItems, tagKindLabel } from './ChipPicker';
 import {
   STARTERS,
+  activeLyricsMode,
   choicesForStart,
+  lyricsActive,
   draftLyrics,
   useComposeSession,
   type ComposeDraft,
@@ -177,8 +178,9 @@ export function useShapePreview(customGenres: GenreProfile[], customInstruments:
   const session = useComposeSession();
   const inputs = useComposeInputs((s) => s.inputs);
   const choices = useMemo(
-    () => choicesForStart(session.draft, session.lyricsMode, inputs.find((i) => i.item.song)?.item.song),
-    [session.draft, session.lyricsMode, inputs],
+    () =>
+      choicesForStart(session.draft, activeLyricsMode(session), inputs.find((i) => i.item.song)?.item.song),
+    [session, inputs],
   );
   const genre = useMemo(() => builderGenre(choices, customGenres), [choices, customGenres]);
   const preview = useMemo(() => {
@@ -212,10 +214,7 @@ export function ShapeSections({
     [customInstruments],
   );
   const instOf = (id: string) => allInstruments.find((i) => i.id === id);
-  const lyrics = useMemo(
-    () => (session.lyricsOn ? draftLyrics(draft) : undefined),
-    [draft, session.lyricsOn],
-  );
+  const lyrics = useMemo(() => (lyricsActive(session) ? draftLyrics(draft) : undefined), [draft, session]);
   const { genre, preview } = useShapePreview(customGenres, customInstruments);
 
   const genrePick = useMemo(() => genreItems(BUILTIN_GENRES, customGenres), [customGenres]);
@@ -259,7 +258,6 @@ export function ShapeSections({
     patch({ tags: draft.tags.includes(id) ? draft.tags.filter((t) => t !== id) : [...draft.tags, id] });
   const vocalTracks =
     preview?.instrumentation.filter((t) => t.role === 'vocal' && t.instrumentId === 'lead-vocal').length ?? 0;
-  const autoVocal = lyrics || genreExpectsVocal(genre) ? 'lead vocal' : 'instrumental';
   const tempoHint = (f: 'slow' | 'mid' | 'fast') => `≈${tempoForFeel(f, genre)} BPM`;
   const macroBase: MacroSettings = { ...defaultMacros(), ...(preview?.macros ?? {}) };
   const tagCounts = TAG_KINDS.map((k) => ({
@@ -604,37 +602,43 @@ export function ShapeSections({
                 ]}
               />
             </Field>
-            <Field
-              label="Vocal"
-              hint={
-                vocalTracks > 0
-                  ? `Adds a Lead Vocal track${lyrics ? ' that sings your lyrics' : ''}.`
-                  : undefined
-              }
-            >
-              <div className="row">
-                <Select
-                  aria-label="Vocal"
-                  value={draft.vocal}
-                  onChange={(vocal) => patch({ vocal })}
-                  options={[
-                    { value: 'auto', label: `Auto (${autoVocal})` },
-                    { value: 'none', label: 'Instrumental' },
-                    ...VOICES.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1) })),
-                  ]}
-                />
-                {(draft.vocal !== 'none' && draft.vocal !== 'auto') || (draft.vocal === 'auto' && lyrics) ? (
+            {!session.instrumental && (
+              <Field
+                label="Vocal"
+                hint={
+                  vocalTracks > 0
+                    ? `Adds a Lead Vocal track${lyrics ? ' that sings your lyrics' : ''}.`
+                    : undefined
+                }
+              >
+                <div className="row">
                   <Select
-                    aria-label="Vocal mode"
-                    value={
-                      draft.vocalMode === 'default' ? (lyrics ? 'ai-singer' : 'melody-only') : draft.vocalMode
-                    }
-                    onChange={(vocalMode) => patch({ vocalMode })}
-                    options={VOCAL_MODES}
+                    aria-label="Vocal"
+                    value={draft.vocal === 'none' ? 'auto' : draft.vocal}
+                    onChange={(vocal) => patch({ vocal })}
+                    options={[
+                      { value: 'auto', label: 'Auto (lead vocal)' },
+                      ...VOICES.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1) })),
+                    ]}
                   />
-                ) : null}
-              </div>
-            </Field>
+                  {(draft.vocal !== 'none' && draft.vocal !== 'auto') ||
+                  (draft.vocal === 'auto' && lyrics) ? (
+                    <Select
+                      aria-label="Vocal mode"
+                      value={
+                        draft.vocalMode === 'default'
+                          ? lyrics
+                            ? 'ai-singer'
+                            : 'melody-only'
+                          : draft.vocalMode
+                      }
+                      onChange={(vocalMode) => patch({ vocalMode })}
+                      options={VOCAL_MODES}
+                    />
+                  ) : null}
+                </div>
+              </Field>
+            )}
             <Field label="Title">
               <TextInput
                 value={draft.title}
@@ -643,14 +647,16 @@ export function ShapeSections({
                 aria-label="Title"
               />
             </Field>
-            <Field label="Lyrics theme">
-              <TextInput
-                value={draft.lyricsTheme}
-                onChange={(lyricsTheme) => patch({ lyricsTheme })}
-                placeholder="e.g. leaving home"
-                aria-label="Lyrics theme"
-              />
-            </Field>
+            {!session.instrumental && (
+              <Field label="Lyrics theme">
+                <TextInput
+                  value={draft.lyricsTheme}
+                  onChange={(lyricsTheme) => patch({ lyricsTheme })}
+                  placeholder="e.g. leaving home"
+                  aria-label="Lyrics theme"
+                />
+              </Field>
+            )}
           </div>
         </div>
       </section>

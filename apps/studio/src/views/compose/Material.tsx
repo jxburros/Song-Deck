@@ -10,7 +10,7 @@ import { RecordPanel } from '../transcribe/RecordPanel';
 import { ProviderPicker } from '../shared/ProviderPicker';
 import { INTERPRETATIONS, playableItem, useComposeInputs, type ComposeInput } from './inputs';
 import { LyricsInput } from './LyricsInput';
-import { draftLyrics, useComposeSession } from './session';
+import { draftLyrics, lyricsActive, useComposeSession } from './session';
 
 /**
  * Start a song, step 1: the starting material — lyrics (full or partial), recordings (live or
@@ -22,12 +22,13 @@ export function useReadiness(model: boolean) {
   const session = useComposeSession();
   const inputs = useComposeInputs((s) => s.inputs);
   const d = session.draft;
+  const sings = lyricsActive(session);
   const lyrics = useMemo(
-    () => (session.lyricsOn && session.lyricsMode === 'provided' ? draftLyrics(d) : undefined),
-    [d, session.lyricsOn, session.lyricsMode],
+    () => (sings && session.lyricsMode === 'provided' ? draftLyrics(d) : undefined),
+    [d, sings, session.lyricsMode],
   );
   const lyricsMaterial =
-    session.lyricsOn &&
+    sings &&
     (session.lyricsMode === 'provided'
       ? !!lyrics
       : session.lyricsMode === 'generate'
@@ -57,14 +58,16 @@ export function useReadiness(model: boolean) {
     d.meter !== 'auto' || d.length !== 'standard' || !!d.structure || !!lyrics || !!anchor?.meterMap[0],
   ];
   const basics = groups.filter(Boolean).length;
-  const ready = material > 0 && basics > 0;
+  // Material is the usual start; skipping it ("start from style settings") leaves the basics to go on.
+  const fromStyle = material === 0 && session.fromStyle;
+  const ready = (material > 0 || fromStyle) && basics > 0;
   const blocked =
-    material === 0
-      ? 'Add some starting material: lyrics, audio, MIDI or a prompt.'
+    material === 0 && !fromStyle
+      ? `Add some starting material (${session.instrumental ? 'audio, MIDI' : 'lyrics, audio, MIDI'}${model ? ' or a prompt' : ''}), or start from style settings.`
       : basics === 0
-        ? 'Set at least one basic: a style, mood, instrument, tempo, key or length.'
+        ? 'Pick a starting point, or set at least one basic: a style, mood, instrument, tempo, key or length.'
         : null;
-  return { material, basics, groups, found, sung, ready, blocked };
+  return { material, basics, groups, found, sung, ready, blocked, fromStyle };
 }
 
 function CardHead({
@@ -344,7 +347,8 @@ export function MaterialSection({
     }
   };
   const off = disabled || loading;
-  const empty = !session.lyricsOn && !session.promptOn && state.inputs.length === 0;
+  const sings = lyricsActive(session);
+  const empty = !sings && !session.promptOn && state.inputs.length === 0;
   return (
     <section className="col" style={{ gap: 16 }} aria-labelledby="material-h" data-testid="material">
       <div className="rule-title">
@@ -354,9 +358,12 @@ export function MaterialSection({
         <span className="note">One or more. Each keeps its place in the song.</span>
       </div>
       {empty && (
-        <div className="mat-empty hatch-soft">Add at least one: lyrics, a recording, MIDI or a prompt.</div>
+        <div className="mat-empty hatch-soft">
+          Add at least one: {session.instrumental ? 'a recording or MIDI' : 'lyrics, a recording or MIDI'}
+          {model ? ', or a prompt' : ''}. Nothing to bring? Skip material and start from style settings.
+        </div>
       )}
-      {session.lyricsOn && (
+      {sings && (
         <LyricsCard
           disabled={disabled}
           lyricsRoute={lyricsRoute}
@@ -372,7 +379,7 @@ export function MaterialSection({
 
       <div className="mat-add hatch" ref={fileRef} aria-label="Add starting material" role="group">
         <span className="mat-add-label">Add</span>
-        {!session.lyricsOn && (
+        {!session.lyricsOn && !session.instrumental && (
           <Button icon="book" disabled={disabled} onClick={() => session.set({ lyricsOn: true })}>
             Lyrics
           </Button>
@@ -509,13 +516,23 @@ export function BasicsMeter({ basics }: { basics: number }) {
   );
 }
 
-export function ReadinessLines({ material, basics }: { material: number; basics: number }) {
+export function ReadinessLines({
+  material,
+  basics,
+  fromStyle,
+}: {
+  material: number;
+  basics: number;
+  fromStyle?: boolean;
+}) {
   return (
     <div className="col small" style={{ gap: 6 }}>
       <span className="row" style={{ gap: 8 }}>
-        <span className={`diamond ${material ? '' : 'off'}`} />
+        <span className={`diamond ${material || fromStyle ? '' : 'off'}`} />
         <span className="grow">Starting material</span>
-        <span className="mono muted">{material ? `${material} added` : 'Add one'}</span>
+        <span className="mono muted">
+          {material ? `${material} added` : fromStyle ? 'None · from style' : 'Add one'}
+        </span>
       </span>
       <span className="row" style={{ gap: 8 }}>
         <span className={`diamond ${basics ? '' : 'off'}`} />
@@ -600,10 +617,22 @@ export function MaterialAside({
         </div>
         <div className="aside-block col" style={{ gap: 12 }}>
           <BasicsMeter basics={r.basics} />
-          <ReadinessLines material={r.material} basics={r.basics} />
-          <Button variant="primary" size="lg" className="cta" onClick={onNext}>
-            Next: shape the song <Icon name="chevronRight" />
-          </Button>
+          <ReadinessLines material={r.material} basics={r.basics} fromStyle={r.fromStyle} />
+          {r.material === 0 ? (
+            <Button
+              variant="primary"
+              size="lg"
+              className="cta"
+              icon="sliders"
+              onClick={() => session.startFromStyle()}
+            >
+              Skip to style settings
+            </Button>
+          ) : (
+            <Button variant="primary" size="lg" className="cta" onClick={onNext}>
+              Next: shape the song <Icon name="chevronRight" />
+            </Button>
+          )}
           {r.ready ? (
             <Button disabled={!!busy} onClick={onCreate}>
               {busy ?? 'Create now, rest on Auto'}

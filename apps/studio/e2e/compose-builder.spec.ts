@@ -68,7 +68,11 @@ test('builder: the instruments and counts you pick are exactly the tracks you ge
   // Mood (whole song), instrumental, an exact tempo.
   await builder.getByLabel('Search moods').fill('warm');
   await builder.getByTestId('builder-moods').getByRole('button', { name: 'Warm', exact: true }).click();
-  await builder.getByLabel('Vocal', { exact: true }).selectOption('none');
+  await builder
+    .getByRole('radiogroup', { name: 'Song type' })
+    .getByRole('radio', { name: 'Instrumental' })
+    .click();
+  await expect(builder.getByLabel('Vocal', { exact: true })).toHaveCount(0);
   await builder.getByLabel('Tempo', { exact: true }).selectOption('bpm');
   await builder.getByLabel('BPM').fill('96');
   await expect(builder.getByTestId('builder-summary')).toContainText('4 tracks');
@@ -166,4 +170,54 @@ test('lyrics-first: an instrumental starting point still gets a singer for your 
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('track-header').filter({ hasText: 'Lead Vocal' })).toHaveCount(1);
   await expect(trackHeader(page, 'Lead Vocal')).toBeVisible();
+});
+
+test('start from style settings: a starting point alone makes an instrumental song', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start from style settings', exact: true }).click();
+  const builder = page.getByTestId('compose-builder');
+  await expect(builder.getByRole('heading', { name: 'Shape the song' })).toBeVisible();
+  // No material, no basics yet: nothing to go on.
+  await expect(page.getByRole('button', { name: 'Create song' })).toBeDisabled();
+  await expect(builder).toContainText('Pick a starting point');
+  // An instrumental starting point is enough, and flips the song type with it.
+  await builder.getByRole('button', { name: 'Laid-back hip-hop', exact: true }).click();
+  const songType = builder.getByRole('radiogroup', { name: 'Song type' });
+  await expect(songType.getByRole('radio', { name: 'Instrumental' })).toHaveAttribute('aria-checked', 'true');
+  await expect(builder.getByTestId('builder-actions')).toContainText('None · from style');
+  await page.getByRole('button', { name: 'Create song' }).click();
+  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
+  const vocals = (await page.evaluate(
+    `import('/src/state/store.ts').then(({ useStudio }) => useStudio.getState().project.song.tracks.filter((t) => t.instrumentId === 'lead-vocal').length)`,
+  )) as number;
+  expect(vocals).toBe(0);
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('Instrumental, chosen first, hides every lyrics option', async ({ page }) => {
+  await page.goto('/');
+  const songType = page.getByRole('radiogroup', { name: 'Song type' });
+  await songType.getByRole('radio', { name: 'Instrumental' }).click();
+  await expect(page.getByRole('button', { name: 'Start from lyrics' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Start from MIDI', exact: true }).click();
+  const builder = page.getByTestId('compose-builder');
+  await expect(builder.getByRole('radio', { name: 'Instrumental' })).toHaveAttribute('aria-checked', 'true');
+  await expect(builder.getByTestId('material-lyrics')).toHaveCount(0);
+  await expect(
+    builder.getByTestId('material').getByRole('button', { name: 'Lyrics', exact: true }),
+  ).toHaveCount(0);
+  // Material is empty: the main action skips straight to style settings.
+  await builder.getByRole('button', { name: 'Skip to style settings' }).click();
+  await expect(builder.getByRole('heading', { name: 'Shape the song' })).toBeVisible();
+  await expect(builder.getByLabel('Vocal', { exact: true })).toHaveCount(0);
+  await expect(builder.getByLabel('Lyrics theme')).toHaveCount(0);
+  // With vocals brings them back, still from style alone.
+  await builder.getByRole('radio', { name: 'With vocals' }).click();
+  await expect(builder.getByLabel('Vocal', { exact: true })).toBeVisible();
+  await builder.getByRole('button', { name: 'Alt-rock band', exact: true }).click();
+  await page.getByRole('button', { name: 'Create song' }).click();
+  await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('track-header').filter({ hasText: 'Lead Vocal' })).toHaveCount(1);
 });

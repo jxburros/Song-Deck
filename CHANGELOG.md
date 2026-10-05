@@ -18,7 +18,11 @@ All notable changes to Song Deck are documented in this file. The format follows
   with a text model connected, a prompt — any combination. **Shape**: starting points, genre blend,
   moods, tags, instruments, song settings, feel and advanced options on one screen. A song needs some
   material and at least one basic (style, mood, instrument, tempo, key or length); detected values
-  count. Rebuild and Expand are reachable from the Material step.
+  count. **Start from style settings** skips material, so a starting point alone makes a song.
+  Rebuild and Expand are reachable from the Material step.
+- **With vocals or Instrumental** is the first choice when starting a song. Instrumental hides every
+  lyrics option and guarantees no vocal; With vocals guarantees a lead vocal, even for genres that are
+  usually instrumental.
 - **Write** pairs the arrangement with a single Change panel (changes in words, pending proposals,
   regenerate, lock, edit notes, save to Library); track actions live in each track's menu.
 - **Sound** gathers instruments, levels, mute and solo, built-in versus AI audio versions, and one

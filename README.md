@@ -77,6 +77,10 @@ and `SHA256SUMS.txt`. Existing older installations need a one-time manual upgrad
 The studio has four areas, always on the left rail (a bottom bar on phones): **Songs**, **Single
 Track**, **Library** and **Settings**.
 
+- **With vocals or Instrumental** is the first choice, on the Songs screen and at the top of Start a
+  song. Instrumental hides every lyrics option and guarantees no vocal track; With vocals guarantees a
+  lead vocal (a guide melody, or a singer when there are lyrics). An instrumental starting point (such
+  as Laid-back hip-hop) switches a song without lyrics to Instrumental.
 - **Start a song** from the Songs screen with one or more starting points: full or partial
   **lyrics**, **audio** (upload recordings, or hum, sing or play one live), **MIDI** tracks, or a
   **prompt** (when a text model is connected). Add as many as you like on the **Material** step;
@@ -84,11 +88,14 @@ Track**, **Library** and **Settings**.
   Closely, Loosely, or Just for ideas. Exact material retains its playback timing and is locked in the
   resulting song. Reinterpreting audio first reconstructs editable MIDI; the original recording is
   retained as a project asset.
-- A song needs some material **and** at least one basic: a style, mood, instrument, tempo, key or
-  length. Values detected from your material (tempo, key, meter, sections) count. The **Shape** step
-  holds everything else: starting points, genre blend, moods by section, tags, instruments and counts,
-  song settings, the feel macros, and advanced options (planner, seed, destination, and an optional
-  review of the blueprint and composition plan). **Create now, rest on Auto** skips Shape.
+- **Start from style settings** skips material entirely (on the Songs screen, or **Skip to style
+  settings** on an empty Material step): a starting point such as Alt-rock band or Cinematic
+  orchestral, or any single basic, is enough to create a song.
+- Otherwise a song needs some material **and** at least one basic: a style, mood, instrument, tempo,
+  key or length. Values detected from your material (tempo, key, meter, sections) count. The **Shape**
+  step holds everything else: starting points, genre blend, moods by section, tags, instruments and
+  counts, song settings, the feel macros, and advanced options (planner, seed, destination, and an
+  optional review of the blueprint and composition plan). **Create now, rest on Auto** skips Shape.
 - **Rebuild a full recording** and **Develop a short clip** (Expand MIDI) are offered on the Material
   step.
 - **Lyrics** can be supplied, generated from a prompt with a configured lyrics model, replaced by

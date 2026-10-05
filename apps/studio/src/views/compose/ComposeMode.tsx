@@ -23,7 +23,15 @@ import { BlueprintEditor } from './BlueprintEditor';
 import { PlanTable } from './PlanTable';
 import { SHAPE_SECTIONS, ShapeSections, formatDuration, useShapePreview } from './Shape';
 import { BasicsMeter, MaterialAside, MaterialSection, ReadinessLines, useReadiness } from './Material';
-import { choicesForStart, draftLyrics, useComposeSession, type ComposeStep } from './session';
+import { SongTypeSwitch } from './SongType';
+import {
+  activeLyricsMode,
+  choicesForStart,
+  draftLyrics,
+  lyricsActive,
+  useComposeSession,
+  type ComposeStep,
+} from './session';
 import { aiDesignBlueprint, aiPlanSong, aiLyrics, useRoleRoute, useAiRuntime } from '../../engine/ai';
 import { attachLibraryAssets } from '../../state/library';
 import { interpretInput, mergeComposeInputs, useComposeInputs } from './inputs';
@@ -83,7 +91,11 @@ export default function ComposeMode() {
   /** Builder → blueprint: on-device, or with the model when the user also described the song in words. */
   const designBlueprint = async (): Promise<{ bp: Blueprint; source: string }> => {
     const draft = useComposeSession.getState().draft;
-    const choices = choicesForStart(draft, session.lyricsMode, inputs.find((i) => i.item.song)?.item.song);
+    const choices = choicesForStart(
+      draft,
+      activeLyricsMode(useComposeSession.getState()),
+      inputs.find((i) => i.item.song)?.item.song,
+    );
     const inputContext = inputs
       .map((i) =>
         JSON.stringify({
@@ -112,7 +124,16 @@ export default function ComposeMode() {
     if (model && words) {
       try {
         const res = await aiDesignBlueprint(words, { providerChoice: planner, seed, choices });
-        return { bp: res.blueprint, source: res.source };
+        // Instrumental is a promise: whatever the model suggested, no vocal and no lyrics.
+        const bp = useComposeSession.getState().instrumental
+          ? {
+              ...res.blueprint,
+              vocal: undefined,
+              lyrics: undefined,
+              instrumentation: res.blueprint.instrumentation.filter((t) => t.instrumentId !== 'lead-vocal'),
+            }
+          : res.blueprint;
+        return { bp, source: res.source };
       } catch (err) {
         if (aborted(err)) throw err;
         st.toast(
@@ -140,7 +161,7 @@ export default function ComposeMode() {
   const compose = async (bp: Blueprint, p: CompositionPlan) => {
     let effectiveBlueprint = bp;
     let generatedAuthor: string | undefined;
-    if (session.lyricsMode === 'generate') {
+    if (activeLyricsMode(session) === 'generate') {
       if (!lyricsRoute || lyricsRoute.internal)
         throw new Error('Configure a lyrics model or choose placeholder lyrics.');
       if (!session.draft.lyricsTheme.trim()) throw new Error('Describe the lyrics you want to generate.');
@@ -197,7 +218,7 @@ export default function ComposeMode() {
       useStudio.getState().project!.meta.id,
     );
     // Up-front lyrics are the user's words: credit them (not an AI) as the lyric writer.
-    if (session.lyricsMode === 'provided' && bp.lyrics?.sections.some((s) => s.lines.length))
+    if (activeLyricsMode(session) === 'provided' && bp.lyrics?.sections.some((s) => s.lines.length))
       st.updateProject((pr) => creditLyricWriter(pr, userName || 'Me'));
     const projectId = useStudio.getState().project!.meta.id;
     st.selectTrack(song.tracks[0]?.id ?? null);
@@ -370,8 +391,13 @@ export default function ComposeMode() {
     if (session.review) void fineTune();
     else void generateSong(prototype && audioTargets.length > 0);
   };
-  const lyrics = session.lyricsOn ? draftLyrics(session.draft) : undefined;
+  const lyrics = lyricsActive(session) ? draftLyrics(session.draft) : undefined;
   const sung = lyrics?.sections.filter((s) => s.lines.length).length ?? 0;
+  /** Going to Shape with no material means composing from the style settings alone. */
+  const goStep = (s: ComposeStep) =>
+    useComposeSession
+      .getState()
+      .set(s === 'shape' && readiness.material === 0 ? { step: s, fromStyle: true } : { step: s });
 
   const steps: { step: ComposeStep; label: string; num: string; enabled: boolean }[] = [
     { step: 'material', label: 'Material', num: '01', enabled: true },
@@ -437,7 +463,11 @@ export default function ComposeMode() {
         </div>
         <div className="aside-block col" style={{ gap: 12 }}>
           <BasicsMeter basics={readiness.basics} />
-          <ReadinessLines material={readiness.material} basics={readiness.basics} />
+          <ReadinessLines
+            material={readiness.material}
+            basics={readiness.basics}
+            fromStyle={readiness.fromStyle}
+          />
           <Button
             variant="primary"
             size="lg"
@@ -505,7 +535,7 @@ export default function ComposeMode() {
                 className={`step ${order.indexOf(s.step) < order.indexOf(step) ? 'done' : ''}`}
                 aria-current={step === s.step ? 'step' : undefined}
                 disabled={!s.enabled}
-                onClick={() => setStep(s.step)}
+                onClick={() => goStep(s.step)}
               >
                 <span className="num" aria-hidden="true">
                   {s.num}
@@ -515,8 +545,16 @@ export default function ComposeMode() {
             ))}
           </nav>
         </div>
-        {step === 'material' && (
-          <p className="lede">Bring what you have. Next, shape the style, instruments and feel.</p>
+        {(step === 'material' || step === 'shape') && (
+          <div className="row wrap" style={{ gap: '10px 20px' }}>
+            <SongTypeSwitch />
+            {step === 'material' && (
+              <p className="lede">
+                Bring what you have, or skip straight to style settings. Next, shape the style, instruments
+                and feel.
+              </p>
+            )}
+          </div>
         )}
         {step === 'shape' && (
           <nav className="section-index" aria-label="Sections">
@@ -548,7 +586,7 @@ export default function ComposeMode() {
               model={model}
               customGenres={customGenres}
               busy={working}
-              onNext={() => setStep('shape')}
+              onNext={() => goStep('shape')}
               onCreate={() => void generateSong()}
             />
           </>
