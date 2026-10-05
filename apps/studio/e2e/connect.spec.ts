@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { songStep } from './nav';
 
 /**
  * "Connect a service" in browser-only mode (no local server):
@@ -528,6 +529,11 @@ for (const outcome of ['success', 'failure', 'edited'] as const) {
     const midi = before.tracks.filter((t: { kind: string }) => t.kind === 'midi');
     expect(midi.some((t: { notes: unknown[] }) => t.notes.length > 0)).toBe(true);
     await expect(page.getByRole('dialog')).toHaveCount(0);
+    await songStep(page, 'Sound');
+    await expect(page.getByRole('button', { name: 'Make a realistic version' })).toBeDisabled();
+    await songStep(page, 'Write');
+    await songStep(page, 'Sound');
+    await expect(page.getByRole('button', { name: 'Make a realistic version' })).toBeDisabled();
     if (outcome === 'edited') {
       await page.evaluate(`import('/src/state/store.ts').then(({ useStudio }) => {
         const st = useStudio.getState(); const song = structuredClone(st.project.song);
@@ -553,5 +559,6 @@ for (const outcome of ['success', 'failure', 'edited'] as const) {
     if (outcome !== 'success')
       expect(after.tracks.some((t: { kind: string }) => t.kind === 'audio')).toBe(false);
     if (outcome === 'edited') expect(after.tempoMap[0].bpm).toBe(111);
+    await expect(page.getByRole('button', { name: 'Make a realistic version' })).toBeEnabled();
   });
 }

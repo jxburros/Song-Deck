@@ -40,6 +40,8 @@ npm run typecheck
 npm run e2e            # Playwright end-to-end and accessibility tests (Chromium)
 npm run lint           # ESLint; `npm run format` / `format:check` for Prettier
 npm run size           # entry-chunk and first-paint bundle budget (after a build)
+# Optional: use an installed browser instead of Playwright’s download
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run e2e
 ```
 
 CI runs all of these on every pull request (`.github/workflows/ci.yml`), plus Ruff for the Python

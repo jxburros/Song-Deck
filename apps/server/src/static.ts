@@ -70,7 +70,9 @@ export function createStaticHandler(
     const index = path.join(rootResolved, 'index.html');
     const st = await statFile(index);
     if (!st?.isFile()) return notFound(res);
-    return send(req, res, index, st.size, 'no-cache');
+    const real = await fsp.realpath(index).catch(() => undefined);
+    if (!real || !isWithin(await getRealRoot(), real)) return notFound(res);
+    return send(req, res, real, st.size, 'no-cache');
   };
 
   return async (req, res, url) => {

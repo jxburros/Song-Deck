@@ -195,6 +195,7 @@ const SHOTS = process.env.SHOTS_DIR ?? '/tmp/claude-0';
 test.use({
   permissions: ['microphone'],
   launchOptions: {
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
     args: [
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',

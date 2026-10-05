@@ -28,7 +28,7 @@ jobs:
             } catch (error) {
               // GitHub returns a generic 403 Forbidden when dependency review is disabled.
               if (![403, 404].includes(error.status)) throw error;
-              core.notice('Dependency review is unavailable for this repository; running the production dependency audit instead.');
+              core.notice('Dependency review is unavailable for this repository; running the dependency audit instead.');
               core.setOutput('supported', 'false');
             }
       - uses: actions/dependency-review-action@v4
@@ -40,6 +40,6 @@ jobs:
         if: steps.availability.outputs.supported != 'true'
         with:
           node-version: 22
-      - name: Audit production dependencies
+      - name: Audit runtime and development dependencies
         if: steps.availability.outputs.supported != 'true'
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --audit-level=moderate

@@ -88,6 +88,24 @@ beforeEach(async () => {
       res.end();
       return;
     }
+    if (url.pathname === '/v1/redirect-path') {
+      res.writeHead(302, { location: '/v2/json' });
+      res.end();
+      return;
+    }
+    if (url.pathname === '/v1/redirect-userinfo') {
+      const target = new URL(`${other.url}/v1/json`);
+      target.username = 'user';
+      target.password = 'password';
+      res.writeHead(302, { location: target.href });
+      res.end();
+      return;
+    }
+    if (url.pathname === '/v1/redirect-query') {
+      res.writeHead(302, { location: `${other.url}/v1/json?key=public&key=${url.searchParams.get('key')}` });
+      res.end();
+      return;
+    }
     if (url.pathname === '/v1/redirect-evil') {
       res.writeHead(302, { location: 'https://evil.example/steal' });
       res.end();
@@ -348,6 +366,57 @@ describe('provider proxy', () => {
     });
     expect(evil.status).toBe(502);
     expect(await json(evil)).toMatchObject({ code: 'redirect-not-allowlisted' });
+  });
+
+  it('never forwards client authorization headers to another origin', async () => {
+    const same = await proxy({
+      url: `${upstream.url}/v1/redirect-same`,
+      headers: { Authorization: 'Bearer client-secret', 'X-Api-Key': 'client-key' },
+    });
+    expect(await json(same)).toMatchObject({ auth: 'Bearer client-secret', key: 'client-key' });
+    const out = await proxy({
+      url: `${upstream.url}/v1/redirect-out`,
+      headers: { Authorization: 'Bearer client-secret', 'X-Api-Key': 'client-key' },
+    });
+    expect(await json(out)).toEqual({ other: true, auth: null });
+    const forwarded = other.requests.at(-1)!;
+    expect(forwarded.headers['x-api-key']).toBeUndefined();
+  });
+
+  it('strips custom client auth headers when a redirect leaves the credential path scope', async () => {
+    await registerProviders([
+      provider('a', `${upstream.url}/v1`, { type: 'header', name: 'x-custom-auth' }, 'provider:a'),
+    ]);
+    await setSecret('provider:a', SECRET);
+    await proxy({
+      url: `${upstream.url}/v1/redirect-path`,
+      headers: { 'X-Custom-Auth': 'client-secret' },
+      credentialRef: 'provider:a',
+      auth: { type: 'header', name: 'x-custom-auth' },
+    });
+    expect(upstream.requests.at(-1)!.url).toBe('/v2/json');
+    expect(upstream.requests.at(-1)!.headers['x-custom-auth']).toBeUndefined();
+  });
+
+  it('rejects redirects with embedded credentials before contacting the target', async () => {
+    const res = await proxy({ url: `${upstream.url}/v1/redirect-userinfo` });
+    expect(res.status).toBe(502);
+    expect(await json(res)).toMatchObject({ code: 'bad-redirect' });
+    expect(other.requests).toHaveLength(0);
+  });
+
+  it('removes echoed query credentials even after a duplicate public parameter', async () => {
+    await registerProviders([
+      provider('a', `${upstream.url}/v1`, { type: 'query', name: 'key' }, 'provider:a'),
+    ]);
+    await setSecret('provider:a', SECRET);
+    const res = await proxy({
+      url: `${upstream.url}/v1/redirect-query`,
+      credentialRef: 'provider:a',
+      auth: { type: 'query', name: 'key' },
+    });
+    expect(res.status).toBe(200);
+    expect(other.requests.at(-1)!.url).not.toContain(SECRET);
   });
 
   it('rejects provider configs that contain secrets', async () => {

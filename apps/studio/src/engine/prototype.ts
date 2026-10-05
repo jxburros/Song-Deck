@@ -3,7 +3,14 @@ import type { CapabilityRouter, ProviderRegistry, DataKind } from '@songdeck/ai'
 import { useStudio } from '../state/store';
 import { useSettings } from '../state/settings';
 import { getRegistry, getRouter } from './ai';
-import { headRevisionOf, nextLabels, opDataKinds, planStrategy, hasSungVocals } from './produce-model';
+import {
+  headRevisionOf,
+  nextLabels,
+  opDataKinds,
+  planStrategy,
+  hasSungVocals,
+  productionSourceSong,
+} from './produce-model';
 import { startTask } from './mix-tasks';
 import type { CandidateInput, CandidateOutput } from './handlers/production';
 
@@ -33,7 +40,7 @@ export function prototypeTargets(
     const models = provider.models.length ? provider.models : [{ id: provider.config?.defaultModel }];
     for (const model of models) {
       const plan = planStrategy('full', registry.capabilitiesOf(provider.id, model.id), {
-        vocals: song ? hasSungVocals(song) : false,
+        vocals: song ? hasSungVocals(productionSourceSong(song)) : false,
         reference: false,
         aiUnits: 0,
         aiVocalUnits: 0,

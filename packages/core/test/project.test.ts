@@ -436,6 +436,29 @@ function richProject(): { project: Project; assets: Map<string, Uint8Array> } {
 }
 
 describe('.songproject packages', () => {
+  it('rejects oversized ZIP entries and aggregate expansion before inflating any data', () => {
+    // Forge directory sizes in a tiny ZIP: this must fail before any large allocation.
+    for (const sizes of [[0x40000001], [0x30000000, 0x30000000]]) {
+      const bytes = zipSync(Object.fromEntries(sizes.map((_, i) => [`file${i}`, strToU8('x')])));
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      let entry = 0;
+      for (let i = 0; i + 46 <= bytes.length; i++) {
+        if (view.getUint32(i, true) === 0x02014b50) {
+          view.setUint32(i + 24, sizes[entry++], true);
+        }
+      }
+      expect(entry).toBe(sizes.length);
+      expect(() => unpackProject(bytes)).toThrow(/exceeds the limit/);
+    }
+  });
+
+  it('rejects ZIPs with excessive entries before parsing project data', () => {
+    const files = Object.fromEntries(
+      Array.from({ length: 10_001 }, (_, i) => [`file${i}`, new Uint8Array()]),
+    );
+    expect(() => unpackProject(zipSync(files))).toThrow(/10,000 entries/);
+  });
+
   it('round-trips packProject/unpackProject exactly', () => {
     const { project, assets } = richProject();
     const bytes = packProject(project, assets);

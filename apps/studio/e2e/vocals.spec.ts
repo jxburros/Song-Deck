@@ -16,6 +16,7 @@ mkdirSync(SHOTS, { recursive: true });
 
 test.use({
   launchOptions: {
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
     args: [
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',
