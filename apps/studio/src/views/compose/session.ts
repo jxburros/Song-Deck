@@ -7,6 +7,7 @@ import {
   type BuilderGenre,
   type BuilderInstrument,
   type BuilderMood,
+  type MacroSettings,
   type ModeName,
   type SectionKind,
   type Song,
@@ -16,12 +17,16 @@ import {
 } from '@songdeck/core';
 
 /**
- * Compose builder session: the structured choices (instruments, genres, moods, tags, settings,
- * lyrics) the user is assembling. Survives switching modes; "Start from lyrics" on the home screen
- * opens the builder on its Lyrics tab.
+ * Start-a-song session: the starting material (lyrics, prompt; recordings and MIDI live in
+ * ./inputs) and the structured choices (instruments, genres, moods, tags, settings, feel) the user
+ * is assembling. Survives switching modes; the four starts on the Songs home screen open it on the
+ * Material step with that material ready.
  */
 
-export type BuilderTab = 'sound' | 'lyrics';
+/** Material → Shape, then (when "Review the blueprint and plan" is on) Blueprint → Plan. */
+export type ComposeStep = 'material' | 'shape' | 'blueprint' | 'plan';
+/** Which start the user picked on the Songs home screen. */
+export type StartFocus = 'lyrics' | 'audio' | 'midi' | 'prompt';
 
 export interface ComposeDraft {
   instruments: BuilderInstrument[];
@@ -48,6 +53,8 @@ export interface ComposeDraft {
   lockLyrics: boolean;
   /** "Describe it in your own words" (only used when a model is attached). */
   describe: string;
+  /** Feel sliders (0–1) the user moved; the rest keep the genre's defaults. */
+  macros: Partial<MacroSettings>;
 }
 
 export const EMPTY_DRAFT: ComposeDraft = {
@@ -71,30 +78,52 @@ export const EMPTY_DRAFT: ComposeDraft = {
   lyricKinds: {},
   lockLyrics: true,
   describe: '',
+  macros: {},
 };
 
 interface ComposeSession {
   draft: ComposeDraft;
-  tab: BuilderTab;
+  step: ComposeStep;
+  /** The lyrics and prompt cards on the Material step. */
+  lyricsOn: boolean;
+  promptOn: boolean;
+  /** The start picked on the Songs home screen (scrolls to / opens that material). */
+  focus: StartFocus | null;
+  /** Review the blueprint and the plan before composing. */
+  review: boolean;
   seed: number;
   planner: string;
   lyricsMode: 'provided' | 'generate' | 'placeholder' | 'instrumental';
   lyricsProvider: string;
   patch(p: Partial<ComposeDraft>): void;
-  set(p: Partial<Omit<ComposeSession, 'set' | 'patch'>>): void;
+  set(p: Partial<Omit<ComposeSession, 'set' | 'patch' | 'reset' | 'start'>>): void;
+  /** Open Start a song on the Material step with one start ready. */
+  start(focus: StartFocus | null): void;
   reset(): void;
 }
 
 export const useComposeSession = create<ComposeSession>((set) => ({
   draft: EMPTY_DRAFT,
-  tab: 'sound',
+  step: 'material',
+  lyricsOn: false,
+  promptOn: false,
+  focus: null,
+  review: false,
   seed: randomSeed(),
   planner: 'auto',
   lyricsMode: 'provided',
   lyricsProvider: 'auto',
   patch: (p) => set((s) => ({ draft: withSinger(s.draft, { ...s.draft, ...p }, p) })),
+  start: (focus) =>
+    set((s) => ({
+      step: 'material',
+      focus,
+      lyricsOn: s.lyricsOn || focus === 'lyrics',
+      promptOn: s.promptOn || focus === 'prompt',
+    })),
   set: (p) => set(p),
-  reset: () => set({ draft: EMPTY_DRAFT, tab: 'sound' }),
+  reset: () =>
+    set({ draft: EMPTY_DRAFT, step: 'material', lyricsOn: false, promptOn: false, focus: null }),
 }));
 
 /**
@@ -149,6 +178,7 @@ export function choicesFromDraft(d: ComposeDraft, lyrics = draftLyrics(d)): Buil
   if (d.vocal === 'none') c.vocal = 'none';
   else if (d.vocal !== 'auto') c.vocal = { voiceType: d.vocal, mode };
   else if (lyrics) c.vocal = { voiceType: 'tenor', mode };
+  if (Object.keys(d.macros ?? {}).length) c.macros = { ...d.macros };
   if (d.title.trim()) c.title = d.title.trim();
   if (d.lyricsTheme.trim()) c.lyricsTheme = d.lyricsTheme.trim();
   if (lyrics) c.lyrics = lyrics;

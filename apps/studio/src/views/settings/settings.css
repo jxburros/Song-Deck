@@ -22,12 +22,22 @@
 }
 .st-nav-head h2 {
   font-size: 18px;
-  margin: 0 0 2px;
+  font-weight: 400;
+  margin: 8px 0 4px;
 }
 .st-nav-head p {
   color: var(--text-muted);
   font-size: 12px;
   margin: 0 0 10px;
+}
+.st-nav-group {
+  padding: 18px 12px 6px;
+}
+.st-joined {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 12px;
 }
 .st-nav-status {
   display: flex;
@@ -138,7 +148,7 @@
   flex: none;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 0;
   background: radial-gradient(circle at 30% 20%, var(--accent-soft), transparent 70%), var(--bg-elev-2);
   border: 1px solid var(--border);
   color: var(--accent-text);
@@ -309,7 +319,7 @@
   height: 24px;
   padding: 0 10px;
   border: none;
-  border-radius: 5px;
+  border-radius: 0;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
@@ -334,7 +344,8 @@
   gap: 5px;
   height: 20px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: 0;
+  clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
   font-size: 11px;
   font-weight: 600;
   background: var(--bg-elev-3);
@@ -361,7 +372,7 @@
   align-items: center;
   height: 18px;
   padding: 0 6px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 10.5px;
   font-weight: 500;
   color: var(--ai);
@@ -415,7 +426,7 @@
 }
 .st-meter {
   height: 6px;
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--bg-elev-3);
   overflow: hidden;
 }
@@ -996,7 +1007,7 @@
   display: flex;
   flex-direction: column;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--bg-elev-2);
   font-size: 11px;
 }
@@ -1228,7 +1239,8 @@
     overflow: visible;
   }
   .st-nav-head,
-  .st-nav-hint {
+  .st-nav-hint,
+  .st-nav-group {
     display: none;
   }
   .st-nav-list {
@@ -1335,7 +1347,8 @@
 .st-use {
   font-size: 11px;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: 0;
+  clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
   color: var(--ai);
   background: var(--ai-soft);
 }

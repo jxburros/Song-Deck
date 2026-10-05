@@ -1,10 +1,104 @@
-/* Export mode. */
-.ex-page {
-  max-width: 1440px;
-  margin: 0 auto;
+/* Export: five everyday exports, then every other format under More formats. */
+.ex-quick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  gap: 14px;
+}
+.ex-quick-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px 20px;
+  min-height: 200px;
+}
+.ex-quick-card p {
+  margin: 0;
+  flex: 1;
+  line-height: 1.45;
+}
+.ex-quick-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ex-quick-head h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.ex-quick-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  background: var(--bg-elev-3);
+  color: var(--accent-text);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+}
+.ex-quick-icon.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.ex-quick-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ex-quick-foot .select,
+.ex-quick-foot .btn {
+  width: 100%;
+}
+.ex-quick-foot .btn {
+  justify-content: center;
+  height: 36px;
+}
+.ex-quick-note {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+.ex-more {
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+}
+.ex-more > summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  min-height: 48px;
+  padding: 12px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.ex-more > summary::-webkit-details-marker {
+  display: none;
+}
+.ex-more > summary::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  align-self: center;
+  background: var(--accent);
+  transform: rotate(45deg) scale(0.8);
+  transition: transform 0.15s;
+}
+.ex-more[open] > summary::before {
+  transform: rotate(45deg) scale(1.05);
+  background: var(--accent-text);
+}
+.ex-more > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ex-more-title {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 .ex-settings {
-  margin-bottom: 14px;
+  margin: 0;
 }
 .ex-settings-row {
   display: flex;
@@ -23,7 +117,6 @@
   min-width: 96px;
 }
 .ex-hero {
-  margin-bottom: 14px;
   background:
     radial-gradient(
       900px 220px at 0% 0%,
@@ -66,17 +159,16 @@
   align-items: center;
   height: 24px;
   padding: 0 9px;
-  border-radius: 6px;
   border: 1px solid var(--border-strong);
   background: var(--bg-elev-2);
+  clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
   font-family: var(--font-mono);
   font-size: 11.5px;
 }
 .ex-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr));
   gap: 14px;
-  margin-bottom: 14px;
   align-items: start;
 }
 .ex-card .panel-body {
@@ -125,7 +217,7 @@
   background: var(--bg-elev-2);
 }
 .ex-recent {
-  margin-bottom: 14px;
+  margin: 0;
 }
 @media (max-width: 900px) {
   .ex-grid {

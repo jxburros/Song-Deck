@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { composeQuickSong } from './compose-helpers';
+import { trackHeader } from './nav';
 
 /**
  * MIDI keyboard capture (spec §27 "play an instrument … and convert that performance into MIDI"),
@@ -49,7 +50,7 @@ test('records a MIDI keyboard take into the selected track as one undoable revis
   await page.goto('/');
   await composeQuickSong(page, 'Laid-back hip-hop');
 
-  await page.locator('.wb-left .track-row', { hasText: 'Piano' }).first().click();
+  await trackHeader(page, 'Piano').click();
   await page.getByRole('tab', { name: 'Piano Roll' }).click();
   await expect(page.getByTestId('piano-roll')).toBeVisible();
   const before = await pianoNotes(page);

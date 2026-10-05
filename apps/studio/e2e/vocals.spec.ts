@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { composeQuickSong } from './compose-helpers';
 import { mkdirSync } from 'node:fs';
+import { openTool } from './nav';
 
 /**
  * Vocals mode (Phase 4), end to end and entirely on-device:
@@ -45,11 +46,12 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   await composeSong(page);
 
   // ---- Vocals mode + vocal modes (§33) ----------------------------------------------------
-  await page.getByRole('button', { name: 'Vocals', exact: true }).click();
+  await openTool(page, 'Lyrics');
   await expect(page.getByRole('heading', { name: 'Vocals', exact: true })).toBeVisible();
   const modes = page.getByRole('radiogroup', { name: 'Vocal mode' });
   await expect(modes.getByRole('radio')).toHaveCount(6);
-  await expect(modes.getByRole('radio', { name: /Vocal melody only/ })).toHaveAttribute(
+  // The quick song started from placeholder words.
+  await expect(modes.getByRole('radio', { name: /Placeholder vocal/ })).toHaveAttribute(
     'aria-checked',
     'true',
   );
@@ -157,9 +159,9 @@ test('vocals: lyrics, alignment, singing render, phrase & section regeneration, 
   await expect(page.getByTestId('current-render')).toContainText('In sync');
 
   // The render is an ordinary audio track in Mix & Master.
-  await page.getByRole('button', { name: 'Mix & Master' }).click();
+  await openTool(page, 'Full console');
   await expect(page.locator('.mx-strip', { hasText: 'Lead Vocal (render)' }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Vocals', exact: true }).click();
+  await openTool(page, 'Lyrics');
 
   // ---- §36 consent: conversion to an unauthorized voice is blocked ----------------------------
   await page.getByRole('tab', { name: 'Voices' }).click();
@@ -230,7 +232,7 @@ test('vocals: per-section melody, phrase expression, voices, vocal-mode monitori
   page.on('pageerror', (e) => errors.push(e.message));
 
   await composeSong(page);
-  await page.getByRole('button', { name: 'Vocals', exact: true }).click();
+  await openTool(page, 'Lyrics');
   const modes = page.getByRole('radiogroup', { name: 'Vocal mode' });
 
   // A render first, so later edits re-sing only what changed.
@@ -272,14 +274,14 @@ test('vocals: per-section melody, phrase expression, voices, vocal-mode monitori
   // Vocal mode "No vocal": the render track is muted in the mixer.
   await modes.getByRole('radio', { name: /No vocal/ }).click();
   await expect(modes.getByRole('radio', { name: /No vocal/ })).toHaveAttribute('aria-checked', 'true');
-  await page.getByRole('button', { name: 'Mix & Master' }).click();
+  await openTool(page, 'Full console');
   await expect(page.getByRole('button', { name: 'Mute Lead Vocal (render)' }).first()).toHaveAttribute(
     'aria-pressed',
     'true',
   );
-  await page.getByRole('button', { name: 'Vocals', exact: true }).click();
+  await openTool(page, 'Lyrics');
   await modes.getByRole('radio', { name: /AI singer/ }).click();
-  await page.getByRole('button', { name: 'Mix & Master' }).click();
+  await openTool(page, 'Full console');
   await expect(page.getByRole('button', { name: 'Mute Lead Vocal (render)' }).first()).toHaveAttribute(
     'aria-pressed',
     'false',
@@ -288,7 +290,7 @@ test('vocals: per-section melody, phrase expression, voices, vocal-mode monitori
     'aria-pressed',
     'true',
   );
-  await page.getByRole('button', { name: 'Vocals', exact: true }).click();
+  await openTool(page, 'Lyrics');
 
   // Recorded vocal: a take, then transcribe it back into the vocal MIDI (a proposal).
   await page.getByRole('tab', { name: 'Record' }).click();

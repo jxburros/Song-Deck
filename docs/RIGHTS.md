@@ -40,7 +40,7 @@ by default._
    alone are a softer hint. The user can still continue. The purchaser's account e-mail in an
    iTunes `apID` atom is never shown or stored, only the fact that it is present.
 
-3. **Optional online identification (off by default).** Under _Settings → Privacy → Content
+3. **Optional online identification (off by default).** Under _Settings → Privacy and spending → Content
    check_ the user can turn on AcoustID identification and enter their own AcoustID application
    API key. The studio then computes a Chromaprint fingerprint **on the device** and sends
    **only the fingerprint and the duration** (never audio) to `api.acoustid.org`. A match
@@ -60,7 +60,7 @@ by default._
   `rights/RIGHTS.txt`. _Export everything_ adds `RIGHTS.txt` to the archive.
 - **This browser:** answers are remembered per file content hash (localStorage key
   `songdeck:attestation-memory`, at most 500 files). Re-uploading the same bytes, even under
-  another name, pre-fills the dialog and needs one click. _Settings → Privacy → Content check →
+  another name, pre-fills the dialog and needs one click. _Settings → Privacy and spending → Content check →
   Forget_ clears the memory.
 
 ## Downstream reminders (still warn-only)
@@ -71,7 +71,7 @@ by default._
   uploads that do not belong to a project yet. Such a request always asks for confirmation,
   whatever the user's "Confirm before sending" setting.
 - **Produce → Reference audio** shows the same reminder next to the reference.
-- **Export mode** shows a notice when the project contains such material.
+- **Export** shows a notice when the project contains such material.
 
 ## What is _not_ checked: honest limitations
 

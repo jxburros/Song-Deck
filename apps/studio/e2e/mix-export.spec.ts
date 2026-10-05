@@ -3,6 +3,7 @@ import { composeQuickSong } from './compose-helpers';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
 import { attestUpload } from './rights';
+import { openExportFormats, openTool } from './nav';
 
 /**
  * Mix & Master and Export, end to end and entirely on-device:
@@ -42,7 +43,7 @@ test('mix, master and export a composed song', async ({ page }) => {
   await composeSong(page);
 
   // ---- Mix & Master: console ------------------------------------------------------------
-  await page.getByRole('button', { name: 'Mix & Master' }).click();
+  await openTool(page, 'Full console');
   await expect(page.getByRole('heading', { name: 'Mix & Master' })).toBeVisible();
   const strips = page.locator('.mx-strip');
   expect(await strips.count()).toBeGreaterThan(4);
@@ -109,8 +110,7 @@ test('mix, master and export a composed song', async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/mix-mastering.png` });
 
   // ---- Export ------------------------------------------------------------------------------
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Export', exact: true })).toBeVisible();
+  await openExportFormats(page);
   await page.screenshot({ path: `${SHOTS}/export.png`, fullPage: true });
 
   const mid = await download(page, () => page.getByRole('button', { name: 'Song.mid' }).click());
@@ -236,7 +236,7 @@ test('stem import, strip locks, automation drawing and EQ editing', async ({ pag
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await composeSong(page);
-  await page.getByRole('button', { name: 'Mix & Master' }).click();
+  await openTool(page, 'Full console');
   await expect(page.getByRole('heading', { name: 'Mix & Master' })).toBeVisible();
   const before = await page.locator('.mx-strip').count();
 
@@ -303,8 +303,7 @@ test('stem import, strip locks, automation drawing and EQ editing', async ({ pag
   await page.screenshot({ path: `${SHOTS}/mix-automation-edit.png` });
 
   // ---- Stems export includes the imported audio track individually ---------------------------
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Export', exact: true })).toBeVisible();
+  await openExportFormats(page);
   const stems = await download(page, () => page.getByRole('button', { name: 'Stems.zip' }).click());
   const files = Object.keys(unzipSync(stems.bytes));
   expect(files.some((f) => /^Audio tracks\/\d\d backing vocals stem\.wav$/.test(f))).toBe(true);

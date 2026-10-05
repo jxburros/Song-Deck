@@ -10,13 +10,11 @@ export function TabHeader({
   title,
   lede,
   actions,
-  spec,
 }: {
   icon: IconName;
   title: string;
   lede: ReactNode;
   actions?: ReactNode;
-  spec?: string;
 }) {
   return (
     <header className="st-head">
@@ -24,10 +22,7 @@ export function TabHeader({
         <Icon name={icon} size={20} />
       </div>
       <div className="grow">
-        <h1>
-          {title}
-          {spec && <span className="st-spec">{spec}</span>}
-        </h1>
+        <h1>{title}</h1>
         <div className="lede">{lede}</div>
       </div>
       {actions && <div className="st-head-actions">{actions}</div>}

@@ -1,10 +1,18 @@
 import { expect, test } from '@playwright/test';
-import { openComposer } from './compose-helpers';
+import { composeStep, openComposer, openShape } from './compose-helpers';
+import { openTool, trackHeader } from './nav';
 
 /**
- * The Compose builder, offline: (a) the exact instruments and counts picked are the tracks you get;
- * (b) lyrics-first — pasted lyrics with [Verse]/[Chorus] headers are sung, shown in Vocals and locked.
+ * Start a song, offline: (a) the exact instruments and counts picked on Shape are the tracks you get,
+ * next to your own material; (b) lyrics-first — pasted lyrics with [Verse]/[Chorus] headers are sung,
+ * shown in Vocals and locked; (c) a song needs some material and at least one basic.
  */
+
+/** A one-note C4 MIDI riff (format 1, one track). */
+const RIFF = Buffer.from([
+  ...[0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0x01, 0xe0],
+  ...[0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, 13, 0x00, 0x90, 0x3c, 0x64, 0x83, 0x60, 0x80, 0x3c, 0x40, 0x00, 0xff, 0x2f, 0x00],
+]);
 
 test('builder: the instruments and counts you pick are exactly the tracks you get', async ({ page }) => {
   const errors: string[] = [];
@@ -13,13 +21,20 @@ test('builder: the instruments and counts you pick are exactly the tracks you ge
   await openComposer(page);
   const builder = page.getByTestId('compose-builder');
 
-  // Offline: no free-text box, the builder is the only input.
+  // Offline: no prompt to add, and nothing to create from yet.
+  await expect(builder.getByTestId('material').getByRole('button', { name: 'Prompt', exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Song description')).toHaveCount(0);
-  await expect(page.getByLabel('Song prompt')).toHaveCount(0);
+  await builder.getByRole('button', { name: 'Remove lyrics' }).click();
+  await expect(builder.getByRole('button', { name: 'Create now, rest on Auto' })).toHaveCount(0);
+  await expect(builder).toContainText('Add some starting material');
 
-  await expect(builder.getByLabel('Search genres')).toBeHidden();
-  await builder.getByTestId('sound-details').locator('summary').click();
-  await builder.getByTestId('builder-settings').locator('summary').click();
+  // Material: one MIDI riff (an instrumental song).
+  await builder
+    .getByTestId('material')
+    .locator('input[type=file][accept*=".mid"]')
+    .setInputFiles({ name: 'riff.mid', mimeType: 'audio/midi', buffer: RIFF });
+  await expect(builder.getByTestId('compose-input')).toHaveCount(1);
+  await openShape(page);
 
   // Genre: search, pick, see the influence slider.
   await builder.getByLabel('Search genres').fill('folk');
@@ -54,13 +69,12 @@ test('builder: the instruments and counts you pick are exactly the tracks you ge
   await expect(builder.getByTestId('builder-summary')).toContainText('4 tracks');
   await expect(builder.getByTestId('builder-summary')).toContainText('96 BPM');
 
-  await page.getByRole('button', { name: 'Generate song' }).click();
+  await page.getByRole('button', { name: 'Create song' }).click();
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
 
-  const names = (await page.locator('.wb-left .track-row').allTextContents()).filter((t) =>
-    /\d+ notes/.test(t),
-  );
-  expect(names).toHaveLength(4);
+  // The four picked tracks, plus the riff kept as its own (locked) track.
+  const names = await page.getByTestId('track-header').allTextContents();
+  expect(names).toHaveLength(5);
   const has = (n: string) => names.filter((t) => t.includes(n)).length;
   expect(has('Acoustic Guitar')).toBe(2);
   expect(has('Cello')).toBe(1);
@@ -68,7 +82,8 @@ test('builder: the instruments and counts you pick are exactly the tracks you ge
   expect(has('Vocal')).toBe(0);
   const song = (await page.evaluate(`import('/src/state/store.ts').then(({ useStudio }) => {
     const s = useStudio.getState().project.song;
-    return { bpm: s.tempoMap[0].bpm, tags: (s.blueprint && s.blueprint.tags) || [], ids: s.tracks.map((t) => t.instrumentId).sort() };
+    const composed = s.tracks.filter((t) => !s.locks['track:' + t.id]);
+    return { bpm: s.tempoMap[0].bpm, tags: (s.blueprint && s.blueprint.tags) || [], ids: composed.map((t) => t.instrumentId).sort() };
   })`)) as { bpm: number; tags: string[]; ids: string[] };
   expect(song.bpm).toBe(96);
   expect(song.tags).toContain('warm');
@@ -107,17 +122,13 @@ test('lyrics-first: pasted lyrics are sung, shown in Vocals and locked', async (
   await expect(rows.nth(0)).toContainText('syllables');
   await expect(builder.getByLabel('Kind of section 2 (Chorus)')).toHaveValue('chorus');
 
-  // Then the same builder for the sound.
-  await builder.getByRole('button', { name: 'Next: choose the sound' }).click();
+  // Then Shape for the sound.
+  await builder.getByRole('button', { name: 'Next: shape the song' }).click();
   await builder.getByRole('button', { name: 'Folk & country', exact: true }).click();
-  await page.getByRole('button', { name: 'Generate song' }).click();
+  await page.getByRole('button', { name: 'Create song' }).click();
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
 
-  await page
-    .getByRole('navigation', { name: 'Project tools' })
-    .getByRole('button', { name: 'Vocals', exact: true })
-    .click();
-  await page.getByRole('tab', { name: 'Lyrics' }).click();
+  await openTool(page, 'Lyrics');
   const verse = page.getByLabel('Lyrics for Verse 1');
   await expect(verse).toHaveValue(
     'Under the streetlights I wait for the rain\nCounting the cars as they carry my name',
@@ -142,10 +153,12 @@ test('lyrics-first: an instrumental starting point still gets a singer for your 
   await openComposer(page);
   const builder = page.getByTestId('compose-builder');
   // "Laid-back hip-hop" is instrumental; pasting lyrics afterwards brings the vocal back.
+  await openShape(page);
   await builder.getByRole('button', { name: 'Laid-back hip-hop', exact: true }).click();
-  await builder.getByRole('tab', { name: /^Lyrics/ }).click();
+  await composeStep(page, 'Material');
   await builder.getByLabel('Lyrics', { exact: true }).fill(LYRICS);
-  await page.getByRole('button', { name: 'Generate song' }).click();
+  await builder.getByRole('button', { name: 'Create now, rest on Auto' }).click();
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });
-  await expect(page.locator('.wb-left .track-row', { hasText: 'Lead Vocal' })).toHaveCount(1);
+  await expect(page.getByTestId('track-header').filter({ hasText: 'Lead Vocal' })).toHaveCount(1);
+  await expect(trackHeader(page, 'Lead Vocal')).toBeVisible();
 });

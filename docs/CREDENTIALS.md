@@ -14,7 +14,7 @@ How Song Deck stores the API keys you give it, what that protects against, and h
 Keys are never written to settings (`localStorage`), project files, exports, provenance records or
 logs. Provider configs only hold a reference (`credentialRef`, e.g. `provider:gemini`).
 
-When the server comes online and keys are held by the browser, Settings → Providers offers
+When the server comes online and keys are held by the browser, Settings → AI services offers
 **Move to server vault**: each key is copied into the vault and deleted from the browser.
 **Forget browser keys** deletes every browser-held key and the encryption key itself.
 Settings → General → "Clear local data" also forgets them.
@@ -55,7 +55,7 @@ page at all.
 
 ## Connecting a service
 
-Settings → Providers → **Connect a service** (also from the Home screen's first-run card):
+Settings → AI services → **Connect a service** (also from the Songs screen's first-run card):
 
 1. **Paste a key.** `detectKeyProvider` recognises documented prefixes — Gemini `AIza…`, Anthropic
    `sk-ant-…`, Groq `gsk_…`, OpenAI `sk-proj-…` / `sk-svcacct-…` / `sk-admin-…` (and legacy keys with

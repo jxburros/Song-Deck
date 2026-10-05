@@ -34,7 +34,6 @@ export interface StudioSettings {
   enabledPlugins: string[];
   customGenres: GenreProfile[];
   customInstruments: InstrumentProfile[];
-  showTheoryHints: boolean;
 }
 
 export const DEFAULT_ROUTING: RoutingSettings = {
@@ -62,7 +61,6 @@ const DEFAULTS: StudioSettings = {
   enabledPlugins: [],
   customGenres: [],
   customInstruments: [],
-  showTheoryHints: true,
 };
 
 interface SettingsState extends StudioSettings {

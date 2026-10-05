@@ -1,7 +1,9 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   barToTick,
+  channelFor,
   createTimeMap,
+  getInstrument,
   LockKeys,
   isTrackSectionLocked,
   sectionLayout,
@@ -12,13 +14,15 @@ import {
   type Track,
 } from '@songdeck/core';
 import { useStudio } from '../../state/store';
-import { usePlayhead } from '../../hooks';
+import { useCustomInstruments, usePlayhead } from '../../hooks';
 import { LockButton } from '../../ui/kit';
-import { colorForRole } from './SidePanel';
+import { Icon } from '../../ui/icons';
+import { saveSongToLibrary } from '../../state/library';
+import { colorForRole, setChannel } from './tracks';
 import { sectionColor } from '../../ui/theme';
 import { useLoopSync } from './useLoopSync';
 
-const HEAD_W = 172;
+const HEAD_W = 200;
 const SECTION_H = 22;
 const RULER_H = 20;
 const CHORD_H = 22;
@@ -144,6 +148,133 @@ const SectionBlock = memo(function SectionBlock({
     </div>
   );
 });
+
+/** Sticky track header: name, instrument and size, plus a menu with the track's actions. */
+function TrackHead({ song, track, selected }: { song: Song; track: Track; selected: boolean }) {
+  const st = useStudio.getState();
+  const customInstruments = useCustomInstruments();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const ch = channelFor(song, track.id);
+  const locked = !!song.locks[LockKeys.track(track.id)];
+  const inst = getInstrument(track.instrumentId, customInstruments);
+  const size =
+    track.kind === 'audio'
+      ? `${track.clips.length} clips`
+      : `${track.notes.length} notes`;
+  const act = (fn: () => void) => () => {
+    setMenu(null);
+    fn();
+  };
+  return (
+    <div
+      className={`arr-track-head ${selected ? 'selected' : ''}`}
+      data-testid="track-header"
+      onClick={() => st.selectTrack(track.id)}
+      onDoubleClick={() => {
+        st.selectTrack(track.id);
+        if (track.kind === 'midi') st.setWorkbenchView('piano-roll');
+      }}
+    >
+      <span className="arr-track-color" style={{ background: track.color || colorForRole(track.role) }} />
+      <div className="arr-track-text">
+        <div className="ellipsis arr-track-name">{track.name}</div>
+        <div className="ellipsis small dim">
+          {track.kind === 'audio' ? 'Audio' : inst.name} · {size}
+        </div>
+      </div>
+      {(ch.mute || ch.solo || locked) && (
+        <span className="arr-track-flags small" aria-label="Track state">
+          {ch.mute && <span title="Muted">M</span>}
+          {ch.solo && <span title="Soloed">S</span>}
+          {locked && <Icon name="lock" size={12} />}
+        </span>
+      )}
+      <button
+        type="button"
+        className="arr-track-more"
+        aria-label={`${track.name} options`}
+        aria-haspopup="menu"
+        aria-expanded={!!menu}
+        onClick={(e) => {
+          e.stopPropagation();
+          st.selectTrack(track.id);
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          setMenu(menu ? null : { x: r.right + 4, y: r.top });
+        }}
+      >
+        <Icon name="more" size={16} />
+      </button>
+      {menu && (
+        <>
+          <div className="menu-backdrop" onClick={(e) => (e.stopPropagation(), setMenu(null))} />
+          <div
+            className="menu panel"
+            role="menu"
+            aria-label={`${track.name} options`}
+            style={{ left: Math.min(menu.x, window.innerWidth - 270), top: Math.min(menu.y, window.innerHeight - 330) }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="menu-title">{track.name}</span>
+            {track.kind === 'midi' && (
+              <button type="button" role="menuitem" onClick={act(() => st.setWorkbenchView('piano-roll'))}>
+                <Icon name="pencil" /> Edit notes
+              </button>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={act(() =>
+                void saveSongToLibrary(song, [track.id]).then(
+                  () => st.toast('success', 'Saved to Library'),
+                  (e) => st.toast('error', `Could not save to Library: ${String(e)}`),
+                ),
+              )}
+            >
+              <Icon name="book" /> Save track to Library
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={act(() =>
+                st.commit(setChannel(song, track.id, { mute: !ch.mute }), `${ch.mute ? 'Unmuted' : 'Muted'} ${track.name}`, 'mix'),
+              )}
+            >
+              <Icon name="minus" /> {ch.mute ? 'Unmute' : 'Mute'}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={act(() =>
+                st.commit(setChannel(song, track.id, { solo: !ch.solo }), `${ch.solo ? 'Unsoloed' : 'Soloed'} ${track.name}`, 'mix'),
+              )}
+            >
+              <Icon name="eye" /> {ch.solo ? 'Unsolo' : 'Solo'}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={act(() =>
+                st.toggleLock(LockKeys.track(track.id), `${locked ? 'Unlocked' : 'Locked'} ${track.name}`),
+              )}
+            >
+              <Icon name={locked ? 'unlock' : 'lock'} /> {locked ? 'Unlock track' : 'Lock track'}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={act(() => {
+                st.setRightPanel('inspector');
+                st.setMode('workbench');
+              })}
+            >
+              <Icon name="info" /> Track details
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function ArrangementView() {
   const song = useStudio((s) => s.project?.song ?? null);
@@ -286,31 +417,55 @@ export default function ArrangementView() {
             onPointerMove={onRulerMove}
             onPointerUp={onRulerUp}
           >
-            {layout.map((span) => (
-              <div
-                key={span.section.id}
-                style={{
-                  position: 'absolute',
-                  left: span.startTick * pxPerTick,
-                  width: (span.endTick - span.startTick) * pxPerTick,
-                  top: 0,
-                  height: SECTION_H,
-                  background: `color-mix(in srgb, ${sectionColor(span.section.kind)} 34%, var(--bg-elev-2))`,
-                  borderLeft: `3px solid ${sectionColor(span.section.kind)}`,
-                  borderRight: '1px solid var(--bg)',
-                  color: 'var(--text)',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: '3px 6px',
-                  overflow: 'hidden',
-                  whiteSpace: 'nowrap',
-                }}
-                title={`${span.section.name}${span.section.purpose ? ` — ${span.section.purpose}` : ''}`}
-              >
-                {span.section.name}
-                {song.locks[LockKeys.section(span.section.id)] ? ' 🔒' : ''}
-              </div>
-            ))}
+            {layout.map((span) => {
+              const locked = !!song.locks[LockKeys.section(span.section.id)];
+              const active = !!selection.sectionIds?.includes(span.section.id);
+              return (
+                <div
+                  key={span.section.id}
+                  className={`arr-section ${active ? 'active' : ''}`}
+                  style={{
+                    left: span.startTick * pxPerTick,
+                    width: (span.endTick - span.startTick) * pxPerTick,
+                    height: SECTION_H,
+                    ['--sec' as string]: sectionColor(span.section.kind),
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    className="arr-section-name"
+                    title={`Select ${span.section.name} (scope for changes and regeneration)${span.section.purpose ? ` — ${span.section.purpose}` : ''}`}
+                    aria-pressed={active}
+                    onClick={() =>
+                      st.setSelection(
+                        active
+                          ? { startTick: undefined, endTick: undefined, sectionIds: [], noteIds: [] }
+                          : {
+                              startTick: span.startTick,
+                              endTick: span.endTick,
+                              sectionIds: [span.section.id],
+                              noteIds: [],
+                            },
+                      )
+                    }
+                  >
+                    {span.section.name}
+                  </button>
+                  {(locked || active) && (
+                    <LockButton
+                      locked={locked}
+                      onToggle={() =>
+                        st.toggleLock(
+                          LockKeys.section(span.section.id),
+                          `${locked ? 'Unlocked' : 'Locked'} section ${span.section.name}`,
+                        )
+                      }
+                    />
+                  )}
+                </div>
+              );
+            })}
             <svg
               width={totalWidth}
               height={RULER_H}
@@ -385,39 +540,7 @@ export default function ArrangementView() {
             key={track.id}
             style={{ display: 'flex', height: view.trackHeight, borderBottom: '1px solid var(--border)' }}
           >
-            <div
-              onClick={() => st.selectTrack(track.id)}
-              style={{
-                position: 'sticky',
-                left: 0,
-                zIndex: 2,
-                width: HEAD_W,
-                flex: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '0 10px',
-                background: track.id === selectedTrackId ? 'var(--bg-elev-3)' : 'var(--bg-elev-1)',
-                borderRight: '1px solid var(--border)',
-                cursor: 'pointer',
-              }}
-            >
-              <span
-                style={{
-                  width: 4,
-                  alignSelf: 'stretch',
-                  margin: '8px 0',
-                  borderRadius: 2,
-                  background: track.color || colorForRole(track.role),
-                }}
-              />
-              <div style={{ minWidth: 0 }}>
-                <div className="ellipsis" style={{ fontWeight: 600, fontSize: 12 }}>
-                  {track.name}
-                </div>
-                <div className="ellipsis small dim">{track.role}</div>
-              </div>
-            </div>
+            <TrackHead song={song} track={track} selected={track.id === selectedTrackId} />
             <div style={{ position: 'relative', width: totalWidth, flex: 'none' }}>
               {layout.map((span) => (
                 <SectionBlock

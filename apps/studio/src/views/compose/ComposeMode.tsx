@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   BUILTIN_GENRES,
   blueprintFromChoices,
@@ -16,23 +16,22 @@ import {
 import { useStudio } from '../../state/store';
 import { useSettings } from '../../state/settings';
 import { useCustomGenres, useCustomInstruments } from '../../hooks';
-import { Badge, Button, Field, Select, TextArea } from '../../ui/kit';
+import { Badge, Button, Field, Select } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
+import { sectionColor } from '../../ui/theme';
 import { BlueprintEditor } from './BlueprintEditor';
 import { PlanTable } from './PlanTable';
-import { Builder } from './Builder';
-import { choicesForStart, draftLyrics, useComposeSession } from './session';
+import { SHAPE_SECTIONS, ShapeSections, formatDuration, useShapePreview } from './Shape';
+import { BasicsMeter, MaterialAside, MaterialSection, ReadinessLines, useReadiness } from './Material';
+import { choicesForStart, draftLyrics, useComposeSession, type ComposeStep } from './session';
 import { aiDesignBlueprint, aiPlanSong, aiLyrics, useRoleRoute, useAiRuntime } from '../../engine/ai';
 import { attachLibraryAssets } from '../../state/library';
-import { InputsPanel } from './InputsPanel';
 import { interpretInput, mergeComposeInputs, useComposeInputs } from './inputs';
 import { ProviderPicker } from '../shared/ProviderPicker';
 import { prototypeTargets, queuePrototype } from '../../engine/prototype';
 import { useProduceUi } from '../produce/state';
 import { openSettings } from '../settings/nav';
 import './compose.css';
-
-type Step = 'build' | 'blueprint' | 'plan';
 
 /** A descriptive working title ("Pop-Punk in E minor") for songs whose prompt named none. */
 function workingTitle(song: Song, genres: GenreProfile[]): string {
@@ -67,7 +66,9 @@ export default function ComposeMode() {
   const [audioTarget, setAudioTarget] = useState('auto');
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [plan, setPlan] = useState<CompositionPlan | null>(null);
-  const [step, setStep] = useState<Step>('build');
+  const step = session.step;
+  const setStep = useCallback((s: ComposeStep) => useComposeSession.getState().set({ step: s }), []);
+  const [prototype, setPrototype] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [inputLoading, setInputLoading] = useState(false);
   const [source, setSource] = useState<string>('');
@@ -201,6 +202,7 @@ export default function ComposeMode() {
     const projectId = useStudio.getState().project!.meta.id;
     st.selectTrack(song.tracks[0]?.id ?? null);
     st.setWorkbenchView('arrangement');
+    useComposeSession.getState().set({ step: 'material' });
     st.toast(
       'success',
       `Composed ${song.tracks.length} tracks across ${song.sections.length} sections${song.lyrics.length ? ` · ${song.lyrics.length} lyric lines` : ''}`,
@@ -311,189 +313,245 @@ export default function ComposeMode() {
     }
   };
 
-  const destination = project && project.song.tracks.length > 0 && (
-    <Field label="Destination">
+  const destination = (
+    <Field label="Make it as">
       <Select
-        value={target}
+        aria-label="Destination"
+        value={project && project.song.tracks.length > 0 ? target : 'new'}
+        disabled={!project || project.song.tracks.length === 0}
         onChange={setTarget}
         options={[
-          { value: 'new', label: 'New project' },
-          { value: 'replace', label: `Replace “${project.meta.name}” song (new revision)` },
+          { value: 'new', label: 'A new song' },
+          ...(project && project.song.tracks.length > 0
+            ? [{ value: 'replace' as const, label: `A new version of “${project.meta.name}”` }]
+            : []),
         ]}
       />
     </Field>
   );
 
-  const lyricsControls = (
-    <section className="panel" style={{ marginBottom: 16 }}>
-      <div className="panel-header">
-        <h3>Lyrics</h3>
-      </div>
-      <div className="panel-body col">
-        <Select
-          aria-label="Lyrics starting point"
-          value={session.lyricsMode}
-          disabled={!!busy || inputLoading}
-          onChange={(lyricsMode) => {
-            session.set({ lyricsMode });
-            if (lyricsMode === 'instrumental') session.patch({ vocal: 'none' });
-            else if (lyricsMode === 'placeholder')
-              session.patch({ vocal: 'tenor', vocalMode: 'placeholder' });
-            else session.patch({ vocal: 'auto', vocalMode: 'default' });
-          }}
-          options={[
-            { value: 'provided', label: 'Use my lyrics' },
-            { value: 'generate', label: 'Generate lyrics from a prompt' },
-            { value: 'placeholder', label: 'Placeholder lyrics' },
-            { value: 'instrumental', label: 'Instrumental' },
-          ]}
-        />
-        {session.lyricsMode === 'generate' && (
-          <>
-            <Field label="Lyrics model">
-              <ProviderPicker
-                role="lyrics"
-                value={session.lyricsProvider}
-                onChange={(lyricsProvider) => session.set({ lyricsProvider })}
-              />
-            </Field>
-            <TextArea
-              aria-label="Lyrics prompt"
-              value={session.draft.lyricsTheme}
-              onChange={(lyricsTheme) => session.patch({ lyricsTheme })}
-              placeholder="What should the lyrics be about?"
-            />
-            {(!lyricsRoute || lyricsRoute.internal) && (
-              <p className="small muted">Connect a lyrics model in Settings, or choose placeholder lyrics.</p>
-            )}
-          </>
+  const advanced = (
+    <>
+      {destination}
+      <Field label="Composition planner">
+        <ProviderPicker role="composition" value={session.planner} onChange={(planner) => session.set({ planner })} />
+      </Field>
+      <Field label="Audio version model" hint="Used when you also make an audio version">
+        {audioTargets.length > 0 ? (
+          <Select
+            aria-label="Audio prototype model"
+            value={audioTarget}
+            onChange={setAudioTarget}
+            options={[
+              { value: 'auto', label: 'Auto · connected audio models' },
+              ...audioTargets.map((t) => ({ value: t.value, label: t.label })),
+              ...(audioTarget !== 'auto' && !audioTargets.some((t) => t.value === audioTarget)
+                ? [{ value: audioTarget, label: 'Selected model unavailable', disabled: true }]
+                : []),
+            ]}
+          />
+        ) : (
+          <Button icon="plug" onClick={() => openSettings('providers', 'connect')}>
+            Connect an audio model
+          </Button>
         )}
-      </div>
-    </section>
+      </Field>
+    </>
   );
 
-  return (
-    <div className="mode-page">
-      <div className="mode-page narrow cb-page" style={{ padding: 0 }}>
-        <div className="page-header cb-header">
-          <div className="grow">
-            <h1>Compose</h1>
-            <div className="lede">
-              Choose a starting sound or describe your song. Generate editable MIDI, or go straight to an
-              audio prototype.
+  const readiness = useReadiness(model);
+  const { preview } = useShapePreview(customGenres, customInstruments);
+  const working = busy ?? (inputLoading ? 'Analyzing inputs…' : null);
+  const create = () => {
+    if (session.review) void fineTune();
+    else void generateSong(prototype && audioTargets.length > 0);
+  };
+  const lyrics = session.lyricsOn ? draftLyrics(session.draft) : undefined;
+  const sung = lyrics?.sections.filter((s) => s.lines.length).length ?? 0;
+
+  const steps: { step: ComposeStep; label: string; num: string; enabled: boolean }[] = [
+    { step: 'material', label: 'Material', num: '01', enabled: true },
+    { step: 'shape', label: 'Shape', num: '02', enabled: true },
+    ...(session.review || step === 'blueprint' || step === 'plan'
+      ? [
+          { step: 'blueprint' as const, label: 'Blueprint', num: '03', enabled: !!blueprint },
+          { step: 'plan' as const, label: 'Plan', num: '04', enabled: !!plan },
+        ]
+      : []),
+  ];
+  const order = steps.map((s) => s.step);
+
+  const summary = (
+    <aside className="compose-aside col" aria-labelledby="summary-h">
+      <div className="panel" data-testid="builder-actions">
+        <div className="aside-block">
+          <h2 id="summary-h" className="aside-title">
+            Your song so far
+          </h2>
+          <span className="aside-song">
+            {session.draft.title.trim() || (preview?.title && preview.title !== 'Untitled' ? preview.title : 'New song')}
+          </span>
+          {preview && (
+            <div className="aside-ribbon" aria-hidden="true">
+              {preview.structure
+                .filter((s) => s.bars > 0)
+                .map((s, i) => (
+                  <span key={i} style={{ flexGrow: s.bars, background: sectionColor(s.kind) }} title={s.name} />
+                ))}
             </div>
-          </div>
-          {step !== 'build' && (
-            <div className="row cb-steps">
-              {(['build', 'blueprint', 'plan'] as Step[]).map((s, i) => (
-                <Button
-                  key={s}
-                  size="sm"
-                  active={step === s}
-                  disabled={(s === 'blueprint' && !blueprint) || (s === 'plan' && !plan)}
-                  onClick={() => setStep(s)}
-                >
-                  {i + 1}. {s === 'build' ? 'Build' : s === 'blueprint' ? 'Fine-tune' : 'Plan'}
-                </Button>
-              ))}
+          )}
+          {preview && (
+            <div className="cb-summary small" data-testid="builder-summary">
+              <span>
+                <strong>{preview.instrumentation.length}</strong> tracks
+              </span>
+              <span>{preview.tempo} BPM</span>
+              <span>{keyName(preview.key)}</span>
+              <span>
+                {preview.meter.numerator}/{preview.meter.denominator}
+              </span>
+              <span>≈{formatDuration(preview)}</span>
+              {preview.tags?.length ? (
+                <span>{preview.tags.length === 1 ? '1 tag' : `${preview.tags.length} tags`}</span>
+              ) : null}
+              {sung > 0 && <span>{sung} sung sections</span>}
+            </div>
+          )}
+          {preview && preview.instrumentation.length > 0 && (
+            <div className="small muted ellipsis-2" title={preview.instrumentation.map((t) => t.name).join(', ')}>
+              {preview.instrumentation.map((t) => t.name).join(' · ')}
             </div>
           )}
         </div>
+        <div className="aside-block col" style={{ gap: 12 }}>
+          <BasicsMeter basics={readiness.basics} />
+          <ReadinessLines material={readiness.material} basics={readiness.basics} />
+          <Button
+            variant="primary"
+            size="lg"
+            className="cta"
+            icon="sparkles"
+            disabled={!readiness.ready || !!working}
+            onClick={create}
+          >
+            {working ?? (session.review ? 'Review the blueprint' : 'Create song')}
+          </Button>
+          {!readiness.ready && <span className="small muted">{readiness.blocked}</span>}
+          {audioTargets.length > 0 && !session.review && (
+            <label className="row small" style={{ gap: 8, minHeight: 32 }}>
+              <input type="checkbox" checked={prototype} onChange={(e) => setPrototype(e.target.checked)} />
+              Also make an audio version
+              <span className="dim">· provider charges may apply</span>
+            </label>
+          )}
+          <span className="small dim">
+            {model
+              ? `With ${route?.providerName}${session.draft.describe.trim() ? ' (your words + choices)' : ''}`
+              : 'On-device engine · works offline'}
+          </span>
+          <Button variant="ghost" icon="chevronRight" className="back-btn" onClick={() => setStep('material')}>
+            Back to material
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
 
-        {step === 'build' && (
+  return (
+    <div className="area-page compose-page" data-testid="compose-builder">
+      <header className="page-band measure-grid">
+        <svg className="band-art" width="420" height="210" viewBox="0 0 420 210" aria-hidden="true">
+          <path d="M60 70 L300 14 L384 176 L140 216 Z" />
+          <path d="M96 92 L330 58 L356 204 L122 236 Z" />
+          <path d="M140 120 L380 120 L380 230 L140 230 Z" className="lit" />
+        </svg>
+        <nav aria-label="Breadcrumb" className="crumbs">
+          <button type="button" className="crumb" onClick={() => st.setMode('home')}>
+            Songs
+          </button>
+          <span aria-hidden="true">/</span>
+          <span className="crumb-current">New song</span>
+        </nav>
+        <div className="row wrap" style={{ gap: '14px 32px', alignItems: 'flex-end' }}>
+          <h1>{step === 'material' ? 'Start a song' : step === 'shape' ? 'Shape the song' : 'Review before composing'}</h1>
+          <nav className="steps" aria-label="New song steps">
+            {steps.map((s) => (
+              <button
+                key={s.step}
+                type="button"
+                className={`step ${order.indexOf(s.step) < order.indexOf(step) ? 'done' : ''}`}
+                aria-current={step === s.step ? 'step' : undefined}
+                disabled={!s.enabled}
+                onClick={() => setStep(s.step)}
+              >
+                <span className="num" aria-hidden="true">
+                  {s.num}
+                </span>
+                {s.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+        {step === 'material' && (
+          <p className="lede">Bring what you have. Next, shape the style, instruments and feel.</p>
+        )}
+        {step === 'shape' && (
+          <nav className="section-index" aria-label="Sections">
+            {SHAPE_SECTIONS.map((s) => (
+              <a key={s.id} href={`#${s.id}`} className="chip">
+                <span className="mono">{s.n}</span> {s.label}
+              </a>
+            ))}
+          </nav>
+        )}
+      </header>
+
+      <div className="area-body compose-body">
+        {step === 'material' && (
           <>
-            {destination && (
-              <div className="row" style={{ marginBottom: 10 }}>
-                {destination}
-              </div>
-            )}
-            <details className="cb-disclosure" open={inputs.length > 0 || undefined}>
-              <summary>
-                Add recordings, MIDI or library material
-                {inputs.length ? ` (${inputs.length})` : ' (optional)'}
-              </summary>
-              <InputsPanel disabled={!!busy || inputLoading} onLoadingChange={setInputLoading} />
-            </details>
-
-            <fieldset
-              disabled={!!busy || inputLoading}
-              style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
-            >
-              <Builder
-                lyricsControls={lyricsControls}
-                prototypeControls={
-                  <div className="col cb-prototype">
-                    {audioTargets.length > 0 ? (
-                      <>
-                        <Field label="Audio prototype model">
-                          <Select
-                            aria-label="Audio prototype model"
-                            value={audioTarget}
-                            onChange={setAudioTarget}
-                            options={[
-                              { value: 'auto', label: 'Auto · connected audio models' },
-                              ...audioTargets.map((t) => ({ value: t.value, label: t.label })),
-                              ...(audioTarget !== 'auto' && !audioTargets.some((t) => t.value === audioTarget)
-                                ? [
-                                    {
-                                      value: audioTarget,
-                                      label: 'Selected model unavailable',
-                                      disabled: true,
-                                    },
-                                  ]
-                                : []),
-                            ]}
-                          />
-                        </Field>
-                        <Button
-                          variant="ai"
-                          size="lg"
-                          icon="wave"
-                          disabled={
-                            !!busy ||
-                            inputLoading ||
-                            (audioTarget !== 'auto' && !audioTargets.some((t) => t.value === audioTarget))
-                          }
-                          onClick={() => void generateSong(true)}
-                        >
-                          Quick prototype
-                        </Button>
-                        <div className="small muted">
-                          Generate MIDI, then produce and add audio automatically. Everything stays editable.
-                          Provider charges may apply.
-                        </div>
-                      </>
-                    ) : (
-                      <Button icon="plug" onClick={() => openSettings('providers', 'connect')}>
-                        Connect an audio model for quick prototypes
-                      </Button>
-                    )}
-                  </div>
-                }
+            <div className="compose-main">
+              <MaterialSection
+                model={model}
                 route={route}
-                busy={busy ?? (inputLoading ? 'Analyzing inputs…' : null)}
-                onGenerate={() => void generateSong()}
-                onFineTune={() => void fineTune()}
-                customGenres={customGenres}
-                customInstruments={customInstruments}
+                lyricsRoute={lyricsRoute}
+                busy={busy}
+                disabled={!!busy || inputLoading}
+                onLoadingChange={setInputLoading}
                 onSuggestFromLyrics={() => void suggestFromLyrics()}
+                onGenerate={create}
               />
+            </div>
+            <MaterialAside
+              model={model}
+              customGenres={customGenres}
+              busy={working}
+              onNext={() => setStep('shape')}
+              onCreate={() => void generateSong()}
+            />
+          </>
+        )}
+
+        {step === 'shape' && (
+          <>
+            <fieldset className="compose-main" disabled={!!busy || inputLoading}>
+              <ShapeSections customGenres={customGenres} customInstruments={customInstruments} advanced={advanced} />
             </fieldset>
+            {summary}
           </>
         )}
 
         {step === 'blueprint' && blueprint && (
-          <>
+          <div className="compose-wide">
             <div className="row wrap" style={{ marginBottom: 10 }}>
               <Badge tone="ai">
                 <Icon name="sparkles" size={11} /> {source || 'On-device engine'}
               </Badge>
               <span className="muted small">
-                {blueprint.title} · {blueprint.tempo} BPM · {blueprint.meter.numerator}/
-                {blueprint.meter.denominator} · {keyName(blueprint.key)}
+                {blueprint.title} · {blueprint.tempo} BPM · {blueprint.meter.numerator}/{blueprint.meter.denominator} ·{' '}
+                {keyName(blueprint.key)}
               </span>
               <div className="spacer" />
-              <Button onClick={() => setStep('build')}>Back</Button>
+              <Button onClick={() => setStep('shape')}>Back</Button>
               <Button
                 variant="primary"
                 icon="layers"
@@ -511,26 +569,21 @@ export default function ComposeMode() {
               }}
               genres={allGenres}
             />
-          </>
+          </div>
         )}
 
         {step === 'plan' && blueprint && plan && (
-          <>
+          <div className="compose-wide">
             <div className="row wrap" style={{ marginBottom: 10 }}>
               <Badge tone="ai">
                 <Icon name="sparkles" size={11} /> Plan by {source || 'On-device engine'}
               </Badge>
               <span className="muted small">
-                All MIDI generators consume this same plan (spec §15). Edit harmony, energy or purpose before
-                generating.
+                Every part is written from this plan. Edit harmony, energy or purpose before generating.
               </span>
               <div className="spacer" />
               <Button onClick={() => setStep('blueprint')}>Back</Button>
-              <Button
-                icon="rebuild"
-                disabled={!!busy || inputLoading}
-                onClick={() => void makePlan(blueprint)}
-              >
+              <Button icon="rebuild" disabled={!!busy || inputLoading} onClick={() => void makePlan(blueprint)}>
                 Re-plan
               </Button>
             </div>
@@ -551,8 +604,13 @@ export default function ComposeMode() {
                 </Button>
               </div>
             </div>
-          </>
+          </div>
         )}
+        {(step === 'blueprint' && !blueprint) || (step === 'plan' && (!blueprint || !plan)) ? (
+          <div className="compose-wide">
+            <Button onClick={() => setStep('shape')}>Back to Shape</Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

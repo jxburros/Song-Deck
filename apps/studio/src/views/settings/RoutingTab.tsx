@@ -154,8 +154,7 @@ export default function RoutingTab() {
     <>
       <TabHeader
         icon="sliders"
-        title="Profiles & routing"
-        spec="§6 §49 §59"
+        title="Which model does what"
         lede="Which provider handles each task — composition, MIDI edits, lyrics, analysis, transcription, separation, production, vocals, mixing, mastering — and why. Profiles assign providers per role; rules shape automatic choices."
       />
       <Panel title="Routing mode" icon="sliders">

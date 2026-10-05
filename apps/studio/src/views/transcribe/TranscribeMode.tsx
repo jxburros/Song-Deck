@@ -198,23 +198,25 @@ export default function TranscribeMode({ standalone = false }: { standalone?: bo
 
   return (
     <div className="mode-page" data-testid="transcribe-mode">
-      <div className="page-header">
-        <div className="grow">
-          <h1>Transcribe</h1>
-          <div className="lede">
-            Audio → MIDI. Hum a melody, sing a bass line, tap or clap a rhythm, play an instrument or drop in
-            a rough voice memo — the AI then refines <em>your</em> idea instead of inventing one. Every note
-            carries a confidence so uncertain material is easy to spot.
+      {!standalone && (
+        <div className="page-header">
+          <div className="grow">
+            <h1>Transcribe</h1>
+            <div className="lede">
+              Audio → MIDI. Hum a melody, sing a bass line, tap or clap a rhythm, play an instrument or drop
+              in a rough voice memo — the AI then refines <em>your</em> idea instead of inventing one. Every
+              note carries a confidence so uncertain material is easy to spot.
+            </div>
           </div>
+          {project ? (
+            <Badge tone="accent" title="Insert / replace targets this project">
+              <Icon name="folder" size={11} /> {project.meta.name}
+            </Badge>
+          ) : (
+            <Badge>{standalone ? 'Standalone · save or export your result' : 'No project open'}</Badge>
+          )}
         </div>
-        {project ? (
-          <Badge tone="accent" title="Insert / replace targets this project">
-            <Icon name="folder" size={11} /> {project.meta.name}
-          </Badge>
-        ) : (
-          <Badge>{standalone ? 'Standalone · save or export your result' : 'No project open'}</Badge>
-        )}
-      </div>
+      )}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'flex-start' }}>
         <div className="col" style={{ flex: '1 1 380px', maxWidth: 480, gap: 14, minWidth: 0 }}>

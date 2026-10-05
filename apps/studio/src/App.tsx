@@ -1,9 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { useStudio, type Mode } from './state/store';
 import { useSettings } from './state/settings';
-import { ProjectTimeline } from './views/shell/ProjectTimeline';
-import { TopBar, ProjectNavigation } from './views/shell/TopBar';
-import { StatusBar } from './views/shell/StatusBar';
+import { PlayerBar, Rail, SONG_MODES, SongHeader } from './views/shell/Shell';
 import { Toasts } from './views/shell/Toasts';
 import { ConfirmDialog } from './views/shell/ConfirmDialog';
 import { AttestationDialog } from './views/shared/AttestationDialog';
@@ -15,9 +13,11 @@ import { initRuntime } from './engine/runtime';
 
 const LibraryMode = lazy(() => import('./views/library/LibraryMode'));
 const SingleTrackMode = lazy(() => import('./views/single/SingleTrackMode'));
-const Home = lazy(() => import('./views/project/Home'));
+const SongsHome = lazy(() => import('./views/project/Home'));
 const ComposeMode = lazy(() => import('./views/compose/ComposeMode'));
 const Workbench = lazy(() => import('./views/workbench/Workbench'));
+const SoundMode = lazy(() => import('./views/sound/SoundMode'));
+const MoreTools = lazy(() => import('./views/tools/MoreTools'));
 const ExpandMode = lazy(() => import('./views/expand/ExpandMode'));
 const GenerateMode = lazy(() => import('./views/generate/GenerateMode'));
 const TranscribeMode = lazy(() => import('./views/transcribe/TranscribeMode'));
@@ -29,11 +29,13 @@ const ExportMode = lazy(() => import('./views/export/ExportMode'));
 const SettingsMode = lazy(() => import('./views/settings/SettingsMode'));
 
 const VIEWS: Record<Mode, React.LazyExoticComponent<React.ComponentType>> = {
-  home: Home,
+  home: SongsHome,
   library: LibraryMode,
   single: SingleTrackMode,
   compose: ComposeMode,
   workbench: Workbench,
+  sound: SoundMode,
+  tools: MoreTools,
   generate: GenerateMode,
   expand: ExpandMode,
   transcribe: TranscribeMode,
@@ -45,7 +47,7 @@ const VIEWS: Record<Mode, React.LazyExoticComponent<React.ComponentType>> = {
   settings: SettingsMode,
 };
 
-/** Modes usable without an open project. */
+/** Modes usable without an open song. */
 const PROJECTLESS: Mode[] = [
   'library',
   'single',
@@ -81,30 +83,30 @@ export function App() {
   });
 
   const effective: Mode = !hasProject && !PROJECTLESS.includes(mode) ? 'home' : mode;
+  const inSong = hasProject && SONG_MODES.includes(effective);
   const View = VIEWS[effective];
 
   return (
-    <div className="app">
-      <div className="app-header">
-        <TopBar />
-        <ProjectTimeline />
-        <ProjectNavigation />
+    <div className={`app ${inSong ? 'in-song' : ''}`}>
+      <Rail />
+      <div className="app-body">
+        {inSong && <SongHeader />}
+        <main className="main">
+          <ModeErrorBoundary mode={effective}>
+            <Suspense
+              fallback={
+                <div className="empty-state">
+                  <Spinner />
+                </div>
+              }
+            >
+              <View />
+            </Suspense>
+          </ModeErrorBoundary>
+          <TaskDrawer />
+        </main>
+        {inSong && <PlayerBar />}
       </div>
-      <main className="main">
-        <ModeErrorBoundary mode={effective}>
-          <Suspense
-            fallback={
-              <div className="empty-state">
-                <Spinner />
-              </div>
-            }
-          >
-            <View />
-          </Suspense>
-        </ModeErrorBoundary>
-        <TaskDrawer />
-      </main>
-      <StatusBar />
       <Toasts />
       <ConfirmDialog />
       <AttestationDialog />

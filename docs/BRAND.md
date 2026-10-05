@@ -20,8 +20,8 @@ AI proposals use neutral outlines and explicit labels; user actions and selected
 Yellow still marks locks and warnings, green success and red errors. Track colours remain a
 categorical palette so existing projects, instrument identities and note labels retain their meaning.
 
-The semantic tokens in `apps/studio/src/styles/theme.css` apply across the home screen, composer,
-editors, production, vocals, mixer, export and settings. Canvas views read those same tokens through
+The semantic tokens in `apps/studio/src/styles/theme.css` apply across the Songs screen, Start a song,
+Write, Sound, Export, More tools, Single Track, Library and settings. Canvas views read those same tokens through
 `src/ui/theme.ts`. Light mode uses deep teal (`#00677a`) for actions and focus, slate (`#475866`)
 for AI text, and dark text on pale backgrounds. Never use ice as small text on a light surface.
 
@@ -31,12 +31,28 @@ for AI text, and dark text on pale backgrounds. Never use ice as small text on a
 - **Inter Variable**: controls, labels and body text.
 - **JetBrains Mono Variable**: timing, tempo, numeric readouts and code.
 
-All fonts are bundled locally for offline use. The home screen has a split hero, three creation
-entry points and a project library. Thin borders and subtle angular corner details echo the artwork.
-Working views retain compact controls and the existing music workflows. Phones stack the hero and
-creation cards; the studio mode picker and transport remain reachable.
+All fonts are bundled locally for offline use. The Songs screen has a split hero, four start tiles
+(lyrics, audio, MIDI, prompt) and the song library. Phones stack the hero and tiles; the rail becomes a
+bottom bar and the player bar stays reachable.
 
-Interactive controls retain full rectangular hit areas and visible keyboard focus. Project cards have
+## Geometric language
+
+`apps/studio/src/styles/geometry.css` carries the shape system on top of the tokens. Corner radii are
+zero everywhere.
+
+- **Cut corners.** Buttons, cards, panels and modals lose their bottom-right corner (`--cut-size`), with
+  a fine diagonal hairline across the cut. Primary and AI buttons colour the hairline.
+- **Lit brackets.** Panels, modals and anything marked `.lit` carry a short accent bracket at the
+  top-left; `.panel.quiet` drops it for dense lists.
+- **Slants.** Chips, badges, tabs and step tabs are parallelograms; selected chips and tabs fill with
+  ice. Steps carry a mono index (`01 Write`, `02 Sound`, `03 Export`).
+- **Diamonds.** Status, save state and list markers are rotated squares (`.diamond`, `.ok`, `.ai`,
+  `.warn`, `.off`); slider thumbs are diamonds and toggles are square.
+- **Ornament.** Page bands sit on a faint measure grid (`.measure-grid`); callouts and empty states use
+  hatching (`.hatch`, `.hatch-soft`); section titles are mono rules with an index (`.rule-title`).
+- **Focus.** Because clip-path clips outer shadows, focus rings are inset (`box-shadow: inset`).
+
+Interactive controls keep large hit areas (a cut removes only a small corner) and visible keyboard focus. Project cards have
 separate native buttons for opening and deleting, avoiding nested interactive elements. Decorative
 artwork is hidden from assistive technology; names and actions are real HTML text.
 
@@ -62,5 +78,6 @@ The older `docs/brand/logo-*` explorations are archived concepts, not current pr
 `apps/studio/test/theme-contrast.test.ts` checks WCAG AA text contrast and 3:1 UI indicators in
 both themes, including translucent badges, editor backgrounds and track colours. The Playwright
 accessibility suite scans the main screens in dark and light modes. Visual review should include
-home, composer, a populated project library and phone layouts. Vixl checks certify the rules it
+Songs, Start a song (Material and Shape), Write, Sound, Export, More tools, Single Track, Library and
+phone layouts. Vixl checks certify the rules it
 measures; the generated art and the integrated app must also be previewed visually.

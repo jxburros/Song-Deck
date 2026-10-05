@@ -23,18 +23,18 @@ export type Interpretation = 'preserve' | 'light' | 'moderate' | 'free';
 export const INTERPRETATIONS: { value: Interpretation; label: string; hint: string }[] = [
   {
     value: 'preserve',
-    label: 'Preserve',
+    label: 'Exactly',
     hint: 'Keep the performance and audio unchanged; lock these tracks.',
   },
   {
     value: 'light',
-    label: 'Light',
+    label: 'Closely',
     hint: 'Keep pitches and rhythm; vary expression, articulations, ornaments and fills.',
   },
-  { value: 'moderate', label: 'Moderate', hint: 'Keep harmony, motifs and structure; vary accompaniment.' },
+  { value: 'moderate', label: 'Loosely', hint: 'Keep harmony, motifs and structure; vary accompaniment.' },
   {
     value: 'free',
-    label: 'Free',
+    label: 'Just for ideas',
     hint: 'Use the musical identity as a starting point for new MIDI material.',
   },
 ];

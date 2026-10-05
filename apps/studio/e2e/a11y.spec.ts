@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { composeQuickSong, openComposer } from './compose-helpers';
+import { addQuickLyrics, composeQuickSong, openComposer, openShape } from './compose-helpers';
+import { openArea, openMoreTools, openTool, songStep } from './nav';
 
 /**
  * Automated accessibility checks (axe-core, WCAG 2.1 A/AA) on the main screens in both themes.
@@ -31,7 +32,6 @@ async function setTheme(page: Page, theme: 'dark' | 'light'): Promise<void> {
 test('main screens have no WCAG A/AA violations in either theme', async ({ page }) => {
   test.setTimeout(180_000);
   const found: string[] = [];
-  const nav = page.getByRole('navigation', { name: 'Project tools' });
   const both = async (label: string) => {
     for (const theme of ['dark', 'light'] as const) {
       await setTheme(page, theme);
@@ -41,26 +41,34 @@ test('main screens have no WCAG A/AA violations in either theme', async ({ page 
   };
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'AI proposes. You shape it.' })).toBeVisible();
-  await both('Home');
+  await expect(page.getByRole('heading', { name: 'Make a song' })).toBeVisible();
+  await both('Songs');
 
   await openComposer(page);
-  await both('Compose builder');
-  await page
-    .getByTestId('compose-builder')
-    .getByRole('tab', { name: /^Lyrics/ })
-    .click();
-  await both('Compose lyrics');
+  await addQuickLyrics(page);
+  await both('Start a song · Material');
+  await openShape(page);
+  await both('Start a song · Shape');
 
   await composeQuickSong(page, 'Alt-rock band');
-  await both('Workbench');
-  for (const mode of ['Vocals', 'Mix & Master', 'Export'] as const) {
-    await nav.getByRole('button', { name: mode, exact: true }).click();
+  await both('Write');
+  for (const step of ['Sound', 'Export'] as const) {
+    await songStep(page, step);
     await page.waitForTimeout(300);
-    await both(mode);
+    await both(step);
   }
-  await page.getByTitle(/^Settings/).click();
-  await both('Settings');
+  await openMoreTools(page);
+  await both('More tools');
+  for (const tool of ['Lyrics', 'Full console'] as const) {
+    await openTool(page, tool);
+    await page.waitForTimeout(300);
+    await both(tool);
+  }
+  for (const area of ['Single Track', 'Library', 'Settings'] as const) {
+    await openArea(page, area);
+    await page.waitForTimeout(300);
+    await both(area);
+  }
 
   expect(found, found.join('\n')).toEqual([]);
 });

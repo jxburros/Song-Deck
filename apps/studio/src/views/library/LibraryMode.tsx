@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { randomId } from '@songdeck/core';
+import { colorForRole, keyName, PPQ, randomId, type AudioClip, type Song } from '@songdeck/core';
 import {
   attachLibraryAssets,
   exportLibraryItem,
@@ -9,9 +9,126 @@ import {
   type LibraryItem,
 } from '../../state/library';
 import { useStudio } from '../../state/store';
-import { Button, FileButton, TextInput, Select, Modal } from '../../ui/kit';
+import { Button, FileButton, TextInput, Modal } from '../../ui/kit';
+import { useComposeSession } from '../compose/session';
 import { mergeComposeInputs, playableItem, useComposeInputs } from '../compose/inputs';
 import { SaveLibraryButton } from './SaveLibraryButton';
+
+const KINDS: { value: string; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'midi', label: 'MIDI parts' },
+  { value: 'collection', label: 'Track sets' },
+  { value: 'audio', label: 'Audio' },
+  { value: 'file', label: 'Lyrics and files' },
+];
+
+function describeItem(item: LibraryItem): string {
+  const tracks = item.song?.tracks.length ?? 0;
+  switch (item.kind) {
+    case 'midi':
+      return 'MIDI part';
+    case 'collection':
+      return `Track set · ${tracks} track${tracks === 1 ? '' : 's'}`;
+    case 'audio':
+      return 'Audio';
+    default:
+      return item.file ? (item.file.name.split('.').pop()?.toUpperCase() ?? 'File') : 'File';
+  }
+}
+
+function itemMeta(song?: Song): string {
+  if (!song) return '';
+  const parts: string[] = [];
+  if (song.keyMap[0]) parts.push(keyName(song.keyMap[0].key));
+  if (song.tempoMap[0]) parts.push(`${Math.round(song.tempoMap[0].bpm)} BPM`);
+  if (song.meterMap[0]) parts.push(`${song.meterMap[0].numerator}/${song.meterMap[0].denominator}`);
+  return parts.join(' · ');
+}
+
+/** Rough clip length in ticks at the song's opening tempo (enough for a thumbnail). */
+const clipTicks = (song: Song, c: AudioClip) =>
+  Math.round(c.durationSeconds * ((song.tempoMap[0]?.bpm ?? 120) / 60) * PPQ);
+
+/** A small picture of the item: notes for a part, lanes for a track set, a wave for audio. */
+function LibraryPreview({ item }: { item: LibraryItem }) {
+  const song = item.song;
+  const notes =
+    song?.tracks.flatMap((t) => t.notes.map((n) => ({ ...n, role: t.role, color: t.color }))) ?? [];
+  if (item.kind === 'midi' && notes.length) {
+    const end = Math.max(...notes.map((n) => n.tick + n.duration), 1);
+    const lo = Math.min(...notes.map((n) => n.pitch));
+    const hi = Math.max(...notes.map((n) => n.pitch), lo + 1);
+    return (
+      <div className="lib-preview" aria-hidden="true">
+        {notes.slice(0, 160).map((n) => (
+          <span
+            key={n.id}
+            className="lib-note"
+            style={{
+              left: `${(n.tick / end) * 100}%`,
+              width: `max(2px, calc(${(n.duration / end) * 100}% - 1px))`,
+              top: `${88 - ((n.pitch - lo) / (hi - lo)) * 76}%`,
+              background: n.color || colorForRole(n.role),
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+  if (song && song.tracks.length > 1) {
+    const end = Math.max(
+      ...song.tracks.flatMap((t) => [
+        ...t.notes.map((n) => n.tick + n.duration),
+        ...t.clips.map((c) => c.tick + clipTicks(song, c)),
+      ]),
+      1,
+    );
+    return (
+      <div className="lib-preview lanes" aria-hidden="true">
+        {song.tracks.slice(0, 6).map((t) => {
+          const starts = [...t.notes.map((n) => n.tick), ...t.clips.map((c) => c.tick)];
+          const ends = [
+            ...t.notes.map((n) => n.tick + n.duration),
+            ...t.clips.map((c) => c.tick + clipTicks(song, c)),
+          ];
+          const a = starts.length ? Math.min(...starts) : 0;
+          const b = ends.length ? Math.max(...ends) : 0;
+          return (
+            <span key={t.id} className="lib-lane">
+              <span
+                style={{
+                  left: `${(a / end) * 100}%`,
+                  width: `${((b - a) / end) * 100}%`,
+                  background: t.color || colorForRole(t.role),
+                }}
+              />
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+  if (item.kind === 'audio') {
+    const seed = item.name.length;
+    return (
+      <div className="lib-preview wave" aria-hidden="true">
+        {Array.from({ length: 36 }, (_, i) => (
+          <span
+            key={i}
+            style={{
+              height: `${Math.max(10, Math.abs(Math.sin(i * (0.6 + seed / 40)) * 0.7 + Math.sin(i * 0.5) * 0.3) * 100)}%`,
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="lib-preview hatch-soft file" aria-hidden="true">
+      <span className="mono small">{describeItem(item)}</span>
+    </div>
+  );
+}
 
 export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => void }) {
   const { items, refresh, save, remove } = useLibrary();
@@ -55,21 +172,12 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
   };
   return (
     <div className="col" style={{ gap: 16 }}>
-      <div className="row wrap">
+      <div className="row wrap lib-toolbar">
         <TextInput
           value={search}
           onChange={setSearch}
-          placeholder="Search your library"
+          placeholder="Search the Library"
           aria-label="Search library"
-        />
-        <Select
-          value={kind}
-          onChange={setKind}
-          aria-label="Library type"
-          options={['all', 'midi', 'collection', 'audio', 'file'].map((value) => ({
-            value,
-            label: value === 'all' ? 'All items' : value,
-          }))}
         />
         <FileButton
           multiple
@@ -81,19 +189,33 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
           }
           icon="upload"
         >
-          Import files
+          Upload
         </FileButton>
         {!onPick && project && (
-          <SaveLibraryButton song={project.song} label="Save project tracks as collection" />
+          <SaveLibraryButton song={project.song} label={`Save all tracks of ${project.meta.name}`} />
         )}
       </div>
-      <p className="small muted">
-        Saved on this device across projects. Reuse creates independent copies. Export files or complete track
-        collections at any time.
-      </p>
+      <div className="chip-list" role="radiogroup" aria-label="Library type">
+        {KINDS.map((k) => (
+          <button
+            key={k.value}
+            type="button"
+            role="radio"
+            aria-checked={kind === k.value}
+            className={`chip ${kind === k.value ? 'on' : ''}`}
+            onClick={() => setKind(k.value)}
+          >
+            {k.label}
+          </button>
+        ))}
+      </div>
       {!items.length && (
-        <div className="card">
-          Your library is empty. Import files or save tracks and generated results here.
+        <div className="lib-empty hatch-soft">
+          <strong>Nothing kept yet</strong>
+          <span className="small muted">
+            Upload audio, MIDI, lyrics or a .songproject, save tracks from a song, or keep anything you make
+            in Single Track. Saved on this device; using an item makes an independent copy.
+          </span>
         </div>
       )}
       <div className="library-grid">
@@ -104,13 +226,38 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
               item.name.toLowerCase().includes(search.toLowerCase()),
           )
           .map((item) => (
-            <article className="card col" key={item.id} data-testid="library-item">
-              <strong>{item.name}</strong>
-              <span className="small muted">
-                {item.kind}
-                {item.song ? ` · ${item.song.tracks.length} tracks` : ''}
-              </span>
-              <div className="row wrap">
+            <article className="panel quiet lib-card" key={item.id} data-testid="library-item">
+              <LibraryPreview item={item} />
+              <div className="lib-card-body">
+                <div className="lib-card-top">
+                  <span className="lib-kind grow">{describeItem(item)}</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon="download"
+                    aria-label={`Download ${item.name}`}
+                    title="Download"
+                    onClick={() => void perform(async () => exportLibraryItem(item))}
+                  />
+                  {!onPick && (
+                    <Button
+                      size="sm"
+                      icon="trash"
+                      variant="ghost"
+                      aria-label={`Delete ${item.name} from library`}
+                      title={`Delete ${item.name} from library`}
+                      onClick={() => setDeleting(item)}
+                    />
+                  )}
+                </div>
+                <strong className="lib-name">{item.name}</strong>
+                <span className="small dim">{itemMeta(item.song)}</span>
+                <span className={`lib-source ${item.file ? 'upload' : ''}`}>
+                  {item.file ? 'Uploaded' : 'Saved in Song Deck'} ·{' '}
+                  {new Date(item.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="lib-actions">
                 {onPick ? (
                   <Button disabled={busy || item.kind === 'file'} onClick={() => onPick(item)}>
                     Use this input
@@ -118,36 +265,30 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
                 ) : (
                   <>
                     <Button
+                      variant="primary"
+                      size="sm"
                       disabled={busy || item.kind === 'file'}
                       onClick={() =>
                         void perform(async () => {
                           useComposeInputs.getState().add(await playableItem(item));
+                          useComposeSession.getState().start(item.kind === 'audio' ? 'audio' : 'midi');
                           st.setMode('compose');
                         })
                       }
                     >
-                      Use in Compose
+                      Start a song with it
                     </Button>
                     {project && (
                       <Button
+                        size="sm"
                         disabled={busy || item.kind === 'file'}
+                        title={`Add an independent copy to ${project.meta.name}`}
                         onClick={() => void perform(() => addToProject(item))}
                       >
-                        Add copy to project
+                        Add to this song
                       </Button>
                     )}
                   </>
-                )}
-                <Button icon="download" onClick={() => void perform(async () => exportLibraryItem(item))}>
-                  Export
-                </Button>
-                {!onPick && (
-                  <Button
-                    icon="trash"
-                    variant="ghost"
-                    title={`Delete ${item.name} from library`}
-                    onClick={() => setDeleting(item)}
-                  />
                 )}
               </div>
             </article>
@@ -179,14 +320,18 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
 }
 export default function LibraryMode() {
   return (
-    <div className="mode-page">
-      <div className="page-header">
-        <div>
-          <h1>Library</h1>
-          <p className="lede">Your saved tracks, collections, audio, and files.</p>
-        </div>
+    <div className="area-page library-page">
+      <header className="page-band measure-grid">
+        <span className="eyebrow-rule">Library</span>
+        <h1>Everything you keep</h1>
+        <p className="lede">
+          Uploads, parts saved from your songs and anything from Single Track. Use any of it in any song; each
+          use is an independent copy.
+        </p>
+      </header>
+      <div className="area-body">
+        <LibraryBrowser />
       </div>
-      <LibraryBrowser />
     </div>
   );
 }

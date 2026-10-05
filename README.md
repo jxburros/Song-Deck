@@ -74,43 +74,65 @@ and `SHA256SUMS.txt`. Existing older installations need a one-time manual upgrad
 
 ## Making a song
 
-- **Compose** accepts any combination of a model-backed text prompt, audio recordings or rough ideas,
-  MIDI files, saved library items, lyrics, and an editable composer table. Each recording or MIDI input
-  has its own start bar and interpretation level: Preserve (the default), Light, Moderate, or Free.
-  Preserved material retains its playback timing and is locked in the resulting song. Reinterpreting
-  audio first reconstructs editable MIDI; the original recording is retained as a project asset.
-- **Quick prototype** in Compose saves editable MIDI, immediately queues a connected audio model, and
-  adds the resulting mix or stems automatically. Choose the audio model or let Auto pick one; models
-  that can follow MIDI or a rendered guide are preferred. Prompt-only models can reinterpret the song.
-  The MIDI and audio candidate remain available for editing and regeneration. If you edit the
-  composition during generation, the result is saved as a candidate for you to apply. Normal provider
-  charges apply. Sound customization, song settings, and optional inputs expand when needed.
+The studio has four areas, always on the left rail (a bottom bar on phones): **Songs**, **Single
+Track**, **Library** and **Settings**.
+
+- **Start a song** from the Songs screen with one or more starting points: full or partial
+  **lyrics**, **audio** (upload recordings, or hum, sing or play one live), **MIDI** tracks, or a
+  **prompt** (when a text model is connected). Add as many as you like on the **Material** step;
+  each recording or MIDI input keeps its own start bar and interpretation: Exactly (the default),
+  Closely, Loosely, or Just for ideas. Exact material retains its playback timing and is locked in the
+  resulting song. Reinterpreting audio first reconstructs editable MIDI; the original recording is
+  retained as a project asset.
+- A song needs some material **and** at least one basic: a style, mood, instrument, tempo, key or
+  length. Values detected from your material (tempo, key, meter, sections) count. The **Shape** step
+  holds everything else: starting points, genre blend, moods by section, tags, instruments and counts,
+  song settings, the feel macros, and advanced options (planner, seed, destination, and an optional
+  review of the blueprint and composition plan). **Create now, rest on Auto** skips Shape.
+- **Rebuild a full recording** and **Develop a short clip** (Expand MIDI) are offered on the Material
+  step.
 - **Lyrics** can be supplied, generated from a prompt with a configured lyrics model, replaced by
   clearly marked placeholders, or omitted for an instrumental song.
-- **Single Track** creates standalone MIDI, renders an instrument part to WAV, or converts recorded
-  audio to MIDI. It keeps separate settings from project track tools. Results can be exported or
-  explicitly saved to the Library.
-- **Library** keeps tracks, track collections, audio, and other files in browser storage independently
-  of projects. Reusing an item makes a fresh copy; deleting a project does not delete the saved item.
-  Save from generation results, workbench track selections, recent exports, or import files directly.
-- The header identifies the open project. Its compact arrangement timeline shows tracks, clips,
-  sections, and a live playhead, with click-to-seek and a keyboard-accessible seek control.
-- **Project tools** group the workbench, track generation/transcription, production, vocals, mixing,
-  and export beneath the project timeline.
-- **Connect an AI service** from Home or Settings → Providers: paste a service API key and click
+- An open song has three steps in its header: **Write** (the arrangement and piano roll beside a
+  **Change** panel: describe a change in words, keep or discard proposals, regenerate a range, track
+  or everything unlocked, lock, edit notes, save tracks to the Library), **Sound** (instrument and
+  level per track, mute and solo, built-in instruments or an AI audio version, and one **Polish for
+  release** switch for mastering), and **Export** (the song, stems, MIDI, a project backup or Save to
+  Library in one click; every other format under **More formats**).
+- **More tools** in the song header lists every detailed editor, grouped and searchable: pattern,
+  chords, structure and theory; macros and locks; vocals (lyrics, melody, expression, singer, takes,
+  voices, conversion); production (guide sound, production plan, audio versions, region
+  regeneration); the full mixing console, automation and mastering; history and branches;
+  variations and Song DNA; the inspector with provenance and rights; the assistant; and adding a part
+  from words or from audio.
+- **Make an audio version** (on Sound, or **Also make an audio version** when creating) saves
+  editable MIDI, queues a connected audio model, and adds the resulting mix or stems. Choose the audio
+  model in Shape's advanced options or let Auto pick one; models that can follow MIDI or a rendered
+  guide are preferred. If you edit the composition during generation, the result is saved as a
+  version for you to apply. Normal provider charges apply.
+- **Single Track** makes one part with no song open: **Audio to MIDI** (hum, sing, tap, clap or
+  upload), **Generate MIDI**, or **Generate audio** (one instrument rendered to WAV). It keeps
+  separate settings from a song's own tools. Results can be downloaded, saved to the Library, or used
+  to **start a song**.
+- **Library** keeps tracks, track sets, audio, lyrics and other files in browser storage independently
+  of songs. Using an item makes a fresh copy; deleting a song does not delete the saved item. Save from
+  Single Track results, a track's menu in Write, Export, recent exports, or upload files directly.
+- The player bar under every song screen has transport, the section strip with a click-to-seek and
+  keyboard-accessible seek control, loop and metronome.
+- **Connect an AI service** from the Songs screen or Settings → AI services: paste a service API key and click
   **Connect and use**. Song Deck validates the key and enables recommended text and audio models for
   compatible tasks without repeated permission prompts. Connecting preserves your routing preferences;
   model choices are optional and remain available after reload. Choose the service when its key format
   is ambiguous. Local and custom endpoints have a **Save and connect** action in the provider editor.
   Existing connections have an **Allow requests** shortcut. Permissions
-  can be changed in Settings → Privacy. Keys stay in the local server's vault or,
+  can be changed in Settings → Privacy and spending. Keys stay in the local server's vault or,
   without it, encrypted in the browser ([`docs/CREDENTIALS.md`](./docs/CREDENTIALS.md)).
 - Uploaded audio uses the existing rights attestation flow; see [`docs/RIGHTS.md`](./docs/RIGHTS.md).
 
 ### Local AI models (optional)
 
 Local engines plug in through small JSON/HTTP contracts. To try the whole pipeline without any
-model, run the dependency-free mock bridge and add a local preset under Settings → Providers:
+model, run the dependency-free mock bridge and add a local preset under Settings → AI services:
 
 ```bash
 python3 bridges/mock_bridge.py --role all   # music, singing, separation, transcription, voice, mastering on :8810-8815
@@ -121,7 +143,8 @@ Reference bridges for ACE-Step, DiffSinger, Demucs, Basic Pitch, RVC and Matcher
 
 ### Plugins
 
-Enable the bundled examples under Settings → Plugins (the local server must be running). How to
+Enable the bundled examples under Settings → Advanced → Plugins, genres, instruments (the local
+server must be running). How to
 write your own: [`docs/PLUGINS.md`](./docs/PLUGINS.md).
 
 ## Repository layout

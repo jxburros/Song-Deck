@@ -12,7 +12,7 @@ import {
 } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { Badge, Button, Select } from '../../ui/kit';
-import { colorForRole } from './SidePanel';
+import { colorForRole } from './tracks';
 import { auditionNote } from '../../engine/audition';
 
 /** Pattern View (spec §18): loop & phrase editing with "apply to every repetition". */

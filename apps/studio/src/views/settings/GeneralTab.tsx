@@ -129,11 +129,6 @@ export default function GeneralTab() {
               aria-label="Your name"
             />
           </Field>
-          <Toggle
-            on={s.showTheoryHints}
-            onChange={(showTheoryHints) => s.update({ showTheoryHints })}
-            label="Show theory hints in the workbench"
-          />
         </Panel>
 
         <Panel

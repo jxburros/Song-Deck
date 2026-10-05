@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { trackHeader } from './nav';
 
 /**
  * Plugin ecosystem end to end (spec §57 "Instruments: Soundfonts"): the local server serves the
@@ -85,11 +86,12 @@ test('an enabled SFZ instrument plugin renders tracks with its samples', async (
   await composeQuickSong(page, 'Dreamy synth-pop');
 
   // The sampled instrument is offered like a built-in one; add a generated track with it.
-  await page.locator('.wb-left').getByRole('button', { name: 'Add', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  await page.getByRole('button', { name: 'Add track', exact: true }).click();
+  await page.getByRole('menuitem', { name: /Instrument track/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add instrument track' });
   await dialog.locator('select').first().selectOption({ value: 'felt-keys' });
   await dialog.getByRole('button', { name: 'Add track' }).click();
-  await expect(page.locator('.wb-left .track-row', { hasText: 'Felt Keys (sampled)' })).toBeVisible();
+  await expect(trackHeader(page, 'Felt Keys (sampled)')).toBeVisible();
 
   // Render the new track in the offline job worker with the samples, then with the fallback patch.
   const result = (await page.evaluate(`(async () => {

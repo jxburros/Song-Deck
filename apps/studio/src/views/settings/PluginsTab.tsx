@@ -57,8 +57,7 @@ export default function PluginsTab() {
     <>
       <TabHeader
         icon="layers"
-        title="Plugins & profiles"
-        spec="§14 §17 §57"
+        title="Plugins, genres, instruments"
         lede="Extend Song Deck with community plugins — AI providers, music models, singing and transcription engines, instruments, genre profiles, exporters — and shape composition with your own genre and instrument profiles."
       />
       <Tabs

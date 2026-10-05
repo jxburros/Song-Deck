@@ -1,8 +1,10 @@
 import { encodeWav, renderSong } from '../../../packages/audio/src';
 import { midiToSong } from '../../../packages/core/src';
 import { attestUpload } from './rights';
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { createEmptySong, defaultChannelStrip, songToMidi } from '../../../packages/core/src';
+import { openComposer } from './compose-helpers';
+import { stepButton } from './nav';
 
 function clip() {
   const song = createEmptySong({ id: 'expand-source', title: 'Short hook', seed: 1, bpm: 120 });
@@ -31,9 +33,16 @@ function clip() {
   return Buffer.from(songToMidi(song));
 }
 
+/** Develop a short clip is offered on Start a song's Material step. */
+async function openExpand(page: Page) {
+  await openComposer(page);
+  await page.getByRole('button', { name: 'Develop a short clip', exact: true }).click();
+  await expect(page.getByTestId('expand-mode')).toBeVisible();
+}
+
 test('expand an imported hook, vary it, download MIDI and open a new project', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Expand', exact: true }).click();
+  await openExpand(page);
   const view = page.getByTestId('expand-mode');
   await view
     .locator('input[type=file]')
@@ -58,15 +67,15 @@ test('expand an imported hook, vary it, download MIDI and open a new project', a
   await expect(result).toBeVisible();
   await expect(view.getByLabel('Expansion seed')).not.toHaveValue('23');
   await result.getByRole('button', { name: 'Open as new project' }).click();
-  await expect(page.getByRole('button', { name: 'Workbench', exact: true })).toHaveClass(/active/);
-  await page.getByRole('button', { name: 'Expand', exact: true }).click();
+  await expect(stepButton(page, 'Write')).toHaveAttribute('aria-current', 'page');
+  await openExpand(page);
   await expect(page.getByTestId('expansion-result')).toBeVisible();
 });
 
 test('source labels and arrangement remain usable on narrow screens', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.getByRole('combobox', { name: /mode/i }).selectOption('expand');
+  await openExpand(page);
   const view = page.getByTestId('expand-mode');
   await view
     .locator('input[type=file]')
@@ -85,7 +94,7 @@ test('transcribes an audio clip locally and expands after the existing upload at
   const audio = renderSong(midiToSong(clip()), { sampleRate: 22050 });
   const wav = Buffer.from(encodeWav(audio));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Expand', exact: true }).click();
+  await openExpand(page);
   const view = page.getByTestId('expand-mode');
   await view
     .locator('input[type=file]')

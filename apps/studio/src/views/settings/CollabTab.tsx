@@ -67,7 +67,6 @@ export default function CollabTab() {
       <TabHeader
         icon="users"
         title="Collaboration"
-        spec="Phase 5"
         lede="Share a project through the local Song Deck server and work on it together in real time: every commit reaches the room, concurrent work forks onto collaborator branches instead of overwriting, and you can comment on sections, tracks and bars."
       />
       {server !== 'online' && (

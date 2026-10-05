@@ -3,10 +3,11 @@ import { Badge, Button } from '../../../ui/kit';
 import { Icon } from '../../../ui/icons';
 
 /** Proposed Change System (spec §21): Current MIDI → AI proposal → visual diff → Accept / Reject / Modify. */
-export default function ProposalsPanel() {
+export default function ProposalsPanel({ pendingOnly = false }: { pendingOnly?: boolean } = {}) {
   const proposals = useStudio((s) => s.proposals);
   const activeId = useStudio((s) => s.activeProposalId);
   const st = useStudio.getState();
+  if (pendingOnly && !proposals.some((p) => p.status === 'pending')) return null;
   if (!proposals.length)
     return (
       <div className="small muted">
@@ -82,7 +83,7 @@ export default function ProposalsPanel() {
           </div>
         );
       })}
-      {past.length > 0 && (
+      {!pendingOnly && past.length > 0 && (
         <>
           <h4 style={{ marginTop: 8 }}>Earlier</h4>
           {past.map((p) => (

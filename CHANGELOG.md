@@ -6,6 +6,36 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Redesigned studio.** Four areas on a left rail (a bottom bar on phones): Songs, Single Track,
+  Library and Settings. An open song has three steps — Write, Sound and Export — plus **More tools**,
+  a grouped, searchable list of every detailed editor (pattern, chords, structure, theory, macros,
+  locks, vocals, production, mixing console, automation, mastering, history, variations, inspector,
+  assistant). The top bar, status bar and project timeline are replaced by a song header and a player
+  bar with a keyboard-accessible seek control.
+- **Start a song** in two steps. **Material**: lyrics, audio (uploaded or recorded live), MIDI and,
+  with a text model connected, a prompt — any combination. **Shape**: starting points, genre blend,
+  moods, tags, instruments, song settings, feel and advanced options on one screen. A song needs some
+  material and at least one basic (style, mood, instrument, tempo, key or length); detected values
+  count. Rebuild and Expand are reachable from the Material step.
+- **Write** pairs the arrangement with a single Change panel (changes in words, pending proposals,
+  regenerate, lock, edit notes, save to Library); track actions live in each track's menu.
+- **Sound** gathers instruments, levels, mute and solo, built-in versus AI audio versions, and one
+  Polish for release switch. **Export** offers five one-click exports (song, stems, MIDI, project
+  backup, Save to Library) with every other format under More formats.
+- **Single Track** offers Audio to MIDI, Generate MIDI and Generate audio, and any result can start a
+  song. **Library** has kind filters, previews and Start a song / Add to this song actions.
+- **Settings** lead with AI services, Privacy and spending (budget joined to privacy) and General;
+  routing, models, render nodes, plugins and collaboration sit under Advanced. Deep links keep working.
+- Geometric visual language throughout: cut corners, lit brackets, slanted chips and tabs, diamonds,
+  measure-grid page bands and zero corner radii (see `docs/BRAND.md`).
+- An offline marker on the rail replaces the status bar's offline notice.
+
+### Removed
+
+- The unused “Show theory hints in the workbench” setting.
+
 ## [0.3.0] - 2026-10-04
 
 ### Added

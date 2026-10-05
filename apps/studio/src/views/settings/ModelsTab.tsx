@@ -126,8 +126,7 @@ export default function ModelsTab() {
     <>
       <TabHeader
         icon="cpu"
-        title="Models & hardware"
-        spec="§61 §62"
+        title="Models and hardware"
         lede="One place for local models: what is installed, what your hardware can run well, and which quantization to pick when it is tight."
         actions={
           online ? (

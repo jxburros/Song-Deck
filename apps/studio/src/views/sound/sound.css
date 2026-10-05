@@ -1,0 +1,73 @@
+/* Sound: instruments and levels, finish, and what you hear. */
+.sound-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+}
+.sound-main {
+  flex: 999 1 620px;
+  min-width: 0;
+  gap: 20px;
+}
+.sound-aside {
+  flex: 1 1 340px;
+  max-width: 440px;
+  min-width: 0;
+}
+.sound-rows {
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+.sound-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 180px) minmax(150px, 220px) auto minmax(120px, 1fr) 70px;
+  align-items: center;
+  gap: 14px;
+  min-height: 58px;
+  min-width: 620px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+.sound-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-weight: 600;
+}
+.sound-swatch {
+  flex: none;
+  width: 8px;
+  height: 28px;
+  clip-path: polygon(0 0, 100% 0, 100% 75%, 0 100%);
+}
+.sound-row .ms-btn {
+  width: 34px;
+  height: 34px;
+  font-family: var(--font-mono);
+}
+.sound-db {
+  text-align: right;
+}
+.version {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+.version.on {
+  border-color: var(--accent);
+  background-image: repeating-linear-gradient(135deg, var(--hatch) 0 1px, transparent 1px 9px);
+}
+.version > .icon-svg {
+  color: var(--accent-text);
+}
+.sound-make {
+  border-top: 1px solid var(--border);
+  padding-bottom: 26px;
+}

@@ -1,9 +1,12 @@
 import { SaveLibraryButton } from '../library/SaveLibraryButton';
+import { useComposeInputs } from '../compose/inputs';
+import { useComposeSession } from '../compose/session';
 import { useMemo, useState } from 'react';
 import {
   BUILTIN_INSTRUMENTS,
   getInstrument,
   keyName,
+  randomId,
   songToMidi,
   type InstrumentProfile,
   type Proposal,
@@ -116,6 +119,22 @@ export function ResultPanel({
     } catch (err) {
       st.toast('error', `MIDI export failed: ${err instanceof Error ? err.message : String(err)}`);
     }
+  };
+
+  /** Single Track: carry the transcription into Start a song as MIDI material. */
+  const startSong = () => {
+    if (!view) return;
+    const song = ideaSong();
+    useComposeInputs.getState().add({
+      id: randomId('idea'),
+      name: song.title,
+      kind: 'midi',
+      createdAt: new Date().toISOString(),
+      song,
+      assets: [],
+    });
+    useComposeSession.getState().start('midi');
+    st.setMode('compose');
   };
 
   const newProject = async () => {
@@ -449,7 +468,17 @@ export function ResultPanel({
               >
                 Export MIDI
               </Button>
-              {!standalone && (
+              {standalone ? (
+                <Button
+                  variant="primary"
+                  icon="sparkles"
+                  disabled={!view.notes.length}
+                  onClick={startSong}
+                  data-testid="start-song-from-idea"
+                >
+                  Start a song with it
+                </Button>
+              ) : (
                 <Button
                   icon="folder"
                   disabled={!view.notes.length}

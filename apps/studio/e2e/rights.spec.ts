@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { attestUpload, withRiffInfo } from './rights';
+import { composeQuickSong, openComposer } from './compose-helpers';
+import { openTool, songStep } from './nav';
 
 /**
  * Upload rights attestations (docs/RIGHTS.md), on-device only:
@@ -97,15 +99,14 @@ function collectErrors(page: Page): string[] {
 
 const SHOTS = process.env.SHOTS_DIR ?? '/tmp/claude-0';
 
-const modeTab = (page: Page, label: string) =>
-  label === 'Rebuild'
-    ? page.getByRole('button', { name: 'Rebuild a recording', exact: true })
-    : page
-        .getByRole('navigation', { name: 'Project tools' })
-        .getByRole('button', { name: new RegExp(`^${label}`) });
+/** Rebuild is offered on Start a song's Material step. */
+async function openRebuild(page: Page) {
+  await openComposer(page);
+  await page.getByRole('button', { name: 'Rebuild a full recording', exact: true }).click();
+}
 
 async function openInspector(page: Page) {
-  await page.locator('.right-tabs .tab', { hasText: 'Inspector' }).click();
+  await openTool(page, 'Inspector');
   await expect(page.getByTestId('rights-attestations')).toBeVisible();
 }
 
@@ -115,9 +116,8 @@ test('Transcribe: a copyright-tagged upload warns, needs an attestation and is r
   const errors = collectErrors(page);
   const file = { name: 'tagged-melody.wav', mimeType: 'audio/wav', buffer: taggedMelody() };
   await page.goto('/');
-  await page.getByRole('button', { name: 'Empty project', exact: true }).click();
-  await page.getByRole('button', { name: 'Create', exact: true }).click();
-  await modeTab(page, 'Transcribe').click();
+  await composeQuickSong(page);
+  await openTool(page, 'A part from audio');
   await page.getByRole('radio', { name: 'Singing' }).click();
   await page.getByRole('tab', { name: 'Upload' }).click();
   const input = page.getByTestId('upload-drop').locator('input[type=file]');
@@ -158,11 +158,11 @@ test('Transcribe: a copyright-tagged upload warns, needs an attestation and is r
   await page.screenshot({ path: `${SHOTS}/e2e-attestation-inspector.png` });
 
   // Export reminds about it.
-  await modeTab(page, 'Export').click();
+  await songStep(page, 'Export');
   await expect(page.getByTestId('export-rights-notice')).toContainText('tagged-melody.wav');
 
   // Re-uploading the same file pre-fills the answer: one click.
-  await modeTab(page, 'Transcribe').click();
+  await openTool(page, 'A part from audio');
   await page.getByRole('tab', { name: 'Upload' }).click();
   await page
     .getByTestId('upload-drop')
@@ -183,7 +183,7 @@ test('Rebuild: a copyright-tagged upload warns and its attestation travels into 
   test.setTimeout(240_000);
   const errors = collectErrors(page);
   await page.goto('/');
-  await modeTab(page, 'Rebuild').click();
+  await openRebuild(page);
   await page
     .getByTestId('rebuild-drop')
     .locator('input[type=file]')
