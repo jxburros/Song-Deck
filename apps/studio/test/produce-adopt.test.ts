@@ -15,6 +15,8 @@ const track = (id: string): Track => ({
   kind: 'midi',
   role: 'keys',
   instrumentId: 'piano',
+  color: '#66aaff',
+  stemGroup: 'keys',
   constraints: {},
   notes: [],
   clips: [],
