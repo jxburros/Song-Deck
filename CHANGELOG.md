@@ -50,7 +50,8 @@ All notable changes to Song Deck are documented in this file. The format follows
 - Produced stems and full mixes remain audible when their source tracks are soloed. Switching full-mix
   candidates no longer changes a previous revision's mute-restoration list.
 - Sound exposes produced audio tracks for level, mute and solo adjustments, displays the actual minimum
-  level (-40 dB), and prevents duplicate generation while a production task is active.
+  level (-40 dB), and prevents duplicate generation while a production task is active. Progress and
+  failures remain visible after navigating away and back.
 - Audio-model selection checks the song's vocal requirements, including when a previous audio version
   has muted the original MIDI tracks.
 
