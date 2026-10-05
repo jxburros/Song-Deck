@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { sanitizeProjectName } from '../src/projects';
@@ -58,6 +58,23 @@ describe('static studio hosting', () => {
     });
     // Write methods are rejected.
     expect((await fetch(`${srv.url}/index.html`, { method: 'POST' })).status).toBe(405);
+  });
+
+  it('applies containment checks to the SPA fallback index', async () => {
+    const dist = studioDist();
+    const outside = tempDir('songdeck-outside-');
+    dirs.push(outside);
+    writeFileSync(path.join(outside, 'index.html'), 'OUTSIDE SECRET');
+    rmSync(path.join(dist, 'index.html'));
+    // Junctions do not require symlink privileges on Windows.
+    symlinkSync(outside, path.join(dist, 'external'), 'junction');
+    symlinkSync(path.join(dist, 'external', 'index.html'), path.join(dist, 'index.html'));
+    srv = await startServer({ staticDir: dist });
+    for (const route of ['/', '/songs/example', '/missing.html']) {
+      const res = await fetch(`${srv.url}${route}`, { headers: { accept: 'text/html' } });
+      expect(res.status).toBe(404);
+      expect(await res.text()).not.toContain('OUTSIDE SECRET');
+    }
   });
 
   it('is path-traversal safe and hides dotfiles', async () => {

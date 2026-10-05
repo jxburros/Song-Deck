@@ -121,8 +121,8 @@ jobs:
       - run: npm run build
       - name: Bundle budget
         run: npm run size
-      - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+      - name: Dependency audit (runtime and development)
+        run: npm audit --audit-level=moderate
 
   e2e:
     name: End-to-end (Chromium)

@@ -9,12 +9,13 @@ import {
 } from '@songdeck/core';
 import { useStudio } from '../../state/store';
 import { useCustomInstruments } from '../../hooks';
-import { useAiRuntime } from '../../engine/ai';
+import { getRegistry, getRouter, useAiRuntime } from '../../engine/ai';
 import { prototypeTargets, queuePrototype } from '../../engine/prototype';
 import { allTargets, currentMaster, fmtLufs } from '../../engine/mix-mastering';
 import { Badge, Button, Select } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
-import { isProducedTrack } from '../../engine/produce-model';
+import { useRuntime } from '../../engine/runtime';
+import { isTaskActive } from '../../engine/mix-tasks';
 import { setChannel } from '../workbench/tracks';
 import {
   adoptCandidate,
@@ -126,7 +127,7 @@ function TrackLevel({ song, track }: { song: Song; track: Track }) {
         onPointerUp={(e) => commitDb(parseFloat((e.target as HTMLInputElement).value))}
         onKeyUp={(e) => commitDb(parseFloat((e.target as HTMLInputElement).value))}
       />
-      <span className="mono small muted sound-db">{value <= MIN_DB ? '−inf' : `${value.toFixed(1)} dB`}</span>
+      <span className="mono small muted sound-db">{value.toFixed(1)} dB</span>
     </div>
   );
 }
@@ -135,13 +136,19 @@ export default function SoundMode() {
   const project = useStudio((s) => s.project);
   const song = project?.song ?? null;
   useAiRuntime((s) => s.version);
-  const [making, setMaking] = useState(false);
+  const making = useRuntime((s) =>
+    s.tasks.some(
+      (t) =>
+        t.type === 'produce.candidate' &&
+        isTaskActive(t) &&
+        (t.input as { projectId?: string } | undefined)?.projectId === project?.meta.id,
+    ),
+  );
   if (!project || !song) return null;
   const st = useStudio.getState();
-  const targets = prototypeTargets();
+  const targets = prototypeTargets(getRegistry(), getRouter(), song);
   const candidates = song.production?.candidates ?? [];
   const adopted = adoptedCandidateId(song);
-  const sourceTracks = song.tracks.filter((t) => !isProducedTrack(t));
   const master = currentMaster(project, song);
   const m = song.mastering;
   const polish = m.method !== 'none';
@@ -166,15 +173,12 @@ export default function SoundMode() {
       'production',
     );
   const makeVersion = () => {
-    setMaking(true);
     try {
       const id = queuePrototype(project.meta.id, 'auto', song.generation?.seed ?? Date.now() % 99999999);
       useProduceUi.getState().set({ batchTaskIds: [id] });
       st.toast('info', 'Making a realistic version. It appears here when it is ready.');
     } catch (err) {
       st.toast('error', err instanceof Error ? err.message : String(err));
-    } finally {
-      setMaking(false);
     }
   };
   const setMastering = (patch: Partial<typeof m>, message: string) =>
@@ -192,7 +196,7 @@ export default function SoundMode() {
               </Button>
             </div>
             <div className="sound-rows">
-              {sourceTracks.map((t) => (
+              {song.tracks.map((t) => (
                 <TrackLevel key={t.id} song={song} track={t} />
               ))}
             </div>

@@ -141,7 +141,7 @@ export function adoptCandidate(
         };
         const at = tracks.findIndex((x) => x.id === src.id);
         tracks.splice(at + 1, 0, t);
-        channels[id] = unityStrip();
+        channels[id] = { ...unityStrip(), solo: !!channels[tid]?.solo };
         added++;
       }
       channels[tid] = { ...(channels[tid] ?? defaultChannelStrip()), mute: true };
@@ -169,7 +169,8 @@ export function adoptCandidate(
   const m = meta(candidate.mixAssetId);
   if (!m) throw new Error(`Candidate ${label} has no mix audio`);
   const idx = tracks.findIndex((t) => t.kind === 'audio' && t.generator?.id === PRODUCED_MIX_GENERATOR);
-  const muted: string[] = idx >= 0 ? (params(tracks[idx]).mutedTrackIds ?? []) : [];
+  const muted: string[] = idx >= 0 ? [...(params(tracks[idx]).mutedTrackIds ?? [])] : [];
+  const sourceSolo = tracks.some((t) => !isProducedTrack(t) && channels[t.id]?.solo);
   for (const t of tracks) {
     if (isProducedTrack(t) || channels[t.id]?.mute) continue;
     channels[t.id] = { ...(channels[t.id] ?? defaultChannelStrip()), mute: true };
@@ -208,7 +209,7 @@ export function adoptCandidate(
         params: { candidateId: candidate.id, candidateLabel: label, mutedTrackIds: muted },
       },
     });
-    channels[id] = unityStrip();
+    channels[id] = { ...unityStrip(), solo: sourceSolo };
     added++;
   }
   return { song: finish(song, tracks, channels, candidate), added, updated, kind: 'mix' };

@@ -222,10 +222,25 @@ function completeMeta(meta: Partial<ProjectMeta>): ProjectMeta {
 
 /** Read a .songproject package. Validates the format version; tolerant of missing optional folders. */
 export function unpackProject(bytes: Uint8Array): { project: Project; assets: Map<string, Uint8Array> } {
+  // Match the server's upload ceiling, and inspect the entire directory before allocating
+  // decompressed data. A small ZIP can otherwise expand into gigabytes in the browser.
+  const maxBytes = 1024 * 1024 * 1024;
+  const tooLarge = new Error('Project package exceeds the limit of 1 GiB or 10,000 entries.');
+  if (bytes.byteLength > maxBytes) throw tooLarge;
   let files: Record<string, Uint8Array>;
   try {
+    let expanded = 0;
+    let entries = 0;
+    unzipSync(bytes, {
+      filter(entry) {
+        expanded += entry.originalSize;
+        if (++entries > 10_000 || expanded > maxBytes) throw tooLarge;
+        return false;
+      },
+    });
     files = unzipSync(bytes);
-  } catch {
+  } catch (err) {
+    if (err === tooLarge) throw err;
     throw new Error('Not a .songproject package (invalid ZIP data).');
   }
   if (!files['project.json']) throw new Error('Not a .songproject package (project.json is missing).');

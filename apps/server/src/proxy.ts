@@ -195,7 +195,7 @@ function prepareRequest(
   if (credential && auth?.type === 'query' && !credentialInScope(target, credential.ref, rules)) {
     // A redirect left the provider's scope: never carry an echoed query credential along.
     const name = auth.name ?? 'key';
-    if (url.searchParams.get(name) === `${auth.prefix ?? ''}${credential.secret}`)
+    if (url.searchParams.getAll(name).includes(`${auth.prefix ?? ''}${credential.secret}`))
       url.searchParams.delete(name);
   }
   if (credential && auth && auth.type !== 'none' && credentialInScope(target, credential.ref, rules)) {
@@ -394,11 +394,23 @@ export function registerProxyRoutes(router: Router, deps: ProxyDeps): void {
       } catch {
         throw proxyError(502, 'bad-redirect', 'Upstream sent an invalid redirect location');
       }
+      if (next.username || next.password)
+        throw proxyError(502, 'bad-redirect', 'Redirect URLs with embedded credentials are not proxied');
       if (!isAllowlisted(next, rules)) {
         throw proxyError(
           502,
           'redirect-not-allowlisted',
           `Upstream redirected to ${next.origin}${next.pathname}, which is not in the proxy allowlist`,
+        );
+      }
+      // Client-supplied secrets need the same boundary as vault credentials. Drop them
+      // permanently after leaving the origin (or the configured credential's path scope).
+      if (next.origin !== current.origin || (credential && !credentialInScope(next, credential.ref, rules))) {
+        const sensitive = new Set(['authorization', 'x-api-key', 'api-key', 'x-goog-api-key']);
+        if (auth?.type === 'bearer' || auth?.type === 'header')
+          sensitive.add((auth.name ?? 'authorization').toLowerCase());
+        clientHeaders = Object.fromEntries(
+          Object.entries(clientHeaders).filter(([name]) => !sensitive.has(name.toLowerCase())),
         );
       }
       if (

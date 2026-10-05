@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { composeQuickSong } from './compose-helpers';
 import { mkdirSync } from 'node:fs';
-import { openTool } from './nav';
+import { openTool, songStep } from './nav';
 
 /**
  * Produce mode (Phase 3, spec §28-§31, §38, §39, §54, §60, §64), end to end and entirely on-device:
@@ -147,6 +147,26 @@ test('guide render, A/B candidates, adopt stems and regenerate a region', async 
   await cardB.getByRole('button', { name: 'Provenance' }).click();
   await expect(cardB.getByRole('table', { name: 'Stems of candidate B' })).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/produce-candidates.png`, fullPage: true });
+
+  // Sound must expose the produced tracks that are actually playing, not just muted MIDI.
+  await songStep(page, 'Sound');
+  const bass = page
+    .getByTestId('sound-track')
+    .filter({ has: page.getByRole('button', { name: 'Mute Bass · B', exact: true }) });
+  await expect(bass).toBeVisible();
+  const level = bass.getByRole('slider');
+  await level.focus();
+  await level.press('Home');
+  await expect(level).toHaveAttribute('aria-valuetext', '-40.0 dB');
+  await expect(bass.locator('.sound-db')).toHaveText('-40.0 dB');
+  await level.press('ArrowRight');
+  await expect(level).toHaveAttribute('aria-valuetext', '-39.5 dB');
+  await bass.getByRole('button', { name: 'Mute Bass · B', exact: true }).click();
+  await expect(bass.getByRole('button', { name: 'Mute Bass · B', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await bass.getByRole('button', { name: 'Mute Bass · B', exact: true }).click();
 
   // The produced stems are ordinary audio tracks in Mix & Master.
   await openTool(page, 'Full console');

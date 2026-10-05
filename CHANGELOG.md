@@ -6,6 +6,8 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-05
+
 ### Changed
 
 - **Redesigned studio.** Four areas on a left rail (a bottom bar on phones): Songs, Single Track,
@@ -35,6 +37,29 @@ All notable changes to Song Deck are documented in this file. The format follows
 - Geometric visual language throughout: cut corners, lit brackets, slanted chips and tabs, diamonds,
   measure-grid page bands and zero corner radii (see `docs/BRAND.md`).
 - An offline marker on the rail replaces the status bar's offline notice.
+
+### Fixed
+
+- Provider redirects now strip client authentication headers when they leave the original origin or
+  credential scope, reject embedded credentials, and remove vault keys hidden behind duplicate query
+  parameters.
+- Project imports inspect ZIP expansion size and entry counts before decompression, rejecting archives
+  over 1 GiB expanded or 10,000 entries instead of exhausting browser memory.
+- Static hosting applies the same real-path containment checks to SPA fallback pages as to direct
+  file requests.
+- Produced stems and full mixes remain audible when their source tracks are soloed. Switching full-mix
+  candidates no longer changes a previous revision's mute-restoration list.
+- Sound exposes produced audio tracks for level, mute and solo adjustments, displays the actual minimum
+  level (-40 dB), and prevents duplicate generation while a production task is active.
+- Audio-model selection checks the song's vocal requirements, including when a previous audio version
+  has muted the original MIDI tracks.
+
+### Maintenance
+
+- Upgrade Vitest and its coverage provider to 4.1.11 to resolve GHSA-82fw-gwwq-j7x9. CI audits runtime
+  and development dependencies for moderate-or-higher vulnerabilities.
+- Browser tests can use an installed Chromium through `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` when the
+  Playwright-managed browser is unavailable.
 
 ### Removed
 
