@@ -173,11 +173,20 @@ export default function Workbench() {
         </div>
         {HINTS[view] && <div className="wb-hint">{HINTS[view]}</div>}
       </section>
-      <aside className="wb-right" aria-label={Right ? PANEL_LABELS[rightPanel as keyof typeof PANEL_LABELS] : 'Change'}>
+      <aside
+        className="wb-right"
+        aria-label={Right ? PANEL_LABELS[rightPanel as keyof typeof PANEL_LABELS] : 'Change'}
+      >
         {Right ? (
           <>
             <div className="right-head">
-              <Button size="sm" variant="ghost" icon="chevronRight" className="back-btn" onClick={() => setRightPanel('ai-edit')}>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon="chevronRight"
+                className="back-btn"
+                onClick={() => setRightPanel('ai-edit')}
+              >
                 Change
               </Button>
               <h2>{PANEL_LABELS[rightPanel as keyof typeof PANEL_LABELS]}</h2>

@@ -46,9 +46,17 @@ test('standalone generation preserves the open project and saves persistent MIDI
   await openArea(page, 'Library');
   await expect(page.getByTestId('library-item')).toHaveCount(2);
   const download = page.waitForEvent('download');
-  await page.getByTestId('library-item').first().getByRole('button', { name: /^Download / }).click();
+  await page
+    .getByTestId('library-item')
+    .first()
+    .getByRole('button', { name: /^Download / })
+    .click();
   expect((await download).suggestedFilename()).toMatch(/\.wav$/);
-  await page.getByTestId('library-item').first().getByRole('button', { name: 'Start a song with it' }).click();
+  await page
+    .getByTestId('library-item')
+    .first()
+    .getByRole('button', { name: 'Start a song with it' })
+    .click();
   await expect(page.getByTestId('compose-input')).toHaveCount(1);
   await page.getByRole('button', { name: 'Create now, rest on Auto', exact: true }).click();
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });

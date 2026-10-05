@@ -16,7 +16,12 @@ import { Badge, Button, Select } from '../../ui/kit';
 import { Icon } from '../../ui/icons';
 import { isProducedTrack } from '../../engine/produce-model';
 import { setChannel } from '../workbench/tracks';
-import { adoptCandidate, adoptedCandidateId, provideProducedAudio, removeProducedAudio } from '../produce/adopt';
+import {
+  adoptCandidate,
+  adoptedCandidateId,
+  provideProducedAudio,
+  removeProducedAudio,
+} from '../produce/adopt';
 import { useProduceUi } from '../produce/state';
 import { openMixTab } from '../mix/MixMode';
 import { openSettings } from '../settings/nav';
@@ -82,7 +87,11 @@ function TrackLevel({ song, track }: { song: Song; track: Track }) {
           aria-label={`Mute ${track.name}`}
           title="Mute"
           onClick={() =>
-            st.commit(setChannel(song, track.id, { mute: !ch.mute }), `${ch.mute ? 'Unmuted' : 'Muted'} ${track.name}`, 'mix')
+            st.commit(
+              setChannel(song, track.id, { mute: !ch.mute }),
+              `${ch.mute ? 'Unmuted' : 'Muted'} ${track.name}`,
+              'mix',
+            )
           }
         >
           M
@@ -94,7 +103,11 @@ function TrackLevel({ song, track }: { song: Song; track: Track }) {
           aria-label={`Solo ${track.name}`}
           title="Solo"
           onClick={() =>
-            st.commit(setChannel(song, track.id, { solo: !ch.solo }), `${ch.solo ? 'Unsoloed' : 'Soloed'} ${track.name}`, 'mix')
+            st.commit(
+              setChannel(song, track.id, { solo: !ch.solo }),
+              `${ch.solo ? 'Unsoloed' : 'Soloed'} ${track.name}`,
+              'mix',
+            )
           }
         >
           S
@@ -147,7 +160,11 @@ export default function SoundMode() {
     }
   };
   const backToBuiltIn = () =>
-    st.commit(removeProducedAudio(song), 'Back to the built-in instruments (MIDI tracks unmuted)', 'production');
+    st.commit(
+      removeProducedAudio(song),
+      'Back to the built-in instruments (MIDI tracks unmuted)',
+      'production',
+    );
   const makeVersion = () => {
     setMaking(true);
     try {
@@ -204,7 +221,9 @@ export default function SoundMode() {
                 aria-label="Loudness target"
                 value={m.target}
                 disabled={!polish}
-                onChange={(target: MasteringTarget) => setMastering({ target }, `Mastering target: ${target}`)}
+                onChange={(target: MasteringTarget) =>
+                  setMastering({ target }, `Mastering target: ${target}`)
+                }
                 options={allTargets().map((t) => ({ value: t.id, label: `${t.label} · ${t.lufs} LUFS` }))}
               />
               <div className="spacer" />
@@ -247,7 +266,9 @@ export default function SoundMode() {
                 <span className="col grow" style={{ gap: 0 }}>
                   <strong>Version {c.label}</strong>
                   <span className="small dim">
-                    {Object.keys(c.stemAssetIds).length ? `${Object.keys(c.stemAssetIds).length} stems` : 'Full mix'}
+                    {Object.keys(c.stemAssetIds).length
+                      ? `${Object.keys(c.stemAssetIds).length} stems`
+                      : 'Full mix'}
                     {c.rating ? ` · ${'★'.repeat(c.rating)}` : ''}
                   </span>
                 </span>
@@ -295,7 +316,9 @@ export default function SoundMode() {
               </>
             ) : (
               <>
-                <span className="small muted">Connect an audio model to make realistic versions of this song.</span>
+                <span className="small muted">
+                  Connect an audio model to make realistic versions of this song.
+                </span>
                 <Button variant="ai" icon="plug" onClick={() => openSettings('providers', 'connect')}>
                   Connect AI
                 </Button>

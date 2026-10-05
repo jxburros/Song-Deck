@@ -29,7 +29,9 @@ test('home creation actions remain reachable on phones', async ({ page }) => {
   const home = page.locator('.home-page');
   expect(await home.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   await page.getByRole('button', { name: 'Start from lyrics', exact: true }).click();
-  await expect(page.getByTestId('compose-builder').getByRole('textbox', { name: 'Lyrics', exact: true })).toBeVisible();
+  await expect(
+    page.getByTestId('compose-builder').getByRole('textbox', { name: 'Lyrics', exact: true }),
+  ).toBeVisible();
   // The rail is a bottom bar on phones, with every area one tap away.
   for (const area of ['Single Track', 'Library', 'Settings', 'Songs'] as const) {
     await openArea(page, area);

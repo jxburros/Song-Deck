@@ -11,7 +11,10 @@ import { openTool, trackHeader } from './nav';
 /** A one-note C4 MIDI riff (format 1, one track). */
 const RIFF = Buffer.from([
   ...[0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0x01, 0xe0],
-  ...[0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, 13, 0x00, 0x90, 0x3c, 0x64, 0x83, 0x60, 0x80, 0x3c, 0x40, 0x00, 0xff, 0x2f, 0x00],
+  ...[
+    0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, 13, 0x00, 0x90, 0x3c, 0x64, 0x83, 0x60, 0x80, 0x3c, 0x40, 0x00, 0xff,
+    0x2f, 0x00,
+  ],
 ]);
 
 test('builder: the instruments and counts you pick are exactly the tracks you get', async ({ page }) => {
@@ -22,7 +25,9 @@ test('builder: the instruments and counts you pick are exactly the tracks you ge
   const builder = page.getByTestId('compose-builder');
 
   // Offline: no prompt to add, and nothing to create from yet.
-  await expect(builder.getByTestId('material').getByRole('button', { name: 'Prompt', exact: true })).toHaveCount(0);
+  await expect(
+    builder.getByTestId('material').getByRole('button', { name: 'Prompt', exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByLabel('Song description')).toHaveCount(0);
   await builder.getByRole('button', { name: 'Remove lyrics' }).click();
   await expect(builder.getByRole('button', { name: 'Create now, rest on Auto' })).toHaveCount(0);

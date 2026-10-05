@@ -26,7 +26,14 @@ import {
 import { Button, Field, NumberInput, Select, Slider, Tabs, TextInput } from '../../ui/kit';
 import { FUNCTIONS, MACRO_INFO, MODES, TRACK_ROLES } from './BlueprintEditor';
 import { ChipPicker, genreItems, instrumentItems, tagItems, tagKindLabel } from './ChipPicker';
-import { STARTERS, choicesForStart, draftLyrics, useComposeSession, type ComposeDraft, type Starter } from './session';
+import {
+  STARTERS,
+  choicesForStart,
+  draftLyrics,
+  useComposeSession,
+  type ComposeDraft,
+  type Starter,
+} from './session';
 import { useComposeInputs } from './inputs';
 
 /**
@@ -205,7 +212,10 @@ export function ShapeSections({
     [customInstruments],
   );
   const instOf = (id: string) => allInstruments.find((i) => i.id === id);
-  const lyrics = useMemo(() => (session.lyricsOn ? draftLyrics(draft) : undefined), [draft, session.lyricsOn]);
+  const lyrics = useMemo(
+    () => (session.lyricsOn ? draftLyrics(draft) : undefined),
+    [draft, session.lyricsOn],
+  );
   const { genre, preview } = useShapePreview(customGenres, customInstruments);
 
   const genrePick = useMemo(() => genreItems(BUILTIN_GENRES, customGenres), [customGenres]);
@@ -260,7 +270,11 @@ export function ShapeSections({
   return (
     <div className="shape col" style={{ gap: 30 }}>
       <section id="shape-start" aria-labelledby="shape-start-h" className="col" style={{ gap: 12 }}>
-        <SectionHead index={0} title="Starting point" note="Fills in everything below. Change any of it after." />
+        <SectionHead
+          index={0}
+          title="Starting point"
+          note="Fills in everything below. Change any of it after."
+        />
         <div className="row wrap cb-starters">
           {STARTERS.map((s) => (
             <Button key={s.id} onClick={() => patch({ ...applyStarter(s, customGenres) })}>
@@ -430,7 +444,12 @@ export function ShapeSections({
         </div>
       </section>
 
-      <section id="shape-instruments" aria-labelledby="shape-instruments-h" className="col" style={{ gap: 12 }}>
+      <section
+        id="shape-instruments"
+        aria-labelledby="shape-instruments-h"
+        className="col"
+        style={{ gap: 12 }}
+      >
         <SectionHead
           index={4}
           title="Instruments"
@@ -448,7 +467,8 @@ export function ShapeSections({
                   <strong>Suggested for {draft.genres.length ? genre.name : 'this style'}:</strong>{' '}
                   {suggestion
                     .map(
-                      (s) => `${instOf(s.instrumentId)?.name ?? s.instrumentId}${s.count > 1 ? ` × ${s.count}` : ''}`,
+                      (s) =>
+                        `${instOf(s.instrumentId)?.name ?? s.instrumentId}${s.count > 1 ? ` × ${s.count}` : ''}`,
                     )
                     .join(', ')}
                 </span>
@@ -521,13 +541,19 @@ export function ShapeSections({
                   aria-label="Key"
                   value={String(draft.tonic)}
                   onChange={(v) => patch({ tonic: v === 'auto' ? 'auto' : parseInt(v, 10) })}
-                  options={[{ value: 'auto', label: 'Auto' }, ...FLAT_NAMES.map((n, i) => ({ value: String(i), label: n }))]}
+                  options={[
+                    { value: 'auto', label: 'Auto' },
+                    ...FLAT_NAMES.map((n, i) => ({ value: String(i), label: n })),
+                  ]}
                 />
                 <Select
                   aria-label="Mode"
                   value={draft.mode}
                   onChange={(mode) => patch({ mode })}
-                  options={[{ value: 'auto', label: 'Auto mode' }, ...MODES.map((m) => ({ value: m, label: m }))]}
+                  options={[
+                    { value: 'auto', label: 'Auto mode' },
+                    ...MODES.map((m) => ({ value: m, label: m })),
+                  ]}
                 />
               </div>
             </Field>
@@ -580,7 +606,11 @@ export function ShapeSections({
             </Field>
             <Field
               label="Vocal"
-              hint={vocalTracks > 0 ? `Adds a Lead Vocal track${lyrics ? ' that sings your lyrics' : ''}.` : undefined}
+              hint={
+                vocalTracks > 0
+                  ? `Adds a Lead Vocal track${lyrics ? ' that sings your lyrics' : ''}.`
+                  : undefined
+              }
             >
               <div className="row">
                 <Select
@@ -596,7 +626,9 @@ export function ShapeSections({
                 {(draft.vocal !== 'none' && draft.vocal !== 'auto') || (draft.vocal === 'auto' && lyrics) ? (
                   <Select
                     aria-label="Vocal mode"
-                    value={draft.vocalMode === 'default' ? (lyrics ? 'ai-singer' : 'melody-only') : draft.vocalMode}
+                    value={
+                      draft.vocalMode === 'default' ? (lyrics ? 'ai-singer' : 'melody-only') : draft.vocalMode
+                    }
                     onChange={(vocalMode) => patch({ vocalMode })}
                     options={VOCAL_MODES}
                   />
@@ -687,8 +719,8 @@ export function ShapeSections({
               <span className="col" style={{ gap: 2 }}>
                 <strong>Review the blueprint and plan before composing</strong>
                 <span className="small muted">
-                  Adds two steps: the song blueprint (sections, energy, instrument ranges, things to avoid) and
-                  the plan for each section (harmony, energy, purpose, feel).
+                  Adds two steps: the song blueprint (sections, energy, instrument ranges, things to avoid)
+                  and the plan for each section (harmony, energy, purpose, feel).
                 </span>
               </span>
             </label>

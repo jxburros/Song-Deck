@@ -88,8 +88,8 @@ export function LyricsInput({
           title="Locked lyrics are never rewritten by AI or regeneration"
         />
         <span className="small dim grow">
-          Full or partial. Headers like [Verse 1], [Chorus], Chorus x2 or (Bridge) are understood; your words are
-          never changed.
+          Full or partial. Headers like [Verse 1], [Chorus], Chorus x2 or (Bridge) are understood; your words
+          are never changed.
         </span>
       </div>
 

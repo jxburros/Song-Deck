@@ -91,7 +91,9 @@ export function ChangePanel() {
             {track && (
               <SaveLibraryButton
                 song={song}
-                trackIds={selection.trackIds && selection.trackIds.length > 1 ? selection.trackIds : [track.id]}
+                trackIds={
+                  selection.trackIds && selection.trackIds.length > 1 ? selection.trackIds : [track.id]
+                }
                 label={
                   selection.trackIds && selection.trackIds.length > 1
                     ? 'Save selection to Library'

@@ -87,7 +87,9 @@ export function Rail() {
     if (a !== 'songs' || active === 'songs') return setMode(target);
     setMode(!hasProject && SONG_MODES.includes(lastSongsMode) ? 'home' : lastSongsMode);
   };
-  const item = (a: (typeof AREAS)[number] | { area: Area; mode: Mode; label: string; icon: IconName; title: string }) => (
+  const item = (
+    a: (typeof AREAS)[number] | { area: Area; mode: Mode; label: string; icon: IconName; title: string },
+  ) => (
     <button
       key={a.area}
       type="button"
@@ -149,11 +151,7 @@ function QueueChip() {
   const queued = tasks.filter((t) => t.status === 'queued').length;
   const failed = tasks.filter((t) => t.status === 'failed').length;
   if (!running && !queued && !failed && !open) return null;
-  const label = [
-    running && `${running} running`,
-    queued && `${queued} queued`,
-    failed && `${failed} failed`,
-  ]
+  const label = [running && `${running} running`, queued && `${queued} queued`, failed && `${failed} failed`]
     .filter(Boolean)
     .join(' · ');
   return (
@@ -321,7 +319,10 @@ export function PlayerBar() {
             <span
               key={span.section.id}
               className="player-section"
-              style={{ flexGrow: Math.max(0.1, end - start), ['--sec' as string]: sectionColor(span.section.kind) }}
+              style={{
+                flexGrow: Math.max(0.1, end - start),
+                ['--sec' as string]: sectionColor(span.section.kind),
+              }}
               aria-hidden="true"
             />
           );

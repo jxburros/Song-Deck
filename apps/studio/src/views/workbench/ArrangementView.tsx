@@ -157,10 +157,7 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
   const ch = channelFor(song, track.id);
   const locked = !!song.locks[LockKeys.track(track.id)];
   const inst = getInstrument(track.instrumentId, customInstruments);
-  const size =
-    track.kind === 'audio'
-      ? `${track.clips.length} clips`
-      : `${track.notes.length} notes`;
+  const size = track.kind === 'audio' ? `${track.clips.length} clips` : `${track.notes.length} notes`;
   const act = (fn: () => void) => () => {
     setMenu(null);
     fn();
@@ -211,7 +208,10 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
             className="menu panel"
             role="menu"
             aria-label={`${track.name} options`}
-            style={{ left: Math.min(menu.x, window.innerWidth - 270), top: Math.min(menu.y, window.innerHeight - 330) }}
+            style={{
+              left: Math.min(menu.x, window.innerWidth - 270),
+              top: Math.min(menu.y, window.innerHeight - 330),
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <span className="menu-title">{track.name}</span>
@@ -223,11 +223,12 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
             <button
               type="button"
               role="menuitem"
-              onClick={act(() =>
-                void saveSongToLibrary(song, [track.id]).then(
-                  () => st.toast('success', 'Saved to Library'),
-                  (e) => st.toast('error', `Could not save to Library: ${String(e)}`),
-                ),
+              onClick={act(
+                () =>
+                  void saveSongToLibrary(song, [track.id]).then(
+                    () => st.toast('success', 'Saved to Library'),
+                    (e) => st.toast('error', `Could not save to Library: ${String(e)}`),
+                  ),
               )}
             >
               <Icon name="book" /> Save track to Library
@@ -236,7 +237,11 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
               type="button"
               role="menuitem"
               onClick={act(() =>
-                st.commit(setChannel(song, track.id, { mute: !ch.mute }), `${ch.mute ? 'Unmuted' : 'Muted'} ${track.name}`, 'mix'),
+                st.commit(
+                  setChannel(song, track.id, { mute: !ch.mute }),
+                  `${ch.mute ? 'Unmuted' : 'Muted'} ${track.name}`,
+                  'mix',
+                ),
               )}
             >
               <Icon name="minus" /> {ch.mute ? 'Unmute' : 'Mute'}
@@ -245,7 +250,11 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
               type="button"
               role="menuitem"
               onClick={act(() =>
-                st.commit(setChannel(song, track.id, { solo: !ch.solo }), `${ch.solo ? 'Unsoloed' : 'Soloed'} ${track.name}`, 'mix'),
+                st.commit(
+                  setChannel(song, track.id, { solo: !ch.solo }),
+                  `${ch.solo ? 'Unsoloed' : 'Soloed'} ${track.name}`,
+                  'mix',
+                ),
               )}
             >
               <Icon name="eye" /> {ch.solo ? 'Unsolo' : 'Solo'}

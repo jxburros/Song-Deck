@@ -37,10 +37,15 @@ export function useReadiness(model: boolean) {
   const material = (lyricsMaterial ? 1 : 0) + inputs.length + (prompt ? 1 : 0);
   const anchor = inputs.find((i) => i.item.song)?.item.song;
   const found: { k: string; v: string; from: string }[] = [];
-  if (anchor?.tempoMap[0]) found.push({ k: 'Tempo', v: `${Math.round(anchor.tempoMap[0].bpm)} BPM`, from: anchor.title });
+  if (anchor?.tempoMap[0])
+    found.push({ k: 'Tempo', v: `${Math.round(anchor.tempoMap[0].bpm)} BPM`, from: anchor.title });
   if (anchor?.keyMap[0]) found.push({ k: 'Key', v: keyName(anchor.keyMap[0].key), from: anchor.title });
   if (anchor?.meterMap[0])
-    found.push({ k: 'Time', v: `${anchor.meterMap[0].numerator}/${anchor.meterMap[0].denominator}`, from: anchor.title });
+    found.push({
+      k: 'Time',
+      v: `${anchor.meterMap[0].numerator}/${anchor.meterMap[0].denominator}`,
+      from: anchor.title,
+    });
   const sung = lyrics?.sections.filter((s) => s.lines.length).length ?? 0;
   if (lyrics) found.push({ k: 'Form', v: `${lyrics.sections.length} sections`, from: 'your lyrics' });
   const groups = [
@@ -193,7 +198,11 @@ function InputCard({ input, disabled }: { input: ComposeInput; disabled: boolean
   const kind = KIND_LABEL[input.item.kind];
   const midiTracks = song?.tracks.filter((t) => t.kind === 'midi') ?? [];
   return (
-    <section className="panel mat-card" data-testid="compose-input" aria-label={`${kind.label}: ${input.item.name}`}>
+    <section
+      className="panel mat-card"
+      data-testid="compose-input"
+      aria-label={`${kind.label}: ${input.item.name}`}
+    >
       <CardHead
         icon={kind.icon}
         kind={kind.label}
@@ -382,11 +391,16 @@ export function MaterialSection({
                 for (const file of files) {
                   const draft = await fileToLibraryDraft(file, true);
                   state.add(
-                    await playableItem({ ...draft, id: randomId('input'), createdAt: new Date().toISOString() }),
+                    await playableItem({
+                      ...draft,
+                      id: randomId('input'),
+                      createdAt: new Date().toISOString(),
+                    }),
                   );
                 }
               } catch (e) {
-                if (!(e instanceof Error && e.name === 'AbortError')) useStudio.getState().toast('error', String(e));
+                if (!(e instanceof Error && e.name === 'AbortError'))
+                  useStudio.getState().toast('error', String(e));
               } finally {
                 setLoading(false);
               }
@@ -400,7 +414,12 @@ export function MaterialSection({
           Choose from Library
         </Button>
         {model && !session.promptOn && (
-          <Button variant="ai" icon="sparkles" disabled={disabled} onClick={() => session.set({ promptOn: true })}>
+          <Button
+            variant="ai"
+            icon="sparkles"
+            disabled={disabled}
+            onClick={() => session.set({ promptOn: true })}
+          >
             Prompt
           </Button>
         )}
@@ -447,10 +466,20 @@ export function MaterialSection({
       )}
       <div className="row wrap small muted" style={{ gap: 6 }}>
         More ways to start:
-        <Button size="sm" variant="ghost" icon="rebuild" onClick={() => useStudio.getState().setMode('rebuild')}>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="rebuild"
+          onClick={() => useStudio.getState().setMode('rebuild')}
+        >
           Rebuild a full recording
         </Button>
-        <Button size="sm" variant="ghost" icon="layers" onClick={() => useStudio.getState().setMode('expand')}>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="layers"
+          onClick={() => useStudio.getState().setMode('expand')}
+        >
           Develop a short clip
         </Button>
       </div>
@@ -565,7 +594,9 @@ export function MaterialAside({
               );
             })}
           </div>
-          <span className="small dim">Genre blends, moods, tags, instruments and feel are on the next screen.</span>
+          <span className="small dim">
+            Genre blends, moods, tags, instruments and feel are on the next screen.
+          </span>
         </div>
         <div className="aside-block col" style={{ gap: 12 }}>
           <BasicsMeter basics={r.basics} />

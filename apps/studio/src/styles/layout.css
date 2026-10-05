@@ -393,22 +393,6 @@
   padding: 12px;
 }
 
-.track-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 40px;
-  padding: 0 8px 0 0;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  position: relative;
-}
-.track-row:hover {
-  background: var(--bg-elev-2);
-}
-.track-row.selected {
-  background: var(--bg-elev-3);
-}
 .track-color {
   width: 4px;
   align-self: stretch;

@@ -104,7 +104,7 @@ import { sampleRenderOptions } from '../produce-samples';
  */
 
 export interface CandidateInput {
-  /** Quick prototype: adopt the audio on success if its source composition is still current. */
+  /** Audio version (made with a new song): adopt the audio on success if its source composition is still current. */
   autoAdopt?: boolean;
   projectId: string;
   /** Candidates queued together share consent for the same data flow. */

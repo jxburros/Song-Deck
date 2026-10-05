@@ -13,7 +13,8 @@ export type Starter =
   | 'Laid-back hip-hop'
   | 'Folk & country';
 
-export const QUICK_LYRICS = '[Verse]\nCity lights are fading slow\nI keep the window open\n[Chorus]\nLeaving home tonight';
+export const QUICK_LYRICS =
+  '[Verse]\nCity lights are fading slow\nI keep the window open\n[Chorus]\nLeaving home tonight';
 
 /** Open Start a song from wherever we are: the Songs home tile, else the rail's Songs → home. */
 export async function openComposer(page: Page): Promise<void> {
@@ -21,7 +22,10 @@ export async function openComposer(page: Page): Promise<void> {
   if (await builder.isVisible().catch(() => false)) return;
   const tile = page.getByRole('button', { name: 'Start from lyrics' });
   if (!(await tile.isVisible().catch(() => false))) {
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Songs', exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('button', { name: 'Songs', exact: true })
+      .click();
   }
   await tile.click();
   await expect(builder).toBeVisible();

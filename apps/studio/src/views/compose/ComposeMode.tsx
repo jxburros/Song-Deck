@@ -334,7 +334,11 @@ export default function ComposeMode() {
     <>
       {destination}
       <Field label="Composition planner">
-        <ProviderPicker role="composition" value={session.planner} onChange={(planner) => session.set({ planner })} />
+        <ProviderPicker
+          role="composition"
+          value={session.planner}
+          onChange={(planner) => session.set({ planner })}
+        />
       </Field>
       <Field label="Audio version model" hint="Used when you also make an audio version">
         {audioTargets.length > 0 ? (
@@ -389,14 +393,19 @@ export default function ComposeMode() {
             Your song so far
           </h2>
           <span className="aside-song">
-            {session.draft.title.trim() || (preview?.title && preview.title !== 'Untitled' ? preview.title : 'New song')}
+            {session.draft.title.trim() ||
+              (preview?.title && preview.title !== 'Untitled' ? preview.title : 'New song')}
           </span>
           {preview && (
             <div className="aside-ribbon" aria-hidden="true">
               {preview.structure
                 .filter((s) => s.bars > 0)
                 .map((s, i) => (
-                  <span key={i} style={{ flexGrow: s.bars, background: sectionColor(s.kind) }} title={s.name} />
+                  <span
+                    key={i}
+                    style={{ flexGrow: s.bars, background: sectionColor(s.kind) }}
+                    title={s.name}
+                  />
                 ))}
             </div>
           )}
@@ -418,7 +427,10 @@ export default function ComposeMode() {
             </div>
           )}
           {preview && preview.instrumentation.length > 0 && (
-            <div className="small muted ellipsis-2" title={preview.instrumentation.map((t) => t.name).join(', ')}>
+            <div
+              className="small muted ellipsis-2"
+              title={preview.instrumentation.map((t) => t.name).join(', ')}
+            >
               {preview.instrumentation.map((t) => t.name).join(' · ')}
             </div>
           )}
@@ -449,7 +461,12 @@ export default function ComposeMode() {
               ? `With ${route?.providerName}${session.draft.describe.trim() ? ' (your words + choices)' : ''}`
               : 'On-device engine · works offline'}
           </span>
-          <Button variant="ghost" icon="chevronRight" className="back-btn" onClick={() => setStep('material')}>
+          <Button
+            variant="ghost"
+            icon="chevronRight"
+            className="back-btn"
+            onClick={() => setStep('material')}
+          >
             Back to material
           </Button>
         </div>
@@ -473,7 +490,13 @@ export default function ComposeMode() {
           <span className="crumb-current">New song</span>
         </nav>
         <div className="row wrap" style={{ gap: '14px 32px', alignItems: 'flex-end' }}>
-          <h1>{step === 'material' ? 'Start a song' : step === 'shape' ? 'Shape the song' : 'Review before composing'}</h1>
+          <h1>
+            {step === 'material'
+              ? 'Start a song'
+              : step === 'shape'
+                ? 'Shape the song'
+                : 'Review before composing'}
+          </h1>
           <nav className="steps" aria-label="New song steps">
             {steps.map((s) => (
               <button
@@ -534,7 +557,11 @@ export default function ComposeMode() {
         {step === 'shape' && (
           <>
             <fieldset className="compose-main" disabled={!!busy || inputLoading}>
-              <ShapeSections customGenres={customGenres} customInstruments={customInstruments} advanced={advanced} />
+              <ShapeSections
+                customGenres={customGenres}
+                customInstruments={customInstruments}
+                advanced={advanced}
+              />
             </fieldset>
             {summary}
           </>
@@ -547,8 +574,8 @@ export default function ComposeMode() {
                 <Icon name="sparkles" size={11} /> {source || 'On-device engine'}
               </Badge>
               <span className="muted small">
-                {blueprint.title} · {blueprint.tempo} BPM · {blueprint.meter.numerator}/{blueprint.meter.denominator} ·{' '}
-                {keyName(blueprint.key)}
+                {blueprint.title} · {blueprint.tempo} BPM · {blueprint.meter.numerator}/
+                {blueprint.meter.denominator} · {keyName(blueprint.key)}
               </span>
               <div className="spacer" />
               <Button onClick={() => setStep('shape')}>Back</Button>
@@ -583,7 +610,11 @@ export default function ComposeMode() {
               </span>
               <div className="spacer" />
               <Button onClick={() => setStep('blueprint')}>Back</Button>
-              <Button icon="rebuild" disabled={!!busy || inputLoading} onClick={() => void makePlan(blueprint)}>
+              <Button
+                icon="rebuild"
+                disabled={!!busy || inputLoading}
+                onClick={() => void makePlan(blueprint)}
+              >
                 Re-plan
               </Button>
             </div>

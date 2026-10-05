@@ -90,7 +90,7 @@ export function queuePrototype(projectId: string, target: string, seed: number):
   const prefs = useSettings.getState().exportPrefs;
   return startTask<CandidateInput, CandidateOutput>(
     'produce.candidate',
-    `Quick prototype — ${selected.label}`,
+    `Audio version — ${selected.label}`,
     {
       projectId,
       sourceRevisionId: headRevisionOf(current)?.id,

@@ -16,40 +16,41 @@ import './home.css';
  * project or MIDI file, an empty project, and your songs.
  */
 
-const STARTS: { focus: StartFocus; n: string; title: string; body: string; icon: IconName; label: string }[] = [
-  {
-    focus: 'lyrics',
-    n: '01',
-    title: 'Lyrics',
-    body: 'Full or partial. Sections like [Chorus] shape the song.',
-    icon: 'book',
-    label: 'Start from lyrics',
-  },
-  {
-    focus: 'audio',
-    n: '02',
-    title: 'Audio',
-    body: 'Hum, sing or play it live, or upload recordings. One track or several.',
-    icon: 'mic',
-    label: 'Start from audio',
-  },
-  {
-    focus: 'midi',
-    n: '03',
-    title: 'MIDI',
-    body: 'One or more tracks, from a few bars to a whole part.',
-    icon: 'midi',
-    label: 'Start from MIDI',
-  },
-  {
-    focus: 'prompt',
-    n: '04',
-    title: 'Prompt',
-    body: 'Describe the song in your own words.',
-    icon: 'sparkles',
-    label: 'Start from a prompt',
-  },
-];
+const STARTS: { focus: StartFocus; n: string; title: string; body: string; icon: IconName; label: string }[] =
+  [
+    {
+      focus: 'lyrics',
+      n: '01',
+      title: 'Lyrics',
+      body: 'Full or partial. Sections like [Chorus] shape the song.',
+      icon: 'book',
+      label: 'Start from lyrics',
+    },
+    {
+      focus: 'audio',
+      n: '02',
+      title: 'Audio',
+      body: 'Hum, sing or play it live, or upload recordings. One track or several.',
+      icon: 'mic',
+      label: 'Start from audio',
+    },
+    {
+      focus: 'midi',
+      n: '03',
+      title: 'MIDI',
+      body: 'One or more tracks, from a few bars to a whole part.',
+      icon: 'midi',
+      label: 'Start from MIDI',
+    },
+    {
+      focus: 'prompt',
+      n: '04',
+      title: 'Prompt',
+      body: 'Describe the song in your own words.',
+      icon: 'sparkles',
+      label: 'Start from a prompt',
+    },
+  ];
 
 /** A small abstract arrangement for a song card, derived from its size (no audio is loaded). */
 function Thumb({ p }: { p: ProjectSummary }) {
@@ -120,12 +121,7 @@ export default function Home() {
     <div className="area-page home-page">
       <header className="songs-hero measure-grid">
         <img className="songs-hero-art" src="/brand/sound-dimension.svg" alt="" aria-hidden="true" />
-        <svg
-          className="songs-hero-edge"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
+        <svg className="songs-hero-edge" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <path d="M22 0 L0 100" vectorEffect="non-scaling-stroke" />
           <path d="M26 0 L4 100" vectorEffect="non-scaling-stroke" className="soft" />
         </svg>
@@ -192,7 +188,9 @@ export default function Home() {
             <Icon name="music" size={28} />
             <div>
               <h3>No songs yet</h3>
-              <p className="muted">Pick a starting point above. Songs are saved on this device as you work.</p>
+              <p className="muted">
+                Pick a starting point above. Songs are saved on this device as you work.
+              </p>
             </div>
           </div>
         ) : (

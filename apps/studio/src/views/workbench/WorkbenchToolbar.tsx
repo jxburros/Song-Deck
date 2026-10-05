@@ -11,7 +11,9 @@ export function useRangeLabel(): string | null {
   const selection = useStudio((s) => s.selection);
   if (!song) return null;
   const hasRange =
-    selection.startTick !== undefined && selection.endTick !== undefined && selection.endTick > selection.startTick;
+    selection.startTick !== undefined &&
+    selection.endTick !== undefined &&
+    selection.endTick > selection.startTick;
   if (!hasRange) return null;
   const a = tickToMusical(song, selection.startTick!);
   const b = tickToMusical(song, Math.max(selection.startTick!, selection.endTick! - 1));
@@ -100,7 +102,10 @@ export function RegenerateActions() {
         `Regenerated unlocked material${what} · seed ${seed}`,
         'regenerate',
       );
-      st.toast('success', `Regenerated ${changed} track${changed > 1 ? 's' : ''}; locked material unchanged.`);
+      st.toast(
+        'success',
+        `Regenerated ${changed} track${changed > 1 ? 's' : ''}; locked material unchanged.`,
+      );
     } catch (err) {
       st.toast('error', `Regeneration failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {

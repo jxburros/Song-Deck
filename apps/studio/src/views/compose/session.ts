@@ -122,8 +122,7 @@ export const useComposeSession = create<ComposeSession>((set) => ({
       promptOn: s.promptOn || focus === 'prompt',
     })),
   set: (p) => set(p),
-  reset: () =>
-    set({ draft: EMPTY_DRAFT, step: 'material', lyricsOn: false, promptOn: false, focus: null }),
+  reset: () => set({ draft: EMPTY_DRAFT, step: 'material', lyricsOn: false, promptOn: false, focus: null }),
 }));
 
 /**
