@@ -260,8 +260,12 @@ class MainThreadRunner:
             self.busy = True
             try:
                 box["value"] = fn()
-            except BaseException as e:  # noqa: BLE001 - handed to the caller
+            except Exception as e:  # handed to the caller
                 box["error"] = e
+            except (KeyboardInterrupt, SystemExit):
+                # Wake the waiting caller with an error, then let the interrupt stop the bridge.
+                box["error"] = RuntimeError("the bridge is shutting down")
+                raise
             finally:
                 self.busy = False
                 done.set()

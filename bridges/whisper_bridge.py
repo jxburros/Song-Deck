@@ -179,7 +179,7 @@ class WhisperEngine:
         """THE engine call. Returns ``{"language", "segments": [{start, end, text, words?}]}``."""
         a = self.args
         segments: List[Dict[str, Any]] = []
-        lang = language
+        lang: Optional[str]
         if self.kind == "faster-whisper":
             seg_iter, info = self.model.transcribe(
                 audio,

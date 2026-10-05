@@ -16,6 +16,7 @@ is 1/1920 s (about 0.52 ms).
 
 from __future__ import annotations
 
+import math
 import struct
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -107,7 +108,7 @@ def parse_events(raw: Any, duration: float, *, field: str = "events", max_events
         if not isinstance(ev, dict):
             raise BadRequest(f"{field}[{i}] must be an object {{time_seconds, data}}")
         t = ev.get("time_seconds")
-        if isinstance(t, bool) or not isinstance(t, (int, float)) or t != t or t < 0 or t == float("inf"):
+        if isinstance(t, bool) or not isinstance(t, (int, float)) or not math.isfinite(t) or t < 0:
             raise BadRequest(f"{field}[{i}].time_seconds must be a number >= 0")
         try:
             msg = validate_message(ev.get("data"))
