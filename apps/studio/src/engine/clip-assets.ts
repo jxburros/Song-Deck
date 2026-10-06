@@ -1,17 +1,22 @@
-import type { AudioAssetMeta, Song } from '@songdeck/core';
+import { tuningActive, type AudioAssetMeta, type Song } from '@songdeck/core';
 import { useStudio } from '../state/store';
 import { assetStore } from '../state/assets';
 import { player } from './player';
 
 let started = false;
 
-/** Audio assets a song plays: clips of audio tracks and frozen instrument-plugin renders. */
+/**
+ * Audio assets a song plays: clips of audio tracks, frozen instrument-plugin renders and tuned
+ * renders of recordings.
+ */
 export function songAudioAssetIds(song: Song): string[] {
   const ids = new Set<string>();
   for (const t of song.tracks) {
     for (const c of t.clips ?? []) ids.add(c.assetId);
     const r = t.instrumentPlugin?.render;
     if (r && !t.instrumentPlugin?.bypass) ids.add(r.assetId);
+    const tuned = t.audioMidi?.tuning?.render;
+    if (tuned && tuningActive(t)) ids.add(tuned.assetId);
   }
   return [...ids];
 }

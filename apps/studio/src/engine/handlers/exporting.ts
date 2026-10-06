@@ -1,4 +1,5 @@
 import {
+  hasEditableNotes,
   rightsSummaryText,
   songToDawProject,
   songToMidi,
@@ -459,7 +460,7 @@ const exportDaw: TaskHandler<DawExportInput, ExportResult> = async (ctx) => {
     const dir = input.fileBase;
     const entries: ZipEntry[] = [{ name: `${dir}/${input.fileBase}.rpp`, data: rpp }];
     for (const f of audioFiles) entries.push({ name: `${dir}/${f.path}`, data: f.data, compress: false });
-    for (const t of song.tracks.filter((x) => x.kind === 'midi' && x.notes.length))
+    for (const t of song.tracks.filter((x) => hasEditableNotes(x) && x.notes.length))
       entries.push({
         name: `${dir}/midi/${trackFileName(song, t.id)}.mid`,
         data: trackToMidi(song, t.id, custom),

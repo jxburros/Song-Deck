@@ -7,3 +7,5 @@ export * from './types';
 export * from './dsp';
 // FFT/STFT, onsets, tempo/beats, key, chroma/chords, pitch tracking, transcription, separation, structure, rebuild.
 export * from './analysis';
+// Pitch correction of recordings towards target notes ("autotune").
+export * from './tuning';

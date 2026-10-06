@@ -1,5 +1,6 @@
 import type { LockMap, MusicOperation, Note, Song, Track, ValidationReport } from '../ir/types';
 import { cloneSong, sortNotes } from '../ir/song-utils';
+import { noteTrackView } from '../audio-midi';
 import { findSection, sectionLayout, songLengthTicks } from '../timing';
 import { foldIntoRange } from '../theory/scales';
 import { isDrumTrack, lookupInstrument, trackRange } from './instruments';
@@ -275,11 +276,14 @@ function finalizeNotes(
   for (const track of song.tracks) {
     sortNotes(track.notes);
     const ids = touched.get(track.id);
-    if (!ids || !ids.size || track.kind !== 'midi') continue;
+    const view = noteTrackView(track);
+    if (!ids || !ids.size || !view) continue;
     // Fix on private copies (note objects may be shared with earlier states).
     track.notes = track.notes.map((n) => ({ ...n }));
-    const drums = isDrumTrack(track, lookup);
-    const range = trackRange(track, lookup);
+    // Attached MIDI describes a recording: any MIDI pitch is valid, whatever plays it.
+    const attached = view !== track;
+    const drums = isDrumTrack(view, lookup);
+    const range = attached ? { low: 0, high: 127 } : trackRange(track, lookup);
     const removed = new Set<Note>();
     for (const n of track.notes) {
       if (!ids.has(n.id)) continue;
@@ -381,7 +385,7 @@ function finalizeNotes(
     if (removed.size) track.notes = track.notes.filter((n) => !removed.has(n));
     sortNotes(track.notes);
     fixOverlaps(song, track, ids, autoFix, issues, (n) => protectedNote(track, n));
-    if (lookupInstrument(track.instrumentId, lookup).polyphony === 'mono' && !drums) {
+    if (!attached && lookupInstrument(track.instrumentId, lookup).polyphony === 'mono' && !drums) {
       const overlaps = countPolyphonicOverlaps(track.notes);
       if (overlaps) {
         issues.warn(

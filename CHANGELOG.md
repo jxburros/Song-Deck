@@ -8,6 +8,17 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ### Added
 
+- **MIDI from any audio track, attached to it.** **Make MIDI from audio** (an audio track's menu, the
+  piano roll or its track details) turns the track's recording into editable notes that sit exactly
+  under the audio. An **Audio / MIDI** switch (in Write and Sound) chooses what plays: the recording,
+  or the notes through any instrument. Edit the notes in the piano roll, with words, or copy them to a
+  new MIDI track; they are included in MIDI exports. Melody, chords and drums are supported, on-device
+  or with a connected transcription service.
+- **Tune the audio to the MIDI (pitch correction).** For a sung or played single line, the recording is
+  pitch-corrected to follow its MIDI: edit a note's pitch and the audio under it moves there. Correction,
+  Flatten (drift and vibrato) and Retune speed controls, with Natural and Hard tune presets. The tuned
+  recording is rendered on-device, plays in every step and export, and updates automatically after edits.
+
 - **Instrument plugins like a DAW.** Any MIDI track can be played by an installed **VST3, Audio
   Unit, VST2, CLAP, LV2, SoundFont (SF2/SF3) or SFZ** instrument through the new local plugin host
   bridge (`bridges/plugin_host_bridge.py`), or by a **Web Audio Module (WAM 2)** running in the

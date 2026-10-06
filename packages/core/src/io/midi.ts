@@ -15,6 +15,7 @@ import { PPQ } from '../ir/types';
 import { createEmptySong, defaultChannelStrip } from '../ir/defaults';
 import { GM_DRUM_CHANNEL, GM_PROGRAM_NAMES } from '../ir/gm';
 import { sortNotes } from '../ir/song-utils';
+import { noteTrackView } from '../audio-midi';
 import { barLengthTicks, barToTick, keyAtTick, sectionLayout, tickToBar } from '../timing';
 import { parseChordSymbol } from '../theory/chords';
 import { chordToRoman } from '../theory/roman';
@@ -699,8 +700,12 @@ function trackEvents(
   return out;
 }
 
+/** MIDI tracks plus the MIDI attached to audio tracks (exported with its playing instrument). */
 function exportTracks(song: Song, opts: SongToMidiOptions): Track[] {
-  return song.tracks.filter((t) => t.kind === 'midi' && (!opts.trackIds || opts.trackIds.includes(t.id)));
+  return song.tracks
+    .filter((t) => !opts.trackIds || opts.trackIds.includes(t.id))
+    .map(noteTrackView)
+    .filter((t): t is Track => !!t);
 }
 
 /** Multi-track Standard MIDI File (type 1, PPQ = song.ppq) with a conductor track. */
@@ -731,8 +736,9 @@ export function trackToMidi(
     customInstruments: opts.customInstruments,
     resolveInstrument: opts.resolveInstrument,
   };
-  const track = song.tracks.find((t) => t.id === trackId);
-  if (!track) throw new Error(`Unknown track "${trackId}".`);
+  const found = song.tracks.find((t) => t.id === trackId);
+  if (!found) throw new Error(`Unknown track "${trackId}".`);
+  const track = noteTrackView(found) ?? found;
   const channels = assignChannels([track], lookup);
   const conductor = conductorEvents(song, { ...opts, includeSongDeckMeta: false }, [track]).filter(
     (r) => !(r.e.type === 'text' && r.e.metaType === META.TRACK_NAME),

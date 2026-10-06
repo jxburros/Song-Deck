@@ -13,6 +13,7 @@ export * from './util/random';
 export * from './util/ids';
 export * from './timing';
 export * from './locks';
+export * from './audio-midi';
 export * from './theory';
 
 // Composition engine (genres, instruments, blueprint, planner, generators, arrangement, macros,

@@ -15,6 +15,7 @@ import { Badge, Button, CommitText, Field, Select } from '../../../ui/kit';
 import { AVOID_RULES, FUNCTIONS, TRACK_ROLES } from '../../compose/BlueprintEditor';
 import { AttestationList } from './AttestationList';
 import { InstrumentPluginPanel } from '../../shared/InstrumentPluginPanel';
+import { AudioMidiPanel } from '../../shared/AudioMidiPanel';
 
 const RIGHTS_FIELDS: { key: keyof RightsMetadata; label: string }[] = [
   { key: 'humanComposers', label: 'Human composer(s)' },
@@ -74,6 +75,7 @@ export default function InspectorPanel() {
             />
           </Field>
           {track.kind === 'midi' && <InstrumentPluginPanel song={song} track={track} />}
+          {track.kind === 'audio' && <AudioMidiPanel song={song} track={track} />}
           <div className="grid-2">
             <Field label="Generator role">
               <Select

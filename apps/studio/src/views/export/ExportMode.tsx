@@ -3,6 +3,7 @@ import { fileToLibraryDraft } from '../../state/library';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   attestationsNeedingCare,
+  hasEditableNotes,
   audacityLabels,
   markersCsv,
   songToChordSheet,
@@ -256,7 +257,8 @@ export default function ExportMode() {
   }, [settings.sampleRate, settings.aacKbps]);
 
   const base = songFileBase(song);
-  const midiTracks = useMemo(() => song?.tracks.filter((t) => t.kind === 'midi') ?? [], [song]);
+  // MIDI tracks, and audio tracks with MIDI made from them
+  const midiTracks = useMemo(() => song?.tracks.filter(hasEditableNotes) ?? [], [song]);
   const custom = useMemo(
     () => ({ customInstruments: allCustomInstruments(project?.meta.customInstruments ?? []) }),
     [project?.meta.customInstruments],

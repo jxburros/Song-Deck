@@ -17,6 +17,7 @@ apps/studio (UI) ─────────────────────
 │   ├── theory/     Theory Engine primitives                        (§13)
 │   ├── timing.ts   bars/beats/ticks/seconds                         (§47 TempoEvent/MeterEvent)
 │   ├── locks.ts    lock keys and lock resolution                    (§22)
+│   ├── audio-midi.ts  MIDI attached to audio tracks: views, staleness, tuning render keys
 │   ├── composer/   genres, instruments, blueprint, planner, role generators,
 │   │               arrangement, macros, regeneration, variation, Song DNA  (§10-§24)
 │   ├── musician/   natural-language MIDI edits, theory explanations, lyrics,
@@ -35,8 +36,9 @@ apps/studio (UI) ─────────────────────
 ├── packages/audio  = Audio Engine (pure TypeScript, deterministic, browser + Node)
 │   ├── dsp/        synth voices + instrument patches, streaming SongRenderer, mixer,
 │   │               effects, automation, mastering & loudness, codecs, singing synthesis (§28, §34, §40, §42)
-│   └── analysis/   FFT, onsets, tempo/beats, key, chroma/chords, YIN pitch tracking,
-│                   transcription (mono/poly/drums), source separation, structure, rebuild (§25-§27)
+│   ├── analysis/   FFT, onsets, tempo/beats, key, chroma/chords, YIN pitch tracking,
+│   │               transcription (mono/poly/drums), source separation, structure, rebuild (§25-§27)
+│   └── tuning/     pitch correction of recordings towards notes (TD-PSOLA)
 │
 └── apps/server     = Local runtime: credential vault (OS keychain), provider proxy,
                       hardware detection, model manager, render nodes, collaboration hub,
@@ -228,6 +230,25 @@ transcribeMonophonic, transcribePolyphonic, transcribeDrums, separateSources (HP
 classifyStem, segmentStructure, transcribedToNotes, rebuildProject(buf, opts): Promise<{ song; report }>
 ```
 
+### 3.9a audio/tuning and MIDI attached to audio
+
+```ts
+// core (audio-midi.ts): Track.audioMidi = { play: 'audio' | 'midi', mode, instrumentId, sourceKey, tuning? }
+hasAttachedMidi(track); hasEditableNotes(track); noteTrackView(track)   // attached MIDI as a MIDI track
+audioMidiSourceKey(song, track); audioMidiIsStale(song, track)            // the audio changed since
+tuneTargets(song, track); tuningRenderKey(song, track); tuningRenderIsCurrent(song, track)
+// audio
+retuneAudio(buf, notes: RetuneNote[], { amount, flatten, speedMs }): { audio; report; plan; track }
+planRetune(pitchTrack, notes, settings); pitchMarks(x, sr, contour); psolaResynthesize(channels, marks, ratioAt)
+renderTrackClips(song, track, { sampleRate, assets }): AudioData   // an audio track's clips, pre-fader
+playbackTrack(song, track, assets)   // what a track plays: patch, plugin render, attached MIDI, tuned render
+```
+
+Audio tracks keep their attached notes in `Track.notes` (song ticks, aligned with the clips). Note
+operations, validation and MIDI export treat them like MIDI tracks (no instrument-range folding: the
+notes describe a recording). A tuned render is a `tuned-render` asset keyed like a frozen plugin
+render; the renderer plays it instead of the clips while current.
+
 ### 3.10 ai
 
 Capabilities (§5, §30, §59), `ProviderRegistry`, `CapabilityRouter`, `BUILTIN_PROFILES` (§6),
@@ -266,6 +287,10 @@ SF2, SFZ),
 - `engine/credentials.ts` — browser-held keys (encrypted IndexedDB store, memory fallback) used when
   the server vault is not; `views/settings/ConnectService.tsx` — the "Connect a service" flow.
 - `engine/plugins.ts` — plugin loading and the plugin API (`docs/PLUGINS.md`).
+- `engine/audio-midi.ts` — MIDI attached to audio tracks: the `audio.make-midi` task (renders the
+  track's clips with the `trackClips` job and runs `analysis.transcribe` without quantizing), the
+  play switch, and the `audio.retune` task (the `retune` job) with automatic re-render after edits.
+  UI: `views/shared/AudioMidiPanel.tsx` (track menu, piano roll bar, track details, Sound).
 - `engine/instrument-plugins.ts` + `wam-host.ts` — instrument plugins on MIDI tracks
   (`Track.instrumentPlugin`): hosts (native bridge, in-browser Web Audio Modules), editors, the
   `instrument.render` task that freezes a track into a `plugin-render` asset, and automatic

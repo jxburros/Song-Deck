@@ -432,6 +432,69 @@ export interface Track {
    * the built-in patch of `instrumentId`.
    */
   instrumentPlugin?: InstrumentPluginSlot;
+  /**
+   * MIDI made from this audio track's own recording (audio tracks only). Its notes live in
+   * `notes` on the song timeline, aligned with the clips, and are edited like any MIDI. The track
+   * plays either its recording (pitch-corrected to follow the notes when tuning is on) or the
+   * notes through an instrument.
+   */
+  audioMidi?: AudioMidiLink;
+}
+
+/** What an audio track with attached MIDI plays. */
+export type AudioMidiPlayback = 'audio' | 'midi';
+
+/** How attached MIDI was transcribed: one line at a time, several notes at once, or drum hits. */
+export type AudioMidiMode = 'melody' | 'chords' | 'drums';
+
+export interface AudioMidiLink {
+  /** What plays: the recording (tuned when tuning is on) or the notes through `instrumentId`. */
+  play: AudioMidiPlayback;
+  mode: AudioMidiMode;
+  /** Instrument profile that plays the notes when `play` is 'midi' (and the MIDI export program). */
+  instrumentId: string;
+  /** `audioMidiSourceKey` of the audio the notes were made from; it differs once the clips change. */
+  sourceKey: string;
+  createdAt: string;
+  /** Transcription engine: 'internal-analysis' or the provider id. */
+  method?: string;
+  /** Overall transcription confidence 0..1. */
+  confidence?: number;
+  /** Pitch correction of the recording towards the notes ("autotune"). */
+  tuning?: AudioTuning;
+}
+
+export interface AudioTuningSettings {
+  /**
+   * 0..1: how far each note's average pitch is pulled onto its exact MIDI pitch. A note moved to
+   * a different pitch always moves by whole semitones; 0 keeps the performer's own intonation.
+   */
+  amount: number;
+  /** 0..1: how much pitch drift and vibrato around each note's centre is flattened. */
+  flatten: number;
+  /** Retune speed: glide time of the correction in ms (0 = instant, the robotic effect). */
+  speedMs: number;
+}
+
+export interface AudioTuning extends AudioTuningSettings {
+  enabled: boolean;
+  /** The current tuned render of the recording; plays instead of the clips while current. */
+  render?: AudioTuningRender;
+}
+
+export interface AudioTuningRender {
+  /** Audio asset (WAV): the clips' audio, pitch-corrected, from `startTick`. */
+  assetId: Id;
+  /** Song position where the asset starts: the first clip (default 0). */
+  startTick?: Ticks;
+  /** `tuningRenderKey` of the inputs it was rendered from; stale when it differs. */
+  key: string;
+  sampleRate: number;
+  durationSeconds: number;
+  renderedAt: string;
+  /** Notes corrected, and notes left alone (no clear pitch under them). */
+  tunedNotes?: number;
+  skippedNotes?: number;
 }
 
 export type InstrumentPluginFormat = 'vst3' | 'au' | 'vst2' | 'clap' | 'lv2' | 'sf2' | 'sfz' | 'wam';
@@ -1337,7 +1400,9 @@ export type AssetKind =
   /** A frozen instrument-plugin render of a MIDI track. */
   | 'plugin-render'
   /** Opaque instrument-plugin state (not audio: sampleRate/channels/duration are 0). */
-  | 'plugin-state';
+  | 'plugin-state'
+  /** An audio track's recording pitch-corrected to follow its attached MIDI. */
+  | 'tuned-render';
 
 export interface AudioAssetMeta {
   id: Id;

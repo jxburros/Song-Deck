@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { LockKeys, sectionLayout } from '@songdeck/core';
+import { LockKeys, hasEditableNotes, sectionLayout } from '@songdeck/core';
 import { useStudio, type RightPanel } from '../../state/store';
 import { Button, Spinner } from '../../ui/kit';
 import { SaveLibraryButton } from '../library/SaveLibraryButton';
@@ -83,7 +83,7 @@ export function ChangePanel() {
                 {sectionLocked ? 'Unlock section' : 'Lock section'}
               </Button>
             )}
-            {track?.kind === 'midi' && (
+            {hasEditableNotes(track) && (
               <Button icon="pencil" onClick={() => st.setWorkbenchView('piano-roll')}>
                 Edit notes
               </Button>

@@ -9,6 +9,7 @@ import type {
 } from '../ir/types';
 import { CHORD_INTERVALS, parseChordSymbol } from '../theory/chords';
 import { sectionLayout, songLengthTicks } from '../timing';
+import { noteTrackView } from '../audio-midi';
 import { countPolyphonicOverlaps } from './apply';
 import {
   isDrumTrack,
@@ -225,9 +226,12 @@ function validateNotes(
   issues: IssueList,
   lookup: ValidateOptions,
 ): void {
-  if (track.kind !== 'midi') return;
-  const drums = isDrumTrack(track, lookup);
-  const range = trackRange(track, lookup);
+  const view = noteTrackView(track);
+  if (!view) return;
+  // Attached MIDI describes a recording: any MIDI pitch is valid, whatever plays it.
+  const attached = view !== track;
+  const drums = isDrumTrack(view, lookup);
+  const range = attached ? { low: 0, high: 127 } : trackRange(track, lookup);
   let prev: Note | undefined;
   let unsorted = false;
   const valid: Note[] = [];
@@ -301,8 +305,8 @@ function validateNotes(
     }
   }
   // Polyphony.
-  const profile = lookupInstrument(track.instrumentId, lookup);
-  if (!drums && profile.polyphony === 'mono') {
+  const profile = lookupInstrument(view.instrumentId, lookup);
+  if (!drums && !attached && profile.polyphony === 'mono') {
     const overlaps = countPolyphonicOverlaps(valid);
     if (overlaps)
       issues.warn(

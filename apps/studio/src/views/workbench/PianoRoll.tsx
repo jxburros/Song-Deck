@@ -15,6 +15,8 @@ import {
   songLengthTicks,
   sortNotes,
   chordPitchClasses,
+  hasAttachedMidi,
+  hasEditableNotes,
   type Note,
   type Song,
   type Track,
@@ -28,6 +30,46 @@ import { alpha, useThemeName } from '../../ui/theme';
 import { auditionNote } from '../../engine/audition';
 import { useLoopSync } from './useLoopSync';
 import { useMidiRecorder } from './useMidiRecorder';
+import { AudioMidiBar, MakeMidiDialog } from '../shared/AudioMidiPanel';
+
+/** Tracks the roll can edit: MIDI tracks and audio tracks with MIDI made from them. */
+function trackOptions(song: Song, extra?: Track): { value: string; label: string }[] {
+  const tracks = song.tracks.filter((t) => hasEditableNotes(t) || t === extra);
+  return tracks.map((t) => ({
+    value: t.id,
+    label: t.kind === 'audio' ? `${t.name} (${hasAttachedMidi(t) ? 'MIDI from audio' : 'audio'})` : t.name,
+  }));
+}
+
+/** An audio track without MIDI is selected: offer to make MIDI from it. */
+function AudioWithoutMidi({ song, track }: { song: Song; track: Track }) {
+  const st = useStudio.getState();
+  const [dialog, setDialog] = useState(false);
+  return (
+    <div className="empty-state col" style={{ alignItems: 'center', gap: 10 }} data-testid="piano-roll-audio">
+      <div>
+        “{track.name}” is an audio track. Make MIDI from its recording to see and edit its notes here, switch
+        between hearing the audio and the MIDI, and tune the audio to the notes.
+      </div>
+      <div className="row">
+        <Button variant="primary" icon="midi" onClick={() => setDialog(true)}>
+          Make MIDI from audio…
+        </Button>
+        {song.tracks.some(hasEditableNotes) && (
+          <Select
+            size="sm"
+            value={track.id}
+            onChange={(id) => st.selectTrack(id)}
+            options={trackOptions(song, track)}
+            aria-label="Track"
+            style={{ width: 200 }}
+          />
+        )}
+      </div>
+      {dialog && <MakeMidiDialog track={track} onClose={() => setDialog(false)} />}
+    </div>
+  );
+}
 
 const KEY_W = 56;
 const RULER_H = 32;
@@ -85,8 +127,14 @@ export default function PianoRoll() {
   const baseSong = project?.song ?? null;
   // When an AI proposal is pending, the roll shows (and edits) the proposed song — "Modify" (spec §21).
   const song: Song | null = proposal ? proposal.after : baseSong;
+  const selectedTrack = song?.tracks.find((t) => t.id === selectedTrackId);
+  const audioWithoutMidi = selectedTrack && !hasEditableNotes(selectedTrack) ? selectedTrack : undefined;
   const track: Track | undefined =
-    song?.tracks.find((t) => t.id === selectedTrackId) ?? song?.tracks.find((t) => t.kind === 'midi');
+    selectedTrack && hasEditableNotes(selectedTrack)
+      ? selectedTrack
+      : audioWithoutMidi
+        ? undefined
+        : song?.tracks.find((t) => t.kind === 'midi');
 
   const [tool, setTool] = useState<Tool>('pointer');
   const [snap, setSnap] = useState('1/16');
@@ -730,6 +778,7 @@ export default function PianoRoll() {
     return () => window.removeEventListener('keydown', onKey);
   }, [song, track, snapTicks, snap, commitTrackNotes, st]);
 
+  if (song && audioWithoutMidi) return <AudioWithoutMidi song={song} track={audioWithoutMidi} />;
   if (!song || !track) return <div className="empty-state">Select a MIDI track to edit.</div>;
 
   return (
@@ -745,7 +794,8 @@ export default function PianoRoll() {
           size="sm"
           value={track.id}
           onChange={(id) => st.selectTrack(id)}
-          options={song.tracks.filter((t) => t.kind === 'midi').map((t) => ({ value: t.id, label: t.name }))}
+          options={trackOptions(song)}
+          aria-label="Track"
           style={{ width: 170 }}
         />
         <div className="tabs">
@@ -776,14 +826,16 @@ export default function PianoRoll() {
           variant={recorder.recording ? 'danger' : 'ghost'}
           icon="record"
           onClick={recorder.toggle}
-          disabled={!!proposal && !recorder.recording}
+          disabled={(!!proposal && !recorder.recording) || track.kind !== 'midi'}
           aria-pressed={recorder.recording}
           title={
-            proposal
-              ? 'Accept or reject the pending proposal before recording'
-              : recorder.recording
-                ? 'Stop recording and keep the take'
-                : `Record a MIDI keyboard into ${track.name} over playback (overdub; onsets snap to ${snapLabel})`
+            track.kind !== 'midi'
+              ? 'Recording a MIDI keyboard works on MIDI tracks'
+              : proposal
+                ? 'Accept or reject the pending proposal before recording'
+                : recorder.recording
+                  ? 'Stop recording and keep the take'
+                  : `Record a MIDI keyboard into ${track.name} over playback (overdub; onsets snap to ${snapLabel})`
           }
         >
           {recorder.recording ? `Stop · ${recorder.count} notes` : 'Record'}
@@ -807,7 +859,7 @@ export default function PianoRoll() {
           options={[
             { value: '', label: 'No ghost track' },
             ...song.tracks
-              .filter((t) => t.id !== track.id && t.kind === 'midi')
+              .filter((t) => t.id !== track.id && hasEditableNotes(t))
               .map((t) => ({ value: t.id, label: `Ghost: ${t.name}` })),
           ]}
           style={{ width: 160 }}
@@ -859,6 +911,7 @@ export default function PianoRoll() {
           </>
         )}
       </div>
+      {track.kind === 'audio' && <AudioMidiBar song={baseSong ?? song} track={track} />}
       <div ref={wrapRef} style={{ position: 'relative', flex: 1, minHeight: 0 }}>
         <canvas
           ref={canvasRef}

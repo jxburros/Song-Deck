@@ -141,3 +141,28 @@
   right: 0;
   top: calc(100% + 6px);
 }
+
+/* Audio tracks with attached MIDI: what the track plays, and the bar above the piano roll. */
+.audio-midi-switch {
+  flex: none;
+  width: max-content;
+}
+.audio-midi-switch.sm {
+  padding: 1px;
+}
+.audio-midi-switch.sm .tab {
+  height: 18px;
+  padding: 0 5px;
+  font-size: 10px;
+}
+.arr-track-sub {
+  gap: 5px;
+  margin-top: 2px;
+  min-width: 0;
+}
+.audio-midi-bar {
+  gap: 8px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev-1);
+}

@@ -3,6 +3,7 @@ import {
   BUILTIN_INSTRUMENTS,
   channelFor,
   colorForRole,
+  hasAttachedMidi,
   type MasteringTarget,
   type Song,
   type Track,
@@ -26,6 +27,8 @@ import {
 import { useProduceUi } from '../produce/state';
 import { openMixTab } from '../mix/MixMode';
 import { openSettings } from '../settings/nav';
+import { PlaySwitch } from '../shared/AudioMidiPanel';
+import { setAudioMidiInstrument } from '../../engine/audio-midi';
 import './sound.css';
 
 /**
@@ -77,6 +80,24 @@ function TrackLevel({ song, track }: { song: Song; track: Track }) {
           }
           options={instruments.map((i) => ({ value: i.id, label: i.name }))}
         />
+      ) : hasAttachedMidi(track) ? (
+        // An audio track with MIDI made from it: play the recording or the MIDI on an instrument.
+        <span className="row" style={{ gap: 6, minWidth: 0 }}>
+          <PlaySwitch track={track} size="sm" />
+          {track.audioMidi.play === 'midi' ? (
+            <Select
+              size="sm"
+              aria-label={`${track.name} MIDI sound`}
+              value={track.audioMidi.instrumentId}
+              onChange={(instrumentId) => setAudioMidiInstrument(track.id, instrumentId)}
+              options={instruments.map((i) => ({ value: i.id, label: i.name }))}
+            />
+          ) : (
+            <span className="small muted ellipsis">
+              {track.audioMidi.tuning?.enabled && track.audioMidi.mode === 'melody' ? 'Tuned audio' : 'Audio'}
+            </span>
+          )}
+        </span>
       ) : (
         <span className="small muted">Audio · {track.clips.length} clips</span>
       )}

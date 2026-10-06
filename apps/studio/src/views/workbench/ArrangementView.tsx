@@ -4,6 +4,7 @@ import {
   channelFor,
   createTimeMap,
   getInstrument,
+  hasAttachedMidi,
   LockKeys,
   isTrackSectionLocked,
   sectionLayout,
@@ -21,6 +22,13 @@ import { saveSongToLibrary } from '../../state/library';
 import { colorForRole, setChannel } from './tracks';
 import { sectionColor } from '../../ui/theme';
 import { useLoopSync } from './useLoopSync';
+import { MakeMidiDialog, PlaySwitch, canTune } from '../shared/AudioMidiPanel';
+import {
+  copyAttachedMidiToTrack,
+  removeAttachedMidi,
+  setAudioMidiPlay,
+  setTuningEnabled,
+} from '../../engine/audio-midi';
 
 const HEAD_W = 200;
 const SECTION_H = 22;
@@ -65,6 +73,8 @@ const SectionBlock = memo(function SectionBlock({
   }
   const range = Math.max(12, hi - lo + 1);
   const inner = h - 10;
+  // MIDI attached to audio is drawn faintly under the clips while the recording plays.
+  const noteAlpha = hasAttachedMidi(track) && track.audioMidi.play === 'audio' ? 0.45 : 1;
   return (
     <div
       className="arr-block"
@@ -119,7 +129,7 @@ const SectionBlock = memo(function SectionBlock({
                 height={3}
                 rx={1}
                 fill={color}
-                opacity={0.35 + (n.velocity / 127) * 0.65}
+                opacity={(0.35 + (n.velocity / 127) * 0.65) * noteAlpha}
               />
             );
           })}
@@ -157,7 +167,21 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
   const ch = channelFor(song, track.id);
   const locked = !!song.locks[LockKeys.track(track.id)];
   const inst = getInstrument(track.instrumentId, customInstruments);
-  const size = track.kind === 'audio' ? `${track.clips.length} clips` : `${track.notes.length} notes`;
+  const attached = hasAttachedMidi(track) ? track.audioMidi : null;
+  const [makeMidi, setMakeMidi] = useState(false);
+  const size = attached
+    ? `${track.notes.length} notes`
+    : track.kind === 'audio'
+      ? `${track.clips.length} clips`
+      : `${track.notes.length} notes`;
+  // Audio with MIDI made from it: the switch shows what plays; the note says how.
+  const attachedNote = attached
+    ? attached.play === 'midi'
+      ? getInstrument(attached.instrumentId, customInstruments).name
+      : attached.tuning?.enabled && canTune(track)
+        ? 'tuned'
+        : ''
+    : '';
   const act = (fn: () => void) => () => {
     setMenu(null);
     fn();
@@ -169,15 +193,28 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
       onClick={() => st.selectTrack(track.id)}
       onDoubleClick={() => {
         st.selectTrack(track.id);
-        if (track.kind === 'midi') st.setWorkbenchView('piano-roll');
+        if (track.kind === 'midi' || attached) st.setWorkbenchView('piano-roll');
       }}
     >
       <span className="arr-track-color" style={{ background: track.color || colorForRole(track.role) }} />
       <div className="arr-track-text">
         <div className="ellipsis arr-track-name">{track.name}</div>
-        <div className="ellipsis small dim">
-          {track.kind === 'audio' ? 'Audio' : inst.name} · {size}
-        </div>
+        {attached ? (
+          <div
+            className="row arr-track-sub"
+            title={`${attached.play === 'midi' ? 'Plays the MIDI' : 'Plays the audio'}${attachedNote ? ` (${attachedNote})` : ''} · ${size}`}
+          >
+            <PlaySwitch track={track} size="sm" />
+            <span className="ellipsis small dim">
+              {size}
+              {attachedNote ? ` · ${attachedNote}` : ''}
+            </span>
+          </div>
+        ) : (
+          <div className="ellipsis small dim">
+            {track.kind === 'audio' ? 'Audio' : inst.name} · {size}
+          </div>
+        )}
       </div>
       {(ch.mute || ch.solo || locked) && (
         <span className="arr-track-flags small" aria-label="Track state">
@@ -219,6 +256,45 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
               <button type="button" role="menuitem" onClick={act(() => st.setWorkbenchView('piano-roll'))}>
                 <Icon name="pencil" /> Edit notes
               </button>
+            )}
+            {track.kind === 'audio' && !attached && (
+              <button type="button" role="menuitem" onClick={act(() => setMakeMidi(true))}>
+                <Icon name="midi" /> Make MIDI from audio…
+              </button>
+            )}
+            {attached && (
+              <>
+                <button type="button" role="menuitem" onClick={act(() => st.setWorkbenchView('piano-roll'))}>
+                  <Icon name="pencil" /> Edit MIDI
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={act(() => setAudioMidiPlay(track.id, attached.play === 'midi' ? 'audio' : 'midi'))}
+                >
+                  <Icon name={attached.play === 'midi' ? 'waveform' : 'midi'} />{' '}
+                  {attached.play === 'midi' ? 'Play the audio' : 'Play the MIDI'}
+                </button>
+                {canTune(track) && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={act(() => setTuningEnabled(track.id, !attached.tuning?.enabled))}
+                  >
+                    <Icon name="sliders" />{' '}
+                    {attached.tuning?.enabled ? 'Stop tuning the audio' : 'Tune the audio to the MIDI'}
+                  </button>
+                )}
+                <button type="button" role="menuitem" onClick={act(() => copyAttachedMidiToTrack(track.id))}>
+                  <Icon name="copy" /> Copy MIDI to a new track
+                </button>
+                <button type="button" role="menuitem" onClick={act(() => setMakeMidi(true))}>
+                  <Icon name="rebuild" /> Remake MIDI…
+                </button>
+                <button type="button" role="menuitem" onClick={act(() => removeAttachedMidi(track.id))}>
+                  <Icon name="trash" /> Remove MIDI
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -281,6 +357,7 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
           </div>
         </>
       )}
+      {makeMidi && <MakeMidiDialog track={track} onClose={() => setMakeMidi(false)} />}
     </div>
   );
 }
@@ -568,6 +645,7 @@ export default function ArrangementView() {
                 />
               ))}
               {track.clips.map((c) => {
+                const playsMidi = hasAttachedMidi(track) && track.audioMidi.play === 'midi';
                 const x = tm.secondsToTick(tm.tickToSeconds(c.tick)) * pxPerTick;
                 const endTick = tm.secondsToTick(tm.tickToSeconds(c.tick) + c.durationSeconds);
                 return (
@@ -579,13 +657,15 @@ export default function ArrangementView() {
                       width: Math.max(4, (endTick - c.tick) * pxPerTick),
                       top: 4,
                       height: view.trackHeight - 8,
-                      background: `${track.color || colorForRole(track.role)}22`,
-                      border: `1px solid ${track.color || colorForRole(track.role)}`,
+                      background: playsMidi ? 'transparent' : `${track.color || colorForRole(track.role)}22`,
+                      border: `1px ${playsMidi ? 'dashed' : 'solid'} ${track.color || colorForRole(track.role)}`,
                       borderRadius: 5,
                       fontSize: 11,
                       padding: '2px 6px',
                       overflow: 'hidden',
-                      opacity: c.muted ? 0.4 : 1,
+                      opacity: c.muted || playsMidi ? 0.4 : 1,
+                      // clicks reach the section block underneath (select, double-click to edit)
+                      pointerEvents: 'none',
                     }}
                     title={c.name}
                   >

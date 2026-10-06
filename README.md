@@ -123,6 +123,12 @@ Track**, **Library** and **Settings**.
   upload), **Generate MIDI**, or **Generate audio** (one instrument rendered to WAV). It keeps
   separate settings from a song's own tools. Results can be downloaded, saved to the Library, or used
   to **start a song**.
+- **MIDI from audio tracks**: any audio track (an imported stem, a recording, produced audio) can
+  **Make MIDI from audio** from its track menu. The notes are attached to the track, exactly under the
+  recording, and an **Audio / MIDI** switch chooses what plays: the recording or the notes through an
+  instrument. Edit them in the piano roll like any MIDI. For a sung or played single line, **Tune the
+  audio to the MIDI** pitch-corrects the recording to follow the notes (Correction, Flatten, Retune
+  speed; Natural or Hard tune), so changing a note's pitch changes the sung note.
 - **Library** keeps tracks, track sets, audio, lyrics and other files in browser storage independently
   of songs. Using an item makes a fresh copy; deleting a song does not delete the saved item. Save from
   Single Track results, a track's menu in Write, Export, recent exports, or upload files directly.
