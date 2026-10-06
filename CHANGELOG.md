@@ -8,6 +8,25 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ### Added
 
+- **MIDI from any audio track, attached to it.** **Make MIDI from audio** (an audio track's menu, the
+  piano roll or its track details) turns the track's recording into editable notes that sit exactly
+  under the audio. An **Audio / MIDI** switch (in Write and Sound) chooses what plays: the recording,
+  or the notes through any instrument. Edit the notes in the piano roll, with words, or copy them to a
+  new MIDI track; they are included in MIDI exports. Melody, chords and drums are supported, on-device
+  or with a connected transcription service.
+- **Singers and their ranges.** Add the people who sing a song (Vocals → Singers, or a vocal
+  track's details) and describe each voice as zones rather than two limits: **sweet spot**, **easy**,
+  **difficult but possible**, **falsetto / head voice only** and **out of range**, starting from a
+  voice type and adjusted note by note. Assign a singer to each vocal part: the melody is written for
+  their voice, the piano roll shades every row by zone, unreachable notes are flagged, and a range
+  check shows how much of the part sits in each zone, which notes are difficult (by bar) and the key
+  that suits the singer best, as a proposal to review. Keep singers in **My singers** to reuse them in
+  other songs.
+- **Tune the audio to the MIDI (pitch correction).** For a sung or played single line, the recording is
+  pitch-corrected to follow its MIDI: edit a note's pitch and the audio under it moves there. Correction,
+  Flatten (drift and vibrato) and Retune speed controls, with Natural and Hard tune presets. The tuned
+  recording is rendered on-device, plays in every step and export, and updates automatically after edits.
+
 - **Instrument plugins like a DAW.** Any MIDI track can be played by an installed **VST3, Audio
   Unit, VST2, CLAP, LV2, SoundFont (SF2/SF3) or SFZ** instrument through the new local plugin host
   bridge (`bridges/plugin_host_bridge.py`), or by a **Web Audio Module (WAM 2)** running in the
@@ -29,6 +48,10 @@ All notable changes to Song Deck are documented in this file. The format follows
 - Mock bridge roles `lyrics` (8816) and `instruments` (8817) for testing without models.
 
 ### Changed
+
+- The track details of an audio track offer its **stem group** (what Stems.zip and
+  Instrumental/Acapella exports use) instead of an instrument it does not play; an imported vocal
+  stem no longer shows "Drum Kit".
 
 - Pasting an OpenRouter (`sk-or-v1-…`) or xAI (`xai-…`) key connects it directly; DeepSeek and
   Mistral keys are offered as candidates.

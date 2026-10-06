@@ -6,6 +6,7 @@
 import * as audio from '@songdeck/audio';
 import type { AudioData } from '@songdeck/audio';
 import {
+  createTimeMap,
   expandSong,
   type ExpansionRequest,
   type ComposeSongOptions,
@@ -26,6 +27,8 @@ export type JobMethod =
   | 'renderMix'
   | 'renderStems'
   | 'renderTrack'
+  | 'trackClips'
+  | 'retune'
   | 'master'
   | 'loudness'
   | 'encodeWav'
@@ -123,6 +126,57 @@ async function run(req: JobRequest, signal: AbortSignal): Promise<unknown> {
         assets: resolverFrom(a.assets),
         applyMaster: false,
       });
+    }
+    case 'trackClips': {
+      // An audio track's own clips from `startTick` (pre-fader), e.g. for transcription.
+      const a = req.args as {
+        song: Song;
+        trackId: string;
+        assets?: Record<string, AudioData>;
+        sampleRate?: number;
+        startTick?: number;
+      };
+      const track = a.song.tracks.find((t) => t.id === a.trackId);
+      if (!track) throw new Error('Unknown track');
+      return audio.renderTrackClips(a.song, track, {
+        sampleRate: a.sampleRate,
+        assets: resolverFrom(a.assets),
+        startTick: a.startTick,
+      });
+    }
+    case 'retune': {
+      // Pitch-correct an audio track's clips (from `startTick`) towards its attached notes (seconds
+      // from song time 0); returns the audio and a 24-bit WAV of it.
+      const a = req.args as {
+        song: Song;
+        trackId: string;
+        assets?: Record<string, AudioData>;
+        sampleRate?: number;
+        startTick?: number;
+        notes: audio.RetuneNote[];
+        settings: audio.RetuneSettings;
+      };
+      const track = a.song.tracks.find((t) => t.id === a.trackId);
+      if (!track) throw new Error('Unknown track');
+      progress(0.1, 'audio');
+      const clips = audio.renderTrackClips(a.song, track, {
+        sampleRate: a.sampleRate,
+        assets: resolverFrom(a.assets),
+        startTick: a.startTick,
+      });
+      if (signal.aborted) throw Object.assign(new Error('Aborted'), { name: 'AbortError' });
+      progress(0.25, 'tuning');
+      const start = createTimeMap(a.song).tickToSeconds(Math.max(0, a.startTick ?? 0));
+      const notes = a.notes.map((n) => ({
+        ...n,
+        startSeconds: n.startSeconds - start,
+        endSeconds: n.endSeconds - start,
+      }));
+      const tuned = audio.retuneAudio(clips, notes, a.settings);
+      if (signal.aborted) throw Object.assign(new Error('Aborted'), { name: 'AbortError' });
+      progress(0.85, 'encoding');
+      const wav = audio.encodeWav(tuned.audio, { bitDepth: 24 });
+      return { audio: tuned.audio, wav, report: tuned.report };
     }
     case 'master': {
       const a = req.args as { audio: AudioData; settings: MasteringSettings };

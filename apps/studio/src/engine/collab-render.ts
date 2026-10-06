@@ -1,4 +1,4 @@
-import { ENGINE_VERSION, pluginRenderIsCurrent, type Song } from '@songdeck/core';
+import { ENGINE_VERSION, pluginRenderIsCurrent, tuningRenderIsCurrent, type Song } from '@songdeck/core';
 import { decodeWav, encodeWav, type AudioData } from '@songdeck/audio';
 import { base64ToBytes, bytesToBase64 } from '@songdeck/ai';
 import { serverBase, useSettings, type RenderNodeConfig } from '../state/settings';
@@ -298,6 +298,15 @@ export async function renderStemsDistributed(
       !job.assetIds.includes(plugin.assetId)
     )
       job.assetIds.push(plugin.assetId);
+    // Likewise a tuned recording (nodes cannot pitch-correct it themselves).
+    const tuned = t.audioMidi?.tuning?.render;
+    if (
+      tuned &&
+      tuningRenderIsCurrent(s, t) &&
+      assets[tuned.assetId] &&
+      !job.assetIds.includes(tuned.assetId)
+    )
+      job.assetIds.push(tuned.assetId);
     groups.set(key, job);
   }
   const all = [...groups.values()].sort((a, b) => b.weight - a.weight);

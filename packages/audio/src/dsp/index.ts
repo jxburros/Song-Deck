@@ -5,7 +5,15 @@
  */
 
 // Rendering
-export { SongRenderer, renderSong, renderTrack, renderStems } from './renderer';
+export {
+  SongRenderer,
+  renderSong,
+  renderTrack,
+  renderStems,
+  renderTrackClips,
+  playbackTrack,
+  tunedAudioTrack,
+} from './renderer';
 export type { RenderOptions, RenderMeters } from './renderer';
 export type { Meter } from './mixer';
 

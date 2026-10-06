@@ -6,6 +6,7 @@ import {
   musicContextToPrompt,
   songStyleTags,
 } from '../src';
+import { singerFromVoiceType } from '@songdeck/core';
 import { makeSong } from './helpers';
 
 describe('buildMusicContext', () => {
@@ -197,5 +198,20 @@ describe('tags in the AI layers', () => {
     expect(tags.genres).toContain('midwest emo');
     expect(tags.moods).toContain('warm');
     expect(tags.production).toContain('lo-fi');
+  });
+});
+
+describe('singers in the context', () => {
+  it("names a vocal part's singer and their zones, so edits stay singable", () => {
+    const song = makeSong();
+    song.vocals = { ...song.vocals, singers: [singerFromVoiceType('tenor', { id: 's1', name: 'Alex' })] };
+    const vox = song.tracks.find((t) => t.id === 'trk_vox')!;
+    vox.vocal = { ...vox.vocal, singerId: 's1' };
+    const ctx = buildMusicContext(song, { instruction: 'Make the chorus melody soar', sectionId: 'sec_ch1' });
+    expect(ctx.tracks.find((t) => t.id === 'trk_vox')!.singer).toBe(
+      'Alex: sweet spot G3–F4 · easy D3–A4 · difficult but possible C3–C#3, A#4–C5 · falsetto to F5 · nothing below C3 or above F5',
+    );
+    expect(ctx.tracks.filter((t) => t.singer)).toHaveLength(1);
+    expect(musicContextToPrompt(ctx)).toContain('singer=(Alex: sweet spot G3–F4');
   });
 });

@@ -15,6 +15,9 @@ import { Badge, Button, CommitText, Field, Select } from '../../../ui/kit';
 import { AVOID_RULES, FUNCTIONS, TRACK_ROLES } from '../../compose/BlueprintEditor';
 import { AttestationList } from './AttestationList';
 import { InstrumentPluginPanel } from '../../shared/InstrumentPluginPanel';
+import { AudioMidiPanel } from '../../shared/AudioMidiPanel';
+import { STEM_GROUPS } from '../../shared/stemGroups';
+import { TrackSingerSection } from '../../shared/SingerRange';
 
 const RIGHTS_FIELDS: { key: keyof RightsMetadata; label: string }[] = [
   { key: 'humanComposers', label: 'Human composer(s)' },
@@ -61,19 +64,39 @@ export default function InspectorPanel() {
               onCommit={(name) => updateTrack({ name }, `Renamed track to ${name}`)}
             />
           </Field>
-          <Field label="Instrument">
-            <Select
-              value={track.instrumentId}
-              onChange={(instrumentId) =>
-                updateTrack(
-                  { instrumentId, stemGroup: getInstrument(instrumentId, customInstruments).stemGroup },
-                  `${track.name}: instrument → ${instrumentId}`,
-                )
-              }
-              options={instruments.map((i) => ({ value: i.id, label: i.name }))}
-            />
-          </Field>
+          {track.kind === 'audio' ? (
+            // Audio tracks play their recording, not an instrument: what is theirs to choose is
+            // the stem they export with (an attached MIDI part has its own instrument below).
+            <Field label="Stem group" hint="Used for Stems.zip and Instrumental/Acapella exports">
+              <Select
+                value={track.stemGroup}
+                onChange={(stemGroup) =>
+                  updateTrack(
+                    { stemGroup },
+                    `${track.name}: stem group → ${STEM_GROUPS.find((g) => g.value === stemGroup)?.label ?? stemGroup}`,
+                  )
+                }
+                options={STEM_GROUPS}
+                aria-label="Stem group"
+              />
+            </Field>
+          ) : (
+            <Field label="Instrument">
+              <Select
+                value={track.instrumentId}
+                onChange={(instrumentId) =>
+                  updateTrack(
+                    { instrumentId, stemGroup: getInstrument(instrumentId, customInstruments).stemGroup },
+                    `${track.name}: instrument → ${instrumentId}`,
+                  )
+                }
+                options={instruments.map((i) => ({ value: i.id, label: i.name }))}
+              />
+            </Field>
+          )}
           {track.kind === 'midi' && <InstrumentPluginPanel song={song} track={track} />}
+          {track.kind === 'audio' && <AudioMidiPanel song={song} track={track} />}
+          <TrackSingerSection song={song} track={track} />
           <div className="grid-2">
             <Field label="Generator role">
               <Select
@@ -96,7 +119,11 @@ export default function InspectorPanel() {
             </Field>
             <Field
               label="Lowest note"
-              hint={`Instrument: ${midiToNoteName(getInstrument(track.instrumentId, customInstruments).range.low)}`}
+              hint={
+                track.kind === 'midi'
+                  ? `Instrument: ${midiToNoteName(getInstrument(track.instrumentId, customInstruments).range.low)}`
+                  : undefined
+              }
             >
               <CommitText
                 value={track.constraints.lowest !== undefined ? midiToNoteName(track.constraints.lowest) : ''}
@@ -113,7 +140,11 @@ export default function InspectorPanel() {
             </Field>
             <Field
               label="Highest note"
-              hint={`Instrument: ${midiToNoteName(getInstrument(track.instrumentId, customInstruments).range.high)}`}
+              hint={
+                track.kind === 'midi'
+                  ? `Instrument: ${midiToNoteName(getInstrument(track.instrumentId, customInstruments).range.high)}`
+                  : undefined
+              }
             >
               <CommitText
                 value={

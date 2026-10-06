@@ -15,9 +15,12 @@ import {
   defaultChannelStrip,
   defaultMixer,
   meterAtBar,
+  noteTrackView,
+  playsAttachedMidi,
   pluginRenderIsCurrent,
   songLengthTicks,
   ticksPerBeat,
+  tuningRenderIsCurrent,
   type TimeMap,
 } from '@songdeck/core';
 import type { AssetResolver, AudioData } from '../types';
@@ -123,6 +126,56 @@ export function frozenPluginTrack(song: Song, track: Track, assets: AssetResolve
       },
     ],
   };
+}
+
+/**
+ * The tuned render of an audio track's recording (pitch-corrected to its attached MIDI) as one
+ * clip from song time 0, or null when tuning is off, the render is stale or its audio is not
+ * loaded — the track then plays its original clips.
+ */
+export function tunedAudioTrack(song: Song, track: Track, assets: AssetResolver | undefined): Track | null {
+  const render = track.audioMidi?.tuning?.render;
+  if (!render || !assets || !tuningRenderIsCurrent(song, track)) return null;
+  const audio = assets(render.assetId);
+  if (!audio || !audio.channels.length) return null;
+  return {
+    ...track,
+    clips: [
+      {
+        id: `tuned-render:${track.id}`,
+        assetId: render.assetId,
+        tick: Math.max(0, render.startTick ?? 0),
+        offsetSeconds: 0,
+        durationSeconds: render.durationSeconds,
+        gainDb: 0,
+        fadeInSeconds: 0,
+        fadeOutSeconds: 0,
+      },
+    ],
+  };
+}
+
+/**
+ * What a track actually plays: a MIDI track's current plugin render (as audio) or the track
+ * itself; an audio track's attached MIDI through its instrument (when set to play MIDI), its
+ * current tuned render, or its clips.
+ */
+export function playbackTrack(
+  song: Song,
+  track: Track,
+  assets: AssetResolver | undefined,
+): { track: Track; kind: 'patch' | 'audio'; substitute: 'plugin' | 'tuned' | 'midi' | null } {
+  if (track.kind === 'audio') {
+    if (playsAttachedMidi(track)) return { track: noteTrackView(track)!, kind: 'patch', substitute: 'midi' };
+    const tuned = tunedAudioTrack(song, track, assets);
+    return tuned
+      ? { track: tuned, kind: 'audio', substitute: 'tuned' }
+      : { track, kind: 'audio', substitute: null };
+  }
+  const frozen = frozenPluginTrack(song, track, assets);
+  return frozen
+    ? { track: frozen, kind: 'audio', substitute: 'plugin' }
+    : { track, kind: 'patch', substitute: null };
 }
 
 /** Streaming, allocation-free (in process()) song renderer. */
@@ -336,29 +389,30 @@ export class SongRenderer {
     for (const track of song.tracks) {
       if (!track || seen.has(track.id)) continue;
       seen.add(track.id);
-      // A MIDI track with a current instrument-plugin render plays that audio (DAW "freeze").
-      const frozen = track.kind === 'audio' ? null : frozenPluginTrack(song, track, this.opts.assets);
-      const srcTrack = frozen ?? track;
-      const isAudio = track.kind === 'audio' || !!frozen;
+      // A MIDI track with a current instrument-plugin render plays that audio (DAW "freeze"); an
+      // audio track can play its attached MIDI through an instrument, or its tuned recording.
+      const play = playbackTrack(song, track, this.opts.assets);
+      const srcTrack = play.track;
+      const isAudio = play.kind === 'audio';
       const { id: patchId, patch } = isAudio
         ? { id: 'audio', patch: null as PatchDefinition | null }
-        : this.resolvePatch(track);
-      const vocalMode = track.vocal?.mode ?? song.vocals?.mode;
+        : this.resolvePatch(srcTrack);
+      const vocalMode = srcTrack.vocal?.mode ?? song.vocals?.mode;
       const silent = !isAudio && patch?.engine === 'vocal' && vocalMode === 'none';
       const render = !wanted || wanted.has(track.id);
       const key = !render
         ? 'skip'
         : isAudio
-          ? frozen
-            ? `plugin|${frozen.clips[0]?.assetId}`
+          ? play.substitute
+            ? `${play.substitute}|${srcTrack.clips[0]?.assetId}`
             : 'audio'
-          : `${patchId}|${patch!.engine}|${silent ? 'silent' : ''}|${this.opts.vocalVoiceId ?? ''}|${track.vocal?.voiceId ?? ''}|${track.vocal?.voiceType ?? ''}`;
+          : `${play.substitute ?? ''}|${patchId}|${patch!.engine}|${silent ? 'silent' : ''}|${this.opts.vocalVoiceId ?? ''}|${srcTrack.vocal?.voiceId ?? ''}|${srcTrack.vocal?.voiceType ?? ''}`;
       let ts = this.trackMap.get(track.id);
       if (ts && ts.key === key) {
         ts.track = track;
         ts.render = render;
-        if (ts.poly) ts.poly.setEvents(buildNoteEvents(track, ts.patch!, ctx), frame);
-        else if (ts.vocal) ts.vocal.update(song, track, this.startSec, frame);
+        if (ts.poly) ts.poly.setEvents(buildNoteEvents(srcTrack, ts.patch!, ctx), frame);
+        else if (ts.vocal) ts.vocal.update(song, srcTrack, this.startSec, frame);
         else if (ts.clips) ts.clips.build(srcTrack, tm, this.startSec, this.opts.assets);
       } else {
         const old = ts;
@@ -376,7 +430,7 @@ export class SongRenderer {
         } else if (patch!.engine === 'vocal') {
           vocal = new VocalInstrument(
             song,
-            track,
+            srcTrack,
             sr,
             this.startSec,
             this.opts.vocalVoiceId,
@@ -392,7 +446,7 @@ export class SongRenderer {
             sampleInstrument: this.opts.sampleInstruments?.[patchId],
             pizzPatch: pizz,
           });
-          poly.setEvents(buildNoteEvents(track, patch!, ctx), frame);
+          poly.setEvents(buildNoteEvents(srcTrack, patch!, ctx), frame);
           source = poly;
         }
         ts = {
@@ -823,6 +877,49 @@ export function renderSong(song: Song, opts: RenderOptions = {}): AudioData {
   for (let f = 0; f < r.totalFrames; f += chunk) {
     const n = Math.min(chunk, r.totalFrames - f);
     r.process(L.subarray(f, f + n), R.subarray(f, f + n), n);
+  }
+  return out;
+}
+
+/**
+ * An audio track's own clips (gain and fades applied, nothing else: no channel strip, sends or
+ * substitutes) from `startTick` (default song time 0) to the end of its last unmuted clip. Stereo
+ * when any clip is.
+ */
+export function renderTrackClips(
+  song: Song,
+  track: Track,
+  opts: { sampleRate?: number; assets?: AssetResolver; startTick?: number } = {},
+): AudioData {
+  const sr = opts.sampleRate ?? 44100;
+  const tm = createTimeMap(song);
+  const startSec = tm.tickToSeconds(Math.max(0, opts.startTick ?? 0));
+  const player = new ClipPlayer({ ...track, kind: 'audio' }, tm, startSec, sr, opts.assets, new Map());
+  let stereo = false;
+  let endSec = 0;
+  for (const c of track.clips ?? []) {
+    if (!c || c.muted) continue;
+    const a = opts.assets?.(c.assetId);
+    if (!a || !a.channels.length) continue;
+    if (a.channels.length > 1) stereo = true;
+    const maxDur = a.channels[0].length / a.sampleRate - Math.max(0, num(c.offsetSeconds, 0));
+    const dur =
+      num(c.durationSeconds, maxDur) > 0 ? Math.min(num(c.durationSeconds, maxDur), maxDur) : maxDur;
+    endSec = Math.max(endSec, tm.tickToSeconds(c.tick) + Math.max(0, dur));
+  }
+  const frames = Math.max(0, Math.ceil((endSec - startSec) * sr));
+  const out = createAudio(sr, frames, stereo ? 2 : 1);
+  const L = new Float64Array(BLOCK);
+  const R = new Float64Array(BLOCK);
+  for (let f = 0; f < frames; f += BLOCK) {
+    const n = Math.min(BLOCK, frames - f);
+    L.fill(0);
+    R.fill(0);
+    player.render(L, R, f, n);
+    for (let i = 0; i < n; i++) {
+      out.channels[0][f + i] = L[i];
+      if (stereo) out.channels[1][f + i] = R[i];
+    }
   }
   return out;
 }

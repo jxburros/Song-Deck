@@ -11,6 +11,7 @@ import type {
 } from '../ir/types';
 import type { IdFactory } from '../util/ids';
 import { findTrack, sortNotes } from '../ir/song-utils';
+import { hasEditableNotes } from '../audio-midi';
 import {
   beatsToTicks,
   findSection,
@@ -126,12 +127,15 @@ export function resolveTrack(song: Song, ref: unknown, c: OpContext, opName: str
   return t;
 }
 
+/** A track whose notes can be edited: a MIDI track, or an audio track with attached MIDI. */
 export function resolveMidiTrack(song: Song, ref: unknown, c: OpContext, opName: string): Track | undefined {
   const t = resolveTrack(song, ref, c, opName);
-  if (t && t.kind !== 'midi') {
-    c.error('track.not-midi', `${opName}: "${t.name}" is an audio track and has no notes.`, {
-      trackId: t.id,
-    });
+  if (t && !hasEditableNotes(t)) {
+    c.error(
+      'track.not-midi',
+      `${opName}: "${t.name}" is an audio track and has no notes (make MIDI from its audio first).`,
+      { trackId: t.id },
+    );
     return undefined;
   }
   return t;

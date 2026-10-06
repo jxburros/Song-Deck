@@ -15,6 +15,11 @@ import {
   songLengthTicks,
   sortNotes,
   chordPitchClasses,
+  describeSinger,
+  hasAttachedMidi,
+  hasEditableNotes,
+  singerForTrack,
+  singerZone,
   type Note,
   type Song,
   type Track,
@@ -28,6 +33,47 @@ import { alpha, useThemeName } from '../../ui/theme';
 import { auditionNote } from '../../engine/audition';
 import { useLoopSync } from './useLoopSync';
 import { useMidiRecorder } from './useMidiRecorder';
+import { AudioMidiBar, MakeMidiDialog } from '../shared/AudioMidiPanel';
+import { ZONE_COLOR } from '../shared/SingerRange';
+
+/** Tracks the roll can edit: MIDI tracks and audio tracks with MIDI made from them. */
+function trackOptions(song: Song, extra?: Track): { value: string; label: string }[] {
+  const tracks = song.tracks.filter((t) => hasEditableNotes(t) || t === extra);
+  return tracks.map((t) => ({
+    value: t.id,
+    label: t.kind === 'audio' ? `${t.name} (${hasAttachedMidi(t) ? 'MIDI from audio' : 'audio'})` : t.name,
+  }));
+}
+
+/** An audio track without MIDI is selected: offer to make MIDI from it. */
+function AudioWithoutMidi({ song, track }: { song: Song; track: Track }) {
+  const st = useStudio.getState();
+  const [dialog, setDialog] = useState(false);
+  return (
+    <div className="empty-state col" style={{ alignItems: 'center', gap: 10 }} data-testid="piano-roll-audio">
+      <div>
+        “{track.name}” is an audio track. Make MIDI from its recording to see and edit its notes here, switch
+        between hearing the audio and the MIDI, and tune the audio to the notes.
+      </div>
+      <div className="row">
+        <Button variant="primary" icon="midi" onClick={() => setDialog(true)}>
+          Make MIDI from audio…
+        </Button>
+        {song.tracks.some(hasEditableNotes) && (
+          <Select
+            size="sm"
+            value={track.id}
+            onChange={(id) => st.selectTrack(id)}
+            options={trackOptions(song, track)}
+            aria-label="Track"
+            style={{ width: 200 }}
+          />
+        )}
+      </div>
+      {dialog && <MakeMidiDialog track={track} onClose={() => setDialog(false)} />}
+    </div>
+  );
+}
 
 const KEY_W = 56;
 const RULER_H = 32;
@@ -85,8 +131,14 @@ export default function PianoRoll() {
   const baseSong = project?.song ?? null;
   // When an AI proposal is pending, the roll shows (and edits) the proposed song — "Modify" (spec §21).
   const song: Song | null = proposal ? proposal.after : baseSong;
+  const selectedTrack = song?.tracks.find((t) => t.id === selectedTrackId);
+  const audioWithoutMidi = selectedTrack && !hasEditableNotes(selectedTrack) ? selectedTrack : undefined;
   const track: Track | undefined =
-    song?.tracks.find((t) => t.id === selectedTrackId) ?? song?.tracks.find((t) => t.kind === 'midi');
+    selectedTrack && hasEditableNotes(selectedTrack)
+      ? selectedTrack
+      : audioWithoutMidi
+        ? undefined
+        : song?.tracks.find((t) => t.kind === 'midi');
 
   const [tool, setTool] = useState<Tool>('pointer');
   const [snap, setSnap] = useState('1/16');
@@ -114,6 +166,8 @@ export default function PianoRoll() {
   const layout = useMemo(() => (song ? sectionLayout(song) : []), [song]);
   const selected = useMemo(() => new Set(selection.noteIds), [selection.noteIds]);
   const isVocal = track?.role === 'vocal';
+  // A vocal part's singer: rows show their zones (easy … out of reach).
+  const singer = song && track ? singerForTrack(song, track) : undefined;
   const snapLabel = (SNAPS.find((s) => s.value === snap) ?? SNAPS[3]).label;
   const recorder = useMidiRecorder(track?.kind === 'midi' ? track.id : undefined, {
     ticks: snapTicks,
@@ -225,6 +279,12 @@ export default function PianoRoll() {
       g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
       if (scale.has(pc)) {
         g.fillStyle = alpha(col('--ai-fill'), 0.035);
+        g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
+      }
+      if (singer) {
+        const zone = singerZone(singer, p);
+        const zc = ZONE_COLOR[zone];
+        g.fillStyle = zone === 'out' ? alpha(col('--bg'), 0.5) : alpha(col(zc.token), zc.alpha * 0.13);
         g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
       }
       g.fillStyle = col('--grid-line');
@@ -353,6 +413,7 @@ export default function PianoRoll() {
         else if (diffForTrack?.added.has(n.id)) stroke = col('--diff-added');
         else if (diffForTrack?.modified.has(n.id)) stroke = col('--diff-modified');
         else if (n.locked) stroke = col('--lock');
+        else if (singer && singerZone(singer, pitch) === 'out') stroke = col('--danger');
         if (stroke) {
           g.strokeStyle = stroke;
           g.lineWidth = 1.5;
@@ -419,6 +480,13 @@ export default function PianoRoll() {
       const pc = p % 12;
       g.fillStyle = BLACK.has(pc) ? col('--key-black') : col('--key-white');
       g.fillRect(0, y, KEY_W - 1, keyH - (BLACK.has(pc) ? 0 : 1));
+      if (singer) {
+        const zone = singerZone(singer, p);
+        if (zone !== 'out') {
+          g.fillStyle = alpha(col(ZONE_COLOR[zone].token), ZONE_COLOR[zone].alpha);
+          g.fillRect(KEY_W - 6, y, 5, keyH - 1);
+        }
+      }
       if (pc === 0 && keyH >= 9) {
         g.fillStyle = col('--key-label');
         g.font = `${Math.min(10, keyH - 2)}px ${col('--font-mono')}`;
@@ -730,6 +798,7 @@ export default function PianoRoll() {
     return () => window.removeEventListener('keydown', onKey);
   }, [song, track, snapTicks, snap, commitTrackNotes, st]);
 
+  if (song && audioWithoutMidi) return <AudioWithoutMidi song={song} track={audioWithoutMidi} />;
   if (!song || !track) return <div className="empty-state">Select a MIDI track to edit.</div>;
 
   return (
@@ -745,7 +814,8 @@ export default function PianoRoll() {
           size="sm"
           value={track.id}
           onChange={(id) => st.selectTrack(id)}
-          options={song.tracks.filter((t) => t.kind === 'midi').map((t) => ({ value: t.id, label: t.name }))}
+          options={trackOptions(song)}
+          aria-label="Track"
           style={{ width: 170 }}
         />
         <div className="tabs">
@@ -776,14 +846,16 @@ export default function PianoRoll() {
           variant={recorder.recording ? 'danger' : 'ghost'}
           icon="record"
           onClick={recorder.toggle}
-          disabled={!!proposal && !recorder.recording}
+          disabled={(!!proposal && !recorder.recording) || track.kind !== 'midi'}
           aria-pressed={recorder.recording}
           title={
-            proposal
-              ? 'Accept or reject the pending proposal before recording'
-              : recorder.recording
-                ? 'Stop recording and keep the take'
-                : `Record a MIDI keyboard into ${track.name} over playback (overdub; onsets snap to ${snapLabel})`
+            track.kind !== 'midi'
+              ? 'Recording a MIDI keyboard works on MIDI tracks'
+              : proposal
+                ? 'Accept or reject the pending proposal before recording'
+                : recorder.recording
+                  ? 'Stop recording and keep the take'
+                  : `Record a MIDI keyboard into ${track.name} over playback (overdub; onsets snap to ${snapLabel})`
           }
         >
           {recorder.recording ? `Stop · ${recorder.count} notes` : 'Record'}
@@ -807,7 +879,7 @@ export default function PianoRoll() {
           options={[
             { value: '', label: 'No ghost track' },
             ...song.tracks
-              .filter((t) => t.id !== track.id && t.kind === 'midi')
+              .filter((t) => t.id !== track.id && hasEditableNotes(t))
               .map((t) => ({ value: t.id, label: `Ghost: ${t.name}` })),
           ]}
           style={{ width: 160 }}
@@ -838,6 +910,11 @@ export default function PianoRoll() {
           +
         </Button>
         <div className="spacer" />
+        {singer && (
+          <Badge tone="success" title={`${singer.name}: ${describeSinger(singer)}`}>
+            Singer: {singer.name}
+          </Badge>
+        )}
         {proposal && (
           <>
             <Badge tone="ai">Proposal: {proposal.title}</Badge>
@@ -859,6 +936,7 @@ export default function PianoRoll() {
           </>
         )}
       </div>
+      {track.kind === 'audio' && <AudioMidiBar song={baseSong ?? song} track={track} />}
       <div ref={wrapRef} style={{ position: 'relative', flex: 1, minHeight: 0 }}>
         <canvas
           ref={canvasRef}

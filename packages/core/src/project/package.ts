@@ -12,6 +12,7 @@ import { ENGINE_VERSION, PROJECT_FORMAT_VERSION, emptyRights } from '../ir/defau
 import { randomId } from '../util/ids';
 import { sectionLayout } from '../timing';
 import { songToMidi, trackToMidi } from '../io/midi';
+import { hasEditableNotes } from '../audio-midi';
 import { songToLyricSheet } from '../io/sheets';
 import { slugify, uniqueNames } from '../io/util';
 import { safePackagePath } from './assets';
@@ -160,7 +161,7 @@ function addDerived(song: Song, add: (path: string, data: Uint8Array) => void) {
   });
   if (song.lyrics.length || song.tracks.some((t) => t.notes.some((n) => n.syllable)))
     add('lyrics/lyric-sheet.txt', strToU8(songToLyricSheet(song)));
-  const midiTracks = song.tracks.filter((t) => t.kind === 'midi');
+  const midiTracks = song.tracks.filter(hasEditableNotes);
   if (midiTracks.length) {
     try {
       add('midi/song.mid', songToMidi(song));

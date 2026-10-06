@@ -19,6 +19,7 @@ import type {
   Song,
   Track,
   VariationLevel,
+  SingerProfile,
   VoiceType,
 } from '../ir/types';
 import { PPQ } from '../ir/types';
@@ -32,6 +33,7 @@ import {
   type SectionSpan,
 } from '../timing';
 import { deriveRng, type Rng } from '../util/random';
+import { singerForTrack } from '../singers';
 import { arrangementFor, isLeadVocal, resolveFunction } from './arrangement';
 import { genreForSong } from './tags';
 import { getInstrument, instrumentRange } from './instruments';
@@ -191,10 +193,24 @@ export interface Cell {
   isLast: boolean;
 }
 
-function trackRange(track: Track, inst: InstrumentProfile, voiceType?: VoiceType): PitchRange {
+function trackRange(
+  track: Track,
+  inst: InstrumentProfile,
+  voiceType?: VoiceType,
+  singer?: SingerProfile,
+): PitchRange {
   const ir = instrumentRange(inst);
   let base = ir;
-  if (track.role === 'vocal' && inst.id !== 'choir') {
+  if (singer) {
+    // A real singer: write inside their full voice, mostly in the easy zone (falsetto is left to
+    // the user).
+    base = {
+      low: singer.lowest,
+      high: singer.highest,
+      comfortableLow: singer.comfortableLow,
+      comfortableHigh: singer.comfortableHigh,
+    };
+  } else if (track.role === 'vocal' && inst.id !== 'choir') {
     // The singer's tessitura, kept inside the instrument profile's absolute range.
     const v = VOICE_RANGES[voiceType ?? 'tenor'] ?? ir;
     const low = Math.max(v.low, ir.low);
@@ -270,7 +286,7 @@ export function makeCell(g: SongGen, track: Track, spanIndex: number, seed: numb
     bars,
     meter,
     macros,
-    range: trackRange(track, inst, track.vocal?.voiceType),
+    range: trackRange(track, inst, track.vocal?.voiceType, singerForTrack(song, track)),
     avoid: new Set(track.constraints?.avoid ?? []),
     e0,
     e1,

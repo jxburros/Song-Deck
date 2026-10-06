@@ -21,6 +21,7 @@ export const ASSET_FOLDERS: Record<AssetKind, string> = {
   analysis: 'analysis/files',
   'plugin-render': 'audio/plugin-renders',
   'plugin-state': 'plugins/states',
+  'tuned-render': 'audio/tuned-renders',
 };
 
 /** Safe file name: no directories, control characters or reserved characters. */

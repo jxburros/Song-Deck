@@ -147,6 +147,8 @@ export async function initRuntime(): Promise<void> {
   const clips = import('./clip-assets').then(({ initClipAssetSync }) => initClipAssetSync());
   // Instrument plugins: re-render stale plugin tracks after edits.
   void import('./instrument-plugins').then(({ initPluginAutoRender }) => initPluginAutoRender());
+  // MIDI attached to audio: re-render tuned recordings after edits.
+  void import('./audio-midi').then(({ initTuningAutoRender }) => initTuningAutoRender());
   void checkServer();
   setInterval(() => void checkServer(), 15000);
   await Promise.all([handlers, ai, instruments, clips]);

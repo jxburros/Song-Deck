@@ -76,6 +76,11 @@ export const TOOL_GROUPS: Group[] = [
         true,
       ),
       tool('Vocal melody', 'Voice type, regenerate by section, export vocal.mid', vocals('melody')),
+      tool(
+        'Singers and ranges',
+        'Who sings each part: easy, difficult, falsetto and out-of-reach notes, and the best key',
+        vocals('singers'),
+      ),
       tool('Expression', 'Breath, tension, vibrato, onset and release, by phrase', vocals('expression')),
       tool(
         'Singer and render',

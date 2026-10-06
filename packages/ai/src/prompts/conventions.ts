@@ -25,6 +25,7 @@ export const EDITING_RULES = [
   'Rules:',
   '- NEVER modify locked material (locked tracks, sections, chords, lyrics, motifs or notes). If the request requires changing locked material, explain that instead of changing it.',
   "- Keep every note inside its instrument's range and respect the listed constraints (complexity, function, avoid rules).",
+  "- When a vocal track lists a singer, keep its melody in the singer's sweet spot and easy zones; use difficult notes rarely and briefly, falsetto only when asked, and never go outside the singer's range.",
   '- Change only what the request needs and preserve everything outside the requested region.',
   '- Keep output minimal: only the operations needed; never restate unchanged material.',
   '- Prefer musically idiomatic choices for the style; keep voice leading smooth and rhythms playable.',

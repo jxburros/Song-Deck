@@ -1,5 +1,7 @@
 import type { LockMap, MusicOperation, Note, Song, Track, ValidationReport } from '../ir/types';
 import { cloneSong, sortNotes } from '../ir/song-utils';
+import { noteTrackView } from '../audio-midi';
+import { singerForTrack, singerTop } from '../singers';
 import { findSection, sectionLayout, songLengthTicks } from '../timing';
 import { foldIntoRange } from '../theory/scales';
 import { isDrumTrack, lookupInstrument, trackRange } from './instruments';
@@ -275,11 +277,20 @@ function finalizeNotes(
   for (const track of song.tracks) {
     sortNotes(track.notes);
     const ids = touched.get(track.id);
-    if (!ids || !ids.size || track.kind !== 'midi') continue;
+    const view = noteTrackView(track);
+    if (!ids || !ids.size || !view) continue;
     // Fix on private copies (note objects may be shared with earlier states).
     track.notes = track.notes.map((n) => ({ ...n }));
-    const drums = isDrumTrack(track, lookup);
-    const range = trackRange(track, lookup);
+    // Attached MIDI describes a recording: any MIDI pitch is valid, whatever plays it.
+    const attached = view !== track;
+    const drums = isDrumTrack(view, lookup);
+    const singer = attached ? undefined : singerForTrack(song, track);
+    const range = attached
+      ? { low: 0, high: 127 }
+      : singer
+        ? { low: singer.lowest, high: singerTop(singer) }
+        : trackRange(track, lookup);
+    const rangeOf = singer ? `${singer.name}'s range` : `the range of "${track.name}"`;
     const removed = new Set<Note>();
     for (const n of track.notes) {
       if (!ids.has(n.id)) continue;
@@ -365,14 +376,14 @@ function finalizeNotes(
           const p = foldIntoRange(n.pitch, range.low, range.high);
           issues.warn(
             'note.out-of-range',
-            `Pitch ${n.pitch} is outside the range of "${track.name}" (${range.low}–${range.high}); moved to ${p}.`,
+            `Pitch ${n.pitch} is outside ${rangeOf} (${range.low}–${range.high}); moved to ${p}.`,
             { trackId: track.id, noteId: n.id, fixed: true },
           );
           n.pitch = p;
         } else {
           issues.warn(
             'note.out-of-range',
-            `Pitch ${n.pitch} is outside the range of "${track.name}" (${range.low}–${range.high}).`,
+            `Pitch ${n.pitch} is outside ${rangeOf} (${range.low}–${range.high}).`,
             { trackId: track.id, noteId: n.id },
           );
         }
@@ -381,7 +392,7 @@ function finalizeNotes(
     if (removed.size) track.notes = track.notes.filter((n) => !removed.has(n));
     sortNotes(track.notes);
     fixOverlaps(song, track, ids, autoFix, issues, (n) => protectedNote(track, n));
-    if (lookupInstrument(track.instrumentId, lookup).polyphony === 'mono' && !drums) {
+    if (!attached && lookupInstrument(track.instrumentId, lookup).polyphony === 'mono' && !drums) {
       const overlaps = countPolyphonicOverlaps(track.notes);
       if (overlaps) {
         issues.warn(
