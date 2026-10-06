@@ -20,21 +20,12 @@ import { player } from '../../engine/player';
 import { recordAttestation, requestAttestation, type PendingAttestation } from '../../engine/rights';
 import { Button, Field, FileButton, Modal, NumberInput, Select, Spinner, TextInput } from '../../ui/kit';
 import { formatDuration } from '../../hooks';
+import { STEM_GROUPS } from '../shared/stemGroups';
 
 /**
  * Stem mixing (spec Phase 5): bring an audio file (a produced stem, a recording, a bounce from
  * another DAW) into the song as an audio track. It is then mixed exactly like any other track.
  */
-
-const STEM_GROUPS: { value: StemGroup; label: string }[] = [
-  { value: 'vocals', label: 'Vocals' },
-  { value: 'drums', label: 'Drums' },
-  { value: 'bass', label: 'Bass' },
-  { value: 'guitars', label: 'Guitars' },
-  { value: 'keys', label: 'Keys' },
-  { value: 'strings', label: 'Strings' },
-  { value: 'others', label: 'Others' },
-];
 
 const GROUP_ROLE: Record<StemGroup, TrackRole> = {
   vocals: 'vocal',

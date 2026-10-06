@@ -140,6 +140,17 @@ test('make MIDI from an audio track, switch audio ⇄ MIDI and tune the audio to
   await bar.getByRole('button', { name: 'Tuning settings' }).click();
   const panel = page.getByTestId('audio-midi-panel');
   await expect(panel).toBeVisible();
+  // An audio track's details offer its stem group, not an instrument it does not have.
+  const stemGroup = page.getByRole('combobox', { name: 'Stem group' });
+  await expect(stemGroup).toHaveValue('vocals');
+  await expect(page.getByRole('combobox', { name: 'MIDI instrument' })).toHaveValue('synth-lead');
+  await expect(
+    page.locator('select').filter({ has: page.locator('option:checked', { hasText: 'Drum Kit' }) }),
+  ).toHaveCount(0);
+  await stemGroup.selectOption('others');
+  await expect(stemGroup).toHaveValue('others');
+  await stemGroup.selectOption('vocals');
+  await expect(stemGroup).toHaveValue('vocals');
   await panel.getByRole('button', { name: 'Hard tune' }).click();
   await expect(panel.getByText(/Tuned: 4 notes/)).toBeVisible({ timeout: 120_000 });
   await page.screenshot({ path: `${SHOTS}/audio-midi-inspector.png` });
