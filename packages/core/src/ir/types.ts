@@ -402,6 +402,35 @@ export type VocalMode =
 
 export type VoiceType = 'soprano' | 'mezzo' | 'alto' | 'tenor' | 'baritone' | 'bass';
 
+/** Where a pitch sits in a singer's voice, from best to unreachable. */
+export type VocalZone = 'sweet' | 'comfortable' | 'stretch' | 'falsetto' | 'out';
+
+/**
+ * A real singer's range as zones rather than two limits:
+ * `lowest ≤ comfortableLow ≤ (sweetLow ≤ sweetHigh) ≤ comfortableHigh ≤ highest < falsettoHigh`.
+ *   sweet spot   sweetLow…sweetHigh: where the voice sounds best (optional);
+ *   comfortable  comfortableLow…comfortableHigh: easy to sing, sustain and repeat;
+ *   stretch      lowest…comfortableLow and comfortableHigh…highest: difficult but possible;
+ *   falsetto     above highest up to falsettoHigh: head voice / falsetto only (optional);
+ *   out          below lowest or above the top: the singer cannot reach it.
+ */
+export interface SingerProfile {
+  id: Id;
+  name: string;
+  /** The voice type the zones started from (a label; the zones are what count). */
+  voiceType?: VoiceType;
+  lowest: MidiPitch;
+  comfortableLow: MidiPitch;
+  comfortableHigh: MidiPitch;
+  /** Highest note in full voice. */
+  highest: MidiPitch;
+  sweetLow?: MidiPitch;
+  sweetHigh?: MidiPitch;
+  /** Highest note in falsetto / head voice (above `highest`). */
+  falsettoHigh?: MidiPitch;
+  notes?: string;
+}
+
 export interface Track {
   id: Id;
   name: string;
@@ -420,7 +449,9 @@ export interface Track {
   macros?: Partial<MacroSettings>;
   /** MIDI channel 0..15 (drums → 9). */
   midiChannel?: number;
-  vocal?: { voiceType?: VoiceType; voiceId?: string; mode?: VocalMode };
+  /** `singerId`: who sings the part (a `SingerProfile` in `song.vocals.singers`): their range zones
+   * guide composition and are checked against the notes. */
+  vocal?: { voiceType?: VoiceType; voiceId?: string; mode?: VocalMode; singerId?: Id };
   /** For audio tracks produced from a MIDI track (produced stem ↔ source). */
   sourceTrackId?: Id;
   /** Generation parameters for reproducibility. */
@@ -1093,6 +1124,8 @@ export interface VocalSettings {
   takes: VocalTake[];
   /** Global default expression for the lead vocal. */
   defaultExpression: VocalExpression;
+  /** The people who sing this song, with their range zones (assigned per track: `vocal.singerId`). */
+  singers?: SingerProfile[];
 }
 
 // ---------------------------------------------------------------------------

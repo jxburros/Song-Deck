@@ -25,6 +25,7 @@ import { ModeCards } from './ModeCards';
 import { RecordingPanel } from './RecordingPanel';
 import { RegeneratePanel } from './RegeneratePanel';
 import { RenderPanel } from './RenderPanel';
+import { SingersPanel } from './SingersPanel';
 import { VocalSummary } from './Summary';
 import { VoicesPanel } from './VoicesPanel';
 import { useVocalSession } from './session';
@@ -49,6 +50,12 @@ const TABS: { value: VocalTab; label: string; icon: string; title: string }[] = 
     label: 'Melody',
     icon: 'midi',
     title: 'Vocal melody: vocal.mid, regenerate per section',
+  },
+  {
+    value: 'singers',
+    label: 'Singers',
+    icon: 'music',
+    title: 'Who sings each part, and their range: easy, difficult but possible, falsetto, out of reach',
   },
   {
     value: 'expression',
@@ -120,6 +127,8 @@ function Panel({ tab, project, track }: { tab: VocalTab; project: Project; track
       return <LyricsPanel project={project} track={track} />;
     case 'melody':
       return <MelodyPanel project={project} track={track} />;
+    case 'singers':
+      return <SingersPanel project={project} track={track} />;
     case 'expression':
       return <ExpressionPanel project={project} track={track} />;
     case 'render':

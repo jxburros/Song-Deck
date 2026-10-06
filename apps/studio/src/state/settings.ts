@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GenreProfile, InstrumentProfile } from '@songdeck/core';
+import type { GenreProfile, InstrumentProfile, SingerProfile } from '@songdeck/core';
 import type { BudgetLimits, ProviderConfig, ProviderProfile, RoutingSettings } from '@songdeck/ai';
 import { localGet, localSet } from './persistence';
 
@@ -38,6 +38,8 @@ export interface StudioSettings {
   wamPlugins: { url: string; name: string; vendor?: string }[];
   /** Re-render instrument plugins automatically after edits (debounced). */
   autoRenderPlugins: boolean;
+  /** "My singers": singer ranges kept for reuse in any song. */
+  savedSingers: SingerProfile[];
 }
 
 export const DEFAULT_ROUTING: RoutingSettings = {
@@ -67,6 +69,7 @@ const DEFAULTS: StudioSettings = {
   customInstruments: [],
   wamPlugins: [],
   autoRenderPlugins: true,
+  savedSingers: [],
 };
 
 interface SettingsState extends StudioSettings {

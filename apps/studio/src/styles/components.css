@@ -666,3 +666,70 @@
 .callout.success {
   border-left-color: var(--success);
 }
+
+/* Singer range zones (views/shared/SingerRange.tsx). */
+.zone-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.zone-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.zone-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+}
+.zone-seg {
+  flex-basis: 0;
+  min-width: 2px;
+}
+.zone-seg.zone-sweet {
+  background: var(--success);
+}
+.zone-seg.zone-comfortable {
+  background: color-mix(in srgb, var(--success) 45%, transparent);
+}
+.zone-seg.zone-stretch {
+  background: color-mix(in srgb, var(--warning) 80%, transparent);
+}
+.zone-seg.zone-falsetto {
+  background: color-mix(in srgb, var(--accent) 75%, transparent);
+}
+.zone-seg.zone-out {
+  background: var(--danger);
+}
+.zone-word {
+  font-weight: 600;
+}
+.zone-word.zone-out {
+  color: var(--danger);
+}
+.singer-problems {
+  margin: 0;
+  padding-left: 18px;
+  columns: 2;
+}
+.singer-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 12px;
+}
+.singer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+}

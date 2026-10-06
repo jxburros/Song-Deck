@@ -10,6 +10,7 @@ import type {
 import { CHORD_INTERVALS, parseChordSymbol } from '../theory/chords';
 import { sectionLayout, songLengthTicks } from '../timing';
 import { noteTrackView } from '../audio-midi';
+import { findSinger, normalizeSinger, singerForTrack, singerTop, singerZone } from '../singers';
 import { countPolyphonicOverlaps } from './apply';
 import {
   isDrumTrack,
@@ -165,6 +166,7 @@ export function validateSong(song: Song, opts: ValidateOptions = {}): Validation
 
   validateChords(song, end, hasStructure, issues);
   validateLyrics(song, issues);
+  validateSingers(song, issues);
 
   // --- automation, mixer, locks, phrases ------------------------------------------------------
   for (const lane of song.automation) {
@@ -231,7 +233,13 @@ function validateNotes(
   // Attached MIDI describes a recording: any MIDI pitch is valid, whatever plays it.
   const attached = view !== track;
   const drums = isDrumTrack(view, lookup);
-  const range = attached ? { low: 0, high: 127 } : trackRange(track, lookup);
+  const singer = singerForTrack(song, track);
+  const range = attached
+    ? { low: 0, high: 127 }
+    : singer
+      ? { low: singer.lowest, high: singerTop(singer) }
+      : trackRange(track, lookup);
+  const rangeOf = singer ? `${singer.name}'s range` : `the range of "${track.name}"`;
   let prev: Note | undefined;
   let unsorted = false;
   const valid: Note[] = [];
@@ -263,7 +271,7 @@ function validateNotes(
     if (!drums && (n.pitch < range.low || n.pitch > range.high)) {
       issues.warn(
         'note.out-of-range',
-        `Pitch ${n.pitch} is outside the range of "${track.name}" (${range.low}–${range.high}) at ${barsLabel(song, n.tick, n.tick + 1)}.`,
+        `Pitch ${n.pitch} is outside ${rangeOf} (${range.low}–${range.high}) at ${barsLabel(song, n.tick, n.tick + 1)}.`,
         {
           trackId: tid,
           noteId: n.id,
@@ -320,6 +328,53 @@ function validateNotes(
       issues.warn('polyphony.excessive', `"${track.name}" plays up to ${max} simultaneous notes.`, {
         trackId: track.id,
       });
+  }
+}
+
+/** Singer profiles are well formed; parts name existing singers; difficult notes are counted. */
+function validateSingers(song: Song, issues: IssueList): void {
+  const singers = song.vocals?.singers ?? [];
+  const ids = new Set<string>();
+  for (const s of singers) {
+    if (!s || typeof s.id !== 'string') {
+      issues.warn('singer.invalid', 'A singer has no id.');
+      continue;
+    }
+    if (ids.has(s.id)) issues.warn('singer.invalid', `Two singers share the id "${s.id}".`);
+    ids.add(s.id);
+    const fixed = normalizeSinger(s);
+    const zoneKeys = [
+      'lowest',
+      'comfortableLow',
+      'comfortableHigh',
+      'highest',
+      'sweetLow',
+      'sweetHigh',
+      'falsettoHigh',
+    ] as const;
+    if (zoneKeys.some((k) => fixed[k] !== s[k]))
+      issues.warn('singer.invalid', `The range of singer "${s.name}" is not in order (lowest → highest).`);
+  }
+  for (const track of song.tracks) {
+    const id = track.vocal?.singerId;
+    if (!id) continue;
+    const singer = findSinger(song, id);
+    if (!singer) {
+      issues.warn('singer.missing', `"${track.name}" is assigned to a singer that does not exist.`, {
+        trackId: track.id,
+      });
+      continue;
+    }
+    const hard = track.notes.filter((n) => {
+      const z = singerZone(singer, n.pitch);
+      return z === 'stretch' || z === 'falsetto';
+    });
+    if (hard.length)
+      issues.info(
+        'vocal.difficult',
+        `${hard.length} note${hard.length === 1 ? ' is' : 's are'} difficult for ${singer.name} on "${track.name}".`,
+        { trackId: track.id },
+      );
   }
 }
 

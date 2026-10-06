@@ -112,7 +112,15 @@ export function beatTicksAt(song: Song): number {
 // ---------------------------------------------------------------------------------------------
 
 export type VocalTab =
-  'lyrics' | 'melody' | 'expression' | 'render' | 'regenerate' | 'voices' | 'conversion' | 'recording';
+  | 'lyrics'
+  | 'melody'
+  | 'singers'
+  | 'expression'
+  | 'render'
+  | 'regenerate'
+  | 'voices'
+  | 'conversion'
+  | 'recording';
 
 export interface VocalModeInfo {
   mode: VocalMode;

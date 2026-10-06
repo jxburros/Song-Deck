@@ -15,8 +15,11 @@ import {
   songLengthTicks,
   sortNotes,
   chordPitchClasses,
+  describeSinger,
   hasAttachedMidi,
   hasEditableNotes,
+  singerForTrack,
+  singerZone,
   type Note,
   type Song,
   type Track,
@@ -31,6 +34,7 @@ import { auditionNote } from '../../engine/audition';
 import { useLoopSync } from './useLoopSync';
 import { useMidiRecorder } from './useMidiRecorder';
 import { AudioMidiBar, MakeMidiDialog } from '../shared/AudioMidiPanel';
+import { ZONE_COLOR } from '../shared/SingerRange';
 
 /** Tracks the roll can edit: MIDI tracks and audio tracks with MIDI made from them. */
 function trackOptions(song: Song, extra?: Track): { value: string; label: string }[] {
@@ -162,6 +166,8 @@ export default function PianoRoll() {
   const layout = useMemo(() => (song ? sectionLayout(song) : []), [song]);
   const selected = useMemo(() => new Set(selection.noteIds), [selection.noteIds]);
   const isVocal = track?.role === 'vocal';
+  // A vocal part's singer: rows show their zones (easy … out of reach).
+  const singer = song && track ? singerForTrack(song, track) : undefined;
   const snapLabel = (SNAPS.find((s) => s.value === snap) ?? SNAPS[3]).label;
   const recorder = useMidiRecorder(track?.kind === 'midi' ? track.id : undefined, {
     ticks: snapTicks,
@@ -273,6 +279,12 @@ export default function PianoRoll() {
       g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
       if (scale.has(pc)) {
         g.fillStyle = alpha(col('--ai-fill'), 0.035);
+        g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
+      }
+      if (singer) {
+        const zone = singerZone(singer, p);
+        const zc = ZONE_COLOR[zone];
+        g.fillStyle = zone === 'out' ? alpha(col('--bg'), 0.5) : alpha(col(zc.token), zc.alpha * 0.13);
         g.fillRect(KEY_W, y, size.w - KEY_W, keyH);
       }
       g.fillStyle = col('--grid-line');
@@ -401,6 +413,7 @@ export default function PianoRoll() {
         else if (diffForTrack?.added.has(n.id)) stroke = col('--diff-added');
         else if (diffForTrack?.modified.has(n.id)) stroke = col('--diff-modified');
         else if (n.locked) stroke = col('--lock');
+        else if (singer && singerZone(singer, pitch) === 'out') stroke = col('--danger');
         if (stroke) {
           g.strokeStyle = stroke;
           g.lineWidth = 1.5;
@@ -467,6 +480,13 @@ export default function PianoRoll() {
       const pc = p % 12;
       g.fillStyle = BLACK.has(pc) ? col('--key-black') : col('--key-white');
       g.fillRect(0, y, KEY_W - 1, keyH - (BLACK.has(pc) ? 0 : 1));
+      if (singer) {
+        const zone = singerZone(singer, p);
+        if (zone !== 'out') {
+          g.fillStyle = alpha(col(ZONE_COLOR[zone].token), ZONE_COLOR[zone].alpha);
+          g.fillRect(KEY_W - 6, y, 5, keyH - 1);
+        }
+      }
       if (pc === 0 && keyH >= 9) {
         g.fillStyle = col('--key-label');
         g.font = `${Math.min(10, keyH - 2)}px ${col('--font-mono')}`;
@@ -890,6 +910,11 @@ export default function PianoRoll() {
           +
         </Button>
         <div className="spacer" />
+        {singer && (
+          <Badge tone="success" title={`${singer.name}: ${describeSinger(singer)}`}>
+            Singer: {singer.name}
+          </Badge>
+        )}
         {proposal && (
           <>
             <Badge tone="ai">Proposal: {proposal.title}</Badge>

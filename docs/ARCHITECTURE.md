@@ -18,6 +18,7 @@ apps/studio (UI) ─────────────────────
 │   ├── timing.ts   bars/beats/ticks/seconds                         (§47 TempoEvent/MeterEvent)
 │   ├── locks.ts    lock keys and lock resolution                    (§22)
 │   ├── audio-midi.ts  MIDI attached to audio tracks: views, staleness, tuning render keys
+│   ├── singers.ts  singer range zones, presets, range check, fitting a song to a singer
 │   ├── composer/   genres, instruments, blueprint, planner, role generators,
 │   │               arrangement, macros, regeneration, variation, Song DNA  (§10-§24)
 │   ├── musician/   natural-language MIDI edits, theory explanations, lyrics,
@@ -248,6 +249,21 @@ Audio tracks keep their attached notes in `Track.notes` (song ticks, aligned wit
 operations, validation and MIDI export treat them like MIDI tracks (no instrument-range folding: the
 notes describe a recording). A tuned render is a `tuned-render` asset keyed like a frozen plugin
 render; the renderer plays it instead of the clips while current.
+
+### 3.9b singers (core/singers.ts)
+
+```ts
+// song.vocals.singers: SingerProfile[]  (lowest ≤ comfortableLow ≤ [sweet] ≤ comfortableHigh ≤ highest < falsettoHigh)
+// track.vocal.singerId → who sings the part
+singerZone(singer, pitch): 'sweet' | 'comfortable' | 'stretch' | 'falsetto' | 'out'
+singerFromVoiceType(voiceType, { id, name }); normalizeSinger(s); singerBands(s); describeSinger(s)
+checkSingerRange(song, track, singer): RangeCheck   // time per zone, problems by bar, verdict, fits −12…+12, best
+fitToSinger(song, track, semitones): { ops, description }   // set_key (−6…+5, all parts) + vocal octaves
+```
+
+The composer writes a part with a singer inside `lowest…highest`, mostly in the easy zone; note
+fixing and validation use the singer's reach (falsetto included) instead of the instrument range;
+the AI context lists the singer's zones for the part.
 
 ### 3.10 ai
 

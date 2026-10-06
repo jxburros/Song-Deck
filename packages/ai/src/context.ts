@@ -10,6 +10,8 @@
 import {
   barToTick,
   bpmAtTick,
+  describeSinger,
+  singerForTrack,
   chordsInRange,
   chordToRoman,
   createTimeMap,
@@ -91,6 +93,8 @@ export interface ContextTrack {
   function?: string;
   /** Allowed/observed range, e.g. "E1-G3". */
   range?: string;
+  /** The singer of a vocal part and their range zones (keep the melody in the easy zones). */
+  singer?: string;
   /** true = whole track locked; list = section names where it is locked. */
   locked: boolean | string[];
   selected?: boolean;
@@ -531,6 +535,8 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
     };
     if (c.function) ctx.function = c.function;
     if (range) ctx.range = range;
+    const singer = singerForTrack(song, track);
+    if (singer) ctx.singer = `${singer.name}: ${describeSinger(singer)}`;
     const selectedTrack =
       selectedTrackIds.has(track.id) || track.notes.some((n) => selectedNoteIds.has(n.id));
     if (selectedTrack) ctx.selected = true;
@@ -782,6 +788,7 @@ export function musicContextToPrompt(ctx: MusicContext): string {
     let head = `  - "${t.name}" (id ${t.id}) role=${t.role} instrument=${t.instrument}`;
     if (t.function) head += ` function=${t.function}`;
     if (t.range) head += ` range=${t.range}`;
+    if (t.singer) head += ` singer=(${t.singer})`;
     if (t.locked === true) head += ' [LOCKED]';
     else if (Array.isArray(t.locked) && t.locked.length) head += ` [LOCKED in: ${t.locked.join(', ')}]`;
     if (t.selected) head += ' [SELECTED]';

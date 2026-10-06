@@ -6,6 +6,7 @@ import {
   getInstrument,
   hasAttachedMidi,
   LockKeys,
+  singerForTrack,
   isTrackSectionLocked,
   sectionLayout,
   songLengthBars,
@@ -168,6 +169,7 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
   const locked = !!song.locks[LockKeys.track(track.id)];
   const inst = getInstrument(track.instrumentId, customInstruments);
   const attached = hasAttachedMidi(track) ? track.audioMidi : null;
+  const singer = singerForTrack(song, track);
   const [makeMidi, setMakeMidi] = useState(false);
   const size = attached
     ? `${track.notes.length} notes`
@@ -212,7 +214,7 @@ function TrackHead({ song, track, selected }: { song: Song; track: Track; select
           </div>
         ) : (
           <div className="ellipsis small dim">
-            {track.kind === 'audio' ? 'Audio' : inst.name} · {size}
+            {track.kind === 'audio' ? 'Audio' : singer ? `Sung by ${singer.name}` : inst.name} · {size}
           </div>
         )}
       </div>
