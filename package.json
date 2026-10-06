@@ -1,6 +1,6 @@
 {
   "name": "song-deck",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Structured AI music workstation: AI composes, performs, and produces music without taking the composition away from you.",
   "type": "module",

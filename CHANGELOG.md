@@ -6,6 +6,8 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-05
+
 ### Added
 
 - **MIDI from any audio track, attached to it.** **Make MIDI from audio** (an audio track's menu, the
