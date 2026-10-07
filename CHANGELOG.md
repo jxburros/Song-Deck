@@ -6,6 +6,8 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-07
+
 ### Added
 
 - **AI Audio area.** A new rail area that lays out how a song becomes audio (composition → guide
@@ -15,6 +17,21 @@ All notable changes to Song Deck are documented in this file. The format follows
   which it ignores and why, its output and limits, and its own settings with their current values.
   Local bridges are described from the capabilities they report. Engines not yet connected are listed
   with their inputs and a Connect button.
+
+- **Export metadata.** Title, artist, album, composer, genre, release date/year, track number,
+  copyright, ISRC and comments can be edited before export and are saved with the song. Tags are
+  embedded in WAV, FLAC, MP3 and AAC downloads and WAV stems; Export everything includes
+  `Metadata.json`, which can also be downloaded separately. (#19)
+- **MIDI before adding audio.** Library audio offers on-device transcription before starting or
+  joining a song, with an audio-only option. Starting material has a Make MIDI action, and imported
+  stems recommend transcription. Original audio stays unchanged and plays as before. (#20)
+
+### Fixed
+
+- AI audio versions in Sound and audio or MIDI parts in the Library now have direct Listen/Stop
+  controls, with loading cancellation, error reporting and automatic stopping when leaving the view. (#18)
+- The composer uses attached audio MIDI as melody and drum context when writing new parts around
+  supplied recordings; regeneration preserves the audio tracks and their notes. (#20)
 
 ## [0.5.0] - 2026-10-05
 

@@ -3,6 +3,7 @@ import {
   BUILTIN_GENRES,
   blueprintFromChoices,
   composeSong,
+  regenerateUnlocked,
   creditLyricWriter,
   getTag,
   keyName,
@@ -198,7 +199,16 @@ export default function ComposeMode() {
       customInstruments,
     });
     if (generatedAuthor) generated.lyrics = generated.lyrics.map((l) => ({ ...l, author: generatedAuthor }));
-    const composed = mergeComposeInputs(generated, prepared);
+    let composed = mergeComposeInputs(generated, prepared);
+    if (prepared.some((i) => i.item.song?.tracks.some((t) => t.audioMidi && t.notes.length))) {
+      // Write the new parts with the supplied recording's notes available as musical context.
+      composed = regenerateUnlocked(composed, {
+        seed,
+        customGenres,
+        customInstruments,
+        trackIds: generated.tracks.map((t) => t.id),
+      }).song;
+    }
     const song =
       composed.title && composed.title !== 'Untitled'
         ? composed

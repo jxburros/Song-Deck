@@ -1132,7 +1132,22 @@ export interface VocalSettings {
 // The Song (song.json)
 // ---------------------------------------------------------------------------
 
+/** Optional release tags, saved with the song and its revision history. */
+export interface ExportMetadata {
+  title?: string;
+  artist?: string;
+  album?: string;
+  composer?: string;
+  genre?: string;
+  date?: string;
+  trackNumber?: string;
+  copyright?: string;
+  comment?: string;
+  isrc?: string;
+}
+
 export interface Song {
+  exportMetadata?: ExportMetadata;
   schemaVersion: number;
   id: Id;
   title: string;

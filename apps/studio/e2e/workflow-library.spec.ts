@@ -57,6 +57,7 @@ test('standalone generation preserves the open project and saves persistent MIDI
     .first()
     .getByRole('button', { name: 'Start a song with it' })
     .click();
+  await page.getByRole('button', { name: 'Continue with audio only' }).click();
   await expect(page.getByTestId('compose-input')).toHaveCount(1);
   await page.getByRole('button', { name: 'Create now, rest on Auto', exact: true }).click();
   await expect(page.getByTestId('arrangement')).toBeVisible({ timeout: 60_000 });

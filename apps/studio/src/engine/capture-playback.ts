@@ -51,6 +51,12 @@ class PreviewPlayer {
     return buf;
   }
 
+  /** Resume during the click gesture before loading or decoding the preview. */
+  async prepare(): Promise<void> {
+    const ctx = this.context();
+    if (ctx.state === 'suspended') await ctx.resume();
+  }
+
   /** Play `audio` under `id` from `offsetSeconds`. Stops any other preview. */
   async play(id: string, audio: AudioData, offsetSeconds = 0): Promise<void> {
     this.stopSource();

@@ -2,6 +2,7 @@ import { expect, test, type Download, type Page } from '@playwright/test';
 import { composeQuickSong } from './compose-helpers';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
+import { id3v2Size, readAudioMetadata } from '@songdeck/audio';
 import { attestUpload } from './rights';
 import { openExportFormats, openTool } from './nav';
 
@@ -136,7 +137,12 @@ test('mix, master and export a composed song', async ({ page }) => {
   await page.getByRole('combobox', { name: 'Audio format' }).selectOption('mp3');
   const mp3 = await download(page, () => page.getByRole('button', { name: 'Mix.mp3' }).click());
   expect(mp3.d.suggestedFilename()).toMatch(/\.mp3$/);
-  expect(mp3.bytes[0] === 0xff && (mp3.bytes[1] & 0xe0) === 0xe0).toBe(true);
+  const mp3Start = id3v2Size(mp3.bytes);
+  expect(mp3Start).toBeGreaterThan(0);
+  expect(readAudioMetadata(mp3.bytes).tags.find((t) => t.field === 'title')?.value).toBe(
+    await page.locator('.song-name').textContent(),
+  );
+  expect(mp3.bytes[mp3Start] === 0xff && (mp3.bytes[mp3Start + 1] & 0xe0) === 0xe0).toBe(true);
   // AAC needs a WebCodecs AAC encoder; open-source Chromium has none, so it must explain itself.
   await page.getByRole('combobox', { name: 'Audio format' }).selectOption('aac');
   const aacOk = await page.evaluate(async () => {
@@ -153,7 +159,7 @@ test('mix, master and export a composed song', async ({ page }) => {
   });
   if (aacOk) {
     const aac = await download(page, () => page.getByRole('button', { name: 'Mix.aac' }).click());
-    expect(aac.bytes[0]).toBe(0xff);
+    expect(aac.bytes[id3v2Size(aac.bytes)]).toBe(0xff);
   } else {
     await expect(page.getByText(/AAC encoder|AudioEncoder/).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mix.aac' })).toBeDisabled();

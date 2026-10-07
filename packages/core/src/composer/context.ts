@@ -23,6 +23,7 @@ import type {
   VoiceType,
 } from '../ir/types';
 import { PPQ } from '../ir/types';
+import { hasEditableNotes } from '../audio-midi';
 import {
   bpmAtTick,
   keyAtBar,
@@ -110,10 +111,11 @@ export function buildSongGen(song: Song, settings: GenSettings): SongGen {
   const genre = genreForSong(song, settings.customGenres);
   const cache = new Map<string, InstrumentProfile>();
   const instrumentOf = (t: Track): InstrumentProfile => {
-    let p = cache.get(t.instrumentId);
+    const instrumentId = t.kind === 'audio' && t.audioMidi ? t.audioMidi.instrumentId : t.instrumentId;
+    let p = cache.get(instrumentId);
     if (!p) {
-      p = getInstrument(t.instrumentId, settings.customInstruments);
-      cache.set(t.instrumentId, p);
+      p = getInstrument(instrumentId, settings.customInstruments);
+      cache.set(instrumentId, p);
     }
     return p;
   };
@@ -125,7 +127,9 @@ export function buildSongGen(song: Song, settings: GenSettings): SongGen {
     densityBias: settings.overrides?.densityBias,
   });
   const sets = new Map(Object.entries(arrangement).map(([k, v]) => [k, new Set(v)]));
-  const midi = song.tracks.filter((t) => t.kind === 'midi');
+  const midi = song.tracks
+    .filter(hasEditableNotes)
+    .sort((a, b) => Number(b.kind === 'audio') - Number(a.kind === 'audio'));
   const lead =
     midi.find((t) => isLeadVocal(t, instrumentOf(t))) ??
     midi.find((t) => resolveFunction(t, instrumentOf(t)) === 'melody');
@@ -139,7 +143,16 @@ export function buildSongGen(song: Song, settings: GenSettings): SongGen {
     songEnd: spans.length ? spans[spans.length - 1].endTick : 0,
     principalMelodyId: lead?.id,
     instrumentOf,
-    plays: (trackId, sectionId) => sets.get(trackId)?.has(sectionId) ?? false,
+    plays: (trackId, sectionId) => {
+      const track = song.tracks.find((t) => t.id === trackId);
+      if (track?.kind === 'audio' && track.audioMidi) {
+        const span = spans.find((s) => s.section.id === sectionId);
+        return (
+          !!span && track.notes.some((n) => n.tick < span.endTick && n.tick + n.duration > span.startTick)
+        );
+      }
+      return sets.get(trackId)?.has(sectionId) ?? false;
+    },
   };
 }
 
@@ -321,7 +334,7 @@ export function makeCell(g: SongGen, track: Track, spanIndex: number, seed: numb
     kickTicks: () => {
       const out = new Set<number>();
       for (const t of song.tracks) {
-        if (t.kind !== 'midi' || t.role !== 'drums' || !g.plays(t.id, section.id)) continue;
+        if (!hasEditableNotes(t) || t.role !== 'drums' || !g.plays(t.id, section.id)) continue;
         for (const n of t.notes)
           if ((n.pitch === 36 || n.pitch === 35) && n.tick >= span.startTick && n.tick < span.endTick)
             out.add(n.tick);
@@ -329,7 +342,7 @@ export function makeCell(g: SongGen, track: Track, spanIndex: number, seed: numb
       return [...out].sort((a, b) => a - b);
     },
     rolePlays: (role) =>
-      song.tracks.some((t) => t.kind === 'midi' && t.role === role && g.plays(t.id, section.id)),
+      song.tracks.some((t) => hasEditableNotes(t) && t.role === role && g.plays(t.id, section.id)),
     isLast: spanIndex === g.spans.length - 1,
   };
   return cell;

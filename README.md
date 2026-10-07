@@ -10,6 +10,10 @@ Use **Expand** to import a short MIDI or audio clip, label verse/chorus/hook reg
 
 The full product specification lives in [`Song Deck.md`](./Song%20Deck.md). How the code maps onto it is in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), and what each phase delivers (and its honest limits) is in [`docs/PHASES.md`](./docs/PHASES.md).
 
+New in **0.6.0**: listen to generated versions directly in Sound and preview Library items;
+edit release metadata in Export; and make MIDI from Library audio before adding it to a song,
+so new parts can follow the recording's notes. Transcription keeps the original audio unchanged.
+
 ## Download
 
 Prebuilt downloads are on the [Releases page](https://github.com/jxburros/Song-Deck/releases). Unpack
