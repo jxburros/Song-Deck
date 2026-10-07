@@ -64,7 +64,7 @@ test('main screens have no WCAG A/AA violations in either theme', async ({ page 
     await page.waitForTimeout(300);
     await both(tool);
   }
-  for (const area of ['Single Track', 'Library', 'Settings'] as const) {
+  for (const area of ['Single Track', 'AI Audio', 'Library', 'Settings'] as const) {
     await openArea(page, area);
     await page.waitForTimeout(300);
     await both(area);

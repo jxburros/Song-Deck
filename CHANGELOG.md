@@ -6,6 +6,16 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **AI Audio area.** A new rail area that lays out how a song becomes audio (composition → guide
+  render → audio engine → candidates → into the song) and the three production strategies, shows what
+  you can make with the engines you have connected, and lists for every audio engine — cloud, local
+  bridge, singing, voice conversion, instrument plugin host or built in — which inputs it receives,
+  which it ignores and why, its output and limits, and its own settings with their current values.
+  Local bridges are described from the capabilities they report. Engines not yet connected are listed
+  with their inputs and a Connect button.
+
 ## [0.5.0] - 2026-10-05
 
 ### Added

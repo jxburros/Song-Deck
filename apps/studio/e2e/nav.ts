@@ -1,10 +1,10 @@
 import { expect, type Page } from '@playwright/test';
 
 /**
- * Navigation through the redesigned shell: the rail (Songs, Single Track, Library, Settings), a
+ * Navigation through the redesigned shell: the rail (Songs, Single Track, AI Audio, Library, Settings), a
  * song's three steps (Write · Sound · Export) and its More tools hub.
  */
-export type Area = 'Songs' | 'Single Track' | 'Library' | 'Settings';
+export type Area = 'Songs' | 'Single Track' | 'AI Audio' | 'Library' | 'Settings';
 export type SongStep = 'Write' | 'Sound' | 'Export';
 
 export function rail(page: Page, area: Area) {

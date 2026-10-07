@@ -57,6 +57,7 @@ export * from './composition';
 
 // Production, hardware, local models, bridge contracts
 export * from './production';
+export * from './audio-generation';
 export * from './hardware';
 export * from './catalog';
 export * from './contracts';
