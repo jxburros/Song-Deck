@@ -91,6 +91,10 @@ async function importSungLine(page: Page): Promise<void> {
   await attestUpload(page);
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('combobox', { name: 'Stem group' })).toHaveValue('vocals');
+  const makeMidi = dialog.getByRole('checkbox', { name: 'Make MIDI from audio (recommended)' });
+  await expect(makeMidi).toBeChecked();
+  // This test exercises making MIDI later from the track menu; audio-only import stays available.
+  await makeMidi.uncheck();
   await dialog.getByRole('button', { name: 'Add audio track' }).click();
   await expect(page.getByRole('group', { name: 'lead vocal take channel strip' })).toBeVisible();
 }
