@@ -54,6 +54,7 @@ import { Icon, type IconName } from '../../ui/icons';
 import { careLabel } from '../../engine/rights';
 import { adoptedCandidateId } from '../produce/adopt';
 import './export.css';
+import { MetadataPanel } from './MetadataPanel';
 
 /**
  * Export mode (spec §55 Export, §56 DAW interoperability, §73 example export list):
@@ -398,6 +399,7 @@ export default function ExportMode() {
         </Button>
       </header>
       <div className="area-body col ex-body" style={{ gap: 18 }}>
+        <MetadataPanel song={song} />
         {needsCare.length > 0 && (
           <div className="callout warning" data-testid="export-rights-notice" role="note">
             <strong>Rights reminder.</strong> This project contains uploaded audio that was attested as

@@ -11,8 +11,12 @@ import {
 import { useStudio } from '../../state/store';
 import { Button, FileButton, TextInput, Modal } from '../../ui/kit';
 import { useComposeSession } from '../compose/session';
-import { mergeComposeInputs, playableItem, useComposeInputs } from '../compose/inputs';
+import { mergeComposeInputs, playableItem, transcribeInput, useComposeInputs } from '../compose/inputs';
 import { SaveLibraryButton } from './SaveLibraryButton';
+import { AudioPreviewButton } from '../shared/AudioPreviewButton';
+import { decodeAudioBytes } from '../../state/assets';
+import { jobs } from '../../engine/jobs';
+import type { AudioData } from '@songdeck/audio';
 
 const KINDS: { value: string; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -136,6 +140,10 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState('all');
   const [busy, setBusy] = useState(false);
+  const [pendingAudio, setPendingAudio] = useState<{
+    item: LibraryItem;
+    action: 'start' | 'add' | 'pick';
+  } | null>(null);
   const [deleting, setDeleting] = useState<LibraryItem | null>(null);
   const st = useStudio.getState();
   const perform = async (fn: () => Promise<unknown>) => {
@@ -169,6 +177,22 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
       'import',
     );
     st.toast('success', `Added an independent copy of ${item.name}`);
+  };
+  const applyItem = async (item: LibraryItem, action: 'start' | 'add' | 'pick') => {
+    if (action === 'add') await addToProject(item);
+    else if (action === 'pick') onPick?.(item);
+    else {
+      useComposeInputs.getState().add(await playableItem(item));
+      useComposeSession.getState().start(item.kind === 'audio' ? 'audio' : 'midi');
+      st.setMode('compose');
+    }
+  };
+  const choose = (item: LibraryItem, action: 'start' | 'add' | 'pick') => {
+    const needsMidi =
+      (item.kind === 'audio' && !item.song) ||
+      item.song?.tracks.some((t) => t.kind === 'audio' && !t.audioMidi);
+    if (needsMidi) setPendingAudio({ item, action });
+    else void perform(() => applyItem(item, action));
   };
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -258,8 +282,27 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
                 </span>
               </div>
               <div className="lib-actions">
+                {item.kind !== 'file' && (
+                  <AudioPreviewButton
+                    id={`library:${item.id}`}
+                    label={item.name}
+                    load={async () => {
+                      if (item.file && item.kind === 'audio') return decodeAudioBytes(item.file.bytes);
+                      if (!item.song) return undefined;
+                      const assets: Record<string, AudioData> = {};
+                      for (const asset of item.assets)
+                        assets[asset.meta.id] = await decodeAudioBytes(asset.bytes);
+                      return jobs.call<AudioData>('renderMix', {
+                        song: item.song,
+                        assets,
+                        sampleRate: 44100,
+                      });
+                    }}
+                  />
+                )}
+
                 {onPick ? (
-                  <Button disabled={busy || item.kind === 'file'} onClick={() => onPick(item)}>
+                  <Button disabled={busy || item.kind === 'file'} onClick={() => choose(item, 'pick')}>
                     Use this input
                   </Button>
                 ) : (
@@ -268,13 +311,7 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
                       variant="primary"
                       size="sm"
                       disabled={busy || item.kind === 'file'}
-                      onClick={() =>
-                        void perform(async () => {
-                          useComposeInputs.getState().add(await playableItem(item));
-                          useComposeSession.getState().start(item.kind === 'audio' ? 'audio' : 'midi');
-                          st.setMode('compose');
-                        })
-                      }
+                      onClick={() => choose(item, 'start')}
                     >
                       Start a song with it
                     </Button>
@@ -283,7 +320,7 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
                         size="sm"
                         disabled={busy || item.kind === 'file'}
                         title={`Add an independent copy to ${project.meta.name}`}
-                        onClick={() => void perform(() => addToProject(item))}
+                        onClick={() => choose(item, 'add')}
                       >
                         Add to this song
                       </Button>
@@ -299,6 +336,43 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
           (item) =>
             (kind === 'all' || item.kind === kind) && item.name.toLowerCase().includes(search.toLowerCase()),
         ) && <p>No matching items.</p>}
+      {pendingAudio && (
+        <Modal title="Add MIDI before using this audio?" onClose={() => !busy && setPendingAudio(null)}>
+          <p>
+            Recommended: make editable MIDI so AI can use the notes when generating other parts. The original
+            audio stays unchanged and still plays. Transcription runs on this device and may take a moment.
+          </p>
+          <div className="row wrap">
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={() =>
+                void perform(async () => {
+                  const item = await transcribeInput(pendingAudio.item);
+                  await applyItem(item, pendingAudio.action);
+                  setPendingAudio(null);
+                })
+              }
+            >
+              {busy ? 'Making MIDI…' : 'Make MIDI and continue'}
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() =>
+                void perform(async () => {
+                  await applyItem(pendingAudio.item, pendingAudio.action);
+                  setPendingAudio(null);
+                })
+              }
+            >
+              Continue with audio only
+            </Button>
+            <Button disabled={busy} onClick={() => setPendingAudio(null)}>
+              Cancel
+            </Button>
+          </div>
+        </Modal>
+      )}
       {deleting && (
         <Modal title="Delete library item?" onClose={() => setDeleting(null)}>
           <p>Delete “{deleting.name}” from the library? Copies already added to projects are kept.</p>

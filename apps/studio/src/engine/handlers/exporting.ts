@@ -38,6 +38,7 @@ import {
   type ZipEntry,
 } from '../export-audio';
 import { deliverFile, MIME, sanitizeFileName } from '../export-files';
+import { metadataForSong, tagAudio } from '../export-metadata';
 
 /**
  * Export tasks (spec §55, §56, §63, §73). Every render-based export runs through the generation
@@ -145,6 +146,8 @@ function songInfoText(song: Song, sampleRate: number, bits: number, lines: strin
   return [
     `${song.title}`,
     `Exported by Song Deck on ${new Date().toISOString().slice(0, 10)}`,
+    '',
+    ...Object.entries(metadataForSong(song)).map(([key, value]) => `${key}: ${value}`),
     '',
     `Tempo: ${bpm} BPM${song.tempoMap.length > 1 ? ' (tempo changes — see tempo map)' : ''}`,
     `Meter: ${meter.numerator}/${meter.denominator}`,
@@ -262,6 +265,7 @@ const exportAudio: TaskHandler<AudioExportInput, ExportResult> = async (ctx) => 
       consume: true,
     });
   }
+  bytes = tagAudio(bytes, input.format, metadataForSong(song));
   pm.done('encode');
   const fileName = `${input.fileBase} - ${r.label}.${info.ext}`;
   deliverFile(fileName, bytes, info.mime, {
@@ -341,7 +345,11 @@ async function buildStems(
       consume: true,
     });
     delete stems[key];
-    entries.push({ name: `${base}.wav`, data, compress: false });
+    entries.push({
+      name: `${base}.wav`,
+      data: tagAudio(data, 'wav', metadataForSong(song)),
+      compress: false,
+    });
     names.push(`${base}.wav`);
     done++;
     opts.onProgress(0.6 + (0.4 * done) / Math.max(1, total));
@@ -359,7 +367,7 @@ async function buildStems(
       consume: true,
     });
     const name = `Audio tracks/${trackFileName(song, t.id)}.wav`;
-    entries.push({ name, data, compress: false });
+    entries.push({ name, data: tagAudio(data, 'wav', metadataForSong(song)), compress: false });
     names.push(name);
     done++;
     opts.onProgress(0.6 + (0.4 * done) / Math.max(1, total));
@@ -502,8 +510,12 @@ const exportEverything: TaskHandler<EverythingInput, ExportResult> = async (ctx)
   const pRest = pm.part('rest', 1, 'MIDI, MusicXML, project');
   const pZip = pm.part('zip', 2, 'Packaging');
   const log = (m: string) => ctx.log('info', m);
-  const wav = (audio: AudioData) =>
-    encodeAudio(audio, { format: 'wav', wavBits: input.wavBits, signal, consume: true });
+  const wav = async (audio: AudioData) =>
+    tagAudio(
+      await encodeAudio(audio, { format: 'wav', wavBits: input.wavBits, signal, consume: true }),
+      'wav',
+      metadataForSong(song),
+    );
   const assets = await collectAssets(song);
   throwIfAborted(signal);
 
@@ -515,7 +527,10 @@ const exportEverything: TaskHandler<EverythingInput, ExportResult> = async (ctx)
       assets,
       onProgress: pMaster,
       log,
-    }).then(async (r) => ({ label: r.label, bytes: r.existing ?? (await wav(r.audio!)) })),
+    }).then(async (r) => ({
+      label: r.label,
+      bytes: r.existing ? tagAudio(r.existing, 'wav', metadataForSong(song)) : await wav(r.audio!),
+    })),
     hasInstrumental
       ? renderDeliverable(song, 'instrumental', {
           sampleRate: input.sampleRate,
@@ -562,6 +577,7 @@ const exportEverything: TaskHandler<EverythingInput, ExportResult> = async (ctx)
   if (instrumental) entries.push({ name: 'Instrumental.wav', data: instrumental, compress: false });
   if (acapella) entries.push({ name: 'Acapella.wav', data: acapella, compress: false });
   entries.push({ name: 'Stems.zip', data: stemsZip, compress: false });
+  entries.push({ name: 'Metadata.json', data: JSON.stringify(metadataForSong(song), null, 2) });
   entries.push({ name: 'Song.mid', data: midi });
   entries.push({ name: 'Song.musicxml', data: xml });
   entries.push({ name: `${input.fileBase}.songproject`, data: project, compress: false });

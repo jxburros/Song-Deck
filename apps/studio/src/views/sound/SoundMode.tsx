@@ -30,6 +30,8 @@ import { openSettings } from '../settings/nav';
 import { PlaySwitch } from '../shared/AudioMidiPanel';
 import { setAudioMidiInstrument } from '../../engine/audio-midi';
 import './sound.css';
+import { AudioPreviewButton } from '../shared/AudioPreviewButton';
+import { assetStore } from '../../state/assets';
 
 /**
  * Sound: how the song sounds and how loud each part is. Instrument or voice per track, mute, solo
@@ -299,6 +301,16 @@ export default function SoundMode() {
                     {c.rating ? ` · ${'★'.repeat(c.rating)}` : ''}
                   </span>
                 </span>
+                {c.mixAssetId && (
+                  <AudioPreviewButton
+                    id={`sound:${c.id}`}
+                    label={`version ${c.label}`}
+                    load={async () => {
+                      const asset = project.meta.assets.find((a) => a.id === c.mixAssetId);
+                      return asset ? assetStore.audio(asset) : undefined;
+                    }}
+                  />
+                )}
                 {adopted === c.id ? (
                   <span className="scope-chip">In use</span>
                 ) : (

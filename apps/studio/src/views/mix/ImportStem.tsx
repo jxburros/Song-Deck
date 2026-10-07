@@ -14,6 +14,7 @@ import {
   type TrackRole,
 } from '@songdeck/core';
 import type { AudioData } from '@songdeck/audio';
+import { makeMidiFromAudio } from '../../engine/audio-midi';
 import { useStudio } from '../../state/store';
 import { decodeAudioBytes, guessMime } from '../../state/assets';
 import { player } from '../../engine/player';
@@ -97,6 +98,7 @@ function ImportModal({
     };
   }, [file]);
 
+  const [withMidi, setWithMidi] = useState(true);
   const duration = audio ? (audio.channels[0]?.length ?? 0) / audio.sampleRate : 0;
   const maxBar = Math.max(1, song ? songLengthBars(song) : 1);
 
@@ -179,6 +181,7 @@ function ImportModal({
         `Imported ${kind === 'stem' ? 'stem' : 'audio'} “${file.name}” as track ${track.name}`,
         'import',
       );
+      if (withMidi) makeMidiFromAudio(trackId, 'auto', 'internal');
       useStudio.getState().selectTrack(trackId);
       st.toast(
         'success',
@@ -251,6 +254,16 @@ function ImportModal({
             />
           </Field>
         </div>
+        <label className="field">
+          <span className="row">
+            <input type="checkbox" checked={withMidi} onChange={(e) => setWithMidi(e.target.checked)} />
+            Make MIDI from audio (recommended)
+          </span>
+          <span className="small muted">
+            Keeps the recording and attaches editable notes so AI can write other parts around it. Runs on
+            this device after import.
+          </span>
+        </label>
         <div className="small dim">
           The file is stored inside the project (.songproject) and plays through its own channel strip, so EQ,
           compression, sends, automation and the AI mix assistant all apply.

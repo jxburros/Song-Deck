@@ -8,7 +8,13 @@ import { Icon, type IconName } from '../../ui/icons';
 import { LibraryBrowser } from '../library/LibraryMode';
 import { RecordPanel } from '../transcribe/RecordPanel';
 import { ProviderPicker } from '../shared/ProviderPicker';
-import { INTERPRETATIONS, playableItem, useComposeInputs, type ComposeInput } from './inputs';
+import {
+  INTERPRETATIONS,
+  playableItem,
+  transcribeInput,
+  useComposeInputs,
+  type ComposeInput,
+} from './inputs';
 import { LyricsInput } from './LyricsInput';
 import { draftLyrics, lyricsActive, useComposeSession } from './session';
 
@@ -197,6 +203,7 @@ const KIND_LABEL: Record<LibraryItem['kind'], { label: string; icon: IconName }>
 
 function InputCard({ input, disabled }: { input: ComposeInput; disabled: boolean }) {
   const state = useComposeInputs();
+  const [transcribing, setTranscribing] = useState(false);
   const song = input.item.song;
   const kind = KIND_LABEL[input.item.kind];
   const midiTracks = song?.tracks.filter((t) => t.kind === 'midi') ?? [];
@@ -214,6 +221,27 @@ function InputCard({ input, disabled }: { input: ComposeInput; disabled: boolean
         onRemove={() => state.remove(input.id)}
       />
       <div className="panel-body col" style={{ gap: 12 }}>
+        {song?.tracks.some((t) => t.kind === 'audio' && !t.audioMidi) && (
+          <div className="callout small">
+            <strong>Add MIDI before making your song</strong>
+            <p>
+              Recommended: editable notes help AI write other parts around this recording. The original audio
+              still plays. You can also continue with audio only.
+            </p>
+            <Button
+              disabled={disabled || transcribing}
+              onClick={() => {
+                setTranscribing(true);
+                void transcribeInput(input.item)
+                  .then((item) => state.patch(input.id, { item }))
+                  .catch((e) => useStudio.getState().toast('error', String(e)))
+                  .finally(() => setTranscribing(false));
+              }}
+            >
+              {transcribing ? 'Making MIDI…' : 'Make MIDI from audio'}
+            </Button>
+          </div>
+        )}
         {midiTracks.length > 0 && (
           <div className="mat-tracks">
             {midiTracks.slice(0, 8).map((t) => (

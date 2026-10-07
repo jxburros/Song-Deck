@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { AudioData } from '@songdeck/audio';
 import { player } from '../../engine/player';
+import { previewPlayer } from '../../engine/capture-playback';
 
 /**
  * A/B/C comparison playback (spec §54): every loaded source (guide, candidates A, B, C…, or the
@@ -174,6 +175,7 @@ class ComparePlayer {
     const ctx = this.ensure();
     if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
     if (player.playing) player.pause();
+    previewPlayer.stop();
     this.stopNodes();
     const dur = this.duration();
     if (!this.entries.size || dur <= 0) return;

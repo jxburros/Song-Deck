@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import {
+  AUDIO_MIDI_DEFAULT_INSTRUMENT,
+  audioMidiSourceKey,
   barToTick,
   createEmptySong,
   createTimeMap,
@@ -17,7 +19,13 @@ import { independentCopy, type LibraryItem } from '../../state/library';
 import { makeAssetMeta } from '../../engine/capture-song';
 import { jobs } from '../../engine/jobs';
 import { runTask } from '../../engine/capture-tasks';
-import type { RebuildTaskInput, RebuildTaskOutput } from '../../engine/handlers/analysis';
+import type {
+  RebuildTaskInput,
+  RebuildTaskOutput,
+  TranscribeTaskInput,
+  TranscribeTaskOutput,
+} from '../../engine/handlers/analysis';
+import { notesFromTranscription } from '../../engine/audio-midi';
 
 export type Interpretation = 'preserve' | 'light' | 'moderate' | 'free';
 export const INTERPRETATIONS: { value: Interpretation; label: string; hint: string }[] = [
@@ -47,7 +55,7 @@ export interface ComposeInput {
 export const useComposeInputs = create<{
   inputs: ComposeInput[];
   add(item: LibraryItem): void;
-  patch(id: string, patch: Partial<Pick<ComposeInput, 'interpretation' | 'startBar'>>): void;
+  patch(id: string, patch: Partial<Pick<ComposeInput, 'interpretation' | 'startBar' | 'item'>>): void;
   remove(id: string): void;
 }>((set) => ({
   inputs: [],
@@ -117,6 +125,65 @@ export async function playableItem(item: LibraryItem): Promise<LibraryItem> {
   ];
   song.mixer.channels[id] = defaultChannelStrip();
   return { ...item, song, assets: [{ meta, bytes: item.file.bytes }] };
+}
+
+/** Attach notes to an independent audio input before composition; retain audio playback and bytes. */
+export async function transcribeInput(item: LibraryItem): Promise<LibraryItem> {
+  const ready = structuredClone(await playableItem(item));
+  const song = ready.song!;
+  const tm = createTimeMap(song);
+  for (const track of song.tracks) {
+    if (track.kind !== 'audio' || track.audioMidi) continue;
+    const notes = [];
+    let method = '';
+    let confidence = 0;
+    const mode = track.role === 'drums' || track.stemGroup === 'drums' ? 'drums' : 'chords';
+    for (const clip of track.clips) {
+      if (clip.muted) continue;
+      const asset = ready.assets.find((a) => a.meta.id === clip.assetId);
+      if (!asset) throw new Error(`Missing audio: ${track.name}`);
+      const decoded = await decodeAudioBytes(asset.bytes);
+      const audio = {
+        sampleRate: decoded.sampleRate,
+        channels: decoded.channels.map((c) =>
+          c.slice(
+            Math.round(clip.offsetSeconds * decoded.sampleRate),
+            Math.round((clip.offsetSeconds + clip.durationSeconds) * decoded.sampleRate),
+          ),
+        ),
+      };
+      const result = await runTask<TranscribeTaskInput, TranscribeTaskOutput>({
+        type: 'analysis.transcribe',
+        title: `Make MIDI from ${track.name}`,
+        input: {
+          runId: randomId('run'),
+          audio,
+          source: mode === 'drums' ? 'drums' : 'isolated',
+          bpm: song.tempoMap[0]?.bpm ?? 120,
+          key: song.keyMap[0]?.key,
+          quantizeBeats: 0,
+          provider: 'internal',
+        },
+      }).done;
+      notes.push(...notesFromTranscription(song, result, mode, tm.tickToSeconds(clip.tick)));
+      method = result.method;
+      confidence = result.confidence;
+      if (result.suggestedRole) track.role = result.suggestedRole;
+    }
+    if (!notes.length)
+      throw new Error(`No notes found in ${track.name}. Try Audio to MIDI or continue with audio only.`);
+    track.notes = notes;
+    track.audioMidi = {
+      play: 'audio',
+      mode,
+      instrumentId: AUDIO_MIDI_DEFAULT_INSTRUMENT[mode],
+      sourceKey: audioMidiSourceKey(song, track),
+      method,
+      confidence,
+      createdAt: new Date().toISOString(),
+    };
+  }
+  return ready;
 }
 
 export async function interpretInput(input: ComposeInput, seed: number): Promise<ComposeInput> {
