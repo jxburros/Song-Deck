@@ -73,6 +73,7 @@ export type Mode =
   | 'vocals'
   | 'mix'
   | 'export'
+  | 'audio'
   | 'settings';
 
 /** The three steps of a song, shown in the song header. */

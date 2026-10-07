@@ -26,6 +26,7 @@ const ProduceMode = lazy(() => import('./views/produce/ProduceMode'));
 const VocalsMode = lazy(() => import('./views/vocals/VocalsMode'));
 const MixMode = lazy(() => import('./views/mix/MixMode'));
 const ExportMode = lazy(() => import('./views/export/ExportMode'));
+const AudioMode = lazy(() => import('./views/audio/AudioMode'));
 const SettingsMode = lazy(() => import('./views/settings/SettingsMode'));
 
 const VIEWS: Record<Mode, React.LazyExoticComponent<React.ComponentType>> = {
@@ -44,6 +45,7 @@ const VIEWS: Record<Mode, React.LazyExoticComponent<React.ComponentType>> = {
   vocals: VocalsMode,
   mix: MixMode,
   export: ExportMode,
+  audio: AudioMode,
   settings: SettingsMode,
 };
 
@@ -51,6 +53,7 @@ const VIEWS: Record<Mode, React.LazyExoticComponent<React.ComponentType>> = {
 const PROJECTLESS: Mode[] = [
   'library',
   'single',
+  'audio',
   'home',
   'settings',
   'generate',

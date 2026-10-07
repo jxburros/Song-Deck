@@ -4,7 +4,7 @@ import { openArea, openMoreTools, openTool, rail, songStep, stepButton, type Are
 
 /** Every area, song step and detailed tool opens with a song loaded (and without one where allowed). */
 
-const AREAS: Area[] = ['Single Track', 'Library', 'Settings', 'Songs'];
+const AREAS: Area[] = ['Single Track', 'AI Audio', 'Library', 'Settings', 'Songs'];
 
 const TOOLS = [
   'Piano roll',

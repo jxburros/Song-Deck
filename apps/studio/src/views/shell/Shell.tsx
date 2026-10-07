@@ -18,7 +18,7 @@ import { sectionColor } from '../../ui/theme';
 import { CollabPresence } from '../shared/CollabPresence';
 
 /**
- * The studio shell: a rail with the four areas (Songs, Single Track, Library, Settings), and — while a
+ * The studio shell: a rail with the areas (Songs, Single Track, AI Audio, Library, Settings), and — while a
  * song is open — a song header (steps Write · Sound · Export, More tools) and a player bar.
  */
 
@@ -44,10 +44,11 @@ export const TOOL_LABELS: Partial<Record<Mode, string>> = {
   transcribe: 'Part from audio',
 };
 
-type Area = 'songs' | 'single' | 'library' | 'settings';
+type Area = 'songs' | 'single' | 'audio' | 'library' | 'settings';
 
 export function areaOf(mode: Mode): Area {
   if (mode === 'single') return 'single';
+  if (mode === 'audio') return 'audio';
   if (mode === 'library') return 'library';
   if (mode === 'settings') return 'settings';
   return 'songs';
@@ -63,6 +64,13 @@ const AREAS: { area: Area; mode: Mode; label: string; icon: IconName; title: str
     title: 'Make one part on its own: audio to MIDI, generate MIDI or audio',
   },
   {
+    area: 'audio',
+    mode: 'audio',
+    label: 'AI Audio',
+    icon: 'wave',
+    title: 'How songs become audio: the pipeline, connected engines, their inputs and settings',
+  },
+  {
     area: 'library',
     mode: 'library',
     label: 'Library',
@@ -71,7 +79,7 @@ const AREAS: { area: Area; mode: Mode; label: string; icon: IconName; title: str
   },
 ];
 
-/** Where the Songs area was last: coming back from Single Track, Library or Settings returns there. */
+/** Where the Songs area was last: coming back from another area returns there. */
 let lastSongsMode: Mode = 'home';
 
 export function Rail() {

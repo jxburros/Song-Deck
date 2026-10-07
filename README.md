@@ -76,8 +76,8 @@ and `SHA256SUMS.txt`. Existing older installations need a one-time manual upgrad
 
 ## Making a song
 
-The studio has four areas, always on the left rail (a bottom bar on phones): **Songs**, **Single
-Track**, **Library** and **Settings**.
+The studio has five areas, always on the left rail (a bottom bar on phones): **Songs**, **Single
+Track**, **AI Audio**, **Library** and **Settings**.
 
 - **With vocals or Instrumental** is the first choice, on the Songs screen and at the top of Start a
   song. Instrumental hides every lyrics option and guarantees no vocal track; With vocals guarantees a
@@ -119,6 +119,12 @@ Track**, **Library** and **Settings**.
   model in Shape's advanced options or let Auto pick one; models that can follow MIDI or a rendered
   guide are preferred. If you edit the composition during generation, the result is saved as a
   version for you to apply. Normal provider charges apply.
+- **AI Audio** is the map of audio generation: the pipeline from composition to guide render to
+  audio engine to candidates, the production strategies, what you can make with the engines you have
+  connected, and for every engine (cloud, local bridge or built in) exactly which inputs it receives
+  (prompt, lyrics, sections, length, tempo/key, seed, guide render, reference audio, strength, takes…),
+  which it ignores and why, and its own settings with their current values. Engines you have not
+  connected yet are listed with their inputs and a **Connect** button.
 - **Single Track** makes one part with no song open: **Audio to MIDI** (hum, sing, tap, clap or
   upload), **Generate MIDI**, or **Generate audio** (one instrument rendered to WAV). It keeps
   separate settings from a song's own tools. Results can be downloaded, saved to the Library, or used

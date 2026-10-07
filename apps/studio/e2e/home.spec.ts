@@ -33,7 +33,7 @@ test('home creation actions remain reachable on phones', async ({ page }) => {
     page.getByTestId('compose-builder').getByRole('textbox', { name: 'Lyrics', exact: true }),
   ).toBeVisible();
   // The rail is a bottom bar on phones, with every area one tap away.
-  for (const area of ['Single Track', 'Library', 'Settings', 'Songs'] as const) {
+  for (const area of ['Single Track', 'AI Audio', 'Library', 'Settings', 'Songs'] as const) {
     await openArea(page, area);
     await expect(rail(page, area)).toHaveAttribute('aria-current', 'page');
   }
