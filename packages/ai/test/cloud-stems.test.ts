@@ -157,3 +157,12 @@ describe('cloud stem separation', () => {
     expect(m.calls.some((c) => c.url.includes('-back.wav'))).toBe(false);
   });
 });
+
+it('handles long repeated instrument labels without regex backtracking', () => {
+  for (const label of ['back', 'lead', 'acoustic', 'electric']) {
+    const long = label.repeat(20000);
+    expect(stemNameFrom(long)).toBe(long);
+  }
+  expect(stemNameFrom('guitar electric.wav')).toBe('electric-guitar');
+  expect(stemNameFrom('vocals backing.wav')).toBe('backing-vocals');
+});

@@ -35,7 +35,7 @@ export function stemInfo(name: string): StemInfo {
     stemGroup,
   });
   // Complements are mixtures, not the instrument named after 'no_'.
-  if (/^(no|without|minus)-|instrumental/.test(key)) return part('custom', 'piano', 'others');
+  if (/^(no|without|minus)-/.test(key) || key === 'instrumental') return part('custom', 'piano', 'others');
   if (/vocals/.test(key)) return part('vocal', 'lead-vocal', 'vocals');
   if (/guitar/.test(key))
     return part(

@@ -7,7 +7,12 @@ export interface NamedStem {
 }
 
 export function isStemComplement(name: string): boolean {
-  return /^(no|without|minus)[_ -]|instrumental|accompan|karaoke|^backing$/.test(name.toLowerCase());
+  const lower = name.toLowerCase();
+  return (
+    /^(no|without|minus)[_ -]/.test(lower) ||
+    /instrumental|accompan|karaoke/.test(lower) ||
+    lower === 'backing'
+  );
 }
 
 /** Preserve fine-grained parts, avoid overlapping complements, and retain unseparated material. */

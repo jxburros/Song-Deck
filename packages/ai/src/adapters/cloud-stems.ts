@@ -56,13 +56,13 @@ export function stemNameFrom(raw: string): string {
   if (/^(no|without|minus)[_ -]/.test(base) && !/^(no|without|minus)[_ -]voc/.test(base))
     return base.replace(/[^a-z0-9]+/g, '-');
   if (/(^|[^a-z])(no|without|minus)[_ -]?voc|instrumental|accompan|karaoke/.test(base)) return 'instrumental';
-  if (/back.*voc/.test(base)) return 'backing-vocals';
-  if (/lead.*voc/.test(base)) return 'lead-vocals';
+  if (base.includes('back') && base.includes('voc')) return 'backing-vocals';
+  if (base.includes('lead') && base.includes('voc')) return 'lead-vocals';
   if (/voc|voice|sing/.test(base)) return 'vocals';
   if (/drum|perc/.test(base)) return 'drums';
   if (/bass/.test(base)) return 'bass';
-  if (/acoustic.*guitar/.test(base)) return 'acoustic-guitar';
-  if (/electric.*guitar/.test(base)) return 'electric-guitar';
+  if (base.includes('acoustic') && base.includes('guitar')) return 'acoustic-guitar';
+  if (base.includes('electric') && base.includes('guitar')) return 'electric-guitar';
   if (/guitar/.test(base)) return 'guitar';
   if (/piano|keys/.test(base)) return 'piano';
   if (/string/.test(base)) return 'strings';
