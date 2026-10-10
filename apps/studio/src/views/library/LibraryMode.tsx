@@ -11,7 +11,13 @@ import {
 import { useStudio } from '../../state/store';
 import { Button, FileButton, TextInput, Modal } from '../../ui/kit';
 import { useComposeSession } from '../compose/session';
-import { mergeComposeInputs, playableItem, transcribeInput, useComposeInputs } from '../compose/inputs';
+import {
+  mergeComposeInputs,
+  playableItem,
+  separateInput,
+  transcribeInput,
+  useComposeInputs,
+} from '../compose/inputs';
 import { SaveLibraryButton } from './SaveLibraryButton';
 import { AudioPreviewButton } from '../shared/AudioPreviewButton';
 import { decodeAudioBytes } from '../../state/assets';
@@ -145,6 +151,7 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
     action: 'start' | 'add' | 'pick';
   } | null>(null);
   const [deleting, setDeleting] = useState<LibraryItem | null>(null);
+  const [separate, setSeparate] = useState(false);
   const st = useStudio.getState();
   const perform = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -191,8 +198,10 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
     const needsMidi =
       (item.kind === 'audio' && !item.song) ||
       item.song?.tracks.some((t) => t.kind === 'audio' && !t.audioMidi);
-    if (needsMidi) setPendingAudio({ item, action });
-    else void perform(() => applyItem(item, action));
+    if (needsMidi) {
+      setSeparate(false);
+      setPendingAudio({ item, action });
+    } else void perform(() => applyItem(item, action));
   };
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -342,30 +351,50 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
             Recommended: make editable MIDI so AI can use the notes when generating other parts. The original
             audio stays unchanged and still plays. Transcription runs on this device and may take a moment.
           </p>
+          {pendingAudio.item.kind === 'audio' && !pendingAudio.item.song && (
+            <label className="field">
+              <span className="row">
+                <input
+                  type="checkbox"
+                  checked={separate}
+                  disabled={busy}
+                  onChange={(e) => setSeparate(e.target.checked)}
+                />
+                Separate into instrument stems first (a song with several parts)
+              </span>
+              <span className="small muted">
+                Splits the recording into drums, bass, vocals and other, each its own track with its own MIDI,
+                so every part can be used separately. Runs on this device unless a separation service is
+                connected.
+              </span>
+            </label>
+          )}
           <div className="row wrap">
             <Button
               variant="primary"
               disabled={busy}
               onClick={() =>
                 void perform(async () => {
-                  const item = await transcribeInput(pendingAudio.item);
+                  const source = separate ? await separateInput(pendingAudio.item) : pendingAudio.item;
+                  const item = await transcribeInput(source);
                   await applyItem(item, pendingAudio.action);
                   setPendingAudio(null);
                 })
               }
             >
-              {busy ? 'Making MIDI…' : 'Make MIDI and continue'}
+              {busy ? (separate ? 'Separating and making MIDI…' : 'Making MIDI…') : 'Make MIDI and continue'}
             </Button>
             <Button
               disabled={busy}
               onClick={() =>
                 void perform(async () => {
-                  await applyItem(pendingAudio.item, pendingAudio.action);
+                  const source = separate ? await separateInput(pendingAudio.item) : pendingAudio.item;
+                  await applyItem(source, pendingAudio.action);
                   setPendingAudio(null);
                 })
               }
             >
-              Continue with audio only
+              {separate ? 'Continue with stems only' : 'Continue with audio only'}
             </Button>
             <Button disabled={busy} onClick={() => setPendingAudio(null)}>
               Cancel

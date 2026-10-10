@@ -6,6 +6,15 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Separate a song into stems before making MIDI.** When you add uploaded audio from the Library or
+  import audio in Mix, tick **Separate into instrument stems** for a recording with several parts. It is
+  split into drums, bass, vocals and other, each on its own audio track (parts that are not there are
+  left out). Each stem then gets its own MIDI, with drums as drum notes and bass and vocals as single
+  lines, so you can use each part on its own. Separation runs on this device unless you have connected
+  a separation service. The option is off by default.
+
 ## [0.6.0] - 2026-10-07
 
 ### Added
