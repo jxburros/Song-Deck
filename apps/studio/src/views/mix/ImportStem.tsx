@@ -15,6 +15,14 @@ import {
 } from '@songdeck/core';
 import type { AudioData } from '@songdeck/audio';
 import { makeMidiFromAudio } from '../../engine/audio-midi';
+import {
+  DSP_PROVIDER,
+  makeAnalysisRecord,
+  makeAssetMeta,
+  makeProvenance,
+  pushAnalysis,
+} from '../../engine/capture-song';
+import { splitIntoStems } from '../../engine/stem-split';
 import { useStudio } from '../../state/store';
 import { decodeAudioBytes, guessMime } from '../../state/assets';
 import { player } from '../../engine/player';
@@ -99,6 +107,8 @@ function ImportModal({
   }, [file]);
 
   const [withMidi, setWithMidi] = useState(true);
+  const [separate, setSeparate] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const duration = audio ? (audio.channels[0]?.length ?? 0) / audio.sampleRate : 0;
   const maxBar = Math.max(1, song ? songLengthBars(song) : 1);
 
@@ -110,11 +120,13 @@ function ImportModal({
       const now = new Date().toISOString();
       const assetId = randomId('asset');
       const provenanceId = randomId('prov');
+      // Separated: the upload is kept as the stems' reference recording rather than a track.
+      const assetKind = separate ? 'reference' : kind;
       const meta: AudioAssetMeta = {
         id: assetId,
         name: file.name,
-        kind,
-        path: assetPathFor(kind, file.name),
+        kind: assetKind,
+        path: assetPathFor(assetKind, file.name),
         mimeType: guessMime(file.name, bytes),
         sampleRate: audio.sampleRate,
         channels: audio.channels.length,
@@ -132,66 +144,122 @@ function ImportModal({
         sources: [{ kind: 'file', ref: file.name }],
         providerId: 'user-import',
         providerName: 'Imported by the user',
-        parameters: { stemGroup: group, startBar: bar, kind },
+        parameters: { stemGroup: separate ? undefined : group, startBar: bar, kind: assetKind, separate },
         generatedAt: now,
         cloud: false,
       };
       useStudio.getState().addProvenance(provenance);
       recordAttestation(attestation, { assetId, provenanceId });
-      const trackId = randomId('trk');
-      const clip: AudioClip = {
+      const trackName = name.trim() || baseName(file.name);
+      const tick = barToTick(cur, Math.max(0, bar - 1));
+      const clipFor = (id: string, clipName: string, seconds: number): AudioClip => ({
         id: randomId('clip'),
-        assetId,
-        tick: barToTick(cur, Math.max(0, bar - 1)),
+        assetId: id,
+        tick,
         offsetSeconds: 0,
-        durationSeconds: duration,
+        durationSeconds: seconds,
         gainDb: 0,
         fadeInSeconds: 0,
         fadeOutSeconds: 0,
-        name: file.name,
-      };
-      const track: Track = {
-        id: trackId,
-        name: name.trim() || baseName(file.name),
-        kind: 'audio',
-        role: GROUP_ROLE[group],
-        instrumentId: 'audio',
-        constraints: {},
-        notes: [],
-        clips: [clip],
-        color: STEM_COLORS[group],
-        stemGroup: group,
-        generator: { id: kind === 'stem' ? 'stem-import' : 'audio-import' },
-      };
-      player.provideAsset(assetId, audio);
-      const latest = useStudio.getState().project?.song ?? cur;
-      useStudio.getState().commit(
-        {
-          ...latest,
-          tracks: [...latest.tracks, track],
-          // Imported stems are already balanced/processed: start at unity with no reverb send.
-          mixer: {
-            ...latest.mixer,
-            channels: {
-              ...latest.mixer.channels,
-              [trackId]: defaultChannelStrip({ volumeDb: 0, reverbSend: 0 }),
+        name: clipName,
+      });
+      const tracks: Track[] = [];
+      if (separate) {
+        setStatus('Separating into stems…');
+        const split = await splitIntoStems(audio, file.name);
+        for (const stem of split.stems) {
+          const seconds = (stem.audio.channels[0]?.length ?? 0) / stem.audio.sampleRate;
+          const stemMeta = makeAssetMeta({
+            name: `${trackName} — ${stem.name}`,
+            kind: 'stem',
+            mimeType: 'audio/wav',
+            bytes: stem.wav,
+            sampleRate: stem.audio.sampleRate,
+            channels: stem.audio.channels.length,
+            durationSeconds: seconds,
+          });
+          const prov = makeProvenance({
+            artifactId: stemMeta.id,
+            artifactName: stemMeta.name,
+            artifactKind: 'audio',
+            sources: [{ kind: 'audio', ref: assetId }],
+            provider: DSP_PROVIDER,
+            run: split.provenance,
+            parameters: { stem: stem.name, method: split.method, confidence: stem.confidence },
+          });
+          useStudio.getState().addProvenance(prov);
+          await st.addAsset({ ...stemMeta, provenanceId: prov.id }, stem.wav);
+          player.provideAsset(stemMeta.id, stem.audio);
+          tracks.push({
+            id: randomId('trk'),
+            name: `${trackName} · ${stem.label}`,
+            kind: 'audio',
+            role: stem.role,
+            instrumentId: 'audio',
+            constraints: {},
+            notes: [],
+            clips: [clipFor(stemMeta.id, `${stem.label} (separated)`, seconds)],
+            color: STEM_COLORS[stem.stemGroup],
+            stemGroup: stem.stemGroup,
+            generator: { id: 'stem-separation' },
+          });
+        }
+        pushAnalysis(
+          makeAnalysisRecord({
+            kind: 'separation',
+            sourceAssetId: assetId,
+            confidence: split.confidence,
+            summary: `${split.stems.length} stems (${split.stems.map((x) => x.name).join(', ')}) · ${split.method}`,
+            data: {
+              method: split.method,
+              stems: split.stems.map((x) => ({ name: x.name, confidence: x.confidence })),
+              skipped: split.skipped,
             },
-          },
-        },
-        `Imported ${kind === 'stem' ? 'stem' : 'audio'} “${file.name}” as track ${track.name}`,
-        'import',
-      );
-      if (withMidi) makeMidiFromAudio(trackId, 'auto', 'internal');
-      useStudio.getState().selectTrack(trackId);
+          }),
+        );
+      } else {
+        player.provideAsset(assetId, audio);
+        tracks.push({
+          id: randomId('trk'),
+          name: trackName,
+          kind: 'audio',
+          role: GROUP_ROLE[group],
+          instrumentId: 'audio',
+          constraints: {},
+          notes: [],
+          clips: [clipFor(assetId, file.name, duration)],
+          color: STEM_COLORS[group],
+          stemGroup: group,
+          generator: { id: kind === 'stem' ? 'stem-import' : 'audio-import' },
+        });
+      }
+      const latest = useStudio.getState().project?.song ?? cur;
+      const channels = { ...latest.mixer.channels };
+      // Imported stems are already balanced/processed: start at unity with no reverb send.
+      for (const t of tracks) channels[t.id] = defaultChannelStrip({ volumeDb: 0, reverbSend: 0 });
+      useStudio
+        .getState()
+        .commit(
+          { ...latest, tracks: [...latest.tracks, ...tracks], mixer: { ...latest.mixer, channels } },
+          separate
+            ? `Imported “${file.name}” separated into ${tracks.length} stems`
+            : `Imported ${kind === 'stem' ? 'stem' : 'audio'} “${file.name}” as track ${tracks[0].name}`,
+          'import',
+        );
+      if (withMidi) for (const t of tracks) makeMidiFromAudio(t.id, 'auto', 'internal');
+      useStudio.getState().selectTrack(tracks[0].id);
       st.toast(
         'success',
-        `Added audio track “${track.name}” (${formatDuration(duration)}) — mix it like any other track.`,
+        separate
+          ? `Separated “${file.name}” into ${tracks.map((t) => t.name).join(', ')}${withMidi ? ' — making MIDI for each' : ''}.`
+          : `Added audio track “${tracks[0].name}” (${formatDuration(duration)}) — mix it like any other track.`,
       );
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+      setStatus(null);
     }
   };
 
@@ -204,7 +272,7 @@ function ImportModal({
         <>
           <Button onClick={onClose}>Cancel</Button>
           <Button variant="primary" icon="plus" onClick={() => void doImport()} disabled={!audio || busy}>
-            {busy ? 'Importing…' : 'Add audio track'}
+            {busy ? (status ?? 'Importing…') : separate ? 'Separate and add tracks' : 'Add audio track'}
           </Button>
         </>
       }
@@ -231,7 +299,13 @@ function ImportModal({
             <TextInput value={name} onChange={setName} aria-label="Track name" />
           </Field>
           <Field label="Stem group" hint="Used for Stems.zip and Instrumental/Acapella exports">
-            <Select value={group} onChange={setGroup} options={STEM_GROUPS} aria-label="Stem group" />
+            <Select
+              value={group}
+              onChange={setGroup}
+              options={STEM_GROUPS}
+              aria-label="Stem group"
+              disabled={separate}
+            />
           </Field>
           <Field label="Asset type">
             <Select
@@ -242,6 +316,7 @@ function ImportModal({
                 { value: 'import', label: 'Imported audio' },
               ]}
               aria-label="Asset type"
+              disabled={separate}
             />
           </Field>
           <Field label="Starts at bar" hint={`1 – ${maxBar}`}>
@@ -256,12 +331,22 @@ function ImportModal({
         </div>
         <label className="field">
           <span className="row">
+            <input type="checkbox" checked={separate} onChange={(e) => setSeparate(e.target.checked)} />
+            Separate into instrument stems (a full song with several parts)
+          </span>
+          <span className="small muted">
+            Splits the recording into drums, bass, vocals and other, each its own audio track (parts not
+            present are left out). Runs on this device unless a separation service is connected.
+          </span>
+        </label>
+        <label className="field">
+          <span className="row">
             <input type="checkbox" checked={withMidi} onChange={(e) => setWithMidi(e.target.checked)} />
             Make MIDI from audio (recommended)
           </span>
           <span className="small muted">
-            Keeps the recording and attaches editable notes so AI can write other parts around it. Runs on
-            this device after import.
+            Keeps the recording and attaches editable notes so AI can write other parts around it
+            {separate ? ' — one MIDI part per stem' : ''}. Runs on this device after import.
           </span>
         </label>
         <div className="small dim">

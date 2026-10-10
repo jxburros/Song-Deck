@@ -6,9 +6,7 @@ import {
   type AudioClip,
   type Project,
   type Song,
-  type StemGroup,
   type Track,
-  type TrackRole,
 } from '@songdeck/core';
 import type { AudioData, RebuildReport } from '@songdeck/audio';
 import { useStudio } from '../../state/store';
@@ -26,6 +24,7 @@ import {
 import { slugify } from '../../engine/capture-files';
 import { recordAttestation, type PendingAttestation } from '../../engine/rights';
 import { colorForRole } from '../workbench/tracks';
+import { stemInfo } from '../../engine/stem-split';
 
 export interface RebuildSource {
   name: string;
@@ -36,16 +35,6 @@ export interface RebuildSource {
   /** The user's rights attestation for the uploaded file (stored with the source asset). */
   attestation?: PendingAttestation;
 }
-
-const STEM_INFO: Record<
-  string,
-  { label: string; role: TrackRole; instrumentId: string; stemGroup: StemGroup }
-> = {
-  drums: { label: 'Drums', role: 'drums', instrumentId: 'drum-kit', stemGroup: 'drums' },
-  bass: { label: 'Bass', role: 'bass', instrumentId: 'electric-bass', stemGroup: 'bass' },
-  vocals: { label: 'Vocals', role: 'vocal', instrumentId: 'lead-vocal', stemGroup: 'vocals' },
-  other: { label: 'Other', role: 'custom', instrumentId: 'piano', stemGroup: 'others' },
-};
 
 /**
  * "Open as project" for a rebuilt recording: new project with the reconstructed song, the source
@@ -114,12 +103,7 @@ export async function openRebuildAsProject(o: {
     const clipOffset = Math.max(0, offset);
     for (const stem of separation.stems) {
       if (!stem.wav) continue;
-      const info = STEM_INFO[stem.name] ?? {
-        label: stem.name,
-        role: 'custom' as TrackRole,
-        instrumentId: 'piano',
-        stemGroup: 'others' as StemGroup,
-      };
+      const info = stemInfo(stem.name);
       const dur = (stem.audio.channels[0]?.length ?? 0) / stem.audio.sampleRate;
       const meta = makeAssetMeta({
         name: `${title} — ${stem.name}`,

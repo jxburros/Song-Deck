@@ -25,7 +25,8 @@ import type {
   TranscribeTaskInput,
   TranscribeTaskOutput,
 } from '../../engine/handlers/analysis';
-import { notesFromTranscription } from '../../engine/audio-midi';
+import { guessMode, notesFromTranscription } from '../../engine/audio-midi';
+import { splitIntoStems } from '../../engine/stem-split';
 
 export type Interpretation = 'preserve' | 'light' | 'moderate' | 'free';
 export const INTERPRETATIONS: { value: Interpretation; label: string; hint: string }[] = [
@@ -127,17 +128,85 @@ export async function playableItem(item: LibraryItem): Promise<LibraryItem> {
   return { ...item, song, assets: [{ meta, bytes: item.file.bytes }] };
 }
 
-/** Attach notes to an independent audio input before composition; retain audio playback and bytes. */
+/**
+ * Split an uploaded song with several parts into instrument stems first: its one audio track is
+ * replaced by a drums / bass / vocals / other track per part that is actually present, so each
+ * part can get its own MIDI and be used on its own. The stems play back together as the original.
+ */
+export async function separateInput(item: LibraryItem): Promise<LibraryItem> {
+  const ready = structuredClone(await playableItem(item));
+  const song = ready.song!;
+  const sources = song.tracks.filter((t) => t.kind === 'audio' && !t.audioMidi);
+  for (const track of sources) {
+    const index = song.tracks.indexOf(track);
+    const parts: typeof song.tracks = [];
+    for (const clip of track.clips) {
+      if (clip.muted) continue;
+      const asset = ready.assets.find((a) => a.meta.id === clip.assetId);
+      if (!asset) throw new Error(`Missing audio: ${track.name}`);
+      const split = await splitIntoStems(await decodeAudioBytes(asset.bytes), track.name);
+      for (const stem of split.stems) {
+        const duration = (stem.audio.channels[0]?.length ?? 0) / stem.audio.sampleRate;
+        const meta = makeAssetMeta({
+          name: `${track.name} — ${stem.name}`,
+          kind: 'stem',
+          mimeType: 'audio/wav',
+          bytes: stem.wav,
+          sampleRate: stem.audio.sampleRate,
+          channels: stem.audio.channels.length,
+          durationSeconds: duration,
+        });
+        ready.assets.push({ meta, bytes: stem.wav });
+        const id = randomId('track');
+        parts.push({
+          id,
+          name: `${track.name} · ${stem.label}`,
+          kind: 'audio',
+          role: stem.role,
+          instrumentId: stem.instrumentId,
+          constraints: {},
+          notes: [],
+          clips: [{ ...clip, id: randomId('clip'), assetId: meta.id, name: `${stem.label} (separated)` }],
+          color: stem.color,
+          stemGroup: stem.stemGroup,
+        });
+        song.mixer.channels[id] = structuredClone(song.mixer.channels[track.id] ?? defaultChannelStrip());
+      }
+    }
+    if (!parts.length) continue;
+    song.tracks.splice(index, 1, ...parts);
+    delete song.mixer.channels[track.id];
+    // The stems replace the full mix; drop its bytes unless another track still plays them.
+    const used = new Set(song.tracks.flatMap((t) => t.clips.map((c) => c.assetId)));
+    ready.assets = ready.assets.filter((a) => used.has(a.meta.id));
+  }
+  return ready;
+}
+
+/**
+ * Attach notes to an independent audio input before composition; retain audio playback and bytes.
+ * Parts in which no notes are found (e.g. a quiet separated stem) stay audio-only; it fails only
+ * when no part yields notes.
+ */
 export async function transcribeInput(item: LibraryItem): Promise<LibraryItem> {
   const ready = structuredClone(await playableItem(item));
   const song = ready.song!;
   const tm = createTimeMap(song);
-  for (const track of song.tracks) {
-    if (track.kind !== 'audio' || track.audioMidi) continue;
+  const pending = song.tracks.filter((t) => t.kind === 'audio' && !t.audioMidi);
+  const empty: string[] = [];
+  for (const track of pending) {
     const notes = [];
     let method = '';
     let confidence = 0;
-    const mode = track.role === 'drums' || track.stemGroup === 'drums' ? 'drums' : 'chords';
+    const mode = guessMode(track) ?? 'chords';
+    const source =
+      mode === 'drums'
+        ? 'drums'
+        : mode === 'melody'
+          ? track.role === 'bass' || track.stemGroup === 'bass'
+            ? 'bass'
+            : 'singing'
+          : 'isolated';
     for (const clip of track.clips) {
       if (clip.muted) continue;
       const asset = ready.assets.find((a) => a.meta.id === clip.assetId);
@@ -158,7 +227,7 @@ export async function transcribeInput(item: LibraryItem): Promise<LibraryItem> {
         input: {
           runId: randomId('run'),
           audio,
-          source: mode === 'drums' ? 'drums' : 'isolated',
+          source,
           bpm: song.tempoMap[0]?.bpm ?? 120,
           key: song.keyMap[0]?.key,
           quantizeBeats: 0,
@@ -168,10 +237,13 @@ export async function transcribeInput(item: LibraryItem): Promise<LibraryItem> {
       notes.push(...notesFromTranscription(song, result, mode, tm.tickToSeconds(clip.tick)));
       method = result.method;
       confidence = result.confidence;
-      if (result.suggestedRole) track.role = result.suggestedRole;
+      // Separated stems already know what they are; only an unlabelled recording takes the guess.
+      if (result.suggestedRole && track.role === 'custom') track.role = result.suggestedRole;
     }
-    if (!notes.length)
-      throw new Error(`No notes found in ${track.name}. Try Audio to MIDI or continue with audio only.`);
+    if (!notes.length) {
+      empty.push(track.name);
+      continue;
+    }
     track.notes = notes;
     track.audioMidi = {
       play: 'audio',
@@ -183,6 +255,8 @@ export async function transcribeInput(item: LibraryItem): Promise<LibraryItem> {
       createdAt: new Date().toISOString(),
     };
   }
+  if (pending.length && empty.length === pending.length)
+    throw new Error(`No notes found in ${empty.join(', ')}. Try Audio to MIDI or continue with audio only.`);
   return ready;
 }
 
