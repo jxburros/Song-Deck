@@ -339,6 +339,7 @@ describe('Song Deck local bridge contracts', () => {
 
   it('transcription, separation and mastering bridges', async () => {
     const m = mockFetch((call) => {
+      if (call.url.endsWith('/info')) return jsonResponse({}, 404);
       if (call.url.endsWith('/transcribe'))
         return jsonResponse({
           notes: [
@@ -366,7 +367,7 @@ describe('Song Deck local bridge contracts', () => {
     expect(t.tempo).toBe(118.5);
     const sep = createProvider(configFromPreset('demucs-local'), deps);
     const s = await sep.separation!.separateStems({ audio: { mimeType: 'audio/wav', data: FAKE_WAV } });
-    expect(bodyJson(m.calls[1])).toEqual({
+    expect(bodyJson(m.calls[2])).toEqual({
       audio_base64: b64(FAKE_WAV),
       stems: ['drums', 'bass', 'vocals', 'other'],
     });
@@ -379,8 +380,8 @@ describe('Song Deck local bridge contracts', () => {
       target: 'streaming',
       reference: { mimeType: 'audio/wav', data: new Uint8Array([7]) },
     });
-    expect(m.calls[2].url).toBe('http://127.0.0.1:8815/master');
-    expect(bodyJson(m.calls[2])).toEqual({
+    expect(m.calls[3].url).toBe('http://127.0.0.1:8815/master');
+    expect(bodyJson(m.calls[3])).toEqual({
       audio_base64: b64(FAKE_WAV),
       target: 'streaming',
       reference_audio_base64: b64(new Uint8Array([7])),

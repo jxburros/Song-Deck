@@ -335,8 +335,9 @@ function ImportModal({
             Separate into instrument stems (a full song with several parts)
           </span>
           <span className="small muted">
-            Splits the recording into drums, bass, vocals and other, each its own audio track (parts not
-            present are left out). Runs on this device unless a separation service is connected.
+            Makes an audio track for each part, leaving out near-silent results. On-device separation
+            estimates drums, bass, vocals and other. Connected models can isolate more instruments, including
+            guitar, piano, strings, winds and synths. Cloud engines may charge per part.
           </span>
         </label>
         <label className="field">

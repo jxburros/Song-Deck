@@ -798,7 +798,7 @@ export function parseBlueprintJson(
     ),
   ].filter((t) => !tagSet || tagSet.has(t));
   if (tags.length) blueprint.tags = tags;
-  else if (d.tags?.length) blueprint.tags = [...d.tags];
+  else if (!Array.isArray(v.tags) && d.tags?.length) blueprint.tags = [...d.tags];
   return {
     value: {
       blueprint,

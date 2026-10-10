@@ -180,3 +180,9 @@ describe('docs/GENRES.md', () => {
     expect(doc === renderGenresDoc(), 'docs/GENRES.md is stale: run `npm run docs:genres`').toBe(true);
   });
 });
+
+it('keeps style-only genre inference identical for initial composition and regeneration', () => {
+  const tags = ['shibuya-kei'];
+  expect(genreForSong({ genreBlend: [], tags })).toEqual(genreForBlueprint({ genreBlend: [], tags }));
+  expect(tagParents(['shibuya-kei', 'Shibuya Kei'])).toEqual(tagParents(tags));
+});

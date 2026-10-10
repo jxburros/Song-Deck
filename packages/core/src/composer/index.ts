@@ -74,6 +74,7 @@ export {
   blendForBlueprint,
   genreForSong,
   songTags,
+  songStyleNames,
   normalizeTagIds,
   tagGroups,
   tagCatalogSummary,

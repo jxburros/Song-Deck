@@ -1,6 +1,6 @@
 import { colorForRole, randomId, type StemGroup, type TrackRole } from '@songdeck/core';
 import type { AudioData } from '@songdeck/audio';
-import type { RunProvenance } from '@songdeck/ai';
+import { stemNameFrom, type RunProvenance } from '@songdeck/ai';
 import { runTask } from './capture-tasks';
 import type { SeparateTaskInput, SeparateTaskOutput } from './handlers/analysis';
 
@@ -26,7 +26,29 @@ export const STEM_INFO: Record<string, StemInfo> = {
 };
 
 export function stemInfo(name: string): StemInfo {
-  return STEM_INFO[name] ?? { label: name, role: 'custom', instrumentId: 'piano', stemGroup: 'others' };
+  const key = stemNameFrom(name);
+  if (STEM_INFO[key]) return STEM_INFO[key];
+  const part = (role: TrackRole, instrumentId: string, stemGroup: StemGroup): StemInfo => ({
+    label: name,
+    role,
+    instrumentId,
+    stemGroup,
+  });
+  // Complements are mixtures, not the instrument named after 'no_'.
+  if (/^(no|without|minus)-/.test(key) || key === 'instrumental') return part('custom', 'piano', 'others');
+  if (/vocals/.test(key)) return part('vocal', 'lead-vocal', 'vocals');
+  if (/guitar/.test(key))
+    return part(
+      'rhythm-guitar',
+      key === 'acoustic-guitar' ? 'acoustic-guitar' : 'electric-guitar-clean',
+      'guitars',
+    );
+  if (/piano|keys|organ/.test(key)) return part('keys', /organ/.test(key) ? 'organ' : 'piano', 'keys');
+  if (/string|violin|cello/.test(key)) return part('strings', 'string-ensemble', 'strings');
+  if (/wind|flute|brass|sax/.test(key))
+    return part('custom', /brass/.test(name.toLowerCase()) ? 'brass-section' : 'flute', 'others');
+  if (/synth/.test(key)) return part('synth-pad', 'synth-pad', 'keys');
+  return part('custom', 'piano', 'others');
 }
 
 export interface SplitStem extends StemInfo {

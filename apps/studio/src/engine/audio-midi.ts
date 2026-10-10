@@ -10,6 +10,8 @@ import {
   keyAtTick,
   bpmAtTick,
   LockKeys,
+  lockedRangesForTrack,
+  stableStringify,
   normalizeTuning,
   randomId,
   sortNotes,
@@ -145,7 +147,7 @@ export function guessMode(track: Track): AudioMidiMode | null {
   return null;
 }
 
-function sourceFor(mode: MakeMidiMode, track: Track): TranscriptionSource {
+export function sourceFor(mode: MakeMidiMode, track: Track): TranscriptionSource {
   const m = mode === 'auto' ? guessMode(track) : mode;
   if (m === 'drums') return 'drums';
   if (m === 'melody') return BASS_LIKE(track) ? 'bass' : 'singing';
@@ -153,7 +155,7 @@ function sourceFor(mode: MakeMidiMode, track: Track): TranscriptionSource {
   return 'isolated';
 }
 
-function modeOf(result: TranscribeTaskOutput, source: TranscriptionSource): AudioMidiMode {
+export function modeOf(result: TranscribeTaskOutput, source: TranscriptionSource): AudioMidiMode {
   if (source === 'drums' || (result.drumHits && !result.transcribed.length)) return 'drums';
   if (source === 'singing' || source === 'bass') return 'melody';
   const role = result.suggestedRole;
@@ -163,7 +165,7 @@ function modeOf(result: TranscribeTaskOutput, source: TranscriptionSource): Audi
 }
 
 /** Instrument that plays the MIDI: the track's own when it is a real (non-vocal) instrument. */
-function playbackInstrument(track: Track, mode: AudioMidiMode, suggested: string | undefined): string {
+export function playbackInstrument(track: Track, mode: AudioMidiMode, suggested: string | undefined): string {
   const all = [...BUILTIN_INSTRUMENTS, ...allCustomInstruments()];
   const usable = (id: string | undefined) => {
     const p = id ? all.find((i) => i.id === id) : undefined;
@@ -179,6 +181,8 @@ function playbackInstrument(track: Track, mode: AudioMidiMode, suggested: string
 /** Why the track's notes cannot be replaced (a locked track or locked notes), or null. */
 export function notesLockedReason(song: Song, track: Track): string | null {
   if (song.locks[LockKeys.track(track.id)]) return `“${track.name}” is locked: unlock the track first.`;
+  if (lockedRangesForTrack(song, track.id).length)
+    return `“${track.name}” has locked sections: unlock them first.`;
   if (track.notes.some((n) => n.locked)) return `“${track.name}” has locked notes: unlock them first.`;
   return null;
 }
@@ -200,18 +204,35 @@ export function notesFromTranscription(
   let notes: Note[] = [];
   if (mode === 'drums') {
     const len = Math.max(1, Math.round(song.ppq / 4));
-    notes = (result.drumHits ?? []).map((h, i) => ({
-      id: `${idPrefix}_${i}`,
-      pitch: Math.max(0, Math.min(127, Math.round(h.drum))),
-      tick: toTick(h.time),
-      duration: len,
-      velocity: Math.max(1, Math.min(127, Math.round(h.velocity))),
-      confidence: h.confidence,
-      origin,
-    }));
+    const hits =
+      result.drumHits ??
+      result.transcribed.map((n) => ({
+        time: n.startSeconds,
+        drum: n.pitch,
+        velocity: n.velocity,
+        confidence: n.confidence,
+      }));
+    notes = hits
+      .filter((h) => Number.isFinite(h.time) && Number.isFinite(h.drum))
+      .map((h, i) => ({
+        id: `${idPrefix}_${i}`,
+        pitch: Math.max(0, Math.min(127, Math.round(h.drum))),
+        tick: toTick(h.time),
+        duration: len,
+        velocity: Math.max(1, Math.min(127, Math.round(h.velocity))),
+        confidence: h.confidence,
+        origin,
+      }));
   } else {
     notes = result.transcribed
-      .filter((n) => n.endSeconds > n.startSeconds && n.pitch >= 0 && n.pitch <= 127)
+      .filter(
+        (n) =>
+          Number.isFinite(n.startSeconds) &&
+          Number.isFinite(n.endSeconds) &&
+          n.endSeconds > n.startSeconds &&
+          n.pitch >= 0 &&
+          n.pitch <= 127,
+      )
       .map((n, i) => {
         const tick = toTick(n.startSeconds);
         return {
@@ -257,6 +278,7 @@ export async function runMakeMidi(
   const { trackId } = input;
   setMaking(trackId, { status: 'running', taskId: useAudioMidi.getState().making[trackId]?.taskId });
   try {
+    const projectId = useStudio.getState().project?.meta.id;
     const song = currentSong();
     const track = song?.tracks.find((t) => t.id === trackId);
     if (!song || !track || track.kind !== 'audio') throw new Error('The audio track no longer exists');
@@ -291,12 +313,22 @@ export async function runMakeMidi(
       progress: (p: number, msg?: string) => ctx.progress(0.1 + 0.8 * p, msg),
     })) as TranscribeTaskOutput;
     const mode = input.mode === 'auto' ? modeOf(result, source) : input.mode;
+    if (ctx.signal.aborted) throw new DOMException('Cancelled', 'AbortError');
     const notes = notesFromTranscription(song, result, mode, createTimeMap(song).tickToSeconds(firstTick));
     ctx.progress(0.95, 'Attaching the MIDI…');
     const st = useStudio.getState();
     const now = st.project?.song;
     const live = now?.tracks.find((t) => t.id === trackId);
-    if (!now || !live || live.kind !== 'audio') throw new Error('The audio track no longer exists');
+    if (!now || st.project?.meta.id !== projectId || now.id !== song.id || !live || live.kind !== 'audio')
+      throw new Error('The audio track no longer exists in the current song');
+    if (
+      audioMidiSourceKey(now, live) !== sourceKey ||
+      stableStringify(now.tempoMap) !== stableStringify(song.tempoMap) ||
+      now.ppq !== song.ppq ||
+      stableStringify(live.notes) !== stableStringify(track.notes) ||
+      stableStringify(live.audioMidi) !== stableStringify(track.audioMidi)
+    )
+      throw new Error('The recording, timing, or MIDI changed during transcription. Run Make MIDI again.');
     const lockedNow = notesLockedReason(now, live);
     if (lockedNow) throw new Error(lockedNow);
     const link: AudioMidiLink = {

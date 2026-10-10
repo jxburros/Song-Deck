@@ -363,9 +363,9 @@ export function LibraryBrowser({ onPick }: { onPick?: (item: LibraryItem) => voi
                 Separate into instrument stems first (a song with several parts)
               </span>
               <span className="small muted">
-                Splits the recording into drums, bass, vocals and other, each its own track with its own MIDI,
-                so every part can be used separately. Runs on this device unless a separation service is
-                connected.
+                Makes a track and MIDI for each part. On-device separation estimates drums, bass, vocals and
+                other. Connected engines can also isolate guitar, piano, strings, winds and synths, depending
+                on the model. Cloud engines may charge for each requested part.
               </span>
             </label>
           )}

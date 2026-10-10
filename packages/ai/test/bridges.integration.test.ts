@@ -632,8 +632,8 @@ describe.skipIf(!HAS_PYTHON)('reference bridges: mock bridge end-to-end through 
       const input = parseWav(src.audio.data);
       const sep = provider('demucs-local', ROLE.separation).separation!;
       const res = await sep.separateStems({ audio: src.audio });
-      expect(Object.keys(res.stems)).toEqual(['drums', 'bass', 'vocals', 'other']);
-      expect(res.model).toBe('mock-bandsplit-4');
+      expect(Object.keys(res.stems)).toEqual(['drums', 'bass', 'vocals', 'other', 'guitar', 'piano']);
+      expect(res.model).toBe('mock-bandsplit-6');
       const stems = Object.values(res.stems).map((a) => parseWav(a.data));
       for (const s of stems)
         expect([s.frames, s.channels, s.sampleRate]).toEqual([

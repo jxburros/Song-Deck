@@ -27,29 +27,50 @@ export class TranscriptionBridge implements TranscriptionProvider {
   async transcribeNotes(req: TranscriptionRequest): Promise<TranscriptionResult> {
     const body: TranscriptionBridgeRequest = {
       audio_base64: bytesToBase64(req.audio.data),
-      source: req.source ?? 'mix',
+      source:
+        (
+          { humming: 'vocals', singing: 'vocals', 'full-mix': 'mix', isolated: 'other' } as Record<
+            string,
+            string
+          >
+        )[req.source ?? 'mix'] ??
+        req.source ??
+        'mix',
     };
     const json = await this.http.json<TranscriptionBridgeResponse>({
       url: joinUrl(this.config.baseUrl, TRANSCRIPTION_BRIDGE_PATHS.transcribe),
       json: body,
       signal: req.signal,
     });
-    const notes = (json?.notes ?? [])
+    const notes = (Array.isArray(json?.notes) ? json.notes : [])
       .filter(
         (n) =>
-          Number.isFinite(n.pitch) && Number.isFinite(n.start) && Number.isFinite(n.end) && n.end > n.start,
+          n &&
+          typeof n === 'object' &&
+          Number.isFinite(n.pitch) &&
+          Number.isFinite(n.start) &&
+          Number.isFinite(n.end) &&
+          n.end > Math.max(0, n.start),
       )
       .map((n) => ({
         pitch: Math.round(clamp(n.pitch, 0, 127)),
-        start: n.start,
+        start: Math.max(0, n.start),
         end: n.end,
-        velocity: Math.round(clamp(n.velocity ?? 80, 1, 127)),
-        confidence: clamp(n.confidence ?? 0.5, 0, 1),
+        velocity: Math.round(clamp(Number.isFinite(n.velocity) ? n.velocity! : 80, 1, 127)),
+        confidence: clamp(Number.isFinite(n.confidence) ? n.confidence! : 0.5, 0, 1),
       }));
     const res: TranscriptionResult = { notes };
-    if (typeof json?.tempo === 'number') res.tempo = json.tempo;
+    if (Number.isFinite(json?.tempo) && json.tempo! > 0) res.tempo = json.tempo;
     if (typeof json?.key === 'string') res.key = json.key;
-    if (Array.isArray(json?.chords)) res.chords = json.chords.filter((c) => typeof c.symbol === 'string');
+    if (Array.isArray(json?.chords))
+      res.chords = json.chords.filter(
+        (c) =>
+          c &&
+          typeof c.symbol === 'string' &&
+          Number.isFinite(c.start) &&
+          Number.isFinite(c.end) &&
+          c.end > c.start,
+      );
     if (notes.length) res.confidence = notes.reduce((a, n) => a + n.confidence, 0) / notes.length;
     if (req.model ?? this.config.defaultModel) res.model = req.model ?? this.config.defaultModel;
     return res;

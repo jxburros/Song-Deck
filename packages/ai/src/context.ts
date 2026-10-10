@@ -27,6 +27,7 @@ import {
   sectionLayout,
   songLengthBars,
   songTags,
+  songStyleNames,
   songLengthTicks,
   tickToBar,
   tickToMusical,
@@ -667,9 +668,7 @@ export function buildMusicContext(song: Song, opts: BuildMusicContextOptions): M
     }));
   if (keyChanges.length > 1)
     ctx.key_changes = keyChanges.map((k) => ({ bar: k.bar + 1, key: keyName(k.key) }));
-  const styles = song.blueprint?.styles?.length
-    ? song.blueprint.styles
-    : song.genreBlend.map((g) => g.genreId);
+  const styles = songStyleNames(song);
   if (styles.length) ctx.styles = [...styles];
   const tagIds = songTags(song);
   if (tagIds.length)
