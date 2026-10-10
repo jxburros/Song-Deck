@@ -128,11 +128,13 @@ export function buildSongGen(song: Song, settings: GenSettings): SongGen {
   });
   const sets = new Map(Object.entries(arrangement).map(([k, v]) => [k, new Set(v)]));
   const midi = song.tracks
-    .filter(hasEditableNotes)
+    .filter((t) => hasEditableNotes(t) && (t.kind !== 'audio' || t.notes.length > 0))
     .sort((a, b) => Number(b.kind === 'audio') - Number(a.kind === 'audio'));
+  const leads = midi.filter(
+    (t) => isLeadVocal(t, instrumentOf(t)) || resolveFunction(t, instrumentOf(t)) === 'melody',
+  );
   const lead =
-    midi.find((t) => isLeadVocal(t, instrumentOf(t))) ??
-    midi.find((t) => resolveFunction(t, instrumentOf(t)) === 'melody');
+    leads.find((t) => t.kind === 'audio') ?? leads.find((t) => isLeadVocal(t, instrumentOf(t))) ?? leads[0];
   return {
     song,
     settings,
@@ -327,14 +329,34 @@ export function makeCell(g: SongGen, track: Track, spanIndex: number, seed: numb
     },
     melodyNotes: () => {
       const id = g.principalMelodyId;
-      if (!id || id === track.id || !g.plays(id, section.id)) return [];
-      const t = song.tracks.find((x) => x.id === id);
-      return t ? t.notes.filter((n) => n.tick >= span.startTick && n.tick < span.endTick) : [];
+      if (!id || id === track.id) return [];
+      // Context describes notes that actually sound, including preserved/imported parts and
+      // sustained notes from the preceding section; arrangement only gates new generation.
+      const sounding = (t: Track) =>
+        t.notes.filter((n) => n.tick < span.endTick && n.tick + n.duration > span.startTick);
+      const principal = song.tracks.find((x) => x.id === id);
+      const t =
+        principal && sounding(principal).length
+          ? principal
+          : song.tracks.find(
+              (x) =>
+                x.id !== track.id &&
+                hasEditableNotes(x) &&
+                resolveFunction(x, g.instrumentOf(x)) === 'melody' &&
+                sounding(x).length > 0,
+            );
+      return t
+        ? sounding(t).map((n) => ({
+            ...n,
+            tick: Math.max(n.tick, span.startTick),
+            duration: Math.min(n.tick + n.duration, span.endTick) - Math.max(n.tick, span.startTick),
+          }))
+        : [];
     },
     kickTicks: () => {
       const out = new Set<number>();
       for (const t of song.tracks) {
-        if (!hasEditableNotes(t) || t.role !== 'drums' || !g.plays(t.id, section.id)) continue;
+        if (!hasEditableNotes(t) || (t.role !== 'drums' && t.audioMidi?.mode !== 'drums')) continue;
         for (const n of t.notes)
           if ((n.pitch === 36 || n.pitch === 35) && n.tick >= span.startTick && n.tick < span.endTick)
             out.add(n.tick);
@@ -342,7 +364,12 @@ export function makeCell(g: SongGen, track: Track, spanIndex: number, seed: numb
       return [...out].sort((a, b) => a - b);
     },
     rolePlays: (role) =>
-      song.tracks.some((t) => hasEditableNotes(t) && t.role === role && g.plays(t.id, section.id)),
+      song.tracks.some(
+        (t) =>
+          hasEditableNotes(t) &&
+          t.role === role &&
+          t.notes.some((n) => n.tick < span.endTick && n.tick + n.duration > span.startTick),
+      ),
     isLast: spanIndex === g.spans.length - 1,
   };
   return cell;

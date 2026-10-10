@@ -30,7 +30,7 @@ import type {
   Song,
   TrackRole,
 } from '../ir/types';
-import { genreForBlend } from './genres';
+import { genreForBlend, getGenre } from './genres';
 import { TAG_CATALOG } from './tag-catalog';
 
 export type TagKind = 'style' | 'mood' | 'era' | 'production' | 'vocal' | 'region' | 'rhythm';
@@ -173,7 +173,7 @@ export function normalizeTagIds(ids: readonly string[] | undefined): string[] {
 /** Parent genres contributed by style tags (for when the user picked a style but no genre). */
 export function tagParents(ids: readonly string[] | undefined): GenreWeight[] {
   const out: GenreWeight[] = [];
-  for (const id of ids ?? []) for (const p of getTag(id)?.parents ?? []) out.push({ ...p });
+  for (const id of normalizeTagIds(ids)) for (const p of getTag(id)?.parents ?? []) out.push({ ...p });
   return out;
 }
 
@@ -319,7 +319,7 @@ export function genreForSong(
   song: Pick<Song, 'genreBlend' | 'tags' | 'blueprint'>,
   custom?: GenreProfile[],
 ): GenreProfile {
-  return applyTagsToGenre(genreForBlend(song.genreBlend, custom), songTags(song));
+  return genreForBlueprint({ genreBlend: song.genreBlend, tags: songTags(song) }, custom);
 }
 
 /** Tags of one kind (or all) grouped for pickers, in catalog order. */
@@ -350,4 +350,22 @@ export function tagCatalogSummary(opts: { kinds?: TagKind[]; maxPerGroup?: numbe
     }
   }
   return lines.join('\n');
+}
+
+/** Current genre names plus free-form style descriptions; old blueprint genres cannot override edits. */
+export function songStyleNames(song: Pick<Song, 'genreBlend' | 'tags' | 'blueprint'>): string[] {
+  const blend = blendForBlueprint({ genreBlend: song.genreBlend, tags: songTags(song) });
+  return [
+    ...new Set([
+      ...blend
+        .filter((g) => g.weight > 0)
+        .map(
+          (g) =>
+            song.blueprint?.styles?.find((s) => getGenre(s)?.id === getGenre(g.genreId)?.id && getGenre(s)) ??
+            getGenre(g.genreId)?.name ??
+            g.genreId,
+        ),
+      ...(song.blueprint?.styles ?? []).filter((s) => !getGenre(s)),
+    ]),
+  ];
 }

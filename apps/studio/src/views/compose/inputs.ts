@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import {
-  AUDIO_MIDI_DEFAULT_INSTRUMENT,
   audioMidiSourceKey,
   barToTick,
   createEmptySong,
@@ -25,7 +24,13 @@ import type {
   TranscribeTaskInput,
   TranscribeTaskOutput,
 } from '../../engine/handlers/analysis';
-import { guessMode, notesFromTranscription } from '../../engine/audio-midi';
+import {
+  guessMode,
+  modeOf,
+  sourceFor,
+  playbackInstrument,
+  notesFromTranscription,
+} from '../../engine/audio-midi';
 import { splitIntoStems } from '../../engine/stem-split';
 
 export type Interpretation = 'preserve' | 'light' | 'moderate' | 'free';
@@ -198,15 +203,9 @@ export async function transcribeInput(item: LibraryItem): Promise<LibraryItem> {
     const notes = [];
     let method = '';
     let confidence = 0;
-    const mode = guessMode(track) ?? 'chords';
-    const source =
-      mode === 'drums'
-        ? 'drums'
-        : mode === 'melody'
-          ? track.role === 'bass' || track.stemGroup === 'bass'
-            ? 'bass'
-            : 'singing'
-          : 'isolated';
+    let mode = guessMode(track);
+    let suggestedInstrument: string | undefined;
+    const source = sourceFor('auto', track);
     for (const clip of track.clips) {
       if (clip.muted) continue;
       const asset = ready.assets.find((a) => a.meta.id === clip.assetId);
@@ -234,6 +233,8 @@ export async function transcribeInput(item: LibraryItem): Promise<LibraryItem> {
           provider: 'internal',
         },
       }).done;
+      mode ??= modeOf(result, source);
+      suggestedInstrument = result.suggestedInstrumentId;
       notes.push(...notesFromTranscription(song, result, mode, tm.tickToSeconds(clip.tick)));
       method = result.method;
       confidence = result.confidence;
@@ -247,8 +248,8 @@ export async function transcribeInput(item: LibraryItem): Promise<LibraryItem> {
     track.notes = notes;
     track.audioMidi = {
       play: 'audio',
-      mode,
-      instrumentId: AUDIO_MIDI_DEFAULT_INSTRUMENT[mode],
+      mode: mode ?? 'chords',
+      instrumentId: playbackInstrument(track, mode ?? 'chords', suggestedInstrument),
       sourceKey: audioMidiSourceKey(song, track),
       method,
       confidence,

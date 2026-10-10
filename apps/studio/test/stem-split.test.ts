@@ -50,7 +50,12 @@ describe('separating an uploaded song into stems', () => {
     await expect(splitIntoStems(tone(0.5), 'Quiet')).rejects.toThrow('No separable parts found in “Quiet”');
   });
 
-  it('describes unknown stem names as other parts', () => {
-    expect(stemInfo('piano')).toMatchObject({ label: 'piano', role: 'custom', stemGroup: 'others' });
+  it('maps extended instruments and preserves unknown stem names', () => {
+    expect(stemInfo('piano')).toMatchObject({ role: 'keys', stemGroup: 'keys' });
+    expect(stemInfo('Electric Guitar.wav')).toMatchObject({ role: 'rhythm-guitar', stemGroup: 'guitars' });
+    expect(stemInfo('strings')).toMatchObject({ role: 'strings' });
+    expect(stemInfo('synth')).toMatchObject({ role: 'synth-pad' });
+    expect(stemInfo('no_drums')).toMatchObject({ role: 'custom', stemGroup: 'others' });
+    expect(stemInfo('erhu')).toMatchObject({ label: 'erhu', role: 'custom' });
   });
 });

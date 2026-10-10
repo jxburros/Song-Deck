@@ -38,7 +38,7 @@ import {
 } from './harmony';
 import { buildSongMotifs } from './motifs';
 import { ornamentSong } from './ornament';
-import { harmonyGroupOf, type HarmonyGroup } from './planner';
+import { harmonyGroupOf } from './planner';
 import { chordsForPlanSection } from './structure';
 import { drumStyleInfo } from './styles';
 import { effectiveMacros, meterInfo, unitHash } from './util';
@@ -130,8 +130,8 @@ export function regenerateChords(
   }
   const genre = genreForSong(song, customGenres);
   const macros = effectiveMacros(song);
-  const planned: PlannedHarmony = {};
-  const groupChords = new Map<HarmonyGroup, ChordSpec[]>();
+  const plansByKey = new Map<string, PlannedHarmony>();
+  const groupChords = new Map<string, ChordSpec[]>();
   const globalDark = globalMoodDarkness(song.blueprint?.moods ?? []);
   let chords = song.chords.slice();
   spans.forEach((sp, i) => {
@@ -139,8 +139,12 @@ export function regenerateChords(
     if (scope.sectionIds && !scope.sectionIds.has(s.id)) return;
     if (isChordSectionLocked(song, s.id)) return;
     const key = keyAtTick(song, sp.startTick);
+    const keyId = `${key.tonic}/${key.mode}`;
+    const planned = plansByKey.get(keyId) ?? {};
+    plansByKey.set(keyId, planned);
     const grp = harmonyGroupOf(s.kind);
-    let prog = groupChords.get(grp);
+    const groupKey = `${grp}/${key.tonic}/${key.mode}`;
+    let prog = groupChords.get(groupKey);
     if (!prog) {
       const rng = deriveRng(seed, 'regen', 'harmony', grp);
       prog = chooseProgression(genre, key, s.kind, planned, rng);
@@ -165,7 +169,7 @@ export function regenerateChords(
         },
         deriveRng(seed, 'regen', 'color', grp),
       );
-      groupChords.set(grp, prog);
+      groupChords.set(groupKey, prog);
     }
     const hr =
       s.harmonicRhythm && s.harmonicRhythm > 0

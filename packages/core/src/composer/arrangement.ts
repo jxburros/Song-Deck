@@ -30,7 +30,15 @@ export const VOCAL_KINDS: SectionKind[] = [
 ];
 
 export function resolveFunction(track: Track, inst: InstrumentProfile): MusicalFunction {
-  return track.constraints?.function ?? inst.defaultFunction ?? 'accompaniment';
+  if (track.constraints?.function) return track.constraints.function;
+  if (
+    track.kind === 'audio' &&
+    track.audioMidi?.mode === 'melody' &&
+    track.role !== 'bass' &&
+    track.stemGroup !== 'bass'
+  )
+    return 'melody';
+  return inst.defaultFunction ?? 'accompaniment';
 }
 
 export function isLeadVocal(track: Track, inst: InstrumentProfile): boolean {

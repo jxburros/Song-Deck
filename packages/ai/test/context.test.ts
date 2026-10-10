@@ -215,3 +215,11 @@ describe('singers in the context', () => {
     expect(musicContextToPrompt(ctx)).toContain('singer=(Alex: sweet spot G3–F4');
   });
 });
+
+it('uses the current genre blend in edit context and production prompts after genre changes', () => {
+  const song = makeSong();
+  song.genreBlend = [{ genreId: 'jazz', weight: 1 }];
+  expect(buildMusicContext(song, { instruction: 'Continue' }).styles).toContain('Jazz');
+  expect(songStyleTags(song).genres).toContain('Jazz');
+  expect(songStyleTags(song).genres).not.toContain('Emo');
+});

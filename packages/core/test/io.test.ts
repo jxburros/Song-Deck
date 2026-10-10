@@ -908,3 +908,16 @@ it('fixture sanity: tick constants', () => {
   expect(BAR).toBe(1920);
   expect(Q).toBe(480);
 });
+
+it('preserves trailing rests in standard MIDI without private metadata or markers', () => {
+  const song = makeSong();
+  song.tracks.forEach((t) => {
+    t.notes = t.notes.filter((n) => n.tick < 1920);
+  });
+  const length = song.sections.reduce((n, s) => n + s.bars, 0);
+  const bytes = songToMidi(song, { includeSongDeckMeta: false, includeMarkers: false });
+  expect(parseMidiFile(bytes).tracks.every((t) => t.endTick === length * 1920)).toBe(true);
+  expect(midiToSong(bytes).sections.reduce((n, s) => n + s.bars, 0)).toBe(length);
+  const single = trackToMidi(song, song.tracks[0].id, { includeSongDeckMeta: false, includeMarkers: false });
+  expect(midiToSong(single).sections.reduce((n, s) => n + s.bars, 0)).toBe(length);
+});

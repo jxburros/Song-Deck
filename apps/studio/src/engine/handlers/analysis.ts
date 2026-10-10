@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { parseKey, type KeySignature, type Song, type TaskHandler } from '@songdeck/core';
 import {
   enforceMonophony,
+  drumHitsToNotes,
   gridOrigin,
   resample,
   toMono,
@@ -16,6 +17,7 @@ import {
 } from '@songdeck/audio';
 import type { DataKind, LyricSegment, RunProvenance } from '@songdeck/ai';
 import { jobs } from '../jobs';
+import { completeSeparatedStems, isStemComplement } from '../separation-output';
 import { getOrchestrator, getRouter, initAi } from '../ai';
 import { INTERNAL_FOR_ROLE } from '../internalDescriptors';
 import { rebuildWithStems, type FourStems } from '../capture-analysis';
@@ -70,7 +72,7 @@ export interface TranscribedLyrics {
 export interface SeparateTaskInput {
   runId: string;
   audio: AudioData;
-  /** Also return 16-bit WAV bytes per stem (for storing stems as project assets). */
+  /** Also return float32 WAV bytes per stem (for storing stems as project assets). */
   encode?: boolean;
   /** Provider choice for the 'separation' role. */
   provider?: string;
@@ -342,8 +344,8 @@ function neverUpload(): DataKind[] {
   return (useStudio.getState().project?.meta.settings.neverUpload ?? []) as DataKind[];
 }
 
-async function toWav(audio: AudioData, signal: AbortSignal) {
-  const data = await jobs.call<Uint8Array>('encodeWav', { audio, bitDepth: 16 }, { signal });
+async function toWav(audio: AudioData, signal: AbortSignal, bitDepth: 16 | 32 = 16) {
+  const data = await jobs.call<Uint8Array>('encodeWav', { audio, bitDepth }, { signal });
   return {
     mimeType: 'audio/wav',
     data,
@@ -433,14 +435,25 @@ async function transcribeWithProvider(
     warnings.push(
       `Tempo is uncertain (${Math.round(finalBpm)} BPM): set the tempo or record with the count-in for a reliable grid.`,
     );
-  let notes = transcribedToNotes(transcribed, {
-    bpm: finalBpm,
-    quantizeBeats: quantizeBeats ?? 0,
-    offsetSeconds: offset,
-    key: finalKey,
-    snapToKey,
-    origin: `transcription:${run.provenance.providerId}`,
-  });
+  const drumHits =
+    source === 'drums'
+      ? transcribed.map((n) => ({
+          time: n.startSeconds,
+          drum: n.pitch,
+          velocity: n.velocity,
+          confidence: n.confidence,
+        }))
+      : undefined;
+  let notes = drumHits
+    ? drumHitsToNotes(drumHits, { bpm: finalBpm, quantizeBeats: quantizeBeats ?? 0, offsetSeconds: offset })
+    : transcribedToNotes(transcribed, {
+        bpm: finalBpm,
+        quantizeBeats: quantizeBeats ?? 0,
+        offsetSeconds: offset,
+        key: finalKey,
+        snapToKey,
+        origin: `transcription:${run.provenance.providerId}`,
+      });
   if (VOICE_SOURCES.has(source) || source === 'bass') notes = enforceMonophony(notes);
   const [instrumentId, role] = DEFAULT_INSTRUMENT[source];
   return {
@@ -458,6 +471,7 @@ async function transcribeWithProvider(
     warnings,
     offsetSeconds: offset,
     transcribed,
+    drumHits,
     provenance: run.provenance,
   };
 }
@@ -555,12 +569,18 @@ async function separateWithProvider(
   const encoded = await toWav(audio, signal);
   progress(0.12, `Separating stems with ${ext.name}…`);
   const run = await getOrchestrator().separate(
-    { audio: encoded, stems: ['drums', 'bass', 'vocals', 'other'] },
+    { audio: encoded },
     { providerId: ext.providerId, signal, neverUpload: neverUpload() },
   );
-  const decoded: { name: string; audio: AudioData; wav: Uint8Array }[] = [];
+  const raw = [];
   for (const [name, enc] of Object.entries(run.result.stems)) {
-    decoded.push({ name, audio: await decodeAudioBytes(enc.data), wav: enc.data });
+    raw.push({ name, audio: await decodeAudioBytes(enc.data) });
+  }
+  const decoded: { name: string; audio: AudioData; wav: Uint8Array }[] = [];
+  for (const stem of completeSeparatedStems(raw, audio)) {
+    // Cloud separators may return MP3/FLAC. Stored stem assets promise real WAV bytes.
+    const wav = await toWav(stem.audio, signal, 32);
+    decoded.push({ ...stem, wav: wav.data });
   }
   return {
     decoded,
@@ -572,16 +592,21 @@ async function separateWithProvider(
 
 function mixInto(target: AudioData | undefined, add: AudioData): AudioData {
   if (!target) return { sampleRate: add.sampleRate, channels: add.channels.map((c) => c.slice()) };
-  const out = { sampleRate: target.sampleRate, channels: target.channels.map((c) => c.slice()) };
-  out.channels.forEach((c, ci) => {
-    const src = add.channels[Math.min(ci, add.channels.length - 1)];
-    for (let i = 0; i < Math.min(c.length, src.length); i++) c[i] += src[i];
-  });
+  const out = {
+    sampleRate: target.sampleRate,
+    channels: Array.from({ length: Math.max(target.channels.length, add.channels.length) }, (_, ci) => {
+      const a = target.channels[Math.min(ci, target.channels.length - 1)];
+      const b = add.channels[Math.min(ci, add.channels.length - 1)];
+      const c = new Float32Array(Math.max(a.length, b.length));
+      for (let i = 0; i < c.length; i++) c[i] = (a[i] ?? 0) + (b[i] ?? 0);
+      return c;
+    }),
+  };
   return out;
 }
 
 /** Map arbitrary stem names (e.g. 6-stem models) onto drums / bass / vocals / other. */
-function toFourStems(list: { name: string; audio: AudioData }[], fallback: AudioData): FourStems {
+export function toFourStems(list: { name: string; audio: AudioData }[], fallback: AudioData): FourStems {
   const silent = (): AudioData => ({
     sampleRate: fallback.sampleRate,
     channels: fallback.channels.map((c) => new Float32Array(c.length)),
@@ -592,7 +617,8 @@ function toFourStems(list: { name: string; audio: AudioData }[], fallback: Audio
   let other: AudioData | undefined;
   // Complements ("instrumental", "no_vocals") overlap the other stems: use them only as "other"
   // when nothing finer was returned.
-  const isComplement = (n: string) => /^no[_-]/.test(n) || /instrumental|accompan|backing|karaoke/.test(n);
+  const isComplement = isStemComplement;
+  list = list.map((s) => ({ ...s, audio: resample(s.audio, fallback.sampleRate) }));
   const complements = list.filter((s) => isComplement(s.name.toLowerCase()));
   for (const s of list) {
     const n = s.name.toLowerCase();
@@ -672,7 +698,7 @@ const separate: TaskHandler<SeparateTaskInput, SeparateTaskOutput> = async (ctx)
       ctx.progress(0.8 + (i / list.length) * 0.2, `Encoding ${list[i].name}…`);
       list[i].wav = await jobs.call<Uint8Array>(
         'encodeWav',
-        { audio: list[i].audio, bitDepth: 16 },
+        { audio: list[i].audio, bitDepth: 32 },
         { signal: ctx.signal },
       );
     }

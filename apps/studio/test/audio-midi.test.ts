@@ -84,3 +84,55 @@ describe('making MIDI from an audio track', () => {
     expect(notesLockedReason(locked, take)).toMatch(/is locked/);
   });
 });
+
+it('keeps provider drum notes when the provider has no separate drumHits array', () => {
+  const notes = notesFromTranscription(
+    song,
+    {
+      method: 'bridge',
+      transcribed: [
+        { pitch: 36, startSeconds: 0.5, endSeconds: 0.6, velocity: 100, confidence: 0.8 },
+        { pitch: 42, startSeconds: 0.5, endSeconds: 0.6, velocity: 75, confidence: 0.9 },
+      ],
+    },
+    'drums',
+    2,
+    'remote',
+  );
+  expect(notes.map((n) => [n.pitch, n.tick, n.duration])).toEqual([
+    [36, 2400, 120],
+    [42, 2400, 120],
+  ]);
+});
+
+it('protects section and track-section locks even when the recording has no notes yet', () => {
+  for (const key of [LockKeys.section('verse'), LockKeys.trackSection('a', 'verse')]) {
+    const locked = {
+      ...song,
+      sections: [{ id: 'verse', name: 'Verse', kind: 'verse' as const, bars: 4, energy: 50 }],
+      locks: { [key]: true },
+    };
+    expect(notesLockedReason(locked, audioTrack({}))).toMatch(/locked sections/);
+  }
+});
+
+it('maps note starts and ends across tempo changes rather than using one BPM', () => {
+  const varying = {
+    ...song,
+    tempoMap: [
+      { tick: 0, bpm: 120 },
+      { tick: 1920, bpm: 60 },
+    ],
+  };
+  const notes = notesFromTranscription(
+    varying,
+    {
+      method: 'bridge',
+      transcribed: [{ pitch: 60, startSeconds: 0, endSeconds: 1, velocity: 80, confidence: 1 }],
+    },
+    'chords',
+    1.5,
+    'tempo',
+  );
+  expect(notes[0]).toMatchObject({ tick: 1440, duration: 720 });
+});

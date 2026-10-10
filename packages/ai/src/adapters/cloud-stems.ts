@@ -53,11 +53,16 @@ export function stemNameFrom(raw: string): string {
     .pop()!
     .replace(/\.[a-z0-9]{2,5}$/i, '')
     .toLowerCase();
-  if (/(^|[^a-z])(no|without|minus)[_ -]?voc|instrumental|accompan|backing|karaoke/.test(base))
-    return 'instrumental';
+  if (/^(no|without|minus)[_ -]/.test(base) && !/^(no|without|minus)[_ -]voc/.test(base))
+    return base.replace(/[^a-z0-9]+/g, '-');
+  if (/(^|[^a-z])(no|without|minus)[_ -]?voc|instrumental|accompan|karaoke/.test(base)) return 'instrumental';
+  if (/back.*voc/.test(base)) return 'backing-vocals';
+  if (/lead.*voc/.test(base)) return 'lead-vocals';
   if (/voc|voice|sing/.test(base)) return 'vocals';
   if (/drum|perc/.test(base)) return 'drums';
   if (/bass/.test(base)) return 'bass';
+  if (/acoustic.*guitar/.test(base)) return 'acoustic-guitar';
+  if (/electric.*guitar/.test(base)) return 'electric-guitar';
   if (/guitar/.test(base)) return 'guitar';
   if (/piano|keys/.test(base)) return 'piano';
   if (/string/.test(base)) return 'strings';
@@ -167,7 +172,10 @@ export class AudioShakeSeparation implements SeparationProvider {
   async separateStems(req: SeparationRequest): Promise<SeparationResult> {
     const models = [
       ...new Set(
-        (req.stems?.length ? req.stems : DEFAULT_STEMS).map((s) => AUDIOSHAKE_MODELS[s.toLowerCase()] ?? s),
+        (req.stems?.length
+          ? req.stems
+          : ['drums', 'bass', 'vocals', 'guitar', 'piano', 'strings', 'wind', 'other']
+        ).map((s) => AUDIOSHAKE_MODELS[s.toLowerCase()] ?? s),
       ),
     ];
     const mp = encodeMultipart([
@@ -287,7 +295,21 @@ export class LalalSeparation implements SeparationProvider {
   ) {}
 
   async separateStems(req: SeparationRequest): Promise<SeparationResult> {
-    const wanted = (req.stems?.length ? req.stems : DEFAULT_STEMS).map((s) => s.toLowerCase());
+    const wanted = (
+      req.stems?.length
+        ? req.stems
+        : [
+            'vocals',
+            'drums',
+            'bass',
+            'piano',
+            'electric-guitar',
+            'acoustic-guitar',
+            'synth',
+            'strings',
+            'wind',
+          ]
+    ).map((s) => s.toLowerCase());
     // LALAL.AI isolates one stem per task; "other" is what remains (the studio derives it).
     const stems = [...new Set(wanted.map((s) => LALAL_STEMS[s]).filter(Boolean))];
     if (!stems.length)

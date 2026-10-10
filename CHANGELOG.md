@@ -6,6 +6,37 @@ All notable changes to Song Deck are documented in this file. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-10
+
+### Fixed
+
+- Attached MIDI now retains provider drum hits, respects section locks, and refuses to overwrite
+  a changed recording, MIDI edit, tempo map, or a different song after asynchronous transcription.
+- Library transcription uses the same mode and instrument routing as Make MIDI, including
+  automatically recognized drums and bass. Studio source names map to the Basic Pitch contract.
+- New and regenerated parts read the notes actually present in other MIDI tracks, including locked
+  or imported parts outside the planned arrangement and melodies sustained across section boundaries.
+  Attached melody recordings take precedence over generated vocals. Chord regeneration follows key changes.
+- Style-only songs keep the same genre inference during regeneration; duplicate tag aliases no longer
+  multiply genre weights. AI editing and production use the current genre blend rather than stale
+  blueprint genres, and explicitly cleared AI tags remain cleared.
+- MIDI import and export retain trailing silent bars via standard End-of-Track timing, including
+  files without Song Deck metadata.
+- Provider stems are saved as actual WAV audio, partial outputs retain an unseparated remainder,
+  redundant accompaniment is excluded, and Rebuild resamples and mixes without losing channels or tails.
+- Empty separation responses and malformed transcription values are handled at the provider boundary.
+
+### Changed
+
+- Stem separation requests every instrument advertised by a local bridge (the reference Demucs
+  bridge selects its six-stem model, adding guitar and piano). AudioShake requests drums, bass,
+  vocals, guitar, piano, strings, wind and other; LALAL.AI requests vocals, drums, bass, piano,
+  electric/acoustic guitar, synthesizer, strings and wind. Explicit API subsets remain supported.
+  Cloud services can charge per part; the import controls explain this. The built-in DSP engine
+  still estimates four broad parts, with no claim of neural-model accuracy.
+- Fine-grained and unknown instrument stems remain separate through import. Their roles, playback
+  instruments, stem groups and MIDI modes follow recognized instrument labels.
+
 ### Added
 
 - **Separate a song into stems before making MIDI.** When you add uploaded audio from the Library or

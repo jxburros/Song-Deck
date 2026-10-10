@@ -1012,7 +1012,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'separation',
     adapter: 'separation-http',
     location: 'local',
-    description: 'Demucs htdemucs source separation through the Song Deck separation bridge.',
+    description: 'Demucs separation with all advertised stems, including guitar and piano with htdemucs_6s.',
     baseUrl: 'http://127.0.0.1:8812',
     auth: NONE,
     requiresCredential: false,
@@ -1023,7 +1023,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     docsUrl: 'https://github.com/adefossez/demucs',
     setupNotes: [
       '`pip install demucs` and run the Song Deck separation bridge on port 8812.',
-      'Runs on CPU (slow) or GPU.',
+      'Requests all stems advertised by the bridge; the reference bridge selects htdemucs_6s for guitar and piano. Runs on CPU (slow) or GPU.',
     ],
   },
   {

@@ -16,7 +16,7 @@ import { createEmptySong, defaultChannelStrip } from '../ir/defaults';
 import { GM_DRUM_CHANNEL, GM_PROGRAM_NAMES } from '../ir/gm';
 import { sortNotes } from '../ir/song-utils';
 import { noteTrackView } from '../audio-midi';
-import { barLengthTicks, barToTick, keyAtTick, sectionLayout, tickToBar } from '../timing';
+import { barLengthTicks, barToTick, keyAtTick, sectionLayout, songLengthTicks, tickToBar } from '../timing';
 import { parseChordSymbol } from '../theory/chords';
 import { chordToRoman } from '../theory/roman';
 import { mod12 } from '../theory/pitch';
@@ -719,10 +719,13 @@ export function songToMidi(song: Song, opts: SongToMidiOptions = {}): Uint8Array
   const file: MidiFile = {
     format: 1,
     ticksPerQuarter: song.ppq,
-    tracks: [{ events: sortRanked(conductorEvents(song, opts, tracks)) }],
+    tracks: [{ events: sortRanked(conductorEvents(song, opts, tracks)), endTick: songLengthTicks(song) }],
   };
   for (const t of tracks)
-    file.tracks.push({ events: sortRanked(trackEvents(song, t, channels.get(t.id)!, opts, lookup)) });
+    file.tracks.push({
+      events: sortRanked(trackEvents(song, t, channels.get(t.id)!, opts, lookup)),
+      endTick: songLengthTicks(song),
+    });
   return writeMidiFile(file);
 }
 
@@ -747,7 +750,11 @@ export function trackToMidi(
     ...trackEvents(song, track, channels.get(track.id)!, opts, lookup),
     ...conductor,
   ]);
-  return writeMidiFile({ format: 0, ticksPerQuarter: song.ppq, tracks: [{ events }] });
+  return writeMidiFile({
+    format: 0,
+    ticksPerQuarter: song.ppq,
+    tracks: [{ events, endTick: songLengthTicks(song) }],
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1049,7 +1056,8 @@ export function midiToSong(bytes: Uint8Array, opts: MidiToSongOptions = {}): Son
 
   // --- tracks ------------------------------------------------------------------------
   const allNotes: { pitch: number; duration: number }[] = [];
-  let maxTick = 0;
+  // End-of-track carries trailing rests even without Song Deck metadata or section markers.
+  let maxTick = file.tracks.reduce((end, t) => Math.max(end, T(t.endTick ?? 0)), 0);
   const lyricByTrack = new Map<string, (CleanLyric & { tick: number })[]>();
   raws.forEach((r, index) => {
     const meta = r.meta;

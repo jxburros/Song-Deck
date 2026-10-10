@@ -10,7 +10,7 @@ describe('cloud stem separation', () => {
     expect(stemNameFrom('stems/Vocals.mp3')).toBe('vocals');
     expect(stemNameFrom('no_vocals.wav')).toBe('instrumental');
     expect(stemNameFrom('drum')).toBe('drums');
-    expect(stemNameFrom('Electric Guitar.mp3')).toBe('guitar');
+    expect(stemNameFrom('Electric Guitar.mp3')).toBe('electric-guitar');
     expect(stemNameFrom('Other.mp3')).toBe('other');
   });
 
@@ -47,11 +47,13 @@ describe('cloud stem separation', () => {
       if (call.url === 'https://api.audioshake.ai/tasks/task-1')
         return jsonResponse({
           id: 'task-1',
-          targets: ['vocals', 'drums', 'bass', 'other'].map((model) => ({
-            model,
-            status: ++polls > 4 ? 'completed' : 'processing',
-            output: [{ format: 'wav', link: `https://files.audioshake.ai/${model}.wav?sig=1` }],
-          })),
+          targets: ['vocals', 'drums', 'bass', 'guitar', 'piano', 'strings', 'wind', 'other'].map(
+            (model) => ({
+              model,
+              status: ++polls > 4 ? 'completed' : 'processing',
+              output: [{ format: 'wav', link: `https://files.audioshake.ai/${model}.wav?sig=1` }],
+            }),
+          ),
         });
       if (call.url.startsWith('https://files.audioshake.ai/')) return bytesResponse(FAKE_WAV);
       return jsonResponse({}, 404);
@@ -64,11 +66,23 @@ describe('cloud stem separation', () => {
     expect(m.calls[0].headers.get('x-api-key')).toBe('as-key');
     expect(bodyJson(m.calls[1])).toEqual({
       assetId: 'asset-1',
-      targets: ['drums', 'bass', 'vocals', 'other'].map((model) => ({ model, formats: ['wav'] })),
+      targets: ['drums', 'bass', 'vocals', 'guitar', 'piano', 'strings', 'wind', 'other'].map((model) => ({
+        model,
+        formats: ['wav'],
+      })),
     });
-    expect(Object.keys(res.stems).sort()).toEqual(['bass', 'drums', 'other', 'vocals']);
+    expect(Object.keys(res.stems).sort()).toEqual([
+      'bass',
+      'drums',
+      'guitar',
+      'other',
+      'piano',
+      'strings',
+      'vocals',
+      'wind',
+    ]);
     const downloads = m.calls.filter((c) => c.url.startsWith('https://files.audioshake.ai/'));
-    expect(downloads).toHaveLength(4);
+    expect(downloads).toHaveLength(8);
     expect(downloads.every((c) => !c.headers.get('x-api-key'))).toBe(true);
   });
 
@@ -114,12 +128,32 @@ describe('cloud stem separation', () => {
     expect(upload.headers.get('x-license-key')).toBe('lic');
     expect(upload.headers.get('content-disposition')).toBe('attachment; filename="mix.wav"');
     const splits = m.calls.filter((c) => c.url.endsWith('/split/stem_separator/')).map((c) => bodyJson(c));
-    expect(splits.map((b) => (b.presets as { stem: string }).stem)).toEqual(['drum', 'bass', 'vocals']);
+    expect(splits.map((b) => (b.presets as { stem: string }).stem)).toEqual([
+      'vocals',
+      'drum',
+      'bass',
+      'piano',
+      'electric_guitar',
+      'acoustic_guitar',
+      'synthesizer',
+      'strings',
+      'wind',
+    ]);
     expect(splits[0]).toMatchObject({
       source_id: 'src-1',
       presets: { extraction_level: 'deep_extraction', splitter: 'auto' },
     });
-    expect(Object.keys(res.stems).sort()).toEqual(['bass', 'drums', 'vocals']);
+    expect(Object.keys(res.stems).sort()).toEqual([
+      'acoustic-guitar',
+      'bass',
+      'drums',
+      'electric-guitar',
+      'piano',
+      'strings',
+      'synth',
+      'vocals',
+      'wind',
+    ]);
     expect(m.calls.some((c) => c.url.includes('-back.wav'))).toBe(false);
   });
 });

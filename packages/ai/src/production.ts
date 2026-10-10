@@ -14,6 +14,7 @@ import {
   sectionLayout,
   songLengthTicks,
   songTags,
+  songStyleNames,
   type Song,
   type Track,
 } from '@songdeck/core';
@@ -92,12 +93,7 @@ export function songStyleTags(song: Song): {
     xs.filter((x, i) => xs.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
   const named = (kinds: string[]) =>
     catalog.filter((t) => kinds.includes(t.kind)).map((t) => t.name.toLowerCase());
-  const genres = uniqCi([
-    ...(song.blueprint?.styles?.length
-      ? [...song.blueprint.styles]
-      : song.genreBlend.map((g) => pretty(g.genreId))),
-    ...named(['style']),
-  ]);
+  const genres = uniqCi([...songStyleNames(song), ...named(['style'])]);
   const moods = uniqCi([...(song.blueprint?.moods ?? []), ...named(['mood'])]);
   const instruments = uniq(
     audibleTracks(song)

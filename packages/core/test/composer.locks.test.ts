@@ -275,3 +275,22 @@ describe('vocal regeneration through the composer (§37)', () => {
         expect(stableStringify(next.tracks.find((x) => x.id === t.id)!.notes)).toBe(stableStringify(t.notes));
   });
 });
+
+it('regenerates repeated section kinds in their own key after modulation', () => {
+  const song = cloneSong(base);
+  song.sections = [
+    { id: 'v1', kind: 'verse', name: 'Verse 1', bars: 4, energy: 50 },
+    { id: 'v2', kind: 'verse', name: 'Verse 2', bars: 4, energy: 50 },
+    { id: 'end', kind: 'outro', name: 'End', bars: 1, energy: 30 },
+  ];
+  song.keyMap = [
+    { bar: 0, key: { tonic: 0, mode: 'major' } },
+    { bar: 4, key: { tonic: 2, mode: 'major' } },
+  ];
+  song.locks = {};
+  song.chords = [];
+  const next = regenerateUnlocked(song, { seed: 31, includeChords: true, trackIds: [] }).song;
+  const first = next.chords.filter((c) => c.tick < 4 * 1920);
+  const second = next.chords.filter((c) => c.tick >= 4 * 1920 && c.tick < 8 * 1920);
+  expect(second.map((c) => (c.root + 10) % 12)).toEqual(first.map((c) => c.root));
+});
